@@ -1,0 +1,23 @@
+{
+  "name": "stitch-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "seed": "node src/seed.js",
+    "bootstrap:demo-source": "node src/bootstrapDemoSource.js",
+    "bootstrap:demo-mongo": "node src/bootstrapDemoMongo.js",
+    "bootstrap:test-data": "node src/bootstrapTestData.js",
+    "fixtures:generate": "node scripts/generateTestFixtures.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "mongodb": "^7.5.0",
+    "multer": "^2.2.0",
+    "pg": "^8.13.3",
+    "xlsx": "^0.18.5"
+  }
+}

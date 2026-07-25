@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SchemaGraph | Diagram Workspace</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..900&family=Space+Grotesk:wght@100..900&family=Space+Mono:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for aggressive utility theme */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #444933; }
+        ::-webkit-scrollbar-thumb:hover { background: #c3f400; }
+
+        .grid-bg {
+            background-image: radial-gradient(#1E293B 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        
+        .node-glow {
+            box-shadow: 0 0 15px -5px rgba(195, 244, 0, 0.3);
+        }
+
+        .edge-path {
+            stroke-dasharray: 4;
+            animation: dash 20s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -1000; }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#131313",
+                        "tertiary": "#ffffff",
+                        "on-error-container": "#ffdad6",
+                        "surface": "#131313",
+                        "outline": "#8e9379",
+                        "surface-dim": "#131313",
+                        "primary": "#ffffff",
+                        "outline-variant": "#444933",
+                        "surface-bright": "#393939",
+                        "on-secondary": "#2b3040",
+                        "primary-container": "#c3f400",
+                        "on-tertiary-container": "#5a6579",
+                        "on-surface-variant": "#c4c9ac",
+                        "on-error": "#690005",
+                        "on-secondary-container": "#b0b4c9",
+                        "tertiary-fixed-dim": "#bcc7de",
+                        "surface-tint": "#abd600",
+                        "inverse-primary": "#506600",
+                        "on-primary": "#283500",
+                        "on-tertiary": "#263143",
+                        "on-primary-fixed-variant": "#3c4d00",
+                        "tertiary-container": "#d8e3fb",
+                        "surface-variant": "#353535",
+                        "secondary-fixed-dim": "#c2c6db",
+                        "on-tertiary-fixed-variant": "#3c475a",
+                        "on-primary-container": "#556d00",
+                        "surface-container": "#1f1f1f",
+                        "on-secondary-fixed-variant": "#414658",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#0e0e0e",
+                        "primary-fixed": "#c3f400",
+                        "inverse-on-surface": "#303030",
+                        "inverse-surface": "#e2e2e2",
+                        "secondary": "#c2c6db",
+                        "primary-fixed-dim": "#abd600",
+                        "on-primary-fixed": "#161e00",
+                        "secondary-fixed": "#dee1f7",
+                        "on-secondary-fixed": "#161b2b",
+                        "on-background": "#e2e2e2",
+                        "error": "#ffb4ab",
+                        "surface-container-highest": "#353535",
+                        "on-tertiary-fixed": "#111c2d",
+                        "on-surface": "#e2e2e2",
+                        "surface-container-low": "#1b1b1b",
+                        "surface-container-high": "#2a2a2a",
+                        "secondary-container": "#414658",
+                        "tertiary-fixed": "#d8e3fb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "32px",
+                        "base": "4px",
+                        "sm": "8px",
+                        "xl": "48px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Space Mono"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "body-md": ["JetBrains Mono"],
+                        "headline-xl": ["Space Grotesk"],
+                        "code-snippet": ["JetBrains Mono"],
+                        "headline-lg": ["Space Grotesk"],
+                        "body-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                        "headline-xl": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "code-snippet": ["13px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "1.5", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background overflow-hidden h-screen flex flex-col font-body-md text-body-md">
+<!-- Top Navigation Bar -->
+<header class="bg-background dark:bg-background border-b border-outline-variant flex justify-between items-center px-margin-desktop w-full h-16 shrink-0 z-50">
+<div class="flex items-center gap-xl">
+<span class="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary">SchemaGraph</span>
+<nav class="hidden md:flex items-center gap-lg">
+<a class="text-primary-fixed border-b-2 border-primary-fixed pb-2 font-body-md text-body-md" href="#">Workspace</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors font-body-md text-body-md" href="#">Sources</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors font-body-md text-body-md" href="#">Jobs</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors font-body-md text-body-md" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-sm bg-surface-container-high px-md py-xs border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48 placeholder-on-surface-variant" placeholder="Search tables..." type="text"/>
+<span class="text-xs text-on-surface-variant opacity-50 font-label-caps">CMD+K</span>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary-fixed transition-colors">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary-fixed transition-colors">help</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional studio portrait of a high-tech software engineer with neutral lighting, wearing a dark tactical hoodie. The background is a minimalist dark navy gradients to pitch black. The overall style is sharp, clean, and aligns with a premium dark-mode developer interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuATWU1sLJVccszb7MZSDmi8EyRzAjngo1ct2i1IACwVIkzu5umE0KsuJ5zxn6idEIXWf8I7R_xQFvLZGOslZUky1dlX7EiE9pT6CFPPLNBfkM5oNQPemvBjwjiqL2JJ6OLQlN4gbBcg41MsMZ8yWicdZwSF4E651sjGEOuSO_4uBWs0Ma4VBt2fDobu386NoQNcCepUrYZ0EDIuKvqmMCCByTvTHvRQoOieYkSlOdPPXI4Rzh5GF4IJZrMu2Z4cJLdvnILiNlHjWQk"/>
+</div>
+</div>
+</header>
+<div class="flex-1 flex overflow-hidden">
+<!-- Side Navigation Bar (Left) -->
+<aside class="bg-surface-container dark:bg-surface-container border-r border-outline-variant h-full w-64 fixed left-0 top-16 flex flex-col z-40">
+<div class="p-md border-b border-outline-variant">
+<div class="flex items-center gap-sm mb-base">
+<span class="material-symbols-outlined text-primary-fixed" data-weight="fill">database</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">SOURCES</span>
+</div>
+<div class="space-y-xs mt-md">
+<div class="flex items-center gap-md bg-secondary-container text-primary-fixed border-l-4 border-primary-fixed px-md py-sm cursor-pointer">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-label-caps text-label-caps">Diagram</span>
+</div>
+<div class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all cursor-pointer">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-label-caps text-label-caps">AI Chat</span>
+</div>
+<div class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all cursor-pointer">
+<span class="material-symbols-outlined">database</span>
+<span class="font-label-caps text-label-caps">Sources</span>
+</div>
+<div class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all cursor-pointer">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-caps text-label-caps">Monitor</span>
+</div>
+</div>
+</div>
+<div class="flex-1 p-md overflow-y-auto">
+<div class="flex justify-between items-center mb-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant">CONNECTIONS</span>
+<button class="material-symbols-outlined text-primary-fixed text-sm">add_box</button>
+</div>
+<ul class="space-y-sm">
+<li class="flex items-center gap-sm p-sm bg-surface-container-low border border-outline-variant group hover:border-primary-fixed cursor-pointer">
+<div class="w-1.5 h-1.5 bg-primary-fixed"></div>
+<span class="text-body-sm font-code-snippet">pg_production_v2</span>
+<span class="ml-auto material-symbols-outlined text-sm opacity-0 group-hover:opacity-100">more_vert</span>
+</li>
+<li class="flex items-center gap-sm p-sm bg-surface-container-low border border-outline-variant group hover:border-primary-fixed cursor-pointer">
+<div class="w-1.5 h-1.5 bg-secondary"></div>
+<span class="text-body-sm font-code-snippet">mongo_atlas_main</span>
+<span class="ml-auto material-symbols-outlined text-sm opacity-0 group-hover:opacity-100">more_vert</span>
+</li>
+<li class="flex items-center gap-sm p-sm bg-surface-container-low border border-outline-variant group hover:border-primary-fixed cursor-pointer opacity-50">
+<div class="w-1.5 h-1.5 border border-outline"></div>
+<span class="text-body-sm font-code-snippet">snowflake_warehouse</span>
+<span class="ml-auto material-symbols-outlined text-sm">sync_disabled</span>
+</li>
+</ul>
+</div>
+<div class="p-md border-t border-outline-variant">
+<button class="w-full bg-primary-container text-on-primary-container font-label-caps text-label-caps py-md flex items-center justify-center gap-sm hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-sm">cloud_upload</span>
+                    Deploy Sync
+                </button>
+<div class="mt-md flex flex-col gap-xs">
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm font-label-caps text-label-caps hover:bg-surface-bright" href="#">
+<span class="material-symbols-outlined text-sm">menu_book</span>
+                        Docs
+                    </a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm font-label-caps text-label-caps hover:bg-surface-bright" href="#">
+<span class="material-symbols-outlined text-sm">support_agent</span>
+                        Support
+                    </a>
+</div>
+</div>
+</aside>
+<!-- Main Workspace Canvas -->
+<main class="flex-1 ml-64 mr-80 relative overflow-hidden grid-bg">
+<!-- Canvas Controls -->
+<div class="absolute top-md left-md flex gap-xs z-10">
+<button class="p-sm bg-surface-container border border-outline-variant text-on-surface hover:border-primary-fixed flex items-center justify-center"><span class="material-symbols-outlined">add</span></button>
+<button class="p-sm bg-surface-container border border-outline-variant text-on-surface hover:border-primary-fixed flex items-center justify-center"><span class="material-symbols-outlined">remove</span></button>
+<div class="w-px h-8 bg-outline-variant mx-xs"></div>
+<button class="p-sm bg-surface-container border border-outline-variant text-on-surface hover:border-primary-fixed flex items-center justify-center"><span class="material-symbols-outlined">center_focus_strong</span></button>
+<button class="px-md py-sm bg-surface-container border border-outline-variant text-on-surface hover:border-primary-fixed font-label-caps text-label-caps">AUTO-LAYOUT</button>
+</div>
+<!-- SVG Connectors Layer -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none">
+<defs>
+<marker id="arrowhead" markerheight="7" markerwidth="10" orient="auto" refx="0" refy="3.5">
+<polygon fill="#c3f400" points="0 0, 10 3.5, 0 7"></polygon>
+</marker>
+</defs>
+<!-- PostgreSQL to MongoDB Relation -->
+<path class="edge-path" d="M 400 250 L 500 250 L 500 400 L 600 400" fill="none" stroke="#c3f400" stroke-width="1.5"></path>
+<!-- Snowflake to PostgreSQL Relation -->
+<path d="M 300 550 L 300 400 L 200 400" fill="none" stroke="#8e9379" stroke-dasharray="4" stroke-width="1"></path>
+<!-- PostgreSQL to User Table -->
+<path d="M 400 220 L 750 220" fill="none" stroke="#c3f400" stroke-width="2"></path>
+</svg>
+<!-- Table Nodes (Bento Cards Layout Style) -->
+<!-- Node 1: PostgreSQL -->
+<div class="absolute top-40 left-20 w-64 bg-surface-container border-2 border-primary-fixed node-glow animate-in fade-in slide-in-from-left-4 duration-500">
+<div class="bg-primary-fixed text-on-primary-fixed px-md py-xs font-label-caps text-label-caps flex justify-between items-center">
+<span>POSTGRESQL</span>
+<span class="material-symbols-outlined text-xs">database</span>
+</div>
+<div class="p-0">
+<div class="bg-surface-container-high px-md py-sm border-b border-outline-variant flex justify-between items-center">
+<span class="text-on-background font-bold">users_main</span>
+<span class="text-[10px] bg-primary-fixed/20 text-primary-fixed px-xs border border-primary-fixed/30">TABLE</span>
+</div>
+<div class="p-md space-y-sm">
+<div class="flex justify-between items-center group cursor-pointer">
+<span class="text-body-sm font-code-snippet text-primary-fixed">id <span class="text-on-surface-variant opacity-50">UUID</span></span>
+<span class="material-symbols-outlined text-xs text-primary-fixed" data-weight="fill">key</span>
+</div>
+<div class="flex justify-between items-center group cursor-pointer">
+<span class="text-body-sm font-code-snippet">email <span class="text-on-surface-variant opacity-50">VARCHAR</span></span>
+</div>
+<div class="flex justify-between items-center group cursor-pointer">
+<span class="text-body-sm font-code-snippet">created_at <span class="text-on-surface-variant opacity-50">TIMESTAMP</span></span>
+</div>
+<div class="flex justify-between items-center group cursor-pointer">
+<span class="text-body-sm font-code-snippet">org_id <span class="text-on-surface-variant opacity-50">UUID</span></span>
+<span class="material-symbols-outlined text-xs text-on-surface-variant">link</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Node 2: MongoDB -->
+<div class="absolute top-80 left-[500px] w-64 bg-surface-container border border-outline-variant hover:border-primary-fixed transition-colors">
+<div class="bg-surface-container-highest text-on-surface-variant px-md py-xs font-label-caps text-label-caps flex justify-between items-center">
+<span>MONGODB</span>
+<span class="material-symbols-outlined text-xs">folder_open</span>
+</div>
+<div class="p-0">
+<div class="bg-surface-container-high px-md py-sm border-b border-outline-variant flex justify-between items-center">
+<span class="text-on-background font-bold">user_logs</span>
+<span class="text-[10px] bg-on-surface-variant/20 text-on-surface-variant px-xs border border-outline">COLLECTION</span>
+</div>
+<div class="p-md space-y-sm">
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-code-snippet text-secondary">_id <span class="text-on-surface-variant opacity-50">OBJECTID</span></span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-code-snippet">payload <span class="text-on-surface-variant opacity-50">JSONB</span></span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-code-snippet">severity <span class="text-on-surface-variant opacity-50">INT</span></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Node 3: Snowflake -->
+<div class="absolute bottom-20 left-40 w-64 bg-surface-container border border-outline-variant hover:border-primary-fixed transition-colors">
+<div class="bg-surface-container-highest text-on-surface-variant px-md py-xs font-label-caps text-label-caps flex justify-between items-center">
+<span>SNOWFLAKE</span>
+<span class="material-symbols-outlined text-xs">ac_unit</span>
+</div>
+<div class="p-0">
+<div class="bg-surface-container-high px-md py-sm border-b border-outline-variant flex justify-between items-center">
+<span class="text-on-background font-bold">analytics_cube</span>
+<span class="text-[10px] bg-on-surface-variant/20 text-on-surface-variant px-xs border border-outline">VIEW</span>
+</div>
+<div class="p-md space-y-sm opacity-60">
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-code-snippet">event_type <span class="text-on-surface-variant opacity-50">STR</span></span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-code-snippet">total_count <span class="text-on-surface-variant opacity-50">INT</span></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Mini Map -->
+<div class="absolute bottom-md right-md w-48 h-32 bg-background border border-outline-variant p-xs overflow-hidden group cursor-crosshair">
+<div class="w-full h-full relative opacity-50">
+<div class="absolute top-4 left-4 w-12 h-16 bg-primary-fixed/20 border border-primary-fixed/50"></div>
+<div class="absolute top-12 left-24 w-12 h-12 bg-outline-variant/20 border border-outline-variant/50"></div>
+<div class="absolute top-20 left-10 w-12 h-10 bg-outline-variant/20 border border-outline-variant/50"></div>
+<div class="absolute top-4 left-4 w-16 h-12 border-2 border-primary-fixed node-glow"></div> <!-- Current Viewport -->
+</div>
+<div class="absolute bottom-xs right-xs text-[9px] font-label-caps text-on-surface-variant opacity-30">MINIMAP v2</div>
+</div>
+</main>
+<!-- Right Details Sidebar -->
+<aside class="w-80 bg-surface-container-low border-l border-outline-variant flex flex-col h-full z-40">
+<div class="h-12 bg-surface-container border-b border-outline-variant flex items-center px-md justify-between">
+<span class="font-label-caps text-label-caps text-primary-fixed">TABLE DETAILS</span>
+<button class="material-symbols-outlined text-on-surface-variant text-sm hover:text-white transition-colors">close</button>
+</div>
+<div class="flex-1 overflow-y-auto">
+<!-- Selected Table Info -->
+<div class="p-md space-y-lg">
+<div>
+<h3 class="text-headline-lg font-bold text-white mb-xs">users_main</h3>
+<p class="text-body-sm text-on-surface-variant leading-relaxed">Main application users table residing on production-master cluster. Handles authentication and core profile data.</p>
+</div>
+<div class="grid grid-cols-2 gap-sm">
+<div class="bg-surface-container p-sm border border-outline-variant">
+<span class="block text-[10px] font-label-caps text-on-surface-variant mb-xs">ROW COUNT</span>
+<span class="text-body-md font-bold text-primary-fixed">1,248,390</span>
+</div>
+<div class="bg-surface-container p-sm border border-outline-variant">
+<span class="block text-[10px] font-label-caps text-on-surface-variant mb-xs">STORAGE</span>
+<span class="text-body-md font-bold text-primary-fixed">482 MB</span>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant">SCHEMA SPEC</span>
+<button class="text-primary-fixed text-[10px] font-bold border-b border-primary-fixed">EDIT SQL</button>
+</div>
+<div class="space-y-xs">
+<div class="bg-surface-container-lowest border border-outline-variant p-sm flex items-center justify-between group">
+<div class="flex flex-col">
+<span class="text-body-sm font-code-snippet text-white">id</span>
+<span class="text-[10px] text-on-surface-variant">PRIMARY KEY, UUID</span>
+</div>
+<span class="material-symbols-outlined text-xs text-on-surface-variant opacity-0 group-hover:opacity-100">edit</span>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-sm flex items-center justify-between group">
+<div class="flex flex-col">
+<span class="text-body-sm font-code-snippet text-white">email</span>
+<span class="text-[10px] text-on-surface-variant">UNIQUE, INDEXED, VARCHAR(255)</span>
+</div>
+<span class="material-symbols-outlined text-xs text-on-surface-variant opacity-0 group-hover:opacity-100">edit</span>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-sm flex items-center justify-between group">
+<div class="flex flex-col">
+<span class="text-body-sm font-code-snippet text-white">password_hash</span>
+<span class="text-[10px] text-on-surface-variant">NOT NULL, TEXT</span>
+</div>
+<span class="material-symbols-outlined text-xs text-on-surface-variant opacity-0 group-hover:opacity-100">edit</span>
+</div>
+</div>
+</div>
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant block mb-sm">LINEAGE GRAPH</span>
+<div class="h-32 bg-surface-container-lowest border border-outline-variant flex items-center justify-center">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 border border-outline-variant bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-sm">input</span></div>
+<div class="w-12 h-px bg-primary-fixed"></div>
+<div class="w-8 h-8 border border-primary-fixed bg-primary-fixed/20 flex items-center justify-center text-primary-fixed font-bold">U</div>
+<div class="w-12 h-px bg-outline-variant"></div>
+<div class="w-8 h-8 border border-outline-variant bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-sm">output</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-md border-t border-outline-variant bg-surface-container">
+<button class="w-full bg-transparent border-2 border-primary-fixed text-primary-fixed font-label-caps text-label-caps py-sm hover:bg-primary-fixed hover:text-black transition-all">GENERATE SEED DATA</button>
+</div>
+</aside>
+</div>
+<!-- Floating Action Button (FAB) -->
+<button class="fixed bottom-margin-desktop left-[50%] -translate-x-[50%] bg-primary-container text-on-primary-container px-lg py-md font-label-caps text-label-caps flex items-center gap-sm border-2 border-black z-50 hover:scale-105 active:scale-95 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+<span class="material-symbols-outlined">add_circle</span>
+        CREATE NEW ENTITY
+    </button>
+<script>
+        // Simple interactivity for demonstration
+        document.querySelectorAll('.cursor-pointer').forEach(el => {
+            el.addEventListener('click', () => {
+                // Flash effect
+                el.classList.add('bg-primary-fixed/20');
+                setTimeout(() => el.classList.remove('bg-primary-fixed/20'), 300);
+            });
+        });
+        
+        // Canvas drag mock
+        let canvas = document.querySelector('main');
+        let isDragging = false;
+        canvas.addEventListener('mousedown', () => isDragging = true);
+        window.addEventListener('mouseup', () => isDragging = false);
+        canvas.addEventListener('mousemove', (e) => {
+            if(isDragging) {
+                // Simulation logic would go here
+            }
+        });
+    </script>
+</body></html>

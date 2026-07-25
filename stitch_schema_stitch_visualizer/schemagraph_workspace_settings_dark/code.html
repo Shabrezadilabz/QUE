@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SchemaGraph | Workspace Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#353535",
+                    "on-primary-container": "#556d00",
+                    "on-tertiary-fixed-variant": "#3c475a",
+                    "surface-tint": "#abd600",
+                    "surface-dim": "#131313",
+                    "primary": "#ffffff",
+                    "on-surface-variant": "#c4c9ac",
+                    "surface-container-highest": "#353535",
+                    "on-secondary": "#2b3040",
+                    "on-secondary-container": "#b0b4c9",
+                    "on-tertiary-fixed": "#111c2d",
+                    "inverse-on-surface": "#303030",
+                    "surface-container-low": "#1b1b1b",
+                    "error-container": "#93000a",
+                    "secondary-fixed-dim": "#c2c6db",
+                    "inverse-surface": "#e2e2e2",
+                    "tertiary-fixed-dim": "#bcc7de",
+                    "tertiary-container": "#d8e3fb",
+                    "outline": "#8e9379",
+                    "primary-container": "#c3f400",
+                    "outline-variant": "#444933",
+                    "primary-fixed-dim": "#abd600",
+                    "on-secondary-fixed-variant": "#414658",
+                    "tertiary-fixed": "#d8e3fb",
+                    "on-background": "#e2e2e2",
+                    "on-tertiary": "#263143",
+                    "on-primary-fixed-variant": "#3c4d00",
+                    "error": "#ffb4ab",
+                    "surface": "#131313",
+                    "secondary": "#c2c6db",
+                    "on-secondary-fixed": "#161b2b",
+                    "background": "#131313",
+                    "surface-bright": "#393939",
+                    "inverse-primary": "#506600",
+                    "surface-container-high": "#2a2a2a",
+                    "on-error-container": "#ffdad6",
+                    "on-primary": "#283500",
+                    "secondary-fixed": "#dee1f7",
+                    "on-error": "#690005",
+                    "surface-container-lowest": "#0e0e0e",
+                    "surface-container": "#1f1f1f",
+                    "primary-fixed": "#c3f400",
+                    "on-tertiary-container": "#5a6579",
+                    "on-surface": "#e2e2e2",
+                    "on-primary-fixed": "#161e00",
+                    "tertiary": "#ffffff",
+                    "secondary-container": "#414658",
+                    "lime-accent": "#CCFF00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "lg": "24px",
+                    "md": "16px",
+                    "gutter": "16px",
+                    "margin-desktop": "32px",
+                    "xl": "48px",
+                    "sm": "8px",
+                    "margin-mobile": "16px",
+                    "xs": "4px",
+                    "base": "4px"
+            },
+            "fontFamily": {
+                    "headline-lg-mobile": ["Space Grotesk"],
+                    "body-md": ["JetBrains Mono"],
+                    "headline-xl": ["Space Grotesk"],
+                    "body-sm": ["JetBrains Mono"],
+                    "headline-lg": ["Space Grotesk"],
+                    "code-snippet": ["JetBrains Mono"],
+                    "label-caps": ["Space Mono"]
+            },
+            "fontSize": {
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                    "headline-xl": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-sm": ["12px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "code-snippet": ["13px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                    "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #000000;
+            color: #e2e2e2;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .border-lime { border-color: #CCFF00; }
+        .text-lime { color: #CCFF00; }
+        .bg-lime { background-color: #CCFF00; }
+        .glow-lime { box-shadow: 0 0 15px rgba(204, 255, 0, 0.2); }
+        
+        /* Custom scrollbar for cyber feel */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0A0F1E; }
+        ::-webkit-scrollbar-thumb { background: #1E293B; }
+        ::-webkit-scrollbar-thumb:hover { background: #CCFF00; }
+
+        .sidebar-active-indicator {
+            position: absolute;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background-color: #CCFF00;
+        }
+    </style>
+</head>
+<body class="bg-black text-on-surface">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-lg h-14 bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-headline-md font-bold text-primary">SchemaGraph</span>
+<nav class="hidden md:flex items-center gap-md ml-xl">
+<a class="text-on-surface-variant font-label-md hover:text-primary transition-colors" href="#">Diagram</a>
+<a class="text-on-surface-variant font-label-md hover:text-primary transition-colors" href="#">Chat</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-container border border-outline-variant text-body-sm py-xs pl-xl pr-md w-64 focus:border-lime-accent outline-none" placeholder="Search workspace..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary p-xs transition-colors">filter_alt</button>
+<button class="material-symbols-outlined text-primary p-xs transition-colors border-b-2 border-primary pb-1">settings</button>
+<div class="h-8 w-8 bg-surface-container-high rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Close up portrait of a futuristic developer with glowing cybernetic eye enhancements, wearing dark techwear with lime green fiber optic details. Soft blue ambient lighting from computer monitors reflects on their focused expression in a dimly lit high-tech workspace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuArljuyII5L-J4CNB_cIsSSyToh2FvMvDGUtW8N8qGBf2Ig1kbHz1eDrV3-Hde3apn8nLrFNrksmAW5kwPBYAkG97-t8QgJBCmdorxeXZ38oFicAyYhFpGUfcZZq8oQNgtgEI-DPEndnwC9InxUihUSVBQWPlXHK1m-oH991Gxy8awH-gMSvdhiCZ01qtg34Vp_dT-jSoDFqMDxZWHL_TZJOQbU7B6Zi0V7Q7SEzd65E7bJDVGXv6G_IjtyY7ihizr6Z4JLUlbbKZg"/>
+</div>
+</div>
+</header>
+<div class="flex pt-14 min-h-screen">
+<!-- Side Navigation Shell (Mapped from JSON SideNavBar) -->
+<aside class="fixed left-0 top-14 bottom-0 w-[240px] z-40 flex flex-col py-md bg-surface border-r border-outline-variant">
+<div class="px-md mb-xl">
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Settings</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Workspace Config</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="relative flex items-center gap-md px-md py-sm hover:bg-surface-container transition-colors group text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-sm">General</span>
+</a>
+<a class="relative flex items-center gap-md px-md py-sm bg-surface-container text-primary font-bold group" href="#">
+<div class="sidebar-active-indicator"></div>
+<span class="material-symbols-outlined text-lime-accent">group</span>
+<span class="font-body-sm">Members</span>
+</a>
+<a class="relative flex items-center gap-md px-md py-sm hover:bg-surface-container transition-colors group text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">shield</span>
+<span class="font-body-sm">Security</span>
+</a>
+<a class="relative flex items-center gap-md px-md py-sm hover:bg-surface-container transition-colors group text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-sm">Billing</span>
+</a>
+</nav>
+<div class="mt-auto px-md space-y-1 pt-md border-t border-outline-variant">
+<a class="flex items-center gap-md py-xs text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-sm">help</span>
+<span class="font-body-sm">Documentation</span>
+</a>
+<a class="flex items-center gap-md py-xs text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-sm">contact_support</span>
+<span class="font-body-sm">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-[240px] flex-1 p-xl">
+<div class="max-w-5xl mx-auto space-y-xl">
+<!-- Section: Header -->
+<header class="flex justify-between items-end border-b border-outline-variant pb-md">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">Workspace Members</h1>
+<p class="text-on-surface-variant font-body-md mt-xs">Manage team access and collaborative permissions.</p>
+</div>
+<button class="bg-lime-accent text-black font-bold px-lg py-sm flex items-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">person_add</span>
+                        Invite Member
+                    </button>
+</header>
+<!-- Bento Grid Layout for Management -->
+<div class="grid grid-cols-12 gap-lg">
+<!-- Team Table (Large Component) -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest border border-outline-variant overflow-hidden">
+<div class="bg-surface-container h-10 px-md flex items-center justify-between border-b border-outline-variant">
+<span class="font-label-caps text-label-caps text-on-surface">TEAM_REGISTRY [3 Active]</span>
+<div class="flex gap-xs">
+<div class="w-2 h-2 bg-lime-accent"></div>
+<div class="w-2 h-2 bg-surface-variant"></div>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant bg-surface-container-low">
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">User</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Role</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Last Active</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body-sm">
+<tr class="border-b border-outline-variant hover:bg-surface-container-low transition-colors group">
+<td class="p-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 border border-outline-variant overflow-hidden bg-surface-container-highest">
+<img class="w-full h-full object-cover" data-alt="Minimalist monochromatic avatar of a high-tech user with a visor, set against a dark grey background with geometric lime green patterns. The style is digital brutalism, using sharp edges and high contrast lighting to represent a lead engineer in a cybernetic environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2Mapl7dqHZdos0FePdU0NFCv5lB8DBFKFNE1nerrR_P8fApfjjqiLmiM4J5jnt5fkeYdsH3yK_EuUlhKj6iP6qrAEXu3i32PWhLqajE_iV6fPC5u-sp0QzLeM31-noU3W7r3gXTKCWD4clUTtpK7GymShDbbu30y0G9UGO5dHJX2DVGmyNdv-DGpM_eGnVDdUjcqctD0DVE-VOBqY3CD0Ho9oKgkry2rLYon9VsQ1YwNaqen6z7lhVLhtnZMvT2TDcOOVt7bPfLQ"/>
+</div>
+<div>
+<div class="text-primary font-bold">Alex Chen</div>
+<div class="text-on-surface-variant text-[10px]">alex.c@schemagraph.io</div>
+</div>
+</div>
+</td>
+<td class="p-md">
+<span class="px-sm py-xs bg-primary text-black font-bold text-[10px]">ADMIN</span>
+</td>
+<td class="p-md text-on-surface-variant">2m ago</td>
+<td class="p-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">more_vert</button>
+</td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container-low transition-colors group">
+<td class="p-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 border border-outline-variant overflow-hidden bg-surface-container-highest">
+<img class="w-full h-full object-cover" data-alt="Stylized portrait of a female developer with neon green hair accents and a dark turtleneck, illustrated in a clean vector style with dramatic shadows. The background features a subtle terminal code overlay in a dark navy blue palette, fitting a modern cyber-industrial aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3lFnqEIRTniiqJWtJZknWAlxLtYmVOwhbhuSwm9yj2GawjKBy1AQm1zLudMKtuE6ClWOOwgs4ZgVh2xsCTbdU2EZSLvq6J6J5XoL6qr55HQsPecdoJWUXSkdQ308Y0nnNkOBm3eQQroZNV1As0RteFWqr-tzR8nYOKQjYp1mZEXRnMGzGltSpwG5QFhBKS4GyryyZZSK0aARKriD6GuChDNge1aQLj74v5KhIGLjGYuVuH-ui_H1nblQKeRReDcAAVSXRFcYjqiY"/>
+</div>
+<div>
+<div class="text-primary font-bold">Sarah Drasner</div>
+<div class="text-on-surface-variant text-[10px]">s.dras@schemagraph.io</div>
+</div>
+</div>
+</td>
+<td class="p-md">
+<span class="px-sm py-xs border border-outline text-on-surface font-bold text-[10px]">MEMBER</span>
+</td>
+<td class="p-md text-on-surface-variant">1h ago</td>
+<td class="p-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">more_vert</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="p-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 border border-outline-variant overflow-hidden bg-surface-container-highest">
+<img class="w-full h-full object-cover" data-alt="Abstract digital representation of a user profile using glowing green voxel blocks that form a human silhouette. The surrounding space is pitch black with thin, grid-like perspective lines in dark blue, creating a sense of a digital matrix or virtual reality environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJuRgLwdpnVqawANfvgCIkA6lLl-Fp0qLYxwayv70rFQNG0VNrXTOTlDbIcmzyozwgzrRpZahnYGI7nH7zIwO9G4a_qas9hrKzp1HJfas5BTlOvng0iPPnI4b--G6lb2AAN9Gzw7PHuPmCO-vzo2UOtYQxj--IouFW5EPgpN4aq_UN7YpgLNyHsRHtEQRSNc_daq1qUtgWbZBgNYDq6OpiKPu5KEGmO2NvT17FISXa322YlXDRp04MPYI2Ym3lQ8-_PiWNw9QwYZ0"/>
+</div>
+<div>
+<div class="text-primary font-bold">Jordan Smith</div>
+<div class="text-on-surface-variant text-[10px]">js@external.com</div>
+</div>
+</div>
+</td>
+<td class="p-md">
+<span class="px-sm py-xs border border-outline-variant text-on-surface-variant text-[10px]">READ-ONLY</span>
+</td>
+<td class="p-md text-on-surface-variant">Yesterday</td>
+<td class="p-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">more_vert</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- API Keys Section (Small Card) -->
+<div class="col-span-12 lg:col-span-4 space-y-lg">
+<div class="bg-surface-container-lowest border border-outline-variant p-md relative overflow-hidden">
+<div class="absolute top-0 right-0 p-xs">
+<span class="material-symbols-outlined text-lime-accent text-sm" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-primary mb-md">API Keys</h3>
+<div class="space-y-md">
+<div class="bg-black border border-outline-variant p-sm">
+<div class="flex justify-between items-center mb-xs">
+<span class="text-[10px] text-on-surface-variant font-label-caps">PROD_KEY_01</span>
+<span class="text-[10px] text-lime-accent">ACTIVE</span>
+</div>
+<div class="flex items-center gap-sm">
+<code class="text-code-snippet text-on-surface truncate flex-1">sk_live_4e5t...9x2w</code>
+<button class="material-symbols-outlined text-sm hover:text-lime-accent">content_copy</button>
+</div>
+</div>
+<button class="w-full border-2 border-lime-accent text-lime-accent font-bold py-sm hover:bg-lime-accent hover:text-black transition-all font-body-sm">
+                                    GENERATE_NEW_KEY
+                                </button>
+</div>
+</div>
+<!-- Global Variables (Decorative/Functional Widget) -->
+<div class="bg-surface-container-lowest border border-outline-variant p-md">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-md">ENVIRONMENT_VARS</h3>
+<div class="space-y-sm">
+<div class="flex justify-between border-b border-outline-variant py-xs">
+<span class="text-body-sm text-on-surface">DB_URL</span>
+<span class="text-body-sm text-on-surface-variant">*****_cluster_0</span>
+</div>
+<div class="flex justify-between border-b border-outline-variant py-xs">
+<span class="text-body-sm text-on-surface">RETRY_LIMIT</span>
+<span class="text-body-sm text-on-surface-variant">5</span>
+</div>
+<div class="flex justify-between py-xs">
+<span class="text-body-sm text-on-surface">LOG_LEVEL</span>
+<span class="text-body-sm text-lime-accent">DEBUG</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Usage Stats Section (Full Width Dashboard style) -->
+<div class="col-span-12 bg-black border border-outline-variant p-lg relative overflow-hidden">
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+
+</div>
+<div class="relative z-10 flex flex-col md:flex-row justify-between items-center gap-xl">
+<div class="flex-1">
+<h4 class="font-headline-sm text-headline-sm text-primary">Workspace Usage</h4>
+<p class="text-on-surface-variant text-body-sm">Compute hours and data egress this billing period.</p>
+<div class="mt-md h-1 bg-surface-container-highest w-full relative">
+<div class="absolute left-0 top-0 h-full bg-lime-accent glow-lime" style="width: 68%;"></div>
+</div>
+<div class="flex justify-between mt-sm text-[10px] font-label-caps">
+<span>Used: 680 hrs</span>
+<span>Quota: 1000 hrs</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-lg">
+<div class="text-center px-lg border-l border-outline-variant">
+<div class="text-headline-lg font-bold text-lime-accent">14.2k</div>
+<div class="text-label-caps text-on-surface-variant">API_CALLS</div>
+</div>
+<div class="text-center px-lg border-l border-outline-variant">
+<div class="text-headline-lg font-bold text-primary">82</div>
+<div class="text-label-caps text-on-surface-variant">SCHEMAS</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Footer -->
+<footer class="flex justify-between items-center pt-xl border-t border-outline-variant">
+<button class="text-error text-body-sm font-bold flex items-center gap-xs hover:underline decoration-2">
+<span class="material-symbols-outlined">delete_forever</span>
+                        Delete Workspace
+                    </button>
+<div class="flex gap-md">
+<button class="px-lg py-sm text-on-surface-variant font-bold hover:text-primary transition-colors font-body-sm">Discard Changes</button>
+<button class="px-xl py-sm bg-lime-accent text-black font-bold glow-lime hover:scale-[1.02] active:scale-[0.98] transition-all font-body-sm">Save Configuration</button>
+</div>
+</footer>
+</div>
+</main>
+</div>
+<!-- Floating Micro-interaction Background Script -->
+<script>
+        // Simple cursor effect or atmospheric flicker
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+            document.body.style.backgroundImage = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(204, 255, 0, 0.03) 0%, transparent 40%)`;
+        });
+    </script>
+</body></html>

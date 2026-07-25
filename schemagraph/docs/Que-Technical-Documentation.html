@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Technical System Documentation</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      color: #1a1a1a;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 { font-size: 22pt; margin: 0 0 6px; letter-spacing: -0.02em; }
+    h2 {
+      font-size: 14pt;
+      margin: 28px 0 10px;
+      padding-bottom: 4px;
+      border-bottom: 2px solid #161e00;
+      page-break-after: avoid;
+    }
+    h3 { font-size: 11.5pt; margin: 18px 0 8px; page-break-after: avoid; }
+    h4 { font-size: 10.5pt; margin: 12px 0 6px; }
+    p, li { margin: 0 0 6px; }
+    ul, ol { margin: 0 0 10px; padding-left: 1.3em; }
+    .meta { color: #444; font-size: 9.5pt; margin-bottom: 18px; }
+    .cover {
+      border: 2px solid #161e00;
+      padding: 28px 24px;
+      margin-bottom: 28px;
+      background: #f7f8f3;
+    }
+    .cover .brand {
+      font-size: 11pt;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #3c4d00;
+    }
+    .toc { page-break-after: always; }
+    .toc ol { font-size: 10.5pt; }
+    .toc a { color: #1a1a1a; text-decoration: none; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 14px;
+      font-size: 9pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #bbb;
+      padding: 5px 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #eef0e6; font-weight: 600; }
+    code, pre {
+      font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+      font-size: 8.5pt;
+    }
+    code { background: #f0f0f0; padding: 1px 4px; }
+    pre {
+      background: #111;
+      color: #e2e2e2;
+      padding: 12px 14px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      page-break-inside: avoid;
+    }
+    .note {
+      border-left: 3px solid #abd600;
+      background: #f4f8e8;
+      padding: 8px 12px;
+      margin: 10px 0;
+      font-size: 9.5pt;
+    }
+    .warn {
+      border-left: 3px solid #c44;
+      background: #faf0f0;
+      padding: 8px 12px;
+      margin: 10px 0;
+      font-size: 9.5pt;
+    }
+    .diagram {
+      border: 1px solid #ccc;
+      background: #fafafa;
+      padding: 12px 14px;
+      font-family: Consolas, monospace;
+      font-size: 8.5pt;
+      white-space: pre;
+      overflow-x: auto;
+      page-break-inside: avoid;
+      line-height: 1.35;
+    }
+    .footer-note { margin-top: 32px; font-size: 8.5pt; color: #666; }
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que · Technical Documentation</div>
+  <h1>System Design, Architecture &amp; Testing Guide</h1>
+  <p class="meta">
+    Product: <strong>Que</strong> (schema relationship workspace)<br />
+    Codebase: <code>adc/schemagraph</code><br />
+    Document version: 1.0 · Generated: 24 Jul 2026<br />
+    Audience: engineers, QA, architects
+  </p>
+  <p>
+    Que is an AI-augmented data-engineering workspace for <strong>cross-source schema stitching</strong>.
+    It visualizes tables/collections and join relationships, answers questions from <strong>schema metadata only</strong>
+    (no raw warehouse row centralization), and turns chat drafts into reviewable exportable jobs —
+    all behind workspace ACL (owner / admin / member / viewer).
+  </p>
+</div>
+
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li>Executive overview</li>
+    <li>System design &amp; architecture</li>
+    <li>Technology stack</li>
+    <li>Repository layout</li>
+    <li>Data model (metadata Postgres)</li>
+    <li>Authentication &amp; authorization</li>
+    <li>Frontend application design</li>
+    <li>API reference</li>
+    <li>Connectors &amp; sync pipeline</li>
+    <li>Schema graph &amp; promote/reject</li>
+    <li>Chat → Jobs → Export flow</li>
+    <li>Workspace settings &amp; policies</li>
+    <li>End-to-end user flows</li>
+    <li>Local runbook (Windows)</li>
+    <li>Testing strategy &amp; test flows</li>
+    <li>Security &amp; privacy notes</li>
+    <li>Known limitations &amp; roadmap notes</li>
+    <li>Appendix — key files &amp; demo IDs</li>
+  </ol>
+</div>
+
+<!-- 1 -->
+<h2>1. Executive overview</h2>
+<p><strong>Que</strong> helps data engineers understand how schemas relate across heterogeneous sources
+(PostgreSQL, Excel/CSV, MongoDB, Databricks, etc.) without moving raw customer data into a central lake for AI.</p>
+<ul>
+  <li><strong>Visualize</strong> — interactive diagram of tables, columns, and relationships</li>
+  <li><strong>Infer</strong> — suggest cross-source joins from metadata heuristics</li>
+  <li><strong>Ask</strong> — schema-only AI chat (heuristic or optional LLM)</li>
+  <li><strong>Ship</strong> — draft → ready → export jobs (JSON/SQL artifacts)</li>
+  <li><strong>Govern</strong> — workspace membership + role-gated writes</li>
+</ul>
+<div class="note">
+  Privacy wedge: connectors may capture <em>capped</em> column samples for typing/UX, but Que does not
+  centralize full warehouse tables for model training or chat prompts. Chat prompts use schema context packs only.
+</div>
+
+<!-- 2 -->
+<h2>2. System design &amp; architecture</h2>
+<h3>2.1 High-level components</h3>
+<div class="diagram">┌─────────────┐     HTTPS/JSON      ┌──────────────┐     SQL      ┌─────────────────┐
+│  Que Web UI │ ◄──────────────────► │   que-api    │ ◄──────────► │ Postgres        │
+│  Vite/React │   Bearer sessions    │   Express    │              │ metadata DB     │
+│  :5173      │                      │   :8787      │              │ (stitch)        │
+└─────────────┘                      └──────┬───────┘              └─────────────────┘
+                                            │
+                     sync introspect (metadata + capped samples)
+                                            │
+                 ┌──────────────┬───────────┼───────────┬──────────────┐
+                 ▼              ▼           ▼           ▼              ▼
+            Postgres       Excel/CSV     MongoDB    Databricks     (future)
+            sources        fixtures      demo DB    fixture/live   connectors
+</div>
+
+<h3>2.2 Architectural principles</h3>
+<ol>
+  <li><strong>Metadata DB is source of truth for the diagram</strong> — not the customer warehouse.</li>
+  <li><strong>Connectors are pull/introspect</strong> — sync upserts objects/columns/relationships into Que metadata.</li>
+  <li><strong>Canvas layout is UX state</strong> — positions live in <code>diagram_layouts</code>, separate from schema truth.</li>
+  <li><strong>AI sees packs, not dumps</strong> — <code>schemaContext</code> builds a bounded pack for chat.</li>
+  <li><strong>ACL is workspace-scoped</strong> — every <code>/workspaces/:id/*</code> route checks membership + role rank.</li>
+</ol>
+
+<h3>2.3 Request path (authenticated)</h3>
+<ol>
+  <li>UI stores Bearer token in <code>localStorage</code>.</li>
+  <li><code>apiFetch</code> attaches <code>Authorization</code>; on HTTP 401 dispatches auth-expired event → logout.</li>
+  <li>API resolves session hash → user; then membership → <code>req.workspaceRole</code>.</li>
+  <li>Mutating routes call <code>requireMinRole('member'|'admin')</code>.</li>
+</ol>
+
+<!-- 3 -->
+<h2 class="page-break">3. Technology stack</h2>
+<table>
+  <tr><th>Layer</th><th>Technology</th><th>Notes</th></tr>
+  <tr><td>Frontend</td><td>React 19, TypeScript, Vite 8, React Router 7, Tailwind v4, styled-components</td><td>Default port 5173</td></tr>
+  <tr><td>API</td><td>Node ESM, Express 4, <code>pg</code></td><td>Default port 8787</td></tr>
+  <tr><td>Metadata DB</td><td>PostgreSQL (Docker <code>stitch-pg</code>)</td><td>DB/user/pass: <code>stitch</code></td></tr>
+  <tr><td>Demo sources</td><td>Postgres <code>customer_demo</code>, Mongo <code>stitch-mongo</code></td><td>Optional bootstraps</td></tr>
+  <tr><td>LLM (optional)</td><td>OpenAI / Anthropic env keys</td><td>Default chat = heuristics</td></tr>
+</table>
+<p>There is <strong>no application Dockerfile</strong> for Que itself; Postgres/Mongo are run as named containers.</p>
+
+<!-- 4 -->
+<h2>4. Repository layout</h2>
+<pre>adc/schemagraph/
+├── src/                 # React SPA (Que UI)
+│   ├── pages/           # Login, Workspace, Chat, Jobs, Sources, Settings
+│   ├── components/      # Canvas, TopBar, sidebars, MobileNav
+│   ├── layouts/         # MainDiagramLayout, QueAppChrome
+│   ├── context/         # Auth, Diagram, Toast
+│   ├── services/        # auth, stitchApi, apiConfig
+│   ├── hooks/           # useWorkspaceRole, useTableNodeDrag
+│   └── data/            # Dummy schema/sources (offline fallback)
+├── api/
+│   ├── src/             # Express app, auth, sync, chat, jobs, connectors/
+│   └── fixtures/        # CSV/XLS + Databricks fixture JSON
+└── db/                  # SQL migrations 001–005
+</pre>
+
+<!-- 5 -->
+<h2>5. Data model (metadata Postgres)</h2>
+<p>Migrations: <code>db/001_init.sql</code> … <code>db/005_auth.sql</code>.</p>
+<table>
+  <tr><th>Table</th><th>Purpose</th></tr>
+  <tr><td><code>users</code></td><td>Accounts (+ <code>password_hash</code>)</td></tr>
+  <tr><td><code>workspaces</code></td><td>Tenant silo (+ <code>settings_json</code>)</td></tr>
+  <tr><td><code>workspace_members</code></td><td>user ↔ workspace role</td></tr>
+  <tr><td><code>sessions</code></td><td>Bearer token hashes + expiry</td></tr>
+  <tr><td><code>connections</code></td><td>Data sources (config JSON, status)</td></tr>
+  <tr><td><code>schema_objects</code></td><td>Tables / collections / views</td></tr>
+  <tr><td><code>schema_columns</code></td><td>Columns + key kinds + optional samples</td></tr>
+  <tr><td><code>relationships</code></td><td>Explicit / AI-inferred edges + review status</td></tr>
+  <tr><td><code>diagram_layouts</code></td><td>Canvas node positions (JSONB)</td></tr>
+  <tr><td><code>schema_snapshots</code></td><td>Point-in-time packs after sync</td></tr>
+  <tr><td><code>jobs</code></td><td>Draft → ready → exported artifacts</td></tr>
+</table>
+
+<!-- 6 -->
+<h2 class="page-break">6. Authentication &amp; authorization</h2>
+<h3>6.1 Session model</h3>
+<ul>
+  <li>Login returns random Bearer token; API stores <strong>SHA-256(token)</strong> in <code>sessions</code>.</li>
+  <li>Default TTL: 14 days (<code>STITCH_SESSION_DAYS</code>).</li>
+  <li>Passwords: Node <code>scrypt</code> (<code>salt:hash</code>).</li>
+  <li>FE keys: <code>stitch_auth_token</code>, <code>stitch_auth_user</code>, <code>stitch_workspace_id</code>.</li>
+  <li>401 → <code>notifyAuthExpired()</code> clears storage and AuthContext (no silent dummy schema).</li>
+</ul>
+
+<h3>6.2 Role matrix</h3>
+<table>
+  <tr><th>Capability</th><th>viewer</th><th>member</th><th>admin</th><th>owner</th></tr>
+  <tr><td>Read schema/sources/jobs/settings/context</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Layout, promote/reject, sync, chat, jobs write/export</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Connection CRUD, settings PATCH</td><td>No</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+</table>
+
+<h3>6.3 Demo accounts (seeded at API boot)</h3>
+<table>
+  <tr><th>Email</th><th>Password</th><th>Role</th></tr>
+  <tr><td><code>dev@stitch.local</code></td><td><code>stitch-dev</code></td><td>owner</td></tr>
+  <tr><td><code>member@stitch.local</code></td><td><code>stitch-member</code></td><td>member</td></tr>
+  <tr><td><code>viewer@stitch.local</code></td><td><code>stitch-viewer</code></td><td>viewer</td></tr>
+</table>
+<p>Demo workspace ID: <code>22222222-2222-2222-2222-222222222222</code> (slug <code>demo</code>).</p>
+<div class="warn">
+  <code>STITCH_AUTH_DISABLED=true</code> bypasses checks and injects the owner user — local prototyping only.
+</div>
+
+<!-- 7 -->
+<h2>7. Frontend application design</h2>
+<h3>7.1 Routes</h3>
+<table>
+  <tr><th>Path</th><th>Page</th><th>Auth</th></tr>
+  <tr><td><code>/login</code></td><td>LoginPage</td><td>Public</td></tr>
+  <tr><td><code>/workspace</code></td><td>WorkspacePage + MainDiagramLayout</td><td>Required</td></tr>
+  <tr><td><code>/chat</code></td><td>ChatPage</td><td>Required</td></tr>
+  <tr><td><code>/sources</code></td><td>SourcesPage</td><td>Required</td></tr>
+  <tr><td><code>/jobs</code></td><td>JobsPage</td><td>Required</td></tr>
+  <tr><td><code>/settings</code></td><td>SettingsPage</td><td>Required</td></tr>
+</table>
+
+<h3>7.2 Workspace layout regions</h3>
+<ul>
+  <li><strong>TopBar</strong> — brand Que, nav / mobile Menu, search, tools (filters/export), session</li>
+  <li><strong>Left sidebar</strong> — connections; click filters canvas by <code>sourceId</code>; Sync Schema (member+)</li>
+  <li><strong>MainCanvas</strong> — pan/zoom, table nodes, SVG relationships, minimap</li>
+  <li><strong>Right sidebar</strong> — selected table details</li>
+</ul>
+
+<h3>7.3 Offline / error behavior</h3>
+<ul>
+  <li><strong>401 / 403</strong> on load → blocked screen (no dummy graph).</li>
+  <li><strong>Network / other errors</strong> → dummy schema + orange “API offline” banner.</li>
+  <li>Viewers: canvas <code>readOnly</code> (no drag persist); mutate actions hidden/disabled.</li>
+</ul>
+
+<!-- 8 -->
+<h2 class="page-break">8. API reference</h2>
+<p>Base URL: <code>http://localhost:8787</code> · Service health: <code>GET /health</code> → <code>{ ok, service: 'que-api', authDisabled }</code></p>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Min role</th><th>Purpose</th></tr>
+  <tr><td>POST</td><td><code>/auth/login</code></td><td>—</td><td>Issue session</td></tr>
+  <tr><td>POST</td><td><code>/auth/logout</code></td><td>—</td><td>Revoke session</td></tr>
+  <tr><td>GET</td><td><code>/auth/me</code></td><td>auth</td><td>User + workspaces</td></tr>
+  <tr><td>GET</td><td><code>/workspaces</code></td><td>auth</td><td>List workspaces</td></tr>
+  <tr><td>GET</td><td><code>/workspaces/:id/schema</code></td><td>viewer+</td><td>Graph payload</td></tr>
+  <tr><td>GET</td><td><code>/workspaces/:id/sources</code></td><td>viewer+</td><td>Connections</td></tr>
+  <tr><td>POST/PATCH/DELETE</td><td><code>.../connections</code></td><td>admin+</td><td>CRUD sources</td></tr>
+  <tr><td>POST</td><td><code>.../connections/:cid/sync</code></td><td>member+</td><td>Introspect</td></tr>
+  <tr><td>PUT</td><td><code>.../layout</code></td><td>member+</td><td>Save positions</td></tr>
+  <tr><td>PATCH</td><td><code>.../relationships/:rid</code></td><td>member+</td><td>promote/reject</td></tr>
+  <tr><td>POST</td><td><code>.../chat</code></td><td>member+</td><td>Schema chat</td></tr>
+  <tr><td>GET/PATCH</td><td><code>.../settings</code></td><td>viewer+ / admin+</td><td>Policies</td></tr>
+  <tr><td>GET/POST/PATCH</td><td><code>.../jobs</code></td><td>viewer+ / member+</td><td>Job lifecycle</td></tr>
+  <tr><td>POST</td><td><code>.../jobs/:jid/export</code></td><td>member+</td><td>JSON or SQL artifact</td></tr>
+</table>
+
+<!-- 9 -->
+<h2>9. Connectors &amp; sync pipeline</h2>
+<table>
+  <tr><th>Type</th><th>Module</th><th>Behavior</th></tr>
+  <tr><td>postgresql</td><td><code>connectors/postgres.js</code></td><td>information_schema + keys; capped samples</td></tr>
+  <tr><td>excel / csv</td><td><code>connectors/spreadsheet.js</code></td><td>Files under <code>api/fixtures/</code></td></tr>
+  <tr><td>mongodb</td><td><code>connectors/mongo.js</code></td><td>Collection schema from sampled docs</td></tr>
+  <tr><td>databricks</td><td><code>connectors/databricks.js</code></td><td>Fixture JSON or live SQL Statement API</td></tr>
+</table>
+<h3>Sync steps</h3>
+<ol>
+  <li>Load connection + workspace prefs (<code>includeSamplesDefault</code>).</li>
+  <li>Introspect via connector.</li>
+  <li>Upsert <code>schema_objects</code> / <code>schema_columns</code>; prune removed.</li>
+  <li>Replace explicit FK relationships for synced objects.</li>
+  <li>Mark connection active; write <code>schema_snapshots</code>.</li>
+  <li>Optionally <code>inferCrossSourceJoins</code> → <code>ai-inferred</code> + <code>suggested</code> edges.</li>
+</ol>
+
+<!-- 10 -->
+<h2>10. Schema graph &amp; promote/reject</h2>
+<ul>
+  <li><code>relation_type</code>: <code>explicit</code> | <code>ai-inferred</code></li>
+  <li><code>status</code>: <code>suggested</code> | <code>accepted</code> | <code>rejected</code></li>
+  <li>GET schema excludes <code>rejected</code>.</li>
+  <li><strong>Promote</strong> → accepted + explicit.</li>
+  <li><strong>Reject</strong> → rejected (removed from canvas).</li>
+</ul>
+<p>Smoke-test AI edge ID: <code>dddddddd-dddd-dddd-dddd-ddddddddddd3</code>
+(<code>analytics_cube.user_id → users_main.id</code>).</p>
+
+<!-- 11 -->
+<h2 class="page-break">11. Chat → Jobs → Export flow</h2>
+<div class="diagram">User (/chat)
+   │  POST /chat  { message, history }
+   ▼
+buildSchemaContextPack() ──► heuristic | LLM (if preferLlmChat + key)
+   │
+   ▼
+{ reply, citations, jobDraft?, sql?, referencedTables, mode }
+   │  Save draft (member+)
+   ▼
+POST /jobs  (status: draft)
+   │  JobsPage: Mark ready
+   ▼
+PATCH /jobs/:id  (status: ready)
+   │  Export
+   ▼
+POST /jobs/:id/export  { format: json|sql }
+   → status: exported + downloadable artifact
+   (no warehouse execution yet)
+</div>
+<p>Job statuses: <code>draft</code> → <code>ready</code> → <code>exported</code> | <code>archived</code>.</p>
+
+<!-- 12 -->
+<h2>12. Workspace settings &amp; policies</h2>
+<table>
+  <tr><th>Flag</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>includeSamplesDefault</code></td><td>true</td><td>Capped samples on sync</td></tr>
+  <tr><td><code>inferJoinsOnSync</code></td><td>true</td><td>Cross-source join suggestions</td></tr>
+  <tr><td><code>preferLlmChat</code></td><td>false</td><td>Prefer LLM when keys exist</td></tr>
+</table>
+<p>PATCH settings requires <strong>admin+</strong>. GET also returns stats, latest snapshot, connector/LLM capability flags, brand <code>Que</code>.</p>
+
+<!-- 13 -->
+<h2>13. End-to-end user flows</h2>
+<h3>13.1 Owner — first session</h3>
+<ol>
+  <li>Open <code>http://localhost:5173/login</code>.</li>
+  <li>Sign in as owner demo account.</li>
+  <li>Land on <code>/workspace</code>; schema loads from API.</li>
+  <li>Use Tools filters / search; drag tables (layout saves).</li>
+  <li>Hover AI edge → Promote or Reject.</li>
+  <li>Sidebar → Sync Schema on a syncable connection.</li>
+  <li>Chat → ask “list tables” → optionally Save job → Jobs → Mark ready → Export SQL/JSON.</li>
+  <li>Settings → toggle policies → Save.</li>
+</ol>
+<h3>13.2 Viewer — read-only</h3>
+<ol>
+  <li>Login as viewer.</li>
+  <li>Can view workspace/sources/jobs/settings.</li>
+  <li>Cannot sync, chat, promote, save settings, or CRUD connections.</li>
+  <li>Canvas shows VIEW ONLY; drag does not persist.</li>
+</ol>
+<h3>13.3 Member — write without admin</h3>
+<ol>
+  <li>Login as member.</li>
+  <li>Can sync, chat, jobs, layout, promote/reject.</li>
+  <li>Cannot create/edit/delete connections or patch settings (403).</li>
+</ol>
+
+<!-- 14 -->
+<h2 class="page-break">14. Local runbook (Windows PowerShell)</h2>
+<h3>14.1 First-time</h3>
+<pre># Metadata Postgres
+docker run -d --name stitch-pg `
+  -e POSTGRES_USER=stitch -e POSTGRES_PASSWORD=stitch `
+  -e POSTGRES_DB=stitch -p 5432:5432 postgres:16
+
+Get-Content d:\ADC\prosols\adc\schemagraph\db\001_init.sql |
+  docker exec -i stitch-pg psql -U stitch -d stitch
+Get-Content d:\ADC\prosols\adc\schemagraph\db\003_jobs.sql |
+  docker exec -i stitch-pg psql -U stitch -d stitch
+Get-Content d:\ADC\prosols\adc\schemagraph\db\004_workspace_settings.sql |
+  docker exec -i stitch-pg psql -U stitch -d stitch
+Get-Content d:\ADC\prosols\adc\schemagraph\db\005_auth.sql |
+  docker exec -i stitch-pg psql -U stitch -d stitch
+
+# Optional demo sources
+docker run -d --name stitch-mongo -p 27017:27017 mongo:7
+cd d:\ADC\prosols\adc\schemagraph\api
+npm install
+npm run bootstrap:demo-source
+npm run bootstrap:demo-mongo
+npm run seed
+</pre>
+<h3>14.2 Daily</h3>
+<pre>docker start stitch-pg
+# Terminal A
+cd d:\ADC\prosols\adc\schemagraph\api; npm start
+# Terminal B
+cd d:\ADC\prosols\adc\schemagraph; npm run dev
+</pre>
+<p>UI: <code>http://localhost:5173</code> · API: <code>http://localhost:8787</code></p>
+
+<!-- 15 -->
+<h2>15. Testing strategy &amp; test flows</h2>
+<div class="note">
+  The repo currently has no automated Jest/Vitest/Playwright suite. Validation is manual + API smoke scripts.
+  FE lint: <code>npm run lint</code> (oxlint). Build: <code>npm run build</code>.
+</div>
+
+<h3>15.1 Smoke checklist — API</h3>
+<ol>
+  <li><code>GET /health</code> → ok, <code>authDisabled: false</code>.</li>
+  <li>Login owner / member / viewer → correct roles.</li>
+  <li>No token on <code>/schema</code> → 401.</li>
+  <li>Viewer: schema 200; sync/settings/chat/layout/create → 403.</li>
+  <li>Member: layout 200; settings PATCH → 403.</li>
+  <li>Owner: settings PATCH 200; chat 200.</li>
+  <li>Logout → <code>/auth/me</code> 401.</li>
+  <li>Garbage Bearer → 401.</li>
+</ol>
+
+<h3>15.2 Smoke checklist — UI</h3>
+<ol>
+  <li>Login form responsive; demo account buttons fill credentials.</li>
+  <li>Workspace loads live schema (not dummy) when API up.</li>
+  <li>Mobile Menu reaches Chat/Sources/Jobs/Settings.</li>
+  <li>Tools panel: filters + JSON/PNG/PDF export.</li>
+  <li>Source click filters tables; Sync shows toast.</li>
+  <li>Promote/reject inferred edge; toast feedback.</li>
+  <li>Viewer: VIEW ONLY, no Sources ADD, chat disabled.</li>
+  <li>Stop API → offline banner + dummy data (not auth error).</li>
+  <li>Revoke session / expire token → redirected to login (not dummy).</li>
+</ol>
+
+<h3>15.3 Role matrix regression</h3>
+<table>
+  <tr><th>Action</th><th>viewer</th><th>member</th><th>owner</th></tr>
+  <tr><td>View diagram</td><td>Pass</td><td>Pass</td><td>Pass</td></tr>
+  <tr><td>Drag + persist layout</td><td>Fail/blocked</td><td>Pass</td><td>Pass</td></tr>
+  <tr><td>Sync connection</td><td>403</td><td>Pass</td><td>Pass</td></tr>
+  <tr><td>Create connection</td><td>403</td><td>403</td><td>Pass</td></tr>
+  <tr><td>Chat send</td><td>403</td><td>Pass</td><td>Pass</td></tr>
+  <tr><td>Settings save</td><td>403</td><td>403</td><td>Pass</td></tr>
+</table>
+
+<h3>15.4 Suggested future automation</h3>
+<ul>
+  <li>API contract tests (supertest) for auth/ACL matrix.</li>
+  <li>Playwright: login → workspace load → promote → sync → chat → export.</li>
+  <li>Visual regression on TopBar / Login (Midnight Cyber).</li>
+</ul>
+
+<!-- 16 -->
+<h2 class="page-break">16. Security &amp; privacy notes</h2>
+<ul>
+  <li>Secrets should live in connection config / env — FE sources API redacts where implemented.</li>
+  <li>Sessions are hashed at rest; transport must be HTTPS in production.</li>
+  <li>Chat system prompt asserts schema-only; still validate no raw dumps in packs.</li>
+  <li>Disable <code>STITCH_AUTH_DISABLED</code> outside local machines.</li>
+  <li>Rotate demo passwords before any shared deployment.</li>
+</ul>
+
+<!-- 17 -->
+<h2>17. Known limitations &amp; roadmap notes</h2>
+<ul>
+  <li>Job “export” produces artifacts; does not execute SQL on warehouses.</li>
+  <li>Databricks live mode needs real cloud credentials; fixture mode is the default demo.</li>
+  <li>Some internal identifiers still use <code>stitch_*</code> prefixes (env, localStorage, docker names).</li>
+  <li>PDF export uses browser print of a summary document; PNG is SVG-rendered snapshot.</li>
+  <li>No multi-region HA / SSO / SCIM in this build.</li>
+</ul>
+
+<!-- 18 -->
+<h2>18. Appendix — key files &amp; demo IDs</h2>
+<table>
+  <tr><th>Area</th><th>Path</th></tr>
+  <tr><td>API routes</td><td><code>api/src/index.js</code></td></tr>
+  <tr><td>Auth / RBAC</td><td><code>api/src/auth.js</code>, <code>src/services/auth.ts</code>, <code>src/hooks/useWorkspaceRole.ts</code></td></tr>
+  <tr><td>Sync</td><td><code>api/src/syncConnection.js</code>, <code>api/src/connectors/*</code></td></tr>
+  <tr><td>Chat</td><td><code>api/src/chatEngine.js</code>, <code>api/src/schemaContext.js</code></td></tr>
+  <tr><td>Jobs</td><td><code>api/src/jobs.js</code></td></tr>
+  <tr><td>Canvas</td><td><code>src/pages/WorkspacePage.tsx</code>, <code>src/components/MainCanvas.tsx</code></td></tr>
+  <tr><td>FE API client</td><td><code>src/services/stitchApi.ts</code>, <code>src/services/apiConfig.ts</code></td></tr>
+</table>
+<table>
+  <tr><th>Entity</th><th>ID</th></tr>
+  <tr><td>Demo workspace</td><td><code>22222222-2222-2222-2222-222222222222</code></td></tr>
+  <tr><td>Owner user</td><td><code>11111111-1111-1111-1111-111111111111</code></td></tr>
+  <tr><td>pg_customer_demo</td><td><code>aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4</code></td></tr>
+  <tr><td>AI smoke edge</td><td><code>dddddddd-dddd-dddd-dddd-ddddddddddd3</code></td></tr>
+</table>
+
+<p class="footer-note">
+  End of document — Que Technical System Documentation v1.0<br />
+  Source of truth: codebase under <code>adc/schemagraph</code>. Update this PDF when auth, connectors, or job execution change.
+</p>
+
+</body>
+</html>

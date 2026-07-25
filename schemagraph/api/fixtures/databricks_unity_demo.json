@@ -1,0 +1,119 @@
+{
+  "catalog": "main",
+  "schema": "analytics",
+  "tables": [
+    {
+      "name": "dim_customer",
+      "entityKind": "TABLE",
+      "columns": [
+        {
+          "name": "customer_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": ["1001", "1002", "1003"]
+        },
+        {
+          "name": "customer_id",
+          "dataType": "STRING",
+          "keyKind": "unique",
+          "samples": ["C-ADA", "C-GRACE", "C-ALAN"]
+        },
+        {
+          "name": "email",
+          "dataType": "STRING",
+          "keyKind": "unique",
+          "samples": ["ada@example.com", "grace@example.com", "alan@example.com"]
+        },
+        {
+          "name": "region_code",
+          "dataType": "STRING",
+          "samples": ["NE", "W", "EMEA"]
+        },
+        {
+          "name": "plan_tier",
+          "dataType": "STRING",
+          "samples": ["enterprise", "growth"]
+        }
+      ]
+    },
+    {
+      "name": "fact_orders",
+      "entityKind": "TABLE",
+      "columns": [
+        {
+          "name": "order_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": ["9001", "9002"]
+        },
+        {
+          "name": "customer_sk",
+          "dataType": "BIGINT",
+          "keyKind": "fk",
+          "references": "dim_customer.customer_sk",
+          "samples": ["1001", "1002"]
+        },
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "unique",
+          "samples": ["ORD-100", "ORD-200"]
+        },
+        {
+          "name": "order_status",
+          "dataType": "STRING",
+          "samples": ["shipped", "pending"]
+        },
+        {
+          "name": "gmv_usd",
+          "dataType": "DECIMAL(12,2)",
+          "samples": ["128.50", "44.00"]
+        },
+        {
+          "name": "ordered_at",
+          "dataType": "TIMESTAMP",
+          "samples": ["2024-03-02T10:00:00Z"]
+        }
+      ]
+    },
+    {
+      "name": "gold_campaign_attribution",
+      "entityKind": "VIEW",
+      "columns": [
+        {
+          "name": "campaign_id",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "samples": ["cmp-100", "cmp-200"]
+        },
+        {
+          "name": "email",
+          "dataType": "STRING",
+          "keyKind": "unique",
+          "samples": ["ada@example.com", "grace@example.com"]
+        },
+        {
+          "name": "attributed_gmv",
+          "dataType": "DECIMAL(12,2)",
+          "samples": ["256.00"]
+        },
+        {
+          "name": "touch_count",
+          "dataType": "INT",
+          "samples": ["3", "5"]
+        }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    {
+      "fromTable": "fact_orders",
+      "fromColumn": "customer_sk",
+      "toTable": "dim_customer",
+      "toColumn": "customer_sk",
+      "constraintName": "fk_fact_orders_customer"
+    }
+  ]
+}

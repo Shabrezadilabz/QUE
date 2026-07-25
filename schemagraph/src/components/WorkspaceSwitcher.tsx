@@ -1,0 +1,157 @@
+import { useEffect, useId, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
+import { notifySchemaChanged } from '@/utils/schemaChangeBus'
+
+/**
+ * Workspace picker — click to open dropdown and switch active workspace.
+ * Switching reloads schema/sources/jobs for the selected workspace.
+ */
+export function WorkspaceSwitcher({
+  variant = 'nav',
+}: {
+  /** nav = primary nav look; compact = denser header chip */
+  variant?: 'nav' | 'compact'
+}) {
+  const { workspaces, workspaceId, setWorkspaceId } = useAuth()
+  const { role } = useWorkspaceRole()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const listId = useId()
+
+  const current =
+    workspaces.find((w) => w.id === workspaceId) ?? workspaces[0] ?? null
+  const onCanvas = location.pathname.startsWith('/workspace')
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  function selectWorkspace(id: string) {
+    if (id === workspaceId) {
+      setOpen(false)
+      navigate('/workspace')
+      return
+    }
+    setWorkspaceId(id)
+    setOpen(false)
+    notifySchemaChanged('manual')
+    navigate('/workspace')
+  }
+
+  if (!current && workspaces.length === 0) {
+    return (
+      <span className="font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
+        No workspace
+      </span>
+    )
+  }
+
+  const triggerClass =
+    variant === 'nav'
+      ? open || onCanvas
+        ? 'border-b-2 border-primary-fixed pb-1 font-label text-[11px] font-bold tracking-[0.12em] text-primary-fixed uppercase sm:text-xs'
+        : 'font-label text-[11px] font-bold tracking-[0.12em] text-on-surface-variant uppercase transition-colors hover:text-primary-fixed sm:text-xs'
+      : 'flex max-w-[12rem] items-center gap-xs border border-outline-variant bg-surface-container-high px-sm py-xs font-label text-[10px] font-bold tracking-[0.12em] text-primary-fixed uppercase hover:border-primary-fixed'
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-controls={listId}
+        title={
+          current
+            ? `${current.name} · ${role ?? current.role}`
+            : 'Select workspace'
+        }
+        onClick={() => setOpen((o) => !o)}
+        className={triggerClass}
+      >
+        <span className="inline-flex max-w-[10rem] items-center gap-1 truncate sm:max-w-[14rem]">
+          <span className="truncate">
+            {variant === 'nav'
+              ? current?.name ?? 'Workspace'
+              : current?.name ?? 'Workspace'}
+          </span>
+          <span aria-hidden className="shrink-0 text-[9px] opacity-70">
+            ▾
+          </span>
+        </span>
+      </button>
+
+      {open ? (
+        <div
+          id={listId}
+          role="listbox"
+          aria-label="Workspaces"
+          className="absolute top-full left-0 z-[120] mt-sm min-w-[14rem] border border-outline-variant bg-surface-container py-xs"
+        >
+          <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
+            SWITCH WORKSPACE
+          </p>
+          {workspaces.map((w) => {
+            const active = w.id === workspaceId
+            return (
+              <button
+                key={w.id}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => selectWorkspace(w.id)}
+                className={[
+                  'flex w-full items-start justify-between gap-md px-md py-sm text-left transition-colors',
+                  active
+                    ? 'bg-secondary-container border-l-2 border-primary-fixed'
+                    : 'border-l-2 border-transparent hover:bg-surface-container-high',
+                ].join(' ')}
+              >
+                <span>
+                  <span className="block font-body text-xs font-bold text-on-surface">
+                    {w.name}
+                  </span>
+                  <span className="mt-xs block font-label text-[9px] tracking-widest text-on-surface-variant uppercase">
+                    {w.slug} · {w.role}
+                  </span>
+                </span>
+                {active ? (
+                  <span className="font-label text-[9px] tracking-widest text-primary-fixed">
+                    ACTIVE
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+          <div className="mt-xs border-t border-outline-variant px-md py-sm">
+            <button
+              type="button"
+              className="font-label text-[10px] tracking-widest text-primary-fixed underline"
+              onClick={() => {
+                setOpen(false)
+                navigate('/workspace')
+              }}
+            >
+              OPEN CANVAS
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — 90-Day Strategic Plan</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      color: #1a1a1a;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 { font-size: 22pt; margin: 0 0 6px; letter-spacing: -0.02em; }
+    h2 {
+      font-size: 14pt;
+      margin: 28px 0 10px;
+      padding-bottom: 4px;
+      border-bottom: 2px solid #161e00;
+      page-break-after: avoid;
+    }
+    h3 { font-size: 11.5pt; margin: 18px 0 8px; page-break-after: avoid; }
+    h4 { font-size: 10.5pt; margin: 14px 0 6px; color: #3c4d00; }
+    p, li { margin: 0 0 6px; }
+    ul, ol { margin: 0 0 10px; padding-left: 1.3em; }
+    .meta { color: #444; font-size: 9.5pt; margin-bottom: 18px; }
+    .cover {
+      border: 2px solid #161e00;
+      padding: 28px 24px;
+      margin-bottom: 28px;
+      background: #f7f8f3;
+    }
+    .cover .brand {
+      font-size: 11pt;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #3c4d00;
+    }
+    .tattoo {
+      font-size: 12pt;
+      font-weight: 600;
+      margin: 12px 0 0;
+      padding: 12px 14px;
+      background: #eef0e6;
+      border-left: 4px solid #3c4d00;
+    }
+    .sev {
+      display: inline-block;
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .sev-p0 { background: #3c1a1a; color: #fff; }
+    .sev-p1 { background: #4d3c00; color: #fff; }
+    .strategy {
+      border: 1px solid #bbb;
+      padding: 14px 16px;
+      margin: 0 0 14px;
+      page-break-inside: avoid;
+      background: #fafaf7;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 14px;
+      font-size: 9pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #bbb;
+      padding: 5px 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #eef0e6; font-weight: 600; }
+    .gate {
+      display: inline-block;
+      width: 30%;
+      vertical-align: top;
+      border: 1px solid #bbb;
+      padding: 10px 12px;
+      margin: 0 1.5% 10px 0;
+      background: #f7f8f3;
+      page-break-inside: avoid;
+    }
+    .ban { color: #5a2020; }
+    .toc ol { font-size: 10.5pt; }
+    .toc a { color: #1a1a1a; text-decoration: none; }
+    .footer {
+      margin-top: 32px;
+      padding-top: 12px;
+      border-top: 1px solid #bbb;
+      font-size: 9pt;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que</div>
+  <h1>90-Day Strategic Plan</h1>
+  <p class="meta">
+    Expanded strategic suggestions (ordered by severity) · Product + GTM scorecard ·
+    Design-partner &amp; raise gates · Companion to Que Technical Documentation
+  </p>
+  <p class="tattoo">
+    Que is the schema-only stitch layer between messy sources and production jobs.
+  </p>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#category">Category decision &amp; buyer</a></li>
+    <li><a href="#strategies">Seven strategic suggestions</a></li>
+    <li><a href="#scorecard">90-day scorecard</a></li>
+    <li><a href="#phases">Phased plan</a></li>
+    <li><a href="#partner">Design-partner offer</a></li>
+    <li><a href="#demo">Demo script</a></li>
+    <li><a href="#raise">Raise gates</a></li>
+  </ol>
+</nav>
+
+<h2 id="category">1. Category decision &amp; buyer</h2>
+<p>
+  <strong>Choose A, kill B.</strong> A = schema-only stitch → production job tool.
+  B = lightweight catalog. Catalog + lineage is a bloody ocean (Atlan, Alation,
+  Collibra, DataHub, Purview, dbt Explorer, etc.). “Pretty schema graph” alone dies.
+</p>
+<ul>
+  <li><strong>Buyer (PO):</strong> Head of Data / Platform — owns pipeline quality and AI policy.</li>
+  <li><strong>Champion:</strong> Staff data / analytics engineer — daily promote/reject user.</li>
+  <li><strong>Blocker to neutralize:</strong> CISO / Legal — schema-only one-pager + audit, not lime-green diagrams.</li>
+</ul>
+<p class="ban">
+  <strong>Ban phrases:</strong> “AI workspace” · “SchemaGraph” · “Notion for data” · “modern catalog.”
+</p>
+
+<h2 id="strategies">2. Seven strategic suggestions (by severity)</h2>
+
+<div class="strategy">
+  <h3><span class="sev sev-p0">P0</span>1. Narrow the product to one job-to-be-done</h3>
+  <p>
+    Ship for 90 days on only this:
+    <em>Connect two sources → suggest joins → human promote/reject → emit a reviewable
+    stitch job (SQL + lineage note).</em>
+  </p>
+  <h4>Do</h4>
+  <ul>
+    <li>First-class sources: Postgres + Excel/CSV only until the loop is addictive.</li>
+    <li>Promote/reject is the habit metric (actions per partner per week).</li>
+    <li>Chat drafts the job; it is not the headline product.</li>
+  </ul>
+  <h4>Freeze / cut</h4>
+  <ul>
+    <li>Fancy PDF/PNG export theater; multi-connector vanity (Mongo/Databricks polish).</li>
+    <li>LLM cosplay / open-ended “AI workspace” framing.</li>
+  </ul>
+  <h4>Pass</h4>
+  <p>A partner completes 2-source stitch → promote → job artifact without a Zoom babysitter.</p>
+</div>
+
+<div class="strategy">
+  <h3><span class="sev sev-p0">P0</span>2. Make the output money</h3>
+  <p>
+    Export must plug into something people already run: <strong>dbt PR (default)</strong>,
+    Airflow/Dagster DAG stub, Snowflake worksheet, GitHub PR.
+    “Download JSON” is not value capture.
+  </p>
+  <h4>Do</h4>
+  <ul>
+    <li>One deep integration first — recommended: GitHub PR with dbt model + basic tests.</li>
+    <li>Every artifact: SQL + lineage note + approved join IDs + schema-only attestation stub.</li>
+    <li>Demo must answer yes: “Does this change production without copy-paste?”</li>
+  </ul>
+  <h4>Pass</h4>
+  <p>At least one design partner merges or schedules a Que-emitted artifact.</p>
+</div>
+
+<div class="strategy">
+  <h3><span class="sev sev-p1">P1</span>3. Prove the privacy claim with evidence</h3>
+  <p>
+    Publish a one-pager: what never leaves the customer network, what samples look like,
+    prompt redaction, audit log of schema packs. Sales ammo, not engineering trivia.
+  </p>
+  <h4>Do</h4>
+  <ul>
+    <li>Attach attestation to every job export (human summary + machine-readable stub).</li>
+    <li>Security call script treats CISO as blocker to clear, not buyer.</li>
+  </ul>
+  <h4>Pass</h4>
+  <p>Partner Legal/Security can approve a pilot from the one-pager alone.</p>
+</div>
+
+<div class="strategy">
+  <h3><span class="sev sev-p0">P0</span>4. Get 5 design partners before fundraising</h3>
+  <p>
+    Not “users.” Named teams with weekly calls and written pain
+    (“we spend N hours/week reconciling Excel↔Postgres joins”).
+    If you cannot get five, the market is telling you something.
+  </p>
+  <h4>ICP</h4>
+  <ul>
+    <li>Series B–D SaaS or fintech; 8–40 sources; no Collibra-scale budget.</li>
+    <li>Already on dbt/Airflow/Dagster; pressure to use AI safely.</li>
+  </ul>
+  <h4>Pass</h4>
+  <p>Five named orgs on the calendar with documented hours/week pain baseline.</p>
+</div>
+
+<div class="strategy">
+  <h3><span class="sev sev-p1">P1</span>5. Pricing that matches the buyer</h3>
+  <p>
+    Do not freemium into oblivion. Think <strong>per workspace / per connected source</strong>
+    with a hard schema-only guarantee. Free-forever catalog clones do not win this war.
+  </p>
+  <h4>Do</h4>
+  <ul>
+    <li>Pilot: fixed fee or $0 + case-study rights.</li>
+    <li>Paid target: workspace base + $/source; SSO/audit as later enterprise add-on.</li>
+    <li>Do not lead with per-seat pricing aimed at individuals who cannot sign a PO.</li>
+  </ul>
+  <h4>Pass</h4>
+  <p>Pricing sheet exists for Head of Data; ≥1 paid or priced LOI pilot.</p>
+</div>
+
+<div class="strategy">
+  <h3><span class="sev sev-p0">P0</span>6. Kill ambiguity in positioning</h3>
+  <p class="tattoo" style="margin-top:0">
+    Que is the schema-only stitch layer between messy sources and production jobs.
+  </p>
+  <h4>Do</h4>
+  <ul>
+    <li>Hero = brand + one sentence + one CTA (design partner / stitch demo).</li>
+    <li>Competitive frame: Cursor-for-joins / dbt-adjacent — not Alation/Collibra.</li>
+  </ul>
+  <h4>Pass</h4>
+  <p>A stranger repeats the tattoo sentence after a 60-second pitch.</p>
+</div>
+
+<div class="strategy">
+  <h3><span class="sev sev-p0">P0</span>7. Raise only when you have proof</h3>
+  <p>
+    Raise a real seed only when you have <strong>one of</strong>:
+    paid design partners, a measurable time-saved case study, or a proprietary
+    inference loop that improves with approved joins (HITL graph as training signal).
+    Until then: friends/family or bootstrap. Demo credentials and fixture Databricks
+    get crushed in diligence.
+  </p>
+  <h4>Hygiene</h4>
+  <ul>
+    <li>Before diligence: retire customer-facing <code>stitch_*</code> brand debt (product is Que).</li>
+  </ul>
+</div>
+
+<h2 id="scorecard">3. 90-day GTM + product scorecard</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Target (D90)</th>
+      <th>D30</th>
+      <th>D60</th>
+      <th>D90</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Design partners (named, weekly)</td>
+      <td>5</td><td>2</td><td>4</td><td>5</td>
+    </tr>
+    <tr>
+      <td>Core loop completions (no babysitter)</td>
+      <td>≥10</td><td>3</td><td>7</td><td>10+</td>
+    </tr>
+    <tr>
+      <td>Promote/reject actions / partner / week</td>
+      <td>≥5</td><td>2</td><td>4</td><td>5+</td>
+    </tr>
+    <tr>
+      <td>Artifacts merged/scheduled in their stack</td>
+      <td>≥1</td><td>0</td><td>1</td><td>2+</td>
+    </tr>
+    <tr>
+      <td>Privacy one-pager approved by partner Sec</td>
+      <td>Yes</td><td>Draft</td><td>Yes</td><td>Yes</td>
+    </tr>
+    <tr>
+      <td>Written hours-saved case study</td>
+      <td>1+</td><td>—</td><td>Draft</td><td>1+</td>
+    </tr>
+    <tr>
+      <td>Paid pilot or priced LOI</td>
+      <td>1+</td><td>—</td><td>Talks</td><td>1+</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="phases">4. Phased plan</h2>
+<h3>Days 1–30 — Nail the loop</h3>
+<ul>
+  <li>Freeze non-Postgres/Excel work; strip positioning to the tattoo sentence.</li>
+  <li>Ship promote/reject → SQL + lineage job as the only happy path.</li>
+  <li>Start GitHub → dbt PR export (even if rough).</li>
+  <li>Draft privacy one-pager; outreach to ~15 ICP accounts aiming for 5 partners.</li>
+</ul>
+<h3>Days 31–60 — Make output money</h3>
+<ul>
+  <li>First partner opens/merges a Que PR or schedules SQL.</li>
+  <li>Persist approve/reject graph (moat seed / Gate C).</li>
+  <li>Weekly partner calls; capture N hours/week pain in writing.</li>
+  <li>Pricing sheet v0 for Head of Data conversations.</li>
+</ul>
+<h3>Days 61–90 — Proof or pivot</h3>
+<ul>
+  <li>Hit 5 partners or formally revise ICP/JTBD.</li>
+  <li>Publish case study + privacy pack; kill customer-facing <code>stitch_*</code> debt.</li>
+  <li>Decide raise only if Gate A, B, or C is green — else bootstrap another cycle.</li>
+</ul>
+
+<h2 id="partner">5. Design-partner offer (script)</h2>
+<p>
+  We help teams stitch two messy sources under a hard schema-only AI policy,
+  get human join approval, and open a dbt PR (or equivalent) your engineers can merge —
+  in under a day for the first stitch.
+</p>
+<p>
+  <strong>You get:</strong> 90-day pilot, weekly 30-minute working session, priority on your two sources.<br />
+  <strong>We get:</strong> written pain baseline (hours/week), promote/reject usage, and a quote if it works.
+  No multi-year lock-in.
+</p>
+<p>
+  <strong>Ask:</strong> “How many hours/week does your team spend reconciling joins across
+  Excel/Postgres (or warehouse ↔ app DB)?”
+</p>
+
+<h2 id="demo">6. Demo script (kills “fancy notepad”)</h2>
+<table>
+  <thead>
+    <tr><th>Step</th><th>Show</th><th>Say</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Connect A + B</td>
+      <td>Metadata + capped samples only — rows never train a public model.</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Suggested joins</td>
+      <td>Confidence + why; you promote/reject — humans own truth.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Job artifact</td>
+      <td>SQL + lineage note + attestation — not a screenshot.</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>GitHub dbt PR</td>
+      <td>This lands where you already ship. No copy-paste graveyard.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Next sync</td>
+      <td>Approved joins persist — the graph gets smarter for your org.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="raise">7. Raise gates</h2>
+<div class="gate">
+  <h4>Gate A — Paid</h4>
+  <p>Paid design partner(s) or priced LOI.</p>
+</div>
+<div class="gate">
+  <h4>Gate B — Case study</h4>
+  <p>Named team + measurable hours saved on join discovery / stitch.</p>
+</div>
+<div class="gate">
+  <h4>Gate C — Moat</h4>
+  <p>HITL approved-join graph measurably improves inference for that org.</p>
+</div>
+<p style="clear:both">
+  Until one gate is green: friends/family or bootstrap. Fixture connectors and a rebrand
+  on a scaffold are not a seed thesis.
+</p>
+
+<div class="footer">
+  Que · 90-Day Strategic Plan · Keep with
+  <code>docs/Que-Technical-Documentation.html</code> · Update scorecard weekly.
+</div>
+
+</body>
+</html>

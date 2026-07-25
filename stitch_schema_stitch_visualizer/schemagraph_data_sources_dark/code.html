@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SchemaGraph | Data Sources</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..900&family=Space+Grotesk:wght@100..900&family=Space+Mono:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for terminal feel */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #0e0e0e; }
+        ::-webkit-scrollbar-thumb { background: #444933; }
+        ::-webkit-scrollbar-thumb:hover { background: #c3f400; }
+        
+        .grid-bg {
+            background-image: radial-gradient(#1f1f1f 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: rgba(195, 244, 0, 0.1);
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            animation: scan 8s linear infinite;
+            z-index: 50;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(100vh); }
+        }
+
+        .led-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .4; }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#131313",
+                        "tertiary": "#ffffff",
+                        "on-error-container": "#ffdad6",
+                        "surface": "#131313",
+                        "outline": "#8e9379",
+                        "surface-dim": "#131313",
+                        "primary": "#ffffff",
+                        "outline-variant": "#444933",
+                        "surface-bright": "#393939",
+                        "on-secondary": "#2b3040",
+                        "primary-container": "#c3f400",
+                        "on-tertiary-container": "#5a6579",
+                        "on-surface-variant": "#c4c9ac",
+                        "on-error": "#690005",
+                        "on-secondary-container": "#b0b4c9",
+                        "tertiary-fixed-dim": "#bcc7de",
+                        "surface-tint": "#abd600",
+                        "inverse-primary": "#506600",
+                        "on-surface": "#e2e2e2",
+                        "on-background": "#e2e2e2",
+                        "primary-fixed": "#c3f400",
+                        "surface-container": "#1f1f1f",
+                        "surface-container-low": "#1b1b1b",
+                        "surface-container-high": "#2a2a2a",
+                        "secondary-container": "#414658",
+                    },
+                    "spacing": {
+                        "xs": "4px", "sm": "8px", "md": "16px", "lg": "24px", "xl": "48px",
+                        "margin-mobile": "16px", "margin-desktop": "32px",
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Space Mono"],
+                        "headline-lg": ["Space Grotesk"],
+                        "body-md": ["JetBrains Mono"],
+                        "code-snippet": ["JetBrains Mono"],
+                    },
+                    "fontSize": {
+                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md selection:bg-primary-container selection:text-on-primary-fixed overflow-hidden h-screen flex">
+<div class="scanline"></div>
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 bg-surface-container dark:bg-surface-container border-r border-outline-variant dark:border-outline-variant w-64">
+<!-- Brand Header -->
+<div class="p-lg border-b border-outline-variant">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-black text-primary uppercase tracking-tighter">SchemaGraph</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant opacity-60">Data Engine v2.4</p>
+</div>
+<!-- Main Nav -->
+<nav class="flex-1 py-md">
+<div class="space-y-xs px-sm">
+<!-- Diagram -->
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright dark:hover:bg-surface-bright transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-label-caps text-label-caps">Diagram</span>
+</a>
+<!-- AI Chat -->
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright dark:hover:bg-surface-bright transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-label-caps text-label-caps">AI Chat</span>
+</a>
+<!-- Sources (ACTIVE) -->
+<a class="flex items-center gap-md bg-secondary-container text-primary-fixed border-l-4 border-primary-fixed px-md py-sm transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">database</span>
+<span class="font-label-caps text-label-caps">Sources</span>
+</a>
+<!-- Monitor -->
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright dark:hover:bg-surface-bright transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-caps text-label-caps">Monitor</span>
+</a>
+<!-- Logs -->
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright dark:hover:bg-surface-bright transition-all duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span class="font-label-caps text-label-caps">Logs</span>
+</a>
+</div>
+</nav>
+<!-- CTA & Footer -->
+<div class="p-md mt-auto border-t border-outline-variant">
+<button class="w-full bg-primary-container text-on-primary-fixed font-label-caps text-label-caps py-md px-md flex items-center justify-center gap-sm hover:brightness-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined">bolt</span>
+                Deploy Sync
+            </button>
+<div class="mt-md space-y-xs">
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-label-caps text-label-caps">Docs</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">support_agent</span>
+<span class="font-label-caps text-label-caps">Support</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-64 flex flex-col h-full bg-background grid-bg relative">
+<!-- TopNavBar Shell -->
+<header class="flex justify-between items-center px-margin-desktop w-full h-16 bg-background dark:bg-background border-b border-outline-variant dark:border-outline-variant z-30">
+<div class="flex items-center gap-lg">
+<div class="relative">
+<input class="bg-surface-container border border-outline-variant px-md py-sm text-body-sm text-on-surface focus:outline-none focus:border-primary-container w-64 font-code-snippet" placeholder="Search Data Sources..." type="text"/>
+<span class="absolute right-3 top-2 text-on-surface-variant material-symbols-outlined text-[18px]">search</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-primary-fixed transition-colors material-symbols-outlined">notifications</button>
+<button class="text-on-surface-variant hover:text-primary-fixed transition-colors material-symbols-outlined">help</button>
+<div class="h-8 w-8 bg-outline-variant border border-primary-fixed overflow-hidden">
+<img class="w-full h-full object-cover grayscale" data-alt="A professional headshot of a software engineer in a dark techwear jacket, set against a dark studio background with cyan and lime green rim lighting, minimal digital brutalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAe4pf6AMXciWdI0XSPSMZdBbOpFZUDfqK7MHXeMBfKKbfOrdFPi7MWOsZkM0qcP-GJ3bzcTPPPpihtKM_NO8Om7D75-4YtnFB5IDa4m9wL92ZHdK7M0z6cHbzXtCSBeMoEnoqUMEy2kvBQoZMFlVlNQLGXVmRtWsMzy0u-AicND8Kgr6JI5ND7xXtiJmhuoQ-0Bf6i8TM3I2QdPowMRGW6_5vHQDf89aySRLuUNnoYJf2wEwwxJyRC9JnsU2U5uR6j7lFz5LowBjQ"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Body -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Grid Content -->
+<section class="flex-1 p-margin-desktop overflow-y-auto">
+<div class="flex justify-between items-end mb-lg">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Connected Sources</h2>
+<p class="text-on-surface-variant font-code-snippet mt-xs">Active streams: 12 | Health: 98.4%</p>
+</div>
+<div class="flex gap-sm">
+<button class="border border-outline-variant px-md py-sm font-label-caps text-label-caps hover:bg-surface-bright transition-colors">Filter: ALL</button>
+<button class="bg-primary-container text-on-primary-fixed px-md py-sm font-label-caps text-label-caps hover:brightness-110">Add Source</button>
+</div>
+</div>
+<!-- Bento Grid of Sources -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+<!-- Source Card 1: Postgres -->
+<div class="bg-surface-container border border-primary-fixed p-lg group cursor-pointer relative overflow-hidden transition-all hover:bg-surface-container-high" onclick="openInspector('Production DB Cluster', 'PostgreSQL v15.4', 'online')">
+<div class="absolute top-0 right-0 p-sm">
+<div class="w-2 h-2 bg-primary-container led-pulse"></div>
+</div>
+<div class="flex items-start gap-md mb-lg">
+<div class="w-12 h-12 bg-surface-container-highest border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-fixed text-[24px]">storage</span>
+</div>
+<div>
+<h3 class="font-bold text-primary font-code-snippet">Production DB Cluster</h3>
+<p class="text-xs text-on-surface-variant font-label-caps">POSTGRESQL // AWS-US-EAST-1</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-sm mb-lg">
+<div class="bg-background p-sm border border-outline-variant">
+<p class="text-[10px] text-on-surface-variant font-label-caps">Latency</p>
+<p class="text-primary-fixed font-code-snippet">12ms</p>
+</div>
+<div class="bg-background p-sm border border-outline-variant">
+<p class="text-[10px] text-on-surface-variant font-label-caps">Throughput</p>
+<p class="text-primary-fixed font-code-snippet">1.4 GB/s</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-[10px] font-label-caps text-primary-fixed">STATUS: ACTIVE</span>
+<button class="text-on-surface-variant hover:text-primary-fixed material-symbols-outlined">sync</button>
+</div>
+</div>
+<!-- Source Card 2: Kafka -->
+<div class="bg-surface-container border border-outline-variant p-lg group cursor-pointer hover:border-primary-fixed transition-all" onclick="openInspector('Real-time Telemetry', 'Apache Kafka Stream', 'online')">
+<div class="absolute top-0 right-0 p-sm">
+<div class="w-2 h-2 bg-primary-container led-pulse"></div>
+</div>
+<div class="flex items-start gap-md mb-lg">
+<div class="w-12 h-12 bg-surface-container-highest border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-fixed text-[24px]">dynamic_feed</span>
+</div>
+<div>
+<h3 class="font-bold text-primary font-code-snippet">Real-time Telemetry</h3>
+<p class="text-xs text-on-surface-variant font-label-caps">KAFKA // CONFLUENT_CLOUD</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-sm mb-lg">
+<div class="bg-background p-sm border border-outline-variant">
+<p class="text-[10px] text-on-surface-variant font-label-caps">Uptime</p>
+<p class="text-primary-fixed font-code-snippet">99.99%</p>
+</div>
+<div class="bg-background p-sm border border-outline-variant">
+<p class="text-[10px] text-on-surface-variant font-label-caps">Lag</p>
+<p class="text-primary-fixed font-code-snippet">0.02s</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-[10px] font-label-caps text-primary-fixed">STATUS: STREAMING</span>
+<button class="text-on-surface-variant hover:text-primary-fixed material-symbols-outlined">sync</button>
+</div>
+</div>
+<!-- Source Card 3: Snowflake (Inactive) -->
+<div class="bg-surface-container-low border border-outline-variant p-lg opacity-60 grayscale group cursor-pointer hover:grayscale-0 hover:border-outline transition-all" onclick="openInspector('Data Warehouse Arch', 'Snowflake', 'offline')">
+<div class="absolute top-0 right-0 p-sm">
+<div class="w-2 h-2 border border-outline-variant"></div>
+</div>
+<div class="flex items-start gap-md mb-lg">
+<div class="w-12 h-12 bg-surface-container-highest border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-[24px]">cloud</span>
+</div>
+<div>
+<h3 class="font-bold text-primary font-code-snippet">Data Warehouse Arch</h3>
+<p class="text-xs text-on-surface-variant font-label-caps">SNOWFLAKE // AZURE-WEST</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-sm mb-lg">
+<div class="bg-background p-sm border border-outline-variant">
+<p class="text-[10px] text-on-surface-variant font-label-caps">Last Sync</p>
+<p class="text-on-surface-variant font-code-snippet">4h ago</p>
+</div>
+<div class="bg-background p-sm border border-outline-variant">
+<p class="text-[10px] text-on-surface-variant font-label-caps">Rows</p>
+<p class="text-on-surface-variant font-code-snippet">12.4M</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-[10px] font-label-caps text-on-surface-variant">STATUS: IDLE</span>
+<button class="text-on-surface-variant hover:text-primary-fixed material-symbols-outlined">sync_disabled</button>
+</div>
+</div>
+</div>
+<!-- Visualization Row -->
+<div class="mt-lg grid grid-cols-1 lg:grid-cols-2 gap-md h-64">
+<div class="bg-surface-container border border-outline-variant relative overflow-hidden p-md">
+<div class="flex justify-between items-start mb-md">
+<h4 class="font-label-caps text-label-caps text-primary">Global Ingestion Mesh</h4>
+<span class="text-[10px] text-primary-fixed font-code-snippet">LIVE_VIEW</span>
+</div>
+<div class="h-48 w-full relative">
+<!-- Simulated Chart Area -->
+<div class="absolute inset-0 flex items-end gap-1 px-sm">
+<div class="bg-primary-container/20 border-t-2 border-primary-container w-full h-[40%]"></div>
+<div class="bg-primary-container/20 border-t-2 border-primary-container w-full h-[60%]"></div>
+<div class="bg-primary-container/20 border-t-2 border-primary-container w-full h-[55%]"></div>
+<div class="bg-primary-container/20 border-t-2 border-primary-container w-full h-[80%]"></div>
+<div class="bg-primary-container/20 border-t-2 border-primary-container w-full h-[45%]"></div>
+<div class="bg-primary-container/20 border-t-2 border-primary-container w-full h-[30%]"></div>
+<div class="bg-primary-container/20 border-t-2 border-primary-container w-full h-[70%]"></div>
+<div class="bg-primary-container/20 border-t-2 border-primary-container w-full h-[90%]"></div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container border border-outline-variant relative overflow-hidden">
+<div class="absolute inset-0 flex items-center justify-center opacity-20">
+<span class="material-symbols-outlined text-[120px] text-primary">hub</span>
+</div>
+<div class="relative p-md h-full flex flex-col justify-between">
+<h4 class="font-label-caps text-label-caps text-primary">Node Connectivity Matrix</h4>
+<div class="space-y-sm">
+<div class="flex justify-between text-[10px] font-code-snippet">
+<span class="text-on-surface-variant">NODE_A (US_EAST)</span>
+<span class="text-primary-fixed">STABLE</span>
+</div>
+<div class="flex justify-between text-[10px] font-code-snippet">
+<span class="text-on-surface-variant">NODE_B (EU_WEST)</span>
+<span class="text-primary-fixed">STABLE</span>
+</div>
+<div class="flex justify-between text-[10px] font-code-snippet">
+<span class="text-on-surface-variant">NODE_C (ASIA_S)</span>
+<span class="text-on-error">RETRYING</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Detail Inspector Sidebar -->
+<aside class="w-80 bg-surface-container border-l border-outline-variant flex flex-col transform translate-x-full transition-transform duration-300" id="inspector">
+<div class="p-lg border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-label-caps text-label-caps text-primary">Connection Inspector</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" onclick="closeInspector()">close</button>
+</div>
+<div class="flex-1 overflow-y-auto p-lg space-y-lg">
+<!-- Identity Section -->
+<section>
+<label class="font-label-caps text-[10px] text-on-surface-variant block mb-sm">SOURCE_NAME</label>
+<h4 class="font-headline-lg-mobile text-primary mb-xs" id="inspector-name">Postgres Primary</h4>
+<div class="flex items-center gap-sm">
+<div class="w-2 h-2 bg-primary-container" id="inspector-led"></div>
+<span class="text-xs font-code-snippet text-primary-fixed uppercase" id="inspector-status">ACTIVE</span>
+</div>
+</section>
+<!-- Settings Form -->
+<section class="space-y-md">
+<div>
+<label class="font-label-caps text-[10px] text-on-surface-variant block mb-xs">ENDPOINT_URI</label>
+<input class="w-full bg-background border border-outline-variant p-sm text-xs font-code-snippet text-on-surface focus:border-primary-container outline-none" readonly="" type="text" value="db.cluster.aws.internal:5432"/>
+</div>
+<div>
+<label class="font-label-caps text-[10px] text-on-surface-variant block mb-xs">AUTH_METHOD</label>
+<select class="w-full bg-background border border-outline-variant p-sm text-xs font-code-snippet text-on-surface appearance-none outline-none focus:border-primary-container">
+<option>HMAC_SHA256</option>
+<option>OAUTH2_BEARER</option>
+<option>BASIC_SECRET</option>
+</select>
+</div>
+<div>
+<label class="font-label-caps text-[10px] text-on-surface-variant block mb-xs">SYNC_FREQUENCY</label>
+<div class="grid grid-cols-4 gap-xs">
+<button class="bg-primary-container text-on-primary-fixed text-[10px] py-1 font-bold">1M</button>
+<button class="bg-surface-container-highest text-on-surface-variant text-[10px] py-1">5M</button>
+<button class="bg-surface-container-highest text-on-surface-variant text-[10px] py-1">1H</button>
+<button class="bg-surface-container-highest text-on-surface-variant text-[10px] py-1">24H</button>
+</div>
+</div>
+</section>
+<!-- Logs View -->
+<section class="bg-background border border-outline-variant p-md">
+<h5 class="text-[10px] font-label-caps text-on-surface-variant mb-md">LATEST_EVENTS</h5>
+<div class="space-y-sm font-code-snippet text-[10px]">
+<div class="flex gap-sm">
+<span class="text-primary-fixed">[12:44:21]</span>
+<span class="text-on-surface">HEARTBEAT_ACK</span>
+</div>
+<div class="flex gap-sm">
+<span class="text-primary-fixed">[12:44:01]</span>
+<span class="text-on-surface">CURSOR_ADVANCED (+2.4k)</span>
+</div>
+<div class="flex gap-sm">
+<span class="text-on-error">[12:43:45]</span>
+<span class="text-on-surface">RETRIABLE_TIMEOUT_EXC</span>
+</div>
+</div>
+</section>
+</div>
+<div class="p-lg border-t border-outline-variant space-y-sm">
+<button class="w-full bg-primary-container text-on-primary-fixed font-label-caps text-label-caps py-md hover:brightness-110 active:scale-95 transition-all">Force Sync Now</button>
+<button class="w-full border border-on-error text-on-error font-label-caps text-label-caps py-md hover:bg-on-error hover:text-on-error-container transition-all">Terminate Stream</button>
+</div>
+</aside>
+</div>
+</main>
+<script>
+        const inspector = document.getElementById('inspector');
+        const inspectorName = document.getElementById('inspector-name');
+        const inspectorStatus = document.getElementById('inspector-status');
+        const inspectorLed = document.getElementById('inspector-led');
+
+        function openInspector(name, provider, status) {
+            inspectorName.innerText = name;
+            inspectorStatus.innerText = status === 'online' ? 'ACTIVE' : 'OFFLINE';
+            
+            if(status === 'online') {
+                inspectorLed.className = 'w-2 h-2 bg-primary-container led-pulse';
+                inspectorStatus.className = 'text-xs font-code-snippet text-primary-fixed uppercase';
+            } else {
+                inspectorLed.className = 'w-2 h-2 border border-outline-variant';
+                inspectorStatus.className = 'text-xs font-code-snippet text-on-surface-variant uppercase';
+            }
+
+            inspector.classList.remove('translate-x-full');
+        }
+
+        function closeInspector() {
+            inspector.classList.add('translate-x-full');
+        }
+
+        // Simple animation for the background visualization bars
+        setInterval(() => {
+            const bars = document.querySelectorAll('.h-48.w-full > div');
+            bars.forEach(bar => {
+                const height = Math.floor(Math.random() * 80) + 10;
+                bar.style.height = height + '%';
+                bar.style.transition = 'height 0.8s ease-in-out';
+            });
+        }, 1500);
+    </script>
+</body></html>

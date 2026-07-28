@@ -89,6 +89,12 @@ Get-Content db/008_production_spine.sql | docker exec -i stitch-pg psql -U stitc
 
 # Workspace BYOK LLM keys (encrypted)
 Get-Content db/009_workspace_secrets.sql | docker exec -i stitch-pg psql -U stitch -d stitch
+
+# Job notebooks (cells JSON)
+Get-Content db/010_job_notebook.sql | docker exec -i stitch-pg psql -U stitch -d stitch
+
+# Job runs (dry-run process history)
+Get-Content db/011_job_runs.sql | docker exec -i stitch-pg psql -U stitch -d stitch
 ```
 
 | Table | Purpose |

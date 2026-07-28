@@ -316,6 +316,42 @@ async function runSql(host, warehouseId, token, sql, config = {}) {
   return parseInlineResult(body)
 }
 
+/**
+ * Read-only live SQL against Databricks SQL warehouse (caller must lint first).
+ * @param {DatabricksConfig} config
+ * @param {string} sql
+ * @param {{ maxRows?: number }} [opts]
+ */
+export async function runReadonlyQuery(config = {}, sql, opts = {}) {
+  const host = String(config.host || '').replace(/^https?:\/\//, '')
+  const warehouseId = config.warehouseId
+  const token = config.token
+  if (!host || !warehouseId || !token) {
+    throw new Error(
+      'Databricks live run requires host, warehouseId, and token on the connection',
+    )
+  }
+  const maxRows = Math.min(Math.max(Number(opts.maxRows ?? 20), 1), 20)
+  const started = Date.now()
+  const rows = await runSql(host, warehouseId, token, sql, {
+    ...config,
+    timeoutMs: Math.min(Number(config.timeoutMs ?? 60_000), 90_000),
+  })
+  const sliced = rows.slice(0, maxRows)
+  const columns =
+    sliced.length > 0
+      ? Object.keys(sliced[0]).map((name) => ({ name, dataType: 'unknown' }))
+      : []
+  return {
+    engine: 'databricks',
+    columns,
+    rows: sliced,
+    rowCount: sliced.length,
+    truncated: rows.length > maxRows,
+    durationMs: Date.now() - started,
+  }
+}
+
 function parseInlineResult(body) {
   const cols = body.manifest?.schema?.columns || []
   const names = cols.map((c) => c.name)

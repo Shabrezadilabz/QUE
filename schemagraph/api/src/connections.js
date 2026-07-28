@@ -201,3 +201,40 @@ export async function deleteConnection(workspaceId, connectionId) {
   )
   return rowCount > 0
 }
+
+/** Internal — full config including secrets (never return to client). */
+export async function getConnectionSecrets(workspaceId, connectionId) {
+  const { rows } = await query(
+    `SELECT id, name, source_type, status, config_json
+     FROM connections
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, connectionId],
+  )
+  if (!rows[0]) return null
+  const row = rows[0]
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.source_type,
+    status: row.status,
+    config: row.config_json && typeof row.config_json === 'object' ? row.config_json : {},
+  }
+}
+
+/** List raw connections for runner target resolution (secrets stay server-side). */
+export async function listConnectionsRaw(workspaceId) {
+  const { rows } = await query(
+    `SELECT id, name, source_type, status, config_json
+     FROM connections
+     WHERE workspace_id = $1
+     ORDER BY name`,
+    [workspaceId],
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    type: row.source_type,
+    status: row.status,
+    config: row.config_json && typeof row.config_json === 'object' ? row.config_json : {},
+  }))
+}

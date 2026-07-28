@@ -200,3 +200,44 @@ async function sampleColumn(client, schema, table, column, limit) {
     return []
   }
 }
+
+/**
+ * Read-only query against a Postgres source (caller must lint SQL first).
+ * @param {PgConnectionConfig} config
+ * @param {string} sql
+ * @param {{ maxRows?: number, timeoutMs?: number }} [opts]
+ */
+export async function runReadonlyQuery(config, sql, opts = {}) {
+  const maxRows = Math.min(Math.max(Number(opts.maxRows ?? 20), 1), 20)
+  const timeoutMs = Math.min(Number(opts.timeoutMs ?? 20_000), 60_000)
+  return withSourceClient(config, async (client) => {
+    await client.query(`SET statement_timeout = ${Math.round(timeoutMs)}`)
+    const started = Date.now()
+    const { rows, fields } = await client.query(sql)
+    const sliced = rows.slice(0, maxRows)
+    return {
+      engine: 'postgresql',
+      columns: (fields || []).map((f) => ({
+        name: f.name,
+        dataType: String(f.dataTypeID || 'unknown'),
+      })),
+      rows: sliced.map((r) => {
+        const out = {}
+        for (const key of Object.keys(r)) {
+          const v = r[key]
+          out[key] =
+            v == null
+              ? null
+              : typeof v === 'object'
+                ? JSON.parse(JSON.stringify(v))
+                : v
+        }
+        return out
+      }),
+      rowCount: sliced.length,
+      truncated: rows.length > maxRows,
+      durationMs: Date.now() - started,
+    }
+  })
+}
+

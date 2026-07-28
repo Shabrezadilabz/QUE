@@ -15,6 +15,7 @@ import {
   listJobs,
   updateJob,
 } from './jobs.js'
+import { getJobRun, listJobRuns, runJob } from './jobRunner.js'
 import {
   createConnection,
   deleteConnection,
@@ -822,6 +823,67 @@ app.post(
   },
 )
 
+/**
+ * Notebook dry-run — validate SQL cells + schema sample previews (no warehouse).
+ * Body: { scope?: 'all'|'cell', cellId?, notebook?, mode?: 'dry_run' }
+ */
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/run',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const run = await runJob(
+        req.params.workspaceId,
+        req.params.jobId,
+        {
+          scope: req.body?.scope,
+          cellId: req.body?.cellId,
+          notebook: req.body?.notebook,
+          mode: req.body?.mode || 'dry_run',
+          connectionId: req.body?.connectionId,
+          maxRows: req.body?.maxRows,
+        },
+      )
+      res.status(201).json({ ok: true, run })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/jobs/:jobId/runs', async (req, res) => {
+  try {
+    const runs = await listJobRuns(
+      req.params.workspaceId,
+      req.params.jobId,
+      Number(req.query.limit) || 20,
+    )
+    res.json({ ok: true, runs })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get(
+  '/workspaces/:workspaceId/jobs/:jobId/runs/:runId',
+  async (req, res) => {
+    try {
+      const run = await getJobRun(
+        req.params.workspaceId,
+        req.params.jobId,
+        req.params.runId,
+      )
+      if (!run) {
+        res.status(404).json({ error: 'run not found' })
+        return
+      }
+      res.json({ ok: true, run })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 /** Drift alarms */
 app.get('/workspaces/:workspaceId/drift', async (req, res) => {
   try {
@@ -916,6 +978,9 @@ app.get('/', (_req, res) => {
       'POST /workspaces/:workspaceId/jobs',
       'PATCH /workspaces/:workspaceId/jobs/:jobId',
       'POST /workspaces/:workspaceId/jobs/:jobId/export',
+      'POST /workspaces/:workspaceId/jobs/:jobId/run',
+      'GET /workspaces/:workspaceId/jobs/:jobId/runs',
+      'GET /workspaces/:workspaceId/jobs/:jobId/runs/:runId',
       'GET /workspaces/:workspaceId/jobs/:jobId/contract/validate',
       'GET /workspaces/:workspaceId/drift',
       'POST /workspaces/:workspaceId/drift/:eventId/ack',

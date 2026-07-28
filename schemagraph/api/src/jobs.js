@@ -1,6 +1,7 @@
 /**
  * Jobs API — draft → freeze contract → export (JSON/SQL/dbt/dbt-pr).
  * Contract = schema snapshot + promoted joins + column types.
+ * Notebook cells (notebook_json) are the interactive source of truth (Step 2+).
  */
 import { randomUUID } from 'node:crypto'
 import { query } from './db.js'
@@ -13,8 +14,27 @@ import {
   validateContract,
 } from './contracts/contractFreeze.js'
 import { emitContractEvent } from './adapters/contractEvents.js'
+import {
+  buildNotebookFromFields,
+  normalizeNotebook,
+  primarySqlFromNotebook,
+  resolveNotebookInput,
+  syncNotebookAndSql,
+} from './jobNotebook.js'
 
 function mapJob(row) {
+  let notebook = normalizeNotebook(row.notebook_json)
+  if (notebook.length === 0) {
+    notebook = buildNotebookFromFields({
+      title: row.title,
+      notes: row.notes,
+      steps: row.steps ?? [],
+      sqlText: row.sql_text,
+      tables: row.tables ?? [],
+      status: row.status,
+    })
+  }
+  const notebookPersisted = normalizeNotebook(row.notebook_json).length > 0
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -23,8 +43,10 @@ function mapJob(row) {
     sources: row.sources ?? [],
     tables: row.tables ?? [],
     steps: row.steps ?? [],
-    sqlText: row.sql_text ?? null,
+    sqlText: row.sql_text ?? primarySqlFromNotebook(notebook),
     notes: row.notes ?? null,
+    notebook,
+    notebookPersisted,
     relationshipIds: row.relationship_ids ?? [],
     joinsSnapshot: row.joins_snapshot ?? [],
     schemaSnapshotId: row.schema_snapshot_id ?? null,
@@ -133,11 +155,16 @@ export async function createJob(workspaceId, body = {}) {
           freeze.contract?.schemaSnapshotLabel,
         )
 
+  const { notebook, sqlText } = resolveNotebookInput(
+    { ...body, title, status, tables, steps },
+    {},
+  )
+
   const { rows } = await query(
     `INSERT INTO jobs (
        id, workspace_id, title, status, sources, tables, steps, sql_text, notes,
-       relationship_ids, joins_snapshot, schema_snapshot_id, contract_json
-     ) VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10::jsonb,$11::jsonb,$12,$13::jsonb)
+       notebook_json, relationship_ids, joins_snapshot, schema_snapshot_id, contract_json
+     ) VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13,$14::jsonb)
      RETURNING *`,
     [
       id,
@@ -147,8 +174,9 @@ export async function createJob(workspaceId, body = {}) {
       JSON.stringify(body.sources ?? []),
       JSON.stringify(tables),
       JSON.stringify(steps),
-      body.sqlText ?? body.sql_text ?? null,
+      sqlText,
       body.notes ?? null,
+      JSON.stringify(notebook),
       JSON.stringify(freeze.relationshipIds),
       JSON.stringify(freeze.joinsSnapshot),
       freeze.schemaSnapshotId,
@@ -217,13 +245,29 @@ export async function updateJob(workspaceId, jobId, patch = {}) {
   const sources = patch.sources ?? existing.sources
   const tables = patch.tables ?? existing.tables
   const steps = patch.steps ?? existing.steps
-  const sqlText =
-    patch.sqlText !== undefined
-      ? patch.sqlText
-      : patch.sql_text !== undefined
-        ? patch.sql_text
-        : existing.sqlText
   const notes = patch.notes !== undefined ? patch.notes : existing.notes
+
+  let notebook = existing.notebook
+  let sqlText = existing.sqlText
+
+  if (Array.isArray(patch.notebook)) {
+    const synced = syncNotebookAndSql(
+      patch.notebook,
+      patch.sqlText !== undefined
+        ? patch.sqlText
+        : patch.sql_text !== undefined
+          ? patch.sql_text
+          : undefined,
+    )
+    notebook = synced.notebook
+    sqlText = synced.sqlText
+  } else if (patch.sqlText !== undefined || patch.sql_text !== undefined) {
+    const nextSql =
+      patch.sqlText !== undefined ? patch.sqlText : patch.sql_text
+    const synced = syncNotebookAndSql(existing.notebook, nextSql)
+    notebook = synced.notebook
+    sqlText = synced.sqlText
+  }
 
   let relationshipIds = existing.relationshipIds
   let joinsSnapshot = existing.joinsSnapshot
@@ -256,10 +300,11 @@ export async function updateJob(workspaceId, jobId, patch = {}) {
        steps = $7::jsonb,
        sql_text = $8,
        notes = $9,
-       relationship_ids = $10::jsonb,
-       joins_snapshot = $11::jsonb,
-       schema_snapshot_id = $12,
-       contract_json = $13::jsonb,
+       notebook_json = $10::jsonb,
+       relationship_ids = $11::jsonb,
+       joins_snapshot = $12::jsonb,
+       schema_snapshot_id = $13,
+       contract_json = $14::jsonb,
        updated_at = now()
      WHERE workspace_id = $1 AND id = $2
      RETURNING *`,
@@ -273,6 +318,7 @@ export async function updateJob(workspaceId, jobId, patch = {}) {
       JSON.stringify(steps),
       sqlText,
       notes,
+      JSON.stringify(notebook ?? []),
       JSON.stringify(relationshipIds ?? []),
       JSON.stringify(joinsSnapshot ?? []),
       schemaSnapshotId,
@@ -328,6 +374,7 @@ export async function exportJob(workspaceId, jobId, format = 'json', options = {
       steps: job.steps,
       notes: job.notes,
       sql: job.sqlText,
+      notebook: job.notebook,
       relationshipIds: job.relationshipIds,
       joinsSnapshot: job.joinsSnapshot,
       schemaSnapshotId: job.schemaSnapshotId,
@@ -337,6 +384,7 @@ export async function exportJob(workspaceId, jobId, format = 'json', options = {
 
   if (format === 'sql') {
     payload.sql =
+      primarySqlFromNotebook(job.notebook) ||
       job.sqlText ||
       `-- Que job: ${job.title}\n` +
         `-- Contract snapshot: ${job.schemaSnapshotId || 'none'}\n` +

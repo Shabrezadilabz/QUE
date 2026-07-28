@@ -346,6 +346,13 @@ export interface SamplePreview {
   rowCount: number
 }
 
+export interface JobNotebookCell {
+  id: string
+  kind: 'markdown' | 'sql'
+  title?: string
+  content: string
+}
+
 export interface ChatJobDraft {
   title: string
   status: string
@@ -354,6 +361,7 @@ export interface ChatJobDraft {
   steps: { id: number; action: string; detail: string }[]
   notes?: string
   sqlText?: string | null
+  notebook?: JobNotebookCell[]
 }
 
 export interface RetrievedChunk {
@@ -517,6 +525,9 @@ export interface StitchJob {
   steps: { id: number; action: string; detail: string }[]
   sqlText: string | null
   notes: string | null
+  notebook: JobNotebookCell[]
+  /** false when API derived cells from legacy fields — UI may backfill once */
+  notebookPersisted?: boolean
   relationshipIds?: string[]
   joinsSnapshot?: {
     id: string
@@ -568,6 +579,49 @@ export async function createJobFromDraft(
       steps: draft.steps,
       notes: draft.notes,
       sqlText: draft.sqlText ?? null,
+      notebook: draft.notebook,
+    }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    job?: StitchJob
+    error?: string
+  }
+  if (!res.ok || !body.job) {
+    throw new Error(body.error ?? `create job ${res.status}`)
+  }
+  return body.job
+}
+
+/** Manual job create from Jobs page (no AI chat required). */
+export async function createManualJob(
+  input: {
+    title: string
+    tables?: string[]
+    sources?: string[]
+    notes?: string
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<StitchJob> {
+  const title = String(input.title || '').trim() || 'Untitled Que job'
+  const tables = (input.tables || []).map(String).filter(Boolean)
+  const res = await apiFetch(`/workspaces/${workspaceId}/jobs`, {
+    method: 'POST',
+    body: JSON.stringify({
+      title,
+      status: 'draft',
+      sources: input.sources ?? [],
+      tables,
+      notes:
+        input.notes ??
+        'Created manually from Jobs. Edit notebook cells, then dry-run / live-run / deploy.',
+      sqlText:
+        tables.length >= 2
+          ? null
+          : [
+              '-- Manual Que notebook',
+              '-- Write your stitch SQL below, then SAVE and RUN.',
+              'SELECT 1 AS que_ready;',
+            ].join('\n'),
     }),
   })
   const body = (await res.json().catch(() => ({}))) as {
@@ -610,6 +664,7 @@ export async function updateJob(
     notes: string | null
     sqlText: string | null
     steps: StitchJob['steps']
+    notebook: JobNotebookCell[]
     refreezeContract: boolean
     refreezeJoins: boolean
   }>,
@@ -629,6 +684,119 @@ export async function updateJob(
     throw new Error(body.error ?? `update job ${res.status}`)
   }
   return body.job
+}
+
+export type JobRunStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+
+export interface JobRunLog {
+  ts: string
+  level: 'info' | 'warn' | 'error' | string
+  message: string
+}
+
+export interface JobRunSamplePreview {
+  table: string
+  connection?: string | null
+  sourceType?: string | null
+  policy?: string
+  note?: string
+  columns: { name: string; dataType: string; keyKind: string }[]
+  rows: Record<string, unknown>[]
+  rowCount: number
+  cellId?: string
+  cellTitle?: string
+}
+
+export interface JobRunLiveResult {
+  cellId: string
+  cellTitle?: string
+  connectionId?: string
+  connectionName?: string
+  engine?: string
+  columns: { name: string; dataType?: string }[]
+  rows: Record<string, unknown>[]
+  rowCount: number
+  truncated?: boolean
+  durationMs?: number
+  sqlExecuted?: string
+  policy?: string
+}
+
+export interface JobRun {
+  id: string
+  workspaceId: string
+  jobId: string
+  status: JobRunStatus
+  scope: 'all' | 'cell'
+  cellId: string | null
+  mode: 'dry_run' | 'live'
+  summary: string | null
+  logs: JobRunLog[]
+  output: {
+    mode?: string
+    policy?: string
+    note?: string
+    cellResults?: {
+      cellId: string
+      kind: string
+      title?: string
+      status: string
+      issues?: { level: string; message: string }[]
+      tableRefs?: string[]
+    }[]
+    samplePreviews?: JobRunSamplePreview[]
+    liveResults?: JobRunLiveResult[]
+    connection?: { id: string; name: string; type: string } | null
+    contractSnapshotId?: string | null
+    error?: string
+  }
+  startedAt: string | null
+  finishedAt: string | null
+  createdAt: string
+}
+
+/** Run notebook cells — dry_run (schema) or live (read-only SQL on source). */
+export async function runJobNotebook(
+  jobId: string,
+  body: {
+    scope?: 'all' | 'cell'
+    cellId?: string
+    notebook?: JobNotebookCell[]
+    mode?: 'dry_run' | 'live' | 'validate'
+    connectionId?: string
+    maxRows?: number
+  } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<JobRun> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/jobs/${jobId}/run`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  const payload = (await res.json().catch(() => ({}))) as {
+    run?: JobRun
+    error?: string
+  }
+  if (!res.ok || !payload.run) {
+    throw new Error(payload.error ?? `run job ${res.status}`)
+  }
+  return payload.run
+}
+
+export async function fetchJobRuns(
+  jobId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<JobRun[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/runs?limit=20`,
+  )
+  if (!res.ok) throw new Error(`runs ${res.status}`)
+  const body = (await res.json()) as { runs: JobRun[] }
+  return body.runs || []
 }
 
 export async function exportJobArtifact(

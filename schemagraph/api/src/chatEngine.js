@@ -19,6 +19,7 @@ import { vectorExtensionReady } from './ai/vectorStore.js'
 import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
 import { resolveProviderKeys } from './secrets.js'
+import { buildNotebookFromFields } from './jobNotebook.js'
 
 function finalizeChatResult(result, pack) {
   return attachSamplePreviews(result, pack, 3, 5)
@@ -652,13 +653,14 @@ function draftJob(pack, mentioned, message) {
       'Draft only — generated from schema metadata. No raw rows were read by the assistant.',
     sqlText: focus.length >= 2 ? proposeHeuristicSql(focus[0], focus[1]) : null,
   }
+  jobDraft.notebook = buildNotebookFromFields(jobDraft)
 
   return {
     reply:
-      `Created a **job draft** from schema context (not executed).\n\n` +
-      `**${jobDraft.title}**\n` +
+      `Created a **job draft** (notebook) from schema context (not executed).\n\n` +
+      `**${jobDraft.title}** · ${jobDraft.notebook.length} cell(s)\n` +
       jobDraft.steps.map((s) => `${s.id}. ${s.action} — ${s.detail}`).join('\n') +
-      `\n\nSave it from chat, then open **Jobs** to mark ready / export.`,
+      `\n\nSave it from chat, then open **Jobs** to review the notebook / export.`,
     citations: focus.map((t) => t.name),
     jobDraft,
     referencedTables: focus.map(compactTable),

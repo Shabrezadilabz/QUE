@@ -62,6 +62,9 @@ export interface MainCanvasProps {
   onRejectRelationship?: (relationshipId: string) => void | Promise<void>
   /** Disable drag / auto-layout / layout persist (viewers) */
   readOnly?: boolean
+  /** Open two-source stitch session (top-right canvas action) */
+  onOpenStitchSession?: () => void
+  stitchSessionLabel?: string
   /** Optional overlay (MiniMap). */
   miniMap?: ReactNode
   className?: string
@@ -103,6 +106,8 @@ export function MainCanvas({
   onPromoteRelationship,
   onRejectRelationship,
   readOnly = false,
+  onOpenStitchSession,
+  stitchSessionLabel = 'STITCH SESSION · 2 SOURCES',
   miniMap,
   className = '',
 }: MainCanvasProps) {
@@ -514,64 +519,110 @@ export function MainCanvas({
         emitAction({ type: 'background-click' })
       }}
     >
-      {/* ── Toolbar (screen-fixed, outside world transform) ─────────────── */}
+      {/* ── Toolbar (floating glass pill — Sunset Clay) ─────────────────── */}
       <div
-        className="absolute left-md top-md z-30 flex gap-xs"
+        className="absolute left-md top-md z-30 flex items-center gap-sm rounded-xl border border-outline-variant/30 bg-white/80 p-sm shadow-sm backdrop-blur-md"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
         <ToolbarButton
           label={
             handTool
-              ? 'Hand tool on — drag to move screen (Space also pans)'
+              ? 'Hand tool on — drag to pan'
               : 'Hand tool off — click to enable grab-pan'
           }
           onClick={() => setHandTool((v) => !v)}
-          wide
           active={handTool || spaceHeld}
         >
-          {spaceHeld ? 'HAND (SPACE)' : handTool ? 'HAND ON' : 'HAND OFF'}
+          <HandIcon />
         </ToolbarButton>
+        <ToolbarButton
+          label="Select / navigate"
+          onClick={() => setHandTool(false)}
+          active={!handTool && !spaceHeld}
+        >
+          <SelectIcon />
+        </ToolbarButton>
+        <div className="mx-xs h-6 w-px self-center bg-outline-variant/30" />
         <ToolbarButton
           label="Zoom in"
           onClick={() => setZoom(viewport.zoom + ZOOM_STEP)}
+          chip
         >
           +
         </ToolbarButton>
         <ToolbarButton
           label="Zoom out"
           onClick={() => setZoom(viewport.zoom - ZOOM_STEP)}
+          chip
         >
           −
         </ToolbarButton>
-        <div className="mx-xs h-8 w-px bg-outline-variant" />
-        <span className="flex h-8 items-center border border-outline-variant bg-surface-container px-sm font-label text-[10px] tracking-widest text-on-surface-variant">
+        <span className="hidden h-8 items-center px-sm font-label text-[10px] tracking-widest text-on-surface-variant sm:flex">
           {Math.round(viewport.zoom * 100)}%
         </span>
+        <div className="mx-xs hidden h-6 w-px self-center bg-outline-variant/30 sm:block" />
         <ToolbarButton
           label={snapToGridEnabled ? 'Snap to grid on' : 'Snap to grid off'}
           onClick={() => setSnapToGridEnabled(!snapToGridEnabled)}
-          wide
           active={snapToGridEnabled}
+          wide
         >
-          SNAP {snapToGridEnabled ? 'ON' : 'OFF'}
+          Snap
         </ToolbarButton>
         <ToolbarButton
-          label={
-            readOnly
-              ? 'Auto layout (read-only)'
-              : 'Auto layout'
-          }
+          label={readOnly ? 'Auto layout (read-only)' : 'Auto layout'}
           onClick={autoLayout}
           wide
         >
-          AUTO-LAYOUT
+          Layout
         </ToolbarButton>
         {readOnly ? (
-          <span className="flex h-8 items-center border border-outline-variant px-sm font-label text-[9px] tracking-widest text-on-surface-variant">
-            VIEW ONLY
+          <span className="flex h-8 items-center rounded-lg px-sm font-label text-[9px] tracking-widest text-on-surface-variant">
+            VIEW
           </span>
         ) : null}
+      </div>
+
+      {onOpenStitchSession ? (
+        <div
+          className="absolute top-md right-md z-30"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={onOpenStitchSession}
+            className="rounded-xl border border-primary/30 bg-white/90 px-md py-sm font-label text-[10px] font-bold tracking-[0.14em] text-primary shadow-sm uppercase backdrop-blur-md hover:bg-primary-container hover:text-on-primary"
+          >
+            {stitchSessionLabel}
+          </button>
+        </div>
+      ) : null}
+
+      {/* Stats widget — bottom left */}
+      <div
+        className="absolute bottom-md left-md z-30 flex gap-lg rounded-xl border border-outline-variant/30 bg-white/60 p-md shadow-sm backdrop-blur-md"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
+            Total Nodes
+          </span>
+          <span className="font-headline text-2xl font-semibold text-primary">
+            {String(visibleTables.length).padStart(2, '0')}
+          </span>
+        </div>
+        <div className="h-8 w-px self-center bg-outline-variant/30" />
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
+            Relationships
+          </span>
+          <span className="font-headline text-2xl font-semibold text-tertiary">
+            {String(visibleRelationships.length).padStart(2, '0')}
+          </span>
+        </div>
       </div>
 
       {/* ── World: SVG edges + table cards ──────────────────────────────── */}
@@ -633,12 +684,15 @@ function ToolbarButton({
   label,
   wide,
   active,
+  chip,
 }: {
   children: ReactNode
   onClick: () => void
   label: string
   wide?: boolean
   active?: boolean
+  /** Soft fill for zoom +/- */
+  chip?: boolean
 }) {
   return (
     <button
@@ -648,16 +702,59 @@ function ToolbarButton({
       onClick={onClick}
       className={
         wide
-          ? `border px-md py-sm font-label text-[11px] font-bold tracking-widest ${
+          ? `rounded-lg px-sm py-sm font-label text-[11px] font-medium tracking-wide transition-colors ${
               active
-                ? 'border-primary-fixed bg-primary-fixed/10 text-primary-fixed'
-                : 'border-outline-variant bg-surface-container text-on-surface hover:border-primary-fixed'
+                ? 'bg-secondary-container text-primary'
+                : 'text-on-surface-variant hover:bg-secondary-container/70'
             }`
-          : 'flex h-8 w-8 items-center justify-center border border-outline-variant bg-surface-container text-on-surface hover:border-primary-fixed'
+          : chip
+            ? `flex h-9 min-w-9 items-center justify-center rounded-lg bg-secondary-container/55 px-sm font-label text-sm font-semibold text-on-surface-variant transition-colors hover:bg-secondary-container ${
+                active ? 'text-primary' : ''
+              }`
+            : `flex h-9 min-w-9 items-center justify-center rounded-lg px-sm font-label text-[11px] font-medium transition-colors ${
+                active
+                  ? 'bg-secondary-container text-primary'
+                  : 'text-on-surface-variant hover:bg-secondary-container/70'
+              }`
       }
     >
       {children}
     </button>
+  )
+}
+
+function HandIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12" />
+      <path d="M11 11.5V5.5a1.5 1.5 0 0 1 3 0V12" />
+      <path d="M14 11V7a1.5 1.5 0 0 1 3 0v6.5" />
+      <path d="M17 12.5V11a1.5 1.5 0 0 1 3 0v4c0 3.5-2.5 6-6.5 6h-1.2C10 21 7 18.5 7 15.2V12a1.5 1.5 0 0 1 3 0v1" />
+    </svg>
+  )
+}
+
+function SelectIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M5.5 3.2 18.8 12.4a.7.7 0 0 1-.25 1.25l-5.35 1.35-2.3 5.55a.7.7 0 0 1-1.3.05L5.2 4.1a.7.7 0 0 1 .3-.9Z" />
+    </svg>
   )
 }
 

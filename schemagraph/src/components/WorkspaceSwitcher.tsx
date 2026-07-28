@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
+import { workspaceNavTriggerClass } from '@/components/primaryNavStyles'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 
 /**
@@ -64,10 +65,8 @@ export function WorkspaceSwitcher({
 
   const triggerClass =
     variant === 'nav'
-      ? open || onCanvas
-        ? 'border-b-2 border-primary-fixed pb-1 font-label text-[11px] font-bold tracking-[0.12em] text-primary-fixed uppercase sm:text-xs'
-        : 'font-label text-[11px] font-bold tracking-[0.12em] text-on-surface-variant uppercase transition-colors hover:text-primary-fixed sm:text-xs'
-      : 'flex max-w-[12rem] items-center gap-xs border border-outline-variant bg-surface-container-high px-sm py-xs font-label text-[10px] font-bold tracking-[0.12em] text-primary-fixed uppercase hover:border-primary-fixed'
+      ? workspaceNavTriggerClass({ emphasized: open || onCanvas })
+      : 'flex max-w-[12rem] items-center gap-xs rounded-lg border border-outline-variant/50 bg-surface-container-high px-sm py-xs font-label text-[10px] font-semibold tracking-[0.12em] text-primary-container uppercase hover:border-primary'
 
   return (
     <div className="relative" ref={rootRef}>
@@ -85,12 +84,8 @@ export function WorkspaceSwitcher({
         className={triggerClass}
       >
         <span className="inline-flex max-w-[10rem] items-center gap-1 truncate sm:max-w-[14rem]">
-          <span className="truncate">
-            {variant === 'nav'
-              ? current?.name ?? 'Workspace'
-              : current?.name ?? 'Workspace'}
-          </span>
-          <span aria-hidden className="shrink-0 text-[9px] opacity-70">
+          <span className="truncate">{current?.name ?? 'Workspace'}</span>
+          <span aria-hidden className="shrink-0 text-[10px] opacity-70">
             ▾
           </span>
         </span>
@@ -101,7 +96,7 @@ export function WorkspaceSwitcher({
           id={listId}
           role="listbox"
           aria-label="Workspaces"
-          className="absolute top-full left-0 z-[120] mt-sm min-w-[14rem] border border-outline-variant bg-surface-container py-xs"
+          className="absolute top-full left-0 z-[120] mt-sm min-w-[15rem] overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container-lowest py-xs shadow-lg"
         >
           <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
             SWITCH WORKSPACE
@@ -118,36 +113,36 @@ export function WorkspaceSwitcher({
                 className={[
                   'flex w-full items-start justify-between gap-md px-md py-sm text-left transition-colors',
                   active
-                    ? 'bg-secondary-container border-l-2 border-primary-fixed'
+                    ? 'border-l-2 border-primary bg-secondary-container'
                     : 'border-l-2 border-transparent hover:bg-surface-container-high',
                 ].join(' ')}
               >
                 <span>
-                  <span className="block font-body text-xs font-bold text-on-surface">
+                  <span className="block font-body text-sm font-semibold text-on-surface">
                     {w.name}
                   </span>
-                  <span className="mt-xs block font-label text-[9px] tracking-widest text-on-surface-variant uppercase">
+                  <span className="mt-xs block font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
                     {w.slug} · {w.role}
                   </span>
                 </span>
                 {active ? (
-                  <span className="font-label text-[9px] tracking-widest text-primary-fixed">
+                  <span className="font-label text-[9px] tracking-widest text-primary">
                     ACTIVE
                   </span>
                 ) : null}
               </button>
             )
           })}
-          <div className="mt-xs border-t border-outline-variant px-md py-sm">
+          <div className="mt-xs border-t border-outline-variant/30 px-md py-sm">
             <button
               type="button"
-              className="font-label text-[10px] tracking-widest text-primary-fixed underline"
+              className="font-label text-[11px] tracking-wide text-primary underline"
               onClick={() => {
                 setOpen(false)
                 navigate('/workspace')
               }}
             >
-              OPEN CANVAS
+              Open canvas
             </button>
           </div>
         </div>

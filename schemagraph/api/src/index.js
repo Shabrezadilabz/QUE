@@ -42,6 +42,8 @@ import {
   validateContract,
 } from './contracts/contractFreeze.js'
 import { listOutbox } from './adapters/contractEvents.js'
+import { inferJoinsForWorkspace } from './inferJoins.js'
+import { runStitchSession } from './stitchSession.js'
 import {
   attachUploadedFiles,
   createSpreadsheetFromUploads,
@@ -53,6 +55,7 @@ import { getSecretsStatus, setSecret } from './secrets.js'
 import {
   authDisabled,
   ensureDevUserPassword,
+  getSsoConfig,
   listWorkspacesForUser,
   login,
   logout,
@@ -128,6 +131,11 @@ app.get('/auth/me', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) })
   }
+})
+
+/** SSO readiness (OIDC env) — full IdP login flow is a follow-up. */
+app.get('/auth/sso', (_req, res) => {
+  res.json({ ok: true, sso: getSsoConfig() })
 })
 
 app.get('/workspaces', requireAuth, async (req, res) => {
@@ -409,23 +417,62 @@ app.patch(
       return
     }
     try {
+      const { rows: beforeRows } = await query(
+        `SELECT id, status, relation_type, confidence, evidence_json
+         FROM relationships WHERE id = $1 AND workspace_id = $2`,
+        [relationshipId, workspaceId],
+      )
+      if (beforeRows.length === 0) {
+        res.status(404).json({ error: 'relationship not found' })
+        return
+      }
+      const before = beforeRows[0]
       const nextStatus = action === 'promote' ? 'accepted' : 'rejected'
       const nextType = action === 'promote' ? 'explicit' : undefined
+      const nextConfidence = action === 'promote' ? 1 : before.confidence
+
       const { rows } = await query(
         `UPDATE relationships SET
            status = $3,
            relation_type = COALESCE($4, relation_type),
+           confidence = $5,
            updated_at = now()
          WHERE id = $1 AND workspace_id = $2
          RETURNING id, status, relation_type, confidence, join_criteria, label, ai_notes,
-                   from_object_id, from_column_id, to_object_id, to_column_id`,
-        [relationshipId, workspaceId, nextStatus, nextType ?? null],
+                   from_object_id, from_column_id, to_object_id, to_column_id, evidence_json`,
+        [
+          relationshipId,
+          workspaceId,
+          nextStatus,
+          nextType ?? null,
+          nextConfidence,
+        ],
       )
-      if (rows.length === 0) {
-        res.status(404).json({ error: 'relationship not found' })
-        return
+
+      try {
+        await query(
+          `INSERT INTO relationship_review_events (
+             workspace_id, relationship_id, action, actor_user_id,
+             previous_status, previous_type, previous_confidence, evidence_json
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)`,
+          [
+            workspaceId,
+            relationshipId,
+            action,
+            req.user?.id ?? null,
+            before.status,
+            before.relation_type,
+            before.confidence,
+            JSON.stringify(before.evidence_json || {}),
+          ],
+        )
+      } catch (auditErr) {
+        console.warn(
+          '[Que] relationship_review_events insert skipped:',
+          auditErr.message || auditErr,
+        )
       }
-      // Fire-and-forget RAG reindex so join changes land in vector store
+
       void reindexWorkspace(workspaceId).catch((err) =>
         console.warn('[Que] reindex after promote/reject:', err.message || err),
       )
@@ -447,10 +494,73 @@ app.patch(
           joinCriteria: r.join_criteria ?? undefined,
           label: r.label ?? undefined,
           aiNotes: r.ai_notes ?? undefined,
+          evidence:
+            r.evidence_json && typeof r.evidence_json === 'object'
+              ? r.evidence_json
+              : undefined,
         },
       })
     } catch (err) {
       res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/**
+ * Re-run cross-source join inference without a full introspect sync.
+ * Body: { connectionId?: string }
+ */
+app.post(
+  '/workspaces/:workspaceId/join-inference',
+  requireMinRole('member'),
+  async (req, res) => {
+    const { workspaceId } = req.params
+    const connectionId =
+      typeof req.body?.connectionId === 'string' && req.body.connectionId
+        ? req.body.connectionId
+        : null
+    try {
+      if (connectionId) {
+        const conn = await getConnection(workspaceId, connectionId)
+        if (!conn) {
+          res.status(404).json({ error: 'connection not found' })
+          return
+        }
+      }
+      const result = await inferJoinsForWorkspace(workspaceId, { connectionId })
+      void reindexWorkspace(workspaceId).catch((err) =>
+        console.warn('[Que] reindex after join-inference:', err.message || err),
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/**
+ * Two-source stitch session: infer joins between A and B, optionally create job.
+ * Body: { connectionIdA, connectionIdB, createJob?, jobTitle? }
+ */
+app.post(
+  '/workspaces/:workspaceId/stitch-session',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await runStitchSession(req.params.workspaceId, {
+        connectionIdA: req.body?.connectionIdA,
+        connectionIdB: req.body?.connectionIdB,
+        createJob: req.body?.createJob === true,
+        shipDbtPr: req.body?.shipDbtPr === true,
+        jobTitle: req.body?.jobTitle,
+        actorUserId: req.user?.id || null,
+      })
+      void reindexWorkspace(req.params.workspaceId).catch((err) =>
+        console.warn('[Que] reindex after stitch-session:', err.message || err),
+      )
+      res.json(result)
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
     }
   },
 )
@@ -806,6 +916,7 @@ app.post(
           githubBaseBranch: req.body?.githubBaseBranch,
           branchName: req.body?.branchName,
           force: req.body?.force === true,
+          actorUserId: req.user?.id || null,
         },
       )
       if (!result) {
@@ -961,6 +1072,7 @@ app.get('/', (_req, res) => {
       'POST /auth/login',
       'POST /auth/logout',
       'GET /auth/me',
+      'GET /auth/sso',
       'GET /workspaces',
       'GET /workspaces/:workspaceId/sources',
       'POST /workspaces/:workspaceId/connections',
@@ -987,6 +1099,8 @@ app.get('/', (_req, res) => {
       'GET /workspaces/:workspaceId/events/outbox',
       'PUT /workspaces/:workspaceId/layout',
       'PATCH /workspaces/:workspaceId/relationships/:relationshipId',
+      'POST /workspaces/:workspaceId/join-inference',
+      'POST /workspaces/:workspaceId/stitch-session',
       'POST /workspaces/:workspaceId/connections/:connectionId/sync',
       'POST /workspaces/:workspaceId/chat',
       'POST /workspaces/:workspaceId/chat/feedback',

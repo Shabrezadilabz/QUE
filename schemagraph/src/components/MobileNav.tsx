@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 
 const links = [
+  { to: '/workspace', label: 'Workspace' },
   { to: '/chat', label: 'AI Chat' },
   { to: '/sources', label: 'Sources' },
   { to: '/jobs', label: 'Jobs' },
@@ -12,8 +13,8 @@ const links = [
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   isActive
-    ? 'block border-l-2 border-primary-fixed bg-secondary-container px-md py-sm font-label text-[11px] font-bold tracking-[0.12em] text-primary-fixed uppercase'
-    : 'block border-l-2 border-transparent px-md py-sm font-label text-[11px] font-bold tracking-[0.12em] text-on-surface-variant uppercase hover:text-primary-fixed'
+    ? 'block rounded-lg border-l-2 border-primary bg-secondary-container px-md py-sm font-body text-[15px] font-semibold text-primary'
+    : 'block rounded-lg border-l-2 border-transparent px-md py-sm font-body text-[15px] font-normal text-on-surface-variant hover:text-primary'
 
 /** Hamburger + drawer for viewports where primary nav is hidden. */
 export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
@@ -47,7 +48,7 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
         aria-expanded={open}
         aria-controls="stitch-mobile-nav"
         onClick={() => setOpen((o) => !o)}
-        className="border border-outline-variant px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-primary-fixed hover:text-primary-fixed"
+        className="rounded-lg border border-outline-variant/50 px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-primary-fixed hover:text-primary-fixed"
       >
         {open ? 'Close' : 'Menu'}
       </button>
@@ -56,12 +57,12 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
           <button
             type="button"
             aria-label="Dismiss menu"
-            className="fixed inset-0 z-[90] bg-black/50"
+            className="fixed inset-0 z-[90] bg-[#161a32]/40"
             onClick={() => setOpen(false)}
           />
           <nav
             id="stitch-mobile-nav"
-            className="absolute top-full left-0 z-[100] mt-sm w-64 border border-outline-variant bg-surface-container py-sm shadow-none"
+            className="absolute top-full left-0 z-[100] mt-sm w-64 rounded-xl border border-sand/40 bg-surface-container-lowest py-sm shadow-lg"
             aria-label="Primary mobile"
           >
             <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">

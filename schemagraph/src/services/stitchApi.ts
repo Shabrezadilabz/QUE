@@ -272,6 +272,78 @@ export async function reviewRelationship(
   }
 }
 
+export interface JoinInferenceResult {
+  ok: boolean
+  created: number
+  scanned: number
+  connections: number
+  durationMs: number
+}
+
+/** Re-run cross-source join inference (no full sync). */
+export async function runJoinInference(
+  options: { connectionId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<JoinInferenceResult> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/join-inference`, {
+    method: 'POST',
+    body: JSON.stringify(options),
+  })
+  const body = (await res.json().catch(() => ({}))) as JoinInferenceResult & {
+    error?: string
+  }
+  if (!res.ok) {
+    throw new Error(body.error ?? `join-inference ${res.status}`)
+  }
+  return body
+}
+
+export interface StitchSessionSuggestion {
+  id: string
+  confidence: number
+  label?: string
+  joinCriteria?: string
+  from: string
+  to: string
+  evidence?: { summary?: string; signals?: { code: string; label: string; weight: number }[] }
+}
+
+export interface StitchSessionResult {
+  ok: boolean
+  connectionA: { id: string; name?: string; sourceType?: string }
+  connectionB: { id: string; name?: string; sourceType?: string }
+  inference: { created: number; scanned: number }
+  suggested: StitchSessionSuggestion[]
+  acceptedBetween: number
+  tables: { name: string; connectionId: string }[]
+  job?: StitchJob | null
+  export?: Record<string, unknown> | null
+}
+
+/** Two-source stitch session: infer A↔B joins, optionally create job. */
+export async function runStitchSession(
+  options: {
+    connectionIdA: string
+    connectionIdB: string
+    createJob?: boolean
+    shipDbtPr?: boolean
+    jobTitle?: string
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<StitchSessionResult> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/stitch-session`, {
+    method: 'POST',
+    body: JSON.stringify(options),
+  })
+  const body = (await res.json().catch(() => ({}))) as StitchSessionResult & {
+    error?: string
+  }
+  if (!res.ok) {
+    throw new Error(body.error ?? `stitch-session ${res.status}`)
+  }
+  return body
+}
+
 export interface SyncConnectionResult {
   ok: boolean
   connectionId: string
@@ -900,6 +972,7 @@ export interface WorkspaceSettingsFlags {
   ragTopK: number
   ragIncludeDocs: boolean
   blockExportOnDrift: boolean
+  blockExportOnUnreviewedJoins: boolean
   emitContractEvents: boolean
   contractWebhookUrl: string
   githubOwner: string

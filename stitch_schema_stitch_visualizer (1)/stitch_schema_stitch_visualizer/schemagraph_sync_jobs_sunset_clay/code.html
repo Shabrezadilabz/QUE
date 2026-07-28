@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&family=Geist:wght@400;500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Hanken+Grotesk:wght@100..900&family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#55423e",
+                        "on-secondary-container": "#666556",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "tertiary": "#386753",
+                        "surface-container-high": "#e6e6ff",
+                        "tertiary-container": "#70a18a",
+                        "outline-variant": "#dbc1ba",
+                        "secondary-container": "#e6e3d0",
+                        "inverse-primary": "#ffb4a1",
+                        "surface-variant": "#dfe0ff",
+                        "surface-container-highest": "#dfe0ff",
+                        "on-background": "#161a32",
+                        "surface-dim": "#d6d8f9",
+                        "on-primary-fixed": "#3c0800",
+                        "tertiary-fixed": "#bbeed4",
+                        "primary": "#9a442d",
+                        "inverse-on-surface": "#f1efff",
+                        "surface-container": "#edecff",
+                        "primary-fixed": "#ffdbd2",
+                        "on-surface": "#161a32",
+                        "background": "#fbf8ff",
+                        "surface-tint": "#9a442d",
+                        "on-error-container": "#93000a",
+                        "secondary": "#605f50",
+                        "on-secondary-fixed": "#1c1c11",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#1f4f3c",
+                        "primary-container": "#e07a5f",
+                        "secondary-fixed-dim": "#c9c7b5",
+                        "secondary-fixed": "#e6e3d0",
+                        "on-primary-container": "#5b1604",
+                        "inverse-surface": "#2b2e48",
+                        "outline": "#88726d",
+                        "surface-bright": "#fbf8ff",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#003725",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#48473a",
+                        "primary-fixed-dim": "#ffb4a1",
+                        "surface-container-low": "#f4f2ff",
+                        "on-tertiary-fixed": "#002115",
+                        "on-primary-fixed-variant": "#7c2e19",
+                        "tertiary-fixed-dim": "#9fd1b8",
+                        "surface": "#fbf8ff",
+                        "on-secondary": "#ffffff",
+                        "sand": "#F2CC8F"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "lg": "24px",
+                        "xl": "40px",
+                        "base": "4px",
+                        "xs": "4px",
+                        "max-width": "1440px",
+                        "gutter": "24px",
+                        "margin-desktop": "48px",
+                        "sm": "8px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-lg": ["Inter"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "body-sm": ["Inter"],
+                        "label-md": ["Geist"],
+                        "label-sm": ["Geist"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "code-md": ["Geist"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-md": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #F2EDE4; /* Custom Cream Background from Style Guide */
+            color: #161a32;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .sunset-glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(242, 204, 143, 0.3);
+        }
+        .organic-shadow {
+            box-shadow: 0px 4px 20px rgba(61, 64, 91, 0.08);
+        }
+        .progress-flow {
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-flow::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: flow 2s infinite linear;
+        }
+        @keyframes flow {
+            0% { left: -100%; }
+            100% { left: 200%; }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+<!-- TopNavBar -->
+<header class="w-full h-16 bg-background dark:bg-inverse-surface border-b border-secondary-container/30 sticky top-0 z-50">
+<div class="flex justify-between items-center px-lg max-w-max-width mx-auto h-full">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">SchemaGraph</span>
+<nav class="hidden md:flex gap-md ml-xl">
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary dark:hover:text-primary-fixed transition-colors font-body-md text-body-md" href="#">Workspace</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary dark:hover:text-primary-fixed transition-colors font-body-md text-body-md" href="#">Sources</a>
+<a class="text-primary dark:text-primary-fixed border-b-2 border-primary dark:border-primary-fixed pb-1 font-body-md text-body-md" href="#">Jobs</a>
+<a class="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary dark:hover:text-primary-fixed transition-colors font-body-md text-body-md" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant cursor-pointer active:scale-95 transition-transform">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant cursor-pointer active:scale-95 transition-transform">help_outline</button>
+<div class="w-8 h-8 rounded-full bg-primary-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a female data engineer in a modern minimalist office with soft warm lighting. She has a friendly expression, wearing a high-quality terracotta colored knit sweater. The background is softly blurred with hints of architectural wood and cream walls, matching a premium tech environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDC0KkFwr-ecki-wEJezxOWHR55nesCh7aT3FODta7dJ-a6jkfMJGl87wCcpiOiXwT-Bxthff_2Sv5pZaqI65nzcM9jsf31btVrZu5TyLuITLm8n3la72AEH6VMzt5oVPWhAnLOIqNQuEIVTlPREYA62IYwEXWvLMMZ5t9tnOckcgMCfUP5_Fi7nmHIPHIvDqoAknAwgedj8aC9qFvrZo_03h0bHgmwC-gTUboLtoa2VovboOQESDTn"/>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-max-width mx-auto px-lg py-xl flex flex-col md:flex-row gap-lg">
+<!-- Sidebar Navigation -->
+<aside class="hidden md:flex flex-col h-[calc(100vh-120px)] w-64 bg-surface-container-low dark:bg-surface-container-lowest rounded-r-xl py-lg px-md gap-sm organic-shadow">
+<div class="mb-lg px-sm">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">schema</span>
+<span class="font-headline-lg text-headline-lg text-primary">Project Alpha</span>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70 px-sm">Data Mesh</p>
+</div>
+<button class="mb-md mx-sm py-md px-lg bg-primary-container text-on-primary text-label-md font-bold rounded-lg active:scale-98 transition-all flex items-center justify-center gap-sm shadow-sm">
+<span class="material-symbols-outlined">add</span>
+                New Pipeline
+            </button>
+<div class="flex flex-col gap-xs flex-grow">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-secondary-fixed transition-all rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">account_tree</span> Pipeline
+                </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-secondary-fixed transition-all rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">schema</span> Models
+                </a>
+<a class="flex items-center gap-md px-md py-sm bg-secondary-container text-on-secondary-container rounded-lg font-bold font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">schedule</span> Orchestration
+                </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-secondary-fixed transition-all rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">receipt_long</span> Logs
+                </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-secondary-fixed transition-all rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">database</span> Metadata
+                </a>
+</div>
+<div class="pt-lg border-t border-secondary-container/30 flex flex-col gap-xs">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-secondary-fixed transition-all rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">menu_book</span> Documentation
+                </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-secondary-fixed transition-all rounded-lg font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">support_agent</span> Support
+                </a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<section class="flex-grow space-y-lg">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div>
+<h1 class="font-headline-xl text-headline-xl text-primary-fixed-variant mb-xs">Sync Job Monitor</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Your pipelines are breathing steadily. Everything looks healthy.</p>
+</div>
+<div class="flex gap-sm">
+<div class="px-md py-sm rounded-full bg-tertiary-fixed flex items-center gap-sm">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-label-md text-label-md text-on-tertiary-fixed-variant">System Optimal</span>
+</div>
+</div>
+</div>
+<!-- Bento Grid of Active Syncs -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-md">
+<!-- Active Sync Card 1 -->
+<div class="lg:col-span-2 bg-surface p-lg rounded-3xl border border-sand/30 organic-shadow flex flex-col gap-lg sunset-glass">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-2xl bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">sync_alt</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-primary">Warehouse Ingestion</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant opacity-70">Source: AWS S3 • Target: Snowflake</p>
+</div>
+</div>
+<span class="font-label-md text-label-md text-primary font-bold">84%</span>
+</div>
+<div class="space-y-sm">
+<div class="w-full h-3 bg-secondary-fixed rounded-full overflow-hidden">
+<div class="h-full bg-primary-container rounded-full progress-flow" style="width: 84%"></div>
+</div>
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span>Processing batch 42/50</span>
+<span>Est. 4 mins remaining</span>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-md pt-md border-t border-secondary-container/20">
+<div class="text-center">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Throughput</p>
+<p class="font-headline-md text-headline-md">1.2 GB/s</p>
+</div>
+<div class="text-center">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Rows</p>
+<p class="font-headline-md text-headline-md">8.4M</p>
+</div>
+<div class="text-center">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Latency</p>
+<p class="font-headline-md text-headline-md">120ms</p>
+</div>
+</div>
+</div>
+<!-- Secondary Metric Card -->
+<div class="bg-surface p-lg rounded-3xl border border-sand/30 organic-shadow flex flex-col justify-between items-center text-center sunset-glass">
+<div class="space-y-xs">
+<span class="material-symbols-outlined text-tertiary-container text-[48px]">eco</span>
+<h4 class="font-headline-md text-headline-md">Resource Health</h4>
+</div>
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-secondary-fixed" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-tertiary transition-all duration-1000" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-dasharray="351.8" stroke-dashoffset="88" stroke-width="8"></circle>
+</svg>
+<span class="absolute font-headline-lg text-headline-lg text-tertiary">75%</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">CPU and Memory are well within limits.</p>
+</div>
+<!-- Sync Card 2 (In-Progress) -->
+<div class="bg-surface p-lg rounded-3xl border border-sand/30 organic-shadow flex flex-col gap-md sunset-glass">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-xl bg-secondary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary scale-75">link</span>
+</div>
+<h4 class="font-label-md text-label-md font-bold">API Connector: Stripe</h4>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between font-label-sm text-label-sm">
+<span class="text-on-surface-variant">Live Sync</span>
+<span class="text-primary font-bold">Active</span>
+</div>
+<div class="w-full h-2 bg-secondary-fixed rounded-full overflow-hidden">
+<div class="h-full bg-primary-container rounded-full animate-pulse" style="width: 45%"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm mt-sm">
+<span class="material-symbols-outlined text-tertiary text-sm">check_circle</span>
+<span class="text-xs font-label-sm text-on-surface-variant">Last verified 2m ago</span>
+</div>
+</div>
+<!-- Sync Card 3 (Scheduled) -->
+<div class="bg-surface p-lg rounded-3xl border border-sand/30 organic-shadow flex flex-col gap-md sunset-glass">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-xl bg-secondary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary scale-75">update</span>
+</div>
+<h4 class="font-label-md text-label-md font-bold">Weekly Audit Trail</h4>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between font-label-sm text-label-sm">
+<span class="text-on-surface-variant">Queued</span>
+<span class="text-on-surface-variant opacity-60">12:00 PM</span>
+</div>
+<div class="w-full h-2 bg-secondary-fixed rounded-full"></div>
+</div>
+<p class="text-xs font-label-sm text-on-surface-variant">Next run in 4 hours</p>
+</div>
+<!-- Sync Card 4 (Success) -->
+<div class="bg-surface p-lg rounded-3xl border border-sand/30 organic-shadow flex flex-col gap-md sunset-glass">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-xl bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary scale-75">done_all</span>
+</div>
+<h4 class="font-label-md text-label-md font-bold">Marketing Feed</h4>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between font-label-sm text-label-sm">
+<span class="text-tertiary font-bold">Completed</span>
+<span class="text-on-surface-variant opacity-60">Success</span>
+</div>
+<div class="w-full h-2 bg-tertiary rounded-full" style="width: 100%"></div>
+</div>
+<p class="text-xs font-label-sm text-on-surface-variant">Synced 14,021 objects</p>
+</div>
+</div>
+<!-- Recent Activity Timeline Section -->
+<div class="bg-surface p-xl rounded-3xl border border-sand/30 organic-shadow sunset-glass">
+<div class="flex items-center justify-between mb-xl">
+<h3 class="font-headline-md text-headline-md text-primary">Recent Activity</h3>
+<button class="text-label-md text-primary font-bold hover:underline">View History</button>
+</div>
+<div class="space-y-lg relative">
+<!-- Vertical Line -->
+<div class="absolute left-[15px] top-2 bottom-2 w-px bg-secondary-fixed-dim"></div>
+<!-- Timeline Item 1 -->
+<div class="flex gap-xl relative z-10">
+<div class="w-8 h-8 rounded-full bg-tertiary flex items-center justify-center border-4 border-surface">
+<span class="material-symbols-outlined text-white text-xs">done</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between">
+<h5 class="font-body-md font-bold">Sales Data successfully ingested</h5>
+<span class="font-label-sm text-on-surface-variant opacity-60">12:30 PM</span>
+</div>
+<p class="font-body-sm text-on-surface-variant mt-xs">All 500,000 records were processed and validated in Snowflake. No errors found.</p>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="flex gap-xl relative z-10">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center border-4 border-surface">
+<span class="material-symbols-outlined text-white text-xs">autorenew</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between">
+<h5 class="font-body-md font-bold">Schema update detected in S3</h5>
+<span class="font-label-sm text-on-surface-variant opacity-60">11:15 AM</span>
+</div>
+<p class="font-body-sm text-on-surface-variant mt-xs">Auto-mapping of 3 new columns (user_metadata, session_id, region) completed for Project Alpha.</p>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="flex gap-xl relative z-10">
+<div class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center border-4 border-surface">
+<span class="material-symbols-outlined text-white text-xs">person</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between">
+<h5 class="font-body-md font-bold">You started 'Ad-hoc Customer Sync'</h5>
+<span class="font-label-sm text-on-surface-variant opacity-60">09:40 AM</span>
+</div>
+<p class="font-body-sm text-on-surface-variant mt-xs">Manual trigger of the customer data pipeline for the quarterly report.</p>
+</div>
+</div>
+<!-- Timeline Item 4 -->
+<div class="flex gap-xl relative z-10">
+<div class="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center border-4 border-surface">
+<span class="material-symbols-outlined text-white text-xs">lightbulb</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between">
+<h5 class="font-body-md font-bold">System Optimization Suggestion</h5>
+<span class="font-label-sm text-on-surface-variant opacity-60">08:00 AM</span>
+</div>
+<p class="font-body-sm text-on-surface-variant mt-xs">We noticed your Warehouse Ingestion could run 20% faster by increasing compute credits during peak times.</p>
+<button class="mt-md px-md py-xs border border-primary text-primary rounded-full text-label-sm font-bold hover:bg-primary/5 transition-colors">Apply Optimizations</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button (FAB) -->
+<button class="fixed bottom-lg right-lg w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<!-- Responsive Navigation (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface-container-lowest flex justify-around items-center border-t border-secondary-container/20 px-md z-50">
+<a class="flex flex-col items-center gap-xs text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">schedule</span>
+<span class="text-[10px] font-label-sm">Jobs</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="text-[10px] font-label-sm">Pipelines</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">schema</span>
+<span class="text-[10px] font-label-sm">Models</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-label-sm">Settings</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions for progress bars
+        document.querySelectorAll('.progress-flow').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                el.style.filter = 'brightness(1.1)';
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.filter = 'none';
+            });
+        });
+    </script>
+</body></html>

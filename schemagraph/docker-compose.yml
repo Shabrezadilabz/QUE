@@ -1,0 +1,45 @@
+# Que — local stack (API + metadata Postgres with pgvector)
+# Usage: docker compose up --build
+# UI still runs via `npm run dev` on the host (Vite), or build ui image later.
+
+services:
+  stitch-pg:
+    image: pgvector/pgvector:pg16
+    container_name: stitch-pg
+    environment:
+      POSTGRES_USER: stitch
+      POSTGRES_PASSWORD: stitch
+      POSTGRES_DB: stitch
+    ports:
+      - '5432:5432'
+    volumes:
+      - que_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stitch -d stitch']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  que-api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: que-api
+    depends_on:
+      stitch-pg:
+        condition: service_healthy
+    environment:
+      STITCH_PG_HOST: stitch-pg
+      STITCH_PG_PORT: '5432'
+      STITCH_PG_DB: stitch
+      STITCH_PG_USER: stitch
+      STITCH_PG_PASSWORD: stitch
+      PORT: '8787'
+      STITCH_AUTH_DISABLED: 'false'
+    ports:
+      - '8787:8787'
+    command: >
+      sh -c "QUE_DB_DIR=/db node scripts/migrate.js && node src/index.js"
+
+volumes:
+  que_pg_data:

@@ -117,7 +117,14 @@ async function introspectLive(config) {
       AND table_type IN ('BASE TABLE', 'VIEW', 'MANAGED', 'EXTERNAL')
     ORDER BY table_name
   `
-  const tableRows = await runSql(host, warehouseId, token, tablesSql, config)
+  const tableRowsRaw = await runSql(host, warehouseId, token, tablesSql, config)
+  const maxTables = Math.min(Math.max(Number(config.maxTables ?? 500), 1), 2000)
+  const tableRows = tableRowsRaw.slice(0, maxTables)
+  if (tableRowsRaw.length > maxTables) {
+    console.warn(
+      `[Que] Databricks introspect truncated to ${maxTables} tables (catalog=${catalog} schema=${schema})`,
+    )
+  }
 
   const columnsSql = `
     SELECT table_name, column_name, data_type, is_nullable, ordinal_position

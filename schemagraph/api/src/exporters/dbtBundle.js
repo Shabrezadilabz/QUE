@@ -4,6 +4,7 @@
  */
 import { query } from '../db.js'
 import { getWorkspaceSettings } from '../workspaceSettings.js'
+import { buildSchemaOnlyAttestation } from './attestation.js'
 
 function slugify(input) {
   const s = String(input || 'stitch')
@@ -422,22 +423,12 @@ export async function buildDbtBundle(workspaceId, job) {
   const sql = buildSqlFromJoins(job, joins)
   const stagingPath = `${modelsPath}/staging`
 
-  const attestation = {
-    policy: 'schema-only',
-    claim:
-      'Que used schema metadata and capped samples only; raw rows are not centralized for model training.',
-    brand: 'Que',
-    jobId: job.id,
+  const attestation = buildSchemaOnlyAttestation({
     workspaceId,
-    schemaSnapshotId: job.schemaSnapshotId || job.contract?.schemaSnapshotId || null,
-    schemaSnapshotLabel: job.contract?.schemaSnapshotLabel || null,
-    approvedRelationshipIds: joins.map((j) => j.id),
-    frozenFromJob: Array.isArray(job.joinsSnapshot) && job.joinsSnapshot.length > 0,
-    contractVersion: job.contract?.version || null,
-    tables: job.tables || [],
-    sources: job.sources || [],
-    exportedAt: new Date().toISOString(),
-  }
+    job,
+    joins,
+    format: 'dbt',
+  })
 
   const testsPath = modelsPath.replace(/^models/, 'tests') || 'tests/que'
   const orphanTests = buildSingularJoinTests(modelName, joins)

@@ -95,6 +95,30 @@ Get-Content db/010_job_notebook.sql | docker exec -i stitch-pg psql -U stitch -d
 
 # Job runs (dry-run process history)
 Get-Content db/011_job_runs.sql | docker exec -i stitch-pg psql -U stitch -d stitch
+
+# Join inference HITL audit (promote/reject events)
+Get-Content db/012_join_inference.sql | docker exec -i stitch-pg psql -U stitch -d stitch
+
+# Export attestation audit trail
+Get-Content db/013_export_attestation.sql | docker exec -i stitch-pg psql -U stitch -d stitch
+
+# Preferred: ordered migrator (tracks schema_migrations)
+cd api; npm run migrate
+```
+
+### Docker Compose (API + Postgres)
+
+```bash
+cd schemagraph
+docker compose up --build
+# applies migrations then starts que-api on :8787
+```
+
+### Diligence tests
+
+```bash
+cd api
+npm run test:diligence   # join golden-set + privacy red-team
 ```
 
 | Table | Purpose |
@@ -105,4 +129,6 @@ Get-Content db/011_job_runs.sql | docker exec -i stitch-pg psql -U stitch -d sti
 | `jobs.schema_snapshot_id` / `contract_json` | Frozen stitch contract |
 | `workspace_drift_events` | Sync drift alarms (gate exports) |
 | `contract_event_outbox` | Streaming-later contract/drift events |
+| `relationship_review_events` | HITL promote/reject audit for join memory |
+| `export_audit_events` | Schema-only attestation on every job export |
 

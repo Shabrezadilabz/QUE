@@ -3,6 +3,7 @@ import { MainDiagramLayout } from '@/layouts/MainDiagramLayout'
 import { DiagramProvider } from '@/context/DiagramContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useToast } from '@/context/ToastContext'
+import { StitchSessionDialog } from '@/components/StitchSessionDialog'
 import { createStitchJobFromCanvas, loadWorkspaceData, reviewRelationship, syncConnection, type WorkspaceLoadError } from '@/services/stitchApi'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 import type { DataSource } from '@/types/dataSource'
@@ -22,6 +23,7 @@ export function WorkspacePage() {
   const [ready, setReady] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
+  const [stitchOpen, setStitchOpen] = useState(false)
 
   const hydrate = useCallback(async () => {
     const data = await loadWorkspaceData(workspaceId)
@@ -206,21 +208,39 @@ export function WorkspacePage() {
   }
 
   return (
-    <DiagramProvider initialTables={tables}>
-      <MainDiagramLayout
-        tables={tables}
-        relationships={relationships}
-        sources={sources}
-        fromApi={fromApi}
-        readOnly={!canWrite}
-        statusBanner={banner}
-        onDismissBanner={() => setBanner(null)}
-        onPromoteRelationship={canWrite ? handlePromote : undefined}
-        onRejectRelationship={canWrite ? handleReject : undefined}
-        onSyncSource={canWrite ? handleSyncSource : undefined}
-        onCreateStitchJob={canWrite ? handleCreateStitchJob : undefined}
-        syncing={syncing}
-      />
-    </DiagramProvider>
+    <div className="relative h-full">
+      <DiagramProvider initialTables={tables}>
+        <StitchSessionDialog
+          open={stitchOpen}
+          onClose={() => setStitchOpen(false)}
+          sources={sources}
+          onComplete={async () => {
+            notifySchemaChanged('promote')
+            await hydrate()
+            setStitchOpen(false)
+          }}
+        />
+        <MainDiagramLayout
+          tables={tables}
+          relationships={relationships}
+          sources={sources}
+          fromApi={fromApi}
+          readOnly={!canWrite}
+          statusBanner={banner}
+          onDismissBanner={() => setBanner(null)}
+          onPromoteRelationship={canWrite ? handlePromote : undefined}
+          onRejectRelationship={canWrite ? handleReject : undefined}
+          onSyncSource={canWrite ? handleSyncSource : undefined}
+          onCreateStitchJob={canWrite ? handleCreateStitchJob : undefined}
+          onOpenStitchSession={
+            canWrite && fromApi && sources.length >= 2
+              ? () => setStitchOpen(true)
+              : undefined
+          }
+          stitchSessionLabel={`STITCH SESSION · ${Math.min(sources.length, 2)} SOURCES`}
+          syncing={syncing}
+        />
+      </DiagramProvider>
+    </div>
   )
 }

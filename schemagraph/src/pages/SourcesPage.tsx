@@ -1,7 +1,17 @@
-import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
-import { SourceTypeIcon, sourceTypeLabel } from '@/components/sidebar/SourceTypeIcon'
+import {
+  SourceTypeIcon,
+  sourceTypeLabel,
+} from '@/components/sidebar/SourceTypeIcon'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -14,7 +24,11 @@ import {
   uploadSpreadsheetSource,
 } from '@/services/stitchApi'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
-import type { DataSource, DataSourceStatus, DataSourceType } from '@/types/dataSource'
+import type {
+  DataSource,
+  DataSourceStatus,
+  DataSourceType,
+} from '@/types/dataSource'
 
 const CREATABLE: DataSourceType[] = [
   'postgresql',
@@ -25,16 +39,15 @@ const CREATABLE: DataSourceType[] = [
 ]
 
 const STATUS_DOT: Record<DataSourceStatus, string> = {
-  active: 'bg-primary-fixed',
-  warning: 'bg-[#FF3E00]',
-  error: 'bg-[#FF0055]',
+  active: 'bg-tertiary',
+  warning: 'bg-sand',
+  error: 'bg-error',
 }
 
 type FormState = {
   name: string
   type: DataSourceType
   description: string
-  // postgres / mongo
   host: string
   port: string
   database: string
@@ -42,15 +55,93 @@ type FormState = {
   password: string
   schema: string
   uri: string
-  // spreadsheet
   filesJson: string
-  // databricks
   dbxMode: 'fixture' | 'live'
   fixturesPath: string
   warehouseId: string
   token: string
   catalog: string
 }
+
+type CatalogItem = {
+  key: string
+  title: string
+  category: string
+  blurb: string
+  type?: DataSourceType
+  creatable: boolean
+}
+
+const CONNECTOR_CATALOG: CatalogItem[] = [
+  {
+    key: 'postgresql',
+    title: 'PostgreSQL',
+    category: 'Relational DB',
+    blurb: 'Connect to your managed RDS or on-prem instances.',
+    type: 'postgresql',
+    creatable: true,
+  },
+  {
+    key: 'snowflake',
+    title: 'Snowflake',
+    category: 'Data Warehouse',
+    blurb: 'Cloud data platform for enterprise analytics.',
+    creatable: false,
+  },
+  {
+    key: 's3',
+    title: 'AWS S3',
+    category: 'Object Store',
+    blurb: 'Sync JSON, CSV, or Parquet files from buckets.',
+    creatable: false,
+  },
+  {
+    key: 'mongodb',
+    title: 'MongoDB',
+    category: 'NoSQL',
+    blurb: 'High-performance document-based database.',
+    type: 'mongodb',
+    creatable: true,
+  },
+  {
+    key: 'excel',
+    title: 'Excel',
+    category: 'Spreadsheet',
+    blurb: 'Upload workbooks — Que infers tables and columns.',
+    type: 'excel',
+    creatable: true,
+  },
+  {
+    key: 'csv',
+    title: 'CSV',
+    category: 'Flat file',
+    blurb: 'Drop CSV/TSV samples for quick schema onboarding.',
+    type: 'csv',
+    creatable: true,
+  },
+  {
+    key: 'databricks',
+    title: 'Databricks',
+    category: 'Lakehouse',
+    blurb: 'Unity Catalog fixtures or live SQL warehouse.',
+    type: 'databricks',
+    creatable: true,
+  },
+  {
+    key: 'bigquery',
+    title: 'BigQuery',
+    category: 'Data Warehouse',
+    blurb: "Google's serverless, multi-cloud data warehouse.",
+    creatable: false,
+  },
+]
+
+const WIZARD_STEPS = [
+  'Sources',
+  'Transformation',
+  'Schedule',
+  'Review',
+] as const
 
 const emptyForm = (type: DataSourceType = 'postgresql'): FormState => ({
   name: '',
@@ -157,7 +248,6 @@ function buildConfig(form: FormState): Record<string, unknown> {
       sampleLimit: 5,
     }
   }
-  // excel / csv
   let files: unknown[] = []
   try {
     files = JSON.parse(form.filesJson)
@@ -172,15 +262,57 @@ function buildConfig(form: FormState): Record<string, unknown> {
   }
 }
 
+function relativeSyncLabel(iso?: string): string {
+  if (!iso) return 'Never synced'
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return 'Never synced'
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000))
+  if (mins < 1) return 'Synced just now'
+  if (mins < 60) return `Synced ${mins}m ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 48) return `Synced ${hrs}h ago`
+  return `Synced ${Math.round(hrs / 24)}d ago`
+}
+
+function statusBadge(status: DataSourceStatus): {
+  label: string
+  className: string
+} {
+  if (status === 'active') {
+    return {
+      label: 'Connected',
+      className: 'bg-tertiary/10 text-tertiary',
+    }
+  }
+  if (status === 'warning') {
+    return {
+      label: 'Syncing',
+      className: 'bg-primary/10 text-primary',
+    }
+  }
+  return {
+    label: 'Error',
+    className: 'bg-error/10 text-error',
+  }
+}
+
 /**
- * Sources — manage connections, edit config, sync schema.
+ * Sources — Sunset Clay list + create-sync-job wizard.
  */
 export function SourcesPage() {
   const { canWrite, canAdmin } = useWorkspaceRole()
-  const { workspaceId } = useAuth()
+  const { workspaceId, workspaces } = useAuth()
+  const workspaceName =
+    workspaces.find((w) => w.id === workspaceId)?.name || 'Workspace'
   const [sources, setSources] = useState<DataSource[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [wizardStep, setWizardStep] = useState(1)
+  const [catalogKey, setCatalogKey] = useState<string | null>(null)
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [scheduleMode, setScheduleMode] = useState<'ondemand' | 'manual'>(
+    'ondemand',
+  )
   const [form, setForm] = useState<FormState>(emptyForm())
   const [filter, setFilter] = useState('')
   const [busy, setBusy] = useState(false)
@@ -193,16 +325,17 @@ export function SourcesPage() {
     const list = await fetchWorkspaceSources()
     setSources(list)
     const nextId =
-      preferId && list.some((s) => s.id === preferId)
+      preferId && list.some((x) => x.id === preferId)
         ? preferId
-        : selectedId && list.some((s) => s.id === selectedId)
+        : selectedId && list.some((x) => x.id === selectedId)
           ? selectedId
-          : list[0]?.id ?? null
+          : null
     setSelectedId(nextId)
     if (preferId) {
       const s = list.find((x) => x.id === preferId)
       if (s) {
         setCreating(false)
+        setWizardStep(1)
         setForm(formFromSource(s))
       }
     }
@@ -211,6 +344,7 @@ export function SourcesPage() {
   useEffect(() => {
     setSelectedId(null)
     setCreating(false)
+    setWizardStep(1)
     reload().catch((err) =>
       setError(err instanceof Error ? err.message : String(err)),
     )
@@ -234,26 +368,71 @@ export function SourcesPage() {
     )
   }, [sources, filter])
 
+  const catalogFiltered = useMemo(() => {
+    const q = catalogQuery.trim().toLowerCase()
+    if (!q) return CONNECTOR_CATALOG
+    return CONNECTOR_CATALOG.filter(
+      (c) =>
+        c.title.toLowerCase().includes(q) ||
+        c.category.toLowerCase().includes(q) ||
+        c.blurb.toLowerCase().includes(q),
+    )
+  }, [catalogQuery])
+
   const selected = sources.find((s) => s.id === selectedId) ?? null
-  const syncable =
-    creating
-      ? CREATABLE.includes(form.type)
-      : Boolean(selected?.syncable)
+  const syncable = creating
+    ? CREATABLE.includes(form.type)
+    : Boolean(selected?.syncable)
+
+  const selectedCatalog = CONNECTOR_CATALOG.find((c) => c.key === catalogKey)
+  const canAdvanceFromSources = Boolean(
+    selectedCatalog?.creatable && selectedCatalog.type,
+  )
+
+  const healthActive = sources.filter((s) => s.status === 'active').length
+  const healthPct =
+    sources.length === 0
+      ? 100
+      : Math.round((healthActive / sources.length) * 10000) / 100
 
   function startCreate() {
     setCreating(true)
     setSelectedId(null)
+    setWizardStep(1)
+    setCatalogKey(null)
+    setCatalogQuery('')
+    setScheduleMode('ondemand')
     setForm(emptyForm('postgresql'))
     setPendingFiles([])
     setTableNameOverrides('')
     setError(null)
   }
 
+  function cancelWizard() {
+    setCreating(false)
+    setWizardStep(1)
+    setCatalogKey(null)
+    setError(null)
+  }
+
+  function pickCatalog(item: CatalogItem) {
+    setCatalogKey(item.key)
+    if (!item.creatable || !item.type) {
+      setToast(`${item.title} — request access / coming soon`)
+      return
+    }
+    setForm((f) => ({
+      ...emptyForm(item.type!),
+      name: f.name,
+      description: f.description,
+      type: item.type!,
+    }))
+  }
+
   async function save() {
     setBusy(true)
     setError(null)
     try {
-      // Excel/CSV create via upload → schema sync into workspace
       if (
         creating &&
         (form.type === 'excel' || form.type === 'csv') &&
@@ -277,6 +456,7 @@ export function SourcesPage() {
             : `Uploaded ${result.uploaded.length} file(s)${sync?.error ? ` · sync: ${sync.error}` : ''}`,
         )
         setCreating(false)
+        setWizardStep(1)
         setPendingFiles([])
         notifySchemaChanged('sync')
         await reload(result.connection.id)
@@ -302,6 +482,7 @@ export function SourcesPage() {
         })
         setToast(`Created ${created.name}`)
         setCreating(false)
+        setWizardStep(1)
         notifySchemaChanged('connection')
         await reload(created.id)
       } else if (selected) {
@@ -396,331 +577,738 @@ export function SourcesPage() {
     }
   }
 
+  const banners = (
+    <>
+      {error ? (
+        <p className="border-b border-error/40 bg-error/10 px-md py-sm font-body text-xs text-error">
+          {error}
+        </p>
+      ) : null}
+      {toast ? (
+        <p className="border-b border-primary/20 bg-primary-container/10 px-md py-sm font-label text-[10px] tracking-widest text-primary">
+          {toast}
+          <button
+            type="button"
+            className="ml-md underline"
+            onClick={() => setToast(null)}
+          >
+            dismiss
+          </button>
+        </p>
+      ) : null}
+    </>
+  )
+
+  if (creating) {
+    return (
+      <QueAppChrome eyebrow="SOURCES · NEW SYNC">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
+          {banners}
+          <div className="min-h-0 flex-1 overflow-y-auto px-md py-lg md:px-lg lg:px-margin-desktop">
+            <div className="mx-auto w-full max-w-5xl">
+              <div className="mb-xl">
+                <h1 className="font-headline text-3xl font-semibold tracking-tight text-on-surface">
+                  Create New Sync Job
+                </h1>
+                <p className="mt-xs font-body text-base text-on-surface-variant">
+                  Configure your data pipeline flow in four easy steps.
+                </p>
+              </div>
+
+              <WizardStepper step={wizardStep} />
+
+              <div className="mt-xl grid grid-cols-1 items-start gap-lg lg:grid-cols-12">
+                <div className="space-y-lg lg:col-span-8">
+                  {wizardStep === 1 ? (
+                    <>
+                      <div
+                        className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
+                        style={{
+                          boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
+                        }}
+                      >
+                        <div className="mb-md flex flex-col justify-between gap-md sm:flex-row sm:items-center">
+                          <h2 className="font-headline text-xl font-semibold text-on-surface">
+                            Select Data Source
+                          </h2>
+                          <div className="relative">
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-on-surface-variant">
+                              ⌕
+                            </span>
+                            <input
+                              type="search"
+                              value={catalogQuery}
+                              onChange={(e) => setCatalogQuery(e.target.value)}
+                              placeholder="Search sources..."
+                              className="w-full rounded-lg border-none bg-surface-container py-2 pl-9 pr-4 font-body text-sm text-on-surface outline-none ring-primary focus:ring-2 sm:w-56"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-md sm:grid-cols-2 md:grid-cols-3">
+                          {catalogFiltered.map((item) => {
+                            const selectedCard = catalogKey === item.key
+                            return (
+                              <button
+                                key={item.key}
+                                type="button"
+                                onClick={() => pickCatalog(item)}
+                                className={[
+                                  'rounded-xl border bg-white p-md text-left transition-all active:scale-[0.98]',
+                                  selectedCard
+                                    ? 'border-2 border-primary shadow-lg'
+                                    : 'border-secondary-container hover:border-primary/40',
+                                ].join(' ')}
+                              >
+                                <div className="mb-sm flex items-center gap-3">
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container text-primary">
+                                    {item.type ? (
+                                      <SourceTypeIcon type={item.type} />
+                                    ) : (
+                                      <span className="font-label text-lg">
+                                        +
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <h3 className="font-label text-sm font-semibold text-on-surface">
+                                      {item.title}
+                                    </h3>
+                                    <p className="font-label text-[10px] tracking-wider text-on-surface-variant uppercase">
+                                      {item.category}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="line-clamp-2 font-body text-sm text-on-surface-variant">
+                                  {item.blurb}
+                                </p>
+                                {!item.creatable ? (
+                                  <p className="mt-sm font-label text-[10px] tracking-wider text-primary uppercase">
+                                    Request access
+                                  </p>
+                                ) : null}
+                              </button>
+                            )
+                          })}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setToast(
+                                'Send connector requests to your Que admin',
+                              )
+                            }
+                            className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-outline-variant bg-surface p-md text-center transition-all hover:bg-surface-container-high"
+                          >
+                            <span className="text-2xl text-on-surface-variant">
+                              ⊕
+                            </span>
+                            <span className="font-label text-sm text-on-surface-variant">
+                              Request Source
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div
+                        className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
+                        style={{
+                          boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
+                        }}
+                      >
+                        <h2 className="mb-md font-headline text-xl font-semibold text-on-surface">
+                          Target Destination
+                        </h2>
+                        <div className="flex flex-col items-stretch gap-4 rounded-xl border border-secondary-container bg-secondary-container/30 p-md sm:flex-row sm:items-center">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-secondary-container bg-white text-primary">
+                            ⌂
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center justify-between gap-sm">
+                              <h3 className="font-label text-sm font-semibold text-on-surface">
+                                {workspaceName} · Que metadata
+                              </h3>
+                              <span className="rounded-full bg-tertiary/10 px-2 py-0.5 font-label text-[10px] font-bold text-tertiary">
+                                ACTIVE
+                              </span>
+                            </div>
+                            <p className="font-body text-sm text-on-surface-variant">
+                              Environment: Production · Type: Que Native
+                              workspace graph
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled
+                            className="rounded-lg border border-secondary-container px-4 py-2 font-label text-sm text-on-secondary-container opacity-60"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+
+                  {wizardStep === 2 ? (
+                    <div
+                      className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
+                      style={{
+                        boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
+                      }}
+                    >
+                      <h2 className="mb-xs font-headline text-xl font-semibold text-on-surface">
+                        Transformation
+                      </h2>
+                      <p className="mb-lg font-body text-sm text-on-surface-variant">
+                        Name the connection and configure{' '}
+                        {sourceTypeLabel(form.type)} credentials or uploads.
+                      </p>
+                      <ConnectionFields
+                        form={form}
+                        setForm={setForm}
+                        creating
+                        canAdmin={canAdmin}
+                        pendingFiles={pendingFiles}
+                        setPendingFiles={setPendingFiles}
+                        tableNameOverrides={tableNameOverrides}
+                        setTableNameOverrides={setTableNameOverrides}
+                        uploadMoreFiles={uploadMoreFiles}
+                      />
+                    </div>
+                  ) : null}
+
+                  {wizardStep === 3 ? (
+                    <div
+                      className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
+                      style={{
+                        boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
+                      }}
+                    >
+                      <h2 className="mb-xs font-headline text-xl font-semibold text-on-surface">
+                        Schedule
+                      </h2>
+                      <p className="mb-lg font-body text-sm text-on-surface-variant">
+                        Que syncs schema on demand today. Pick how you want to
+                        refresh after create.
+                      </p>
+                      <div className="space-y-md">
+                        <ScheduleOption
+                          active={scheduleMode === 'ondemand'}
+                          title="On demand"
+                          body="Create the connection now. Sync Schema from the Sources list or workspace when ready."
+                          onClick={() => setScheduleMode('ondemand')}
+                        />
+                        <ScheduleOption
+                          active={scheduleMode === 'manual'}
+                          title="Manual after create"
+                          body="Same as on demand — use Sync Schema when credentials are verified."
+                          onClick={() => setScheduleMode('manual')}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {wizardStep === 4 ? (
+                    <div
+                      className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
+                      style={{
+                        boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
+                      }}
+                    >
+                      <h2 className="mb-lg font-headline text-xl font-semibold text-on-surface">
+                        Review
+                      </h2>
+                      <dl className="space-y-md font-body text-sm">
+                        <ReviewRow
+                          label="Name"
+                          value={form.name.trim() || '—'}
+                        />
+                        <ReviewRow
+                          label="Connector"
+                          value={sourceTypeLabel(form.type)}
+                        />
+                        <ReviewRow
+                          label="Description"
+                          value={form.description.trim() || '—'}
+                        />
+                        <ReviewRow
+                          label="Destination"
+                          value={`${workspaceName} · Que metadata`}
+                        />
+                        <ReviewRow
+                          label="Schedule"
+                          value={
+                            scheduleMode === 'ondemand'
+                              ? 'On demand'
+                              : 'Manual after create'
+                          }
+                        />
+                        {(form.type === 'excel' || form.type === 'csv') && (
+                          <ReviewRow
+                            label="Files"
+                            value={
+                              pendingFiles.length
+                                ? pendingFiles.map((f) => f.name).join(', ')
+                                : 'None selected'
+                            }
+                          />
+                        )}
+                      </dl>
+                    </div>
+                  ) : null}
+                </div>
+
+                <aside className="space-y-lg lg:sticky lg:top-24 lg:col-span-4">
+                  <div
+                    className="rounded-xl border border-outline-variant/20 bg-white p-lg shadow-md"
+                  >
+                    <h3 className="mb-md font-label text-sm tracking-widest text-on-surface-variant uppercase">
+                      Sync Overview
+                    </h3>
+                    <div className="mb-lg space-y-4">
+                      <div className="flex justify-between gap-md">
+                        <span className="font-body text-sm text-on-surface-variant">
+                          Selected Source:
+                        </span>
+                        <span className="text-right font-label text-sm font-bold text-primary">
+                          {selectedCatalog?.title ?? '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-md">
+                        <span className="font-body text-sm text-on-surface-variant">
+                          Destination:
+                        </span>
+                        <span className="text-right font-label text-sm font-bold text-on-surface">
+                          {workspaceName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-md border-t border-outline-variant/20 pt-4">
+                        <span className="font-body text-sm text-on-surface-variant">
+                          Estimated Latency:
+                        </span>
+                        <span className="font-body text-sm text-on-surface">
+                          &lt; 150ms
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {wizardStep < 4 ? (
+                        <button
+                          type="button"
+                          disabled={
+                            (wizardStep === 1 && !canAdvanceFromSources) ||
+                            (wizardStep === 2 && !form.name.trim()) ||
+                            busy
+                          }
+                          onClick={() => setWizardStep((s) => s + 1)}
+                          className="w-full rounded-lg bg-primary-container py-3 font-label text-sm font-bold text-on-primary transition-all hover:bg-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Next Step:{' '}
+                          {WIZARD_STEPS[wizardStep] ?? 'Done'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={
+                            busy || !form.name.trim() || !canAdmin
+                          }
+                          onClick={() => void save()}
+                          className="w-full rounded-lg bg-primary py-3 font-label text-sm font-bold text-on-primary transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {form.type === 'excel' || form.type === 'csv'
+                            ? 'Upload & Analyze'
+                            : 'Create Connection'}
+                        </button>
+                      )}
+                      {wizardStep > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep((s) => s - 1)}
+                          className="w-full rounded-lg bg-transparent py-3 font-label text-sm font-bold text-on-surface-variant transition-all hover:bg-surface-container"
+                        >
+                          Back
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={cancelWizard}
+                        className="w-full rounded-lg bg-transparent py-3 font-label text-sm font-bold text-on-surface-variant transition-all hover:bg-surface-container"
+                      >
+                        Cancel Wizard
+                      </button>
+                    </div>
+                    <div className="mt-lg rounded-lg bg-secondary-container/40 p-md">
+                      <div className="flex items-start gap-2">
+                        <span className="mt-0.5 text-primary">ⓘ</span>
+                        <p className="font-body text-xs leading-relaxed text-on-secondary-container">
+                          Selecting a source will automatically scan for
+                          available schemas. You&apos;ll map tables after
+                          Sync Schema.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative h-48 overflow-hidden rounded-xl bg-gradient-to-br from-primary-container/40 via-[#ffdbd2]/60 to-canvas shadow-sm">
+                    <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-primary/50 to-transparent p-md">
+                      <p className="font-headline text-lg leading-tight text-white">
+                        Need help with custom connectors?
+                      </p>
+                      <a
+                        href="https://github.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 font-body text-sm text-white underline"
+                      >
+                        View Documentation
+                      </a>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </div>
+        </div>
+      </QueAppChrome>
+    )
+  }
+
+  /* List + detail */
   return (
     <QueAppChrome eyebrow="SOURCES · CONNECT · SYNC">
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="flex w-80 shrink-0 flex-col border-r border-outline-variant bg-surface-container">
-          <div className="border-b border-outline-variant p-md">
-            <div className="flex items-center justify-between">
-              <h1 className="font-headline text-xl font-semibold text-on-surface">
-                Sources
-              </h1>
-              {canAdmin ? (
-                <button
-                  type="button"
-                  onClick={startCreate}
-                  className="bg-primary-container px-sm py-xs font-label text-[11px] font-bold tracking-widest text-on-primary-fixed"
-                >
-                  + ADD
-                </button>
-              ) : null}
-            </div>
-            <input
-              type="search"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter name / type…"
-              className="mt-md w-full border border-outline-variant bg-surface-container-low px-sm py-xs font-body text-xs text-on-surface outline-none focus:border-primary-fixed"
-            />
-          </div>
-          <ul className="min-h-0 flex-1 overflow-y-auto p-sm">
-            {filtered.map((s) => (
-              <li key={s.id} className="mb-sm">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreating(false)
-                    setSelectedId(s.id)
-                  }}
-                  className={[
-                    'flex w-full items-start gap-sm border p-sm text-left transition-colors',
-                    !creating && selectedId === s.id
-                      ? 'border-primary-fixed bg-secondary-container border-l-4'
-                      : 'border-outline-variant bg-surface-container-low hover:border-primary-fixed',
-                  ].join(' ')}
-                >
-                  <span
-                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 ${STATUS_DOT[s.status]}`}
-                  />
-                  <span className="mt-0.5 shrink-0 text-on-surface-variant">
-                    <SourceTypeIcon type={s.type} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-body text-xs text-on-surface">
-                      {s.name}
-                    </span>
-                    <span className="mt-0.5 block font-label text-[10px] tracking-wider text-on-surface-variant uppercase">
-                      {sourceTypeLabel(s.type)}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {error ? (
-            <p className="border-b border-error/40 bg-error/10 px-md py-sm font-body text-xs text-error">
-              {error}
-            </p>
-          ) : null}
-          {toast ? (
-            <p className="border-b border-primary-fixed/30 bg-primary-container/10 px-md py-sm font-label text-[10px] tracking-widest text-primary-fixed">
-              {toast}
-              <button
-                type="button"
-                className="ml-md underline"
-                onClick={() => setToast(null)}
-              >
-                dismiss
-              </button>
-            </p>
-          ) : null}
-
-          {!creating && !selected ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-md p-xl text-center">
-              <h2 className="font-headline text-2xl text-on-surface">
-                Connect a source
-              </h2>
-              <p className="max-w-[28rem] font-body text-sm text-on-surface-variant">
-                Add Postgres, Excel/CSV, or Mongo — then Sync Schema to Que
-                metadata onto the canvas.
-              </p>
-              {canAdmin ? (
-                <button
-                  type="button"
-                  onClick={startCreate}
-                  className="bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary-fixed"
-                >
-                  ADD CONNECTION
-                </button>
-              ) : (
-                <p className="font-label text-[10px] tracking-widest text-on-surface-variant">
-                  {canWrite
-                    ? 'Ask an admin to add connections'
-                    : 'READ-ONLY · VIEWER'}
-                </p>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="border-b border-outline-variant bg-surface-container-lowest px-md py-lg">
-                <h2 className="font-headline text-2xl tracking-tight text-on-surface">
-                  {creating ? 'New connection' : form.name || selected?.name}
-                </h2>
-                <p className="mt-xs font-label text-[10px] tracking-widest text-on-surface-variant">
-                  {creating
-                    ? 'CONFIGURE CONNECTOR'
-                    : `STATUS ${selected?.status?.toUpperCase()} · ${sourceTypeLabel(form.type)}`}
-                </p>
-              </div>
-
-              <div className="min-h-0 flex-1 space-y-md overflow-y-auto p-md">
-                {!canAdmin ? (
-                  <p className="mb-md font-label text-[10px] tracking-widest text-on-surface-variant">
-                    {canWrite
-                      ? 'View-only config — admin required to edit'
-                      : 'READ-ONLY · VIEWER'}
-                  </p>
-                ) : null}
-                <fieldset
-                  disabled={!canAdmin}
-                  className="space-y-md border-0 p-0 disabled:opacity-70"
-                >
-                <Field label="Name">
-                  <input
-                    value={form.name}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, name: e.target.value }))
-                    }
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Type">
-                  <select
-                    value={form.type}
-                    disabled={!creating}
-                    onChange={(e) => {
-                      const type = e.target.value as DataSourceType
-                      setForm((f) => ({
-                        ...emptyForm(type),
-                        name: f.name,
-                        description: f.description,
-                        type,
-                      }))
-                    }}
-                    className={inputClass}
-                  >
-                    {(creating ? CREATABLE : [form.type]).map((t) => (
-                      <option key={t} value={t}>
-                        {sourceTypeLabel(t)}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
-                <Field label="Description">
-                  <input
-                    value={form.description}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, description: e.target.value }))
-                    }
-                    className={inputClass}
-                  />
-                </Field>
-
-                {form.type === 'postgresql' ? (
-                  <PostgresFields form={form} setForm={setForm} />
-                ) : null}
-                {form.type === 'mongodb' ? (
-                  <MongoFields form={form} setForm={setForm} />
-                ) : null}
-                {form.type === 'databricks' ? (
-                  <DatabricksFields form={form} setForm={setForm} />
-                ) : null}
-                {form.type === 'excel' || form.type === 'csv' ? (
-                  <div className="space-y-md">
-                    <div className="border border-dashed border-primary-fixed/50 bg-primary-container/5 p-md">
-                      <p className="font-label text-[10px] font-bold tracking-widest text-primary-fixed">
-                        UPLOAD {form.type === 'excel' ? 'EXCEL' : 'CSV'}
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          {banners}
+          <main className="min-h-0 flex-1 overflow-y-auto px-md py-lg md:px-lg lg:px-margin-desktop">
+            {!selected ? (
+              <>
+                <div className="mb-xl">
+                  <div className="mb-sm flex flex-col justify-between gap-md sm:flex-row sm:items-end">
+                    <div>
+                      <h1 className="font-headline text-3xl font-semibold tracking-tight text-primary">
+                        Data Sources
+                      </h1>
+                      <p className="mt-sm max-w-2xl font-body text-base text-on-surface-variant">
+                        Manage your database connections and warehouse
+                        integrations. Monitor sync health and schema integrity
+                        across your pipeline mesh.
                       </p>
-                      <p className="mt-xs font-body text-xs text-on-surface-variant">
-                        Drop files here — Que infers tables/columns (capped
-                        samples), maps them into this workspace, then canvas +
-                        AI chat can use them after sync.
-                      </p>
-                      <input
-                        type="file"
-                        multiple
-                        accept={
-                          form.type === 'excel'
-                            ? '.xlsx,.xls,.csv,.tsv'
-                            : '.csv,.tsv,.txt,.xlsx,.xls'
-                        }
-                        disabled={!canAdmin && creating}
-                        className="mt-md block w-full font-body text-xs text-on-surface file:mr-md file:border file:border-outline-variant file:bg-surface-container file:px-sm file:py-xs file:font-label file:text-[10px] file:tracking-widest"
-                        onChange={(e) => {
-                          const list = e.target.files
-                          if (!list?.length) return
-                          if (creating) {
-                            setPendingFiles([...list])
-                            if (!form.name.trim()) {
-                              setForm((f) => ({
-                                ...f,
-                                name: list[0].name.replace(/\.[^.]+$/, ''),
-                              }))
-                            }
-                          } else {
-                            void uploadMoreFiles(list)
-                          }
-                          e.target.value = ''
-                        }}
-                      />
-                      {creating && pendingFiles.length > 0 ? (
-                        <ul className="mt-sm space-y-xs font-body text-xs text-on-surface">
-                          {pendingFiles.map((f) => (
-                            <li key={`${f.name}-${f.size}`}>
-                              {f.name}{' '}
-                              <span className="text-on-surface-variant">
-                                ({Math.round(f.size / 1024)} KB)
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {!creating && selected ? (
-                        <p className="mt-sm font-label text-[9px] tracking-widest text-on-surface-variant">
-                          Pick files to append + re-sync this source
-                        </p>
-                      ) : null}
                     </div>
-                    <Field label="Table names (optional, comma-separated, order = files)">
-                      <input
-                        value={tableNameOverrides}
-                        onChange={(e) => setTableNameOverrides(e.target.value)}
-                        placeholder="campaigns, leads"
-                        className={inputClass}
-                      />
-                    </Field>
-                    {!creating ? (
-                      <Field label="Mapped files (advanced JSON)">
-                        <textarea
-                          value={form.filesJson}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              filesJson: e.target.value,
-                            }))
-                          }
-                          rows={5}
-                          className={`${inputClass} font-body`}
-                        />
-                      </Field>
-                    ) : null}
+                    <input
+                      type="search"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                      placeholder="Filter sources…"
+                      className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-md py-sm font-body text-sm text-on-surface outline-none focus:border-primary sm:w-56"
+                    />
                   </div>
-                ) : null}
-                </fieldset>
-              </div>
+                </div>
 
-              <div className="flex flex-wrap gap-sm border-t border-outline-variant p-md">
-                {canAdmin ? (
-                  <button
-                    type="button"
-                    disabled={busy || !form.name.trim()}
-                    onClick={() => void save()}
-                    className="bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary-fixed disabled:opacity-40"
-                  >
-                    {creating
-                      ? form.type === 'excel' || form.type === 'csv'
-                        ? 'UPLOAD & ANALYZE'
-                        : 'CREATE'
-                      : 'SAVE'}
-                  </button>
-                ) : null}
-                {!creating && syncable && canWrite ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void sync()}
-                    className="border border-primary-fixed px-md py-sm font-label text-[11px] font-bold tracking-widest text-primary-fixed disabled:opacity-40"
-                  >
-                    SYNC SCHEMA
-                  </button>
-                ) : null}
-                {!creating && selected && canAdmin ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void remove()}
-                    className="border border-outline-variant px-md py-sm font-label text-[11px] font-bold tracking-widest text-error disabled:opacity-40"
-                  >
-                    DELETE
-                  </button>
-                ) : null}
-                {!canAdmin && !canWrite ? (
-                  <p className="font-label text-[10px] tracking-widest text-on-surface-variant">
-                    READ-ONLY · VIEWER
+                <div className="grid grid-cols-1 gap-lg md:grid-cols-2 xl:grid-cols-3">
+                  {filtered.map((s) => {
+                    const badge = statusBadge(s.status)
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedId(s.id)}
+                        className="group rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg text-left transition-all hover:scale-[1.02]"
+                        style={{
+                          boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
+                        }}
+                      >
+                        <div className="mb-lg flex items-start justify-between">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary-container text-primary">
+                            <SourceTypeIcon type={s.type} />
+                          </div>
+                          <span
+                            className={`inline-flex items-center gap-xs rounded-full px-sm py-xs font-label text-[11px] ${badge.className}`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[s.status]}`}
+                            />
+                            {badge.label}
+                          </span>
+                        </div>
+                        <h3 className="mb-xs font-headline text-xl font-semibold text-on-surface">
+                          {s.name}
+                        </h3>
+                        <p className="mb-xl line-clamp-2 font-body text-sm text-on-surface-variant">
+                          {s.description?.trim() ||
+                            `${sourceTypeLabel(s.type)} connection`}
+                        </p>
+                        <div className="flex items-center justify-between font-label text-[11px] text-on-surface-variant">
+                          <span>{relativeSyncLabel(s.updatedAt)}</span>
+                          <span className="transition-transform group-hover:translate-x-1">
+                            →
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+
+                  {canAdmin ? (
+                    <button
+                      type="button"
+                      onClick={startCreate}
+                      className="group flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/40 p-lg text-center transition-all hover:border-primary/50 hover:bg-primary/5"
+                    >
+                      <div className="mb-md flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-low text-outline transition-colors group-hover:bg-primary-container group-hover:text-white">
+                        <span className="text-3xl leading-none">+</span>
+                      </div>
+                      <span className="font-label text-sm font-bold text-on-surface-variant group-hover:text-primary">
+                        Add Data Source
+                      </span>
+                      <p className="mt-xs font-body text-sm text-on-surface-variant/60">
+                        S3, BigQuery, Mongo, and more
+                      </p>
+                    </button>
+                  ) : null}
+                </div>
+
+                {filtered.length === 0 && !canAdmin ? (
+                  <p className="mt-lg font-body text-sm text-on-surface-variant">
+                    No sources yet — ask an admin to add a connection.
                   </p>
                 ) : null}
-                <Link
-                  to="/workspace"
-                  className="ml-auto border border-outline-variant px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-surface-variant hover:border-primary-fixed"
+
+                <div className="mt-xl grid grid-cols-1 gap-lg lg:grid-cols-2">
+                  <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-low p-lg">
+                    <h4 className="mb-lg font-label text-sm font-bold tracking-widest text-primary uppercase">
+                      Connection Health
+                    </h4>
+                    <div className="space-y-md">
+                      <div className="flex items-center justify-between">
+                        <span className="font-body text-base text-on-surface">
+                          Healthy sources
+                        </span>
+                        <span className="font-label text-sm font-bold text-tertiary">
+                          {sources.length
+                            ? `${healthPct}%`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-outline-variant/20">
+                        <div
+                          className="h-full bg-tertiary"
+                          style={{
+                            width: `${sources.length ? Math.min(100, healthPct) : 0}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-body text-base text-on-surface">
+                          Connected / total
+                        </span>
+                        <span className="font-label text-sm font-bold text-primary">
+                          {healthActive} / {sources.length}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-outline-variant/20">
+                        <div
+                          className="h-full bg-primary"
+                          style={{
+                            width: `${sources.length ? Math.min(100, (healthActive / sources.length) * 100) : 0}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative flex items-center overflow-hidden rounded-2xl border border-primary-container/20 bg-primary-container/10 p-lg">
+                    <div className="relative z-10">
+                      <h4 className="mb-xs font-headline text-xl font-semibold text-primary">
+                        Optimization Tip
+                      </h4>
+                      <p className="mb-md font-body text-sm text-on-surface-variant">
+                        {sources.some((s) => s.status === 'warning')
+                          ? 'A connector is still warming up. Run Sync Schema after credentials verify to keep the canvas current.'
+                          : 'Enable Incremental Sync on high-churn warehouses to cut duplicate schema scans and compute cost.'}
+                      </p>
+                      <Link
+                        to="/workspace"
+                        className="inline-flex items-center gap-xs font-label text-sm font-bold text-primary hover:underline"
+                      >
+                        Open Workspace ↗
+                      </Link>
+                    </div>
+                    <span
+                      className="pointer-events-none absolute -right-4 -bottom-4 rotate-12 text-[120px] text-primary opacity-5"
+                      aria-hidden
+                    >
+                      ✦
+                    </span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(null)}
+                  className="mb-md font-label text-sm font-bold text-primary hover:underline"
                 >
-                  OPEN WORKSPACE
-                </Link>
-              </div>
-            </>
-          )}
-        </main>
+                  ← Back to Data Sources
+                </button>
+                <div className="mb-lg">
+                  <h1 className="font-headline text-3xl font-semibold tracking-tight text-on-surface">
+                    {form.name || selected.name}
+                  </h1>
+                  <p className="mt-xs font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
+                    Status {selected.status} · {sourceTypeLabel(form.type)}
+                  </p>
+                </div>
+
+                <div
+                  className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
+                  style={{
+                    boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
+                  }}
+                >
+                  <ConnectionFields
+                    form={form}
+                    setForm={setForm}
+                    creating={false}
+                    canAdmin={canAdmin}
+                    pendingFiles={pendingFiles}
+                    setPendingFiles={setPendingFiles}
+                    tableNameOverrides={tableNameOverrides}
+                    setTableNameOverrides={setTableNameOverrides}
+                    uploadMoreFiles={uploadMoreFiles}
+                    selected={selected}
+                  />
+                </div>
+
+                <div className="mt-lg flex flex-wrap gap-sm">
+                  {canAdmin ? (
+                    <button
+                      type="button"
+                      disabled={busy || !form.name.trim()}
+                      onClick={() => void save()}
+                      className="rounded-lg bg-primary-container px-md py-sm font-label text-sm font-bold text-on-primary disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                  ) : null}
+                  {syncable && canWrite ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void sync()}
+                      className="rounded-lg border border-primary px-md py-sm font-label text-sm font-bold text-primary disabled:opacity-40"
+                    >
+                      Sync Schema
+                    </button>
+                  ) : null}
+                  {canAdmin ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void remove()}
+                      className="rounded-lg border border-outline-variant px-md py-sm font-label text-sm font-bold text-error disabled:opacity-40"
+                    >
+                      Delete
+                    </button>
+                  ) : null}
+                  <Link
+                    to="/workspace"
+                    className="ml-auto rounded-lg border border-outline-variant px-md py-sm font-label text-sm font-bold text-on-surface-variant hover:border-primary"
+                  >
+                    Open Workspace
+                  </Link>
+                </div>
+              </>
+            )}
+          </main>
+        </div>
       </div>
     </QueAppChrome>
   )
 }
 
+function WizardStepper({ step }: { step: number }) {
+  return (
+    <div className="flex w-full items-center justify-between px-xs">
+      {WIZARD_STEPS.map((label, i) => {
+        const n = i + 1
+        const active = n <= step
+        const current = n === step
+        return (
+          <div key={label} className="flex flex-1 items-center last:flex-none">
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className={[
+                  'flex h-10 w-10 items-center justify-center rounded-full font-label font-bold',
+                  current || active
+                    ? 'bg-primary text-on-primary'
+                    : 'bg-secondary-container text-on-secondary-container',
+                ].join(' ')}
+              >
+                {n}
+              </div>
+              <span
+                className={[
+                  'font-label text-sm',
+                  current || active
+                    ? 'text-primary'
+                    : 'text-on-surface-variant',
+                ].join(' ')}
+              >
+                {label}
+              </span>
+            </div>
+            {i < WIZARD_STEPS.length - 1 ? (
+              <div
+                className="mx-md mt-[-1.5rem] h-0.5 flex-1"
+                style={{
+                  backgroundColor: n < step ? '#9a442d' : '#dbc1ba',
+                }}
+              />
+            ) : null}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ScheduleOption({
+  active,
+  title,
+  body,
+  onClick,
+}: {
+  active: boolean
+  title: string
+  body: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'w-full rounded-xl border p-md text-left transition-all',
+        active
+          ? 'border-primary bg-primary/5 shadow-sm'
+          : 'border-secondary-container hover:border-primary/40',
+      ].join(' ')}
+    >
+      <p className="font-label text-sm font-bold text-on-surface">{title}</p>
+      <p className="mt-xs font-body text-sm text-on-surface-variant">{body}</p>
+    </button>
+  )
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-md border-b border-outline-variant/15 pb-md">
+      <dt className="text-on-surface-variant">{label}</dt>
+      <dd className="text-right font-medium text-on-surface">{value}</dd>
+    </div>
+  )
+}
+
 const inputClass =
-  'w-full border border-outline-variant bg-surface-container-low px-sm py-sm font-body text-xs text-on-surface outline-none focus:border-primary-fixed'
+  'w-full rounded-lg border border-outline-variant bg-surface-container-low px-sm py-sm font-body text-xs text-on-surface outline-none focus:border-primary'
 
 function Field({
   label,
@@ -736,6 +1324,165 @@ function Field({
       </span>
       {children}
     </label>
+  )
+}
+
+function ConnectionFields({
+  form,
+  setForm,
+  creating,
+  canAdmin,
+  pendingFiles,
+  setPendingFiles,
+  tableNameOverrides,
+  setTableNameOverrides,
+  uploadMoreFiles,
+  selected,
+}: {
+  form: FormState
+  setForm: Dispatch<SetStateAction<FormState>>
+  creating: boolean
+  canAdmin: boolean
+  pendingFiles: File[]
+  setPendingFiles: Dispatch<SetStateAction<File[]>>
+  tableNameOverrides: string
+  setTableNameOverrides: Dispatch<SetStateAction<string>>
+  uploadMoreFiles: (fileList: FileList | null) => void | Promise<void>
+  selected?: DataSource | null
+}) {
+  return (
+    <fieldset
+      disabled={!canAdmin}
+      className="space-y-md border-0 p-0 disabled:opacity-70"
+    >
+      {!canAdmin ? (
+        <p className="font-label text-[10px] tracking-widest text-on-surface-variant">
+          View-only config — admin required to edit
+        </p>
+      ) : null}
+      <Field label="Name">
+        <input
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      {creating ? (
+        <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
+          Type · {sourceTypeLabel(form.type)}
+        </p>
+      ) : (
+        <Field label="Type">
+          <input
+            value={sourceTypeLabel(form.type)}
+            disabled
+            className={inputClass}
+          />
+        </Field>
+      )}
+
+      <Field label="Description">
+        <input
+          value={form.description}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, description: e.target.value }))
+          }
+          className={inputClass}
+        />
+      </Field>
+
+      {form.type === 'postgresql' ? (
+        <PostgresFields form={form} setForm={setForm} />
+      ) : null}
+      {form.type === 'mongodb' ? (
+        <MongoFields form={form} setForm={setForm} />
+      ) : null}
+      {form.type === 'databricks' ? (
+        <DatabricksFields form={form} setForm={setForm} />
+      ) : null}
+      {form.type === 'excel' || form.type === 'csv' ? (
+        <div className="space-y-md">
+          <div className="rounded-xl border border-dashed border-primary/40 bg-primary-container/5 p-md">
+            <p className="font-label text-[10px] font-bold tracking-widest text-primary">
+              Upload {form.type === 'excel' ? 'Excel' : 'CSV'}
+            </p>
+            <p className="mt-xs font-body text-xs text-on-surface-variant">
+              Drop files here — Que infers tables/columns (capped samples),
+              maps them into this workspace, then canvas + AI chat can use them
+              after sync.
+            </p>
+            <input
+              type="file"
+              multiple
+              accept={
+                form.type === 'excel'
+                  ? '.xlsx,.xls,.csv,.tsv'
+                  : '.csv,.tsv,.txt,.xlsx,.xls'
+              }
+              disabled={!canAdmin && creating}
+              className="mt-md block w-full font-body text-xs text-on-surface file:mr-md file:rounded-lg file:border file:border-outline-variant file:bg-surface-container file:px-sm file:py-xs file:font-label file:text-[10px] file:tracking-widest"
+              onChange={(e) => {
+                const list = e.target.files
+                if (!list?.length) return
+                if (creating) {
+                  setPendingFiles([...list])
+                  if (!form.name.trim()) {
+                    setForm((f) => ({
+                      ...f,
+                      name: list[0].name.replace(/\.[^.]+$/, ''),
+                    }))
+                  }
+                } else {
+                  void uploadMoreFiles(list)
+                }
+                e.target.value = ''
+              }}
+            />
+            {creating && pendingFiles.length > 0 ? (
+              <ul className="mt-sm space-y-xs font-body text-xs text-on-surface">
+                {pendingFiles.map((f) => (
+                  <li key={`${f.name}-${f.size}`}>
+                    {f.name}{' '}
+                    <span className="text-on-surface-variant">
+                      ({Math.round(f.size / 1024)} KB)
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {!creating && selected ? (
+              <p className="mt-sm font-label text-[9px] tracking-widest text-on-surface-variant">
+                Pick files to append + re-sync this source
+              </p>
+            ) : null}
+          </div>
+          <Field label="Table names (optional, comma-separated, order = files)">
+            <input
+              value={tableNameOverrides}
+              onChange={(e) => setTableNameOverrides(e.target.value)}
+              placeholder="campaigns, leads"
+              className={inputClass}
+            />
+          </Field>
+          {!creating ? (
+            <Field label="Mapped files (advanced JSON)">
+              <textarea
+                value={form.filesJson}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    filesJson: e.target.value,
+                  }))
+                }
+                rows={5}
+                className={`${inputClass} font-body`}
+              />
+            </Field>
+          ) : null}
+        </div>
+      ) : null}
+    </fieldset>
   )
 }
 

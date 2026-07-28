@@ -35,21 +35,21 @@ export interface DataSourceSidebarProps {
   className?: string
 }
 
-/** Status LED colors — Midnight Cyber functional mapping */
+/** Status LED colors — Sunset Clay (sage = healthy) */
 const STATUS_DOT: Record<
   DataSourceStatus,
   { className: string; label: string }
 > = {
   active: {
-    className: 'bg-primary-fixed',
+    className: 'bg-tertiary',
     label: 'Active',
   },
   warning: {
-    className: 'bg-[#FF3E00]',
+    className: 'bg-sand',
     label: 'Warning',
   },
   error: {
-    className: 'bg-[#FF0055]',
+    className: 'bg-error',
     label: 'Error',
   },
 }
@@ -125,11 +125,11 @@ export function DataSourceSidebar({
   return (
     <aside
       data-region="data-source-sidebar"
-      className={`flex h-full w-[220px] shrink-0 flex-col border-r border-outline-variant bg-surface-container ${className}`}
+      className={`flex h-full w-[220px] shrink-0 flex-col border-r border-outline-variant/30 bg-surface-container-low ${className}`}
       aria-label="Data sources"
     >
       {/* ── Header: title + quick filter ─────────────────────────────── */}
-      <div className="shrink-0 border-b border-outline-variant p-md">
+      <div className="shrink-0 border-b border-outline-variant/30 p-md">
         <div className="mb-sm flex items-center gap-sm">
           <span className="font-label text-[11px] font-bold tracking-widest text-on-surface-variant">
             SOURCES
@@ -140,7 +140,7 @@ export function DataSourceSidebar({
         <label className="sr-only" htmlFor="source-filter">
           Filter data sources
         </label>
-        <div className="flex items-center gap-sm border border-outline-variant bg-surface-container-low px-sm py-xs focus-within:border-primary-fixed">
+        <div className="flex items-center gap-sm rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-xs focus-within:border-primary-fixed">
           <span className="text-xs text-on-surface-variant" aria-hidden>
             ⌕
           </span>
@@ -180,7 +180,7 @@ export function DataSourceSidebar({
           aria-label="Connected data sources"
         >
           {filteredSources.length === 0 ? (
-            <li className="border border-dashed border-outline-variant px-sm py-md text-center">
+            <li className="rounded-xl border border-dashed border-sand/50 px-sm py-md text-center">
               <p className="font-body text-xs text-on-surface-variant">
                 No sources match “{filter.trim()}”
               </p>
@@ -206,7 +206,7 @@ export function DataSourceSidebar({
           onClick={() => {
             if (activeId && onSyncSource) void onSyncSource(activeId)
           }}
-          className="flex w-full items-center justify-center gap-sm bg-primary-container py-md font-label text-[11px] font-bold tracking-widest text-on-primary-container transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-sm rounded-lg bg-primary-container py-md font-label text-[11px] font-bold tracking-widest text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           title={
             readOnlySync
               ? 'Read-only — sync requires member+'
@@ -232,7 +232,7 @@ interface DataSourceRowProps {
 
 /**
  * Single connection row: status LED, type icon, name, type caption.
- * Selected = primary left bar + lime border (Midnight Cyber selection pattern).
+ * Selected = terracotta border + soft cream fill (Sunset Clay).
  */
 function DataSourceRow({ source, selected, onSelect }: DataSourceRowProps) {
   const status = STATUS_DOT[source.status]
@@ -243,10 +243,10 @@ function DataSourceRow({ source, selected, onSelect }: DataSourceRowProps) {
         type="button"
         onClick={() => onSelect(source.id)}
         className={[
-          'group flex w-full items-start gap-sm border p-sm text-left transition-colors',
+          'group flex w-full items-start gap-sm rounded-xl border p-sm text-left transition-colors',
           selected
-            ? 'border-primary-fixed bg-secondary-container border-l-4'
-            : 'border-outline-variant bg-surface-container-low hover:border-primary-fixed',
+            ? 'border-primary bg-secondary-container border-l-4'
+            : 'border-sand/40 bg-surface-container-lowest hover:border-primary-fixed',
           source.status === 'error' && !selected ? 'opacity-60' : '',
         ]
           .filter(Boolean)

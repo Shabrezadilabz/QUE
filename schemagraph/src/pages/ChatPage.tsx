@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent as ReactDragEvent,
+} from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
@@ -17,6 +24,25 @@ import {
   getTriggerAtCaret,
   type MentionSuggestion,
 } from '@/chat/mentions'
+
+type SpeechRecognitionLike = {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start: () => void
+  stop: () => void
+  abort?: () => void
+  onresult:
+    | ((event: {
+        results: {
+          [i: number]: { [j: number]: { transcript: string } }
+          length: number
+        }
+      }) => void)
+    | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+}
 import {
   createJobFromDraft,
   fetchAiStatus,
@@ -56,7 +82,9 @@ interface UiMessage {
  */
 export function ChatPage() {
   const { canWrite } = useWorkspaceRole()
-  const { workspaceId } = useAuth()
+  const { workspaceId, workspaces } = useAuth()
+  const workspaceName =
+    workspaces.find((w) => w.id === workspaceId)?.name || 'Workspace'
   const { pushToast } = useToast()
   const [messages, setMessages] = useState<UiMessage[]>([])
   const [input, setInput] = useState('')
@@ -66,6 +94,14 @@ export function ChatPage() {
   const [focusTables, setFocusTables] = useState<ChatReferencedTable[]>([])
   const [contextRefreshing, setContextRefreshing] = useState(false)
   const [sidebarQuery, setSidebarQuery] = useState('')
+  const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>(
+    {},
+  )
+  const [composerDragOver, setComposerDragOver] = useState(false)
+  const [attachments, setAttachments] = useState<
+    { id: string; name: string; text: string }[]
+  >([])
+  const [listening, setListening] = useState(false)
   const [showSkills, setShowSkills] = useState(false)
   const [activeMentions, setActiveMentions] = useState<string[]>([])
   const [suggestOpen, setSuggestOpen] = useState(false)
@@ -81,6 +117,11 @@ export function ChatPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const recognitionRef = useRef<{
+    stop: () => void
+    abort?: () => void
+  } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const allTables = context?.tables ?? []
@@ -272,6 +313,17 @@ export function ChatPage() {
     setInput(next)
     const ment = extractMentions(next)
     setActiveMentions(ment.tables)
+    const tableName = token.replace(/^@/, '').split('.')[0]
+    const t = allTables.find(
+      (x) => x.name.toLowerCase() === tableName.toLowerCase(),
+    )
+    if (t) {
+      setFocusTables((prev) => {
+        if (prev.some((p) => p.name === t.name && p.connection === t.connection))
+          return prev
+        return [t, ...prev].slice(0, 12)
+      })
+    }
     requestAnimationFrame(() => {
       const ta = textareaRef.current
       if (!ta) return
@@ -279,6 +331,133 @@ export function ChatPage() {
       ta.setSelectionRange(nextCaret, nextCaret)
     })
   }
+
+  function toggleTableExpand(key: string) {
+    setExpandedTables((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  function onMentionDragStart(e: ReactDragEvent, token: string) {
+    e.dataTransfer.setData('text/plain', token)
+    e.dataTransfer.setData('application/x-que-mention', token)
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+
+  function onComposerDragOver(e: ReactDragEvent) {
+    if (
+      e.dataTransfer.types.includes('application/x-que-mention') ||
+      e.dataTransfer.types.includes('text/plain')
+    ) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      setComposerDragOver(true)
+    }
+  }
+
+  function onComposerDragLeave(e: ReactDragEvent) {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setComposerDragOver(false)
+  }
+
+  function onComposerDrop(e: ReactDragEvent) {
+    e.preventDefault()
+    setComposerDragOver(false)
+    const token =
+      e.dataTransfer.getData('application/x-que-mention') ||
+      e.dataTransfer.getData('text/plain')
+    if (!token?.startsWith('@') || !canWrite) return
+    insertFromSidebar(token)
+  }
+
+  async function onPickAttachments(fileList: FileList | null) {
+    if (!fileList?.length || !canWrite) return
+    const next: { id: string; name: string; text: string }[] = []
+    for (const file of [...fileList].slice(0, 4)) {
+      if (file.size > 200_000) {
+        pushToast(`${file.name} is too large (max 200KB)`, 'error')
+        continue
+      }
+      const text = await file.text()
+      next.push({
+        id: `${file.name}-${file.size}-${Date.now()}`,
+        name: file.name,
+        text,
+      })
+    }
+    if (next.length) {
+      setAttachments((prev) => [...prev, ...next].slice(0, 6))
+      pushToast(
+        `Attached ${next.length} note(s) — schema-only context, not warehouse data`,
+        'success',
+      )
+    }
+  }
+
+  function toggleVoiceInput() {
+    if (!canWrite) return
+    const SR =
+      typeof window !== 'undefined'
+        ? (
+            window as unknown as {
+              SpeechRecognition?: new () => SpeechRecognitionLike
+              webkitSpeechRecognition?: new () => SpeechRecognitionLike
+            }
+          ).SpeechRecognition ||
+          (
+            window as unknown as {
+              webkitSpeechRecognition?: new () => SpeechRecognitionLike
+            }
+          ).webkitSpeechRecognition
+        : undefined
+
+    if (!SR) {
+      pushToast('Voice input is not supported in this browser', 'info')
+      return
+    }
+
+    if (listening && recognitionRef.current) {
+      recognitionRef.current.stop()
+      recognitionRef.current = null
+      setListening(false)
+      return
+    }
+
+    const recognition = new SR()
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+    recognition.onresult = (event: {
+      results: { [i: number]: { [j: number]: { transcript: string } }; length: number }
+    }) => {
+      let transcript = ''
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0]?.transcript ?? ''
+      }
+      if (transcript.trim()) {
+        setInput((prev) => {
+          const needsSpace = prev.length > 0 && !/\s$/.test(prev) ? ' ' : ''
+          return prev + needsSpace + transcript.trim()
+        })
+      }
+    }
+    recognition.onerror = () => {
+      setListening(false)
+      recognitionRef.current = null
+    }
+    recognition.onend = () => {
+      setListening(false)
+      recognitionRef.current = null
+    }
+    recognitionRef.current = recognition
+    setListening(true)
+    recognition.start()
+  }
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort?.()
+      recognitionRef.current?.stop()
+    }
+  }, [])
 
   function stopAsk() {
     abortRef.current?.abort()
@@ -294,7 +473,17 @@ export function ChatPage() {
         ? activeMentions
         : extractMentions(rawText).tables
 
-    const expanded = expandSkillInput(rawText, focusNames)
+    const attachmentBlock =
+      attachments.length > 0
+        ? attachments
+            .map(
+              (a) =>
+                `Attached note (${a.name}):\n\`\`\`\n${a.text.slice(0, 8000)}\n\`\`\``,
+            )
+            .join('\n\n') + '\n\n'
+        : ''
+
+    const expanded = expandSkillInput(attachmentBlock + rawText, focusNames)
     const message = expanded.trim()
     if (!message) return
 
@@ -330,6 +519,7 @@ export function ChatPage() {
       return [...prev, userMsg]
     })
     setInput('')
+    setAttachments([])
     setActiveMentions([])
     setBusy(true)
 
@@ -497,109 +687,67 @@ export function ChatPage() {
     )
   }, [focusTables, allTables, sidebarQuery])
 
-  const catalogTables = useMemo(() => {
-    const q = sidebarQuery.trim().toLowerCase()
-    const list = allTables
-    if (!q) return list
-    return list.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) ||
-        t.columns.some((c) => c.name.toLowerCase().includes(q)),
-    )
-  }, [allTables, sidebarQuery])
-
   return (
-    <QueAppChrome>
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <main className="relative flex min-w-0 flex-1 flex-col">
-          <div className="flex h-14 shrink-0 items-center justify-between gap-sm border-b border-outline-variant px-md">
-            <div className="flex min-w-0 items-center gap-sm">
-              <span className="font-label text-[11px] font-bold tracking-widest text-primary-fixed">
-                QUE AI
-              </span>
-              <span className="h-2 w-2 animate-pulse bg-primary-container" />
-              <span className="font-label text-[10px] tracking-wider text-on-surface-variant">
-                {busy ? 'THINKING' : 'READY'}
-              </span>
-              {aiStatus ? (
-                <span className="hidden font-label text-[9px] tracking-widest text-on-surface-variant/70 sm:inline">
-                  {aiStatus.vectorReady ? 'RAG ON' : 'RAG OFF'} ·{' '}
-                  {aiStatus.embeddingMode.toUpperCase()} · CHUNKS{' '}
-                  {(aiStatus.stats?.workspaceChunks || 0) +
-                    (aiStatus.stats?.docChunks || 0)}
-                </span>
-              ) : null}
+    <QueAppChrome eyebrow="SCHEMA-ONLY · MODEL ASSISTANT">
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-md md:px-lg md:py-lg">
+          <div className="mb-lg flex shrink-0 items-end justify-between gap-md">
+            <div>
+              <h1 className="font-headline text-2xl font-semibold text-primary sm:text-[2rem]">
+                Model Assistant
+              </h1>
+              <p className="font-body text-sm text-on-surface-variant">
+                Intelligent schema design and query support
+                {busy ? ' · thinking…' : ''}
+              </p>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-sm">
-              {aiStatus?.models?.length ? (
-                <select
-                  value={modelId}
-                  onChange={(e) => setModelId(e.target.value)}
-                  disabled={!canWrite}
-                  className="max-w-[9rem] border border-outline-variant bg-surface-container px-sm py-xs font-label text-[10px] tracking-wider text-on-surface outline-none focus:border-primary-fixed disabled:opacity-40"
-                  title="Generation model"
-                >
-                  {aiStatus.models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="font-label text-[9px] tracking-widest text-on-surface-variant">
-                  HEURISTIC
-                </span>
-              )}
+            <div className="hidden flex-wrap items-center justify-end gap-sm sm:flex">
               <button
                 type="button"
-                className="border border-outline-variant px-sm py-xs font-label text-[10px] tracking-widest text-on-surface-variant hover:border-primary-fixed disabled:opacity-40"
-                disabled={!canWrite || reindexing}
-                onClick={() => void runReindex()}
+                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white"
+                onClick={() => setShowSkills((v) => !v)}
               >
-                {reindexing ? 'INDEX…' : 'REINDEX'}
+                Skills
               </button>
               <button
                 type="button"
-                className="border border-outline-variant px-sm py-xs font-label text-[10px] tracking-widest text-on-surface-variant hover:border-primary-fixed"
-                onClick={() => setShowSkills((v) => !v)}
+                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white disabled:opacity-40"
+                disabled={!canWrite || reindexing}
+                onClick={() => {
+                  if (reindexing) return
+                  void runReindex()
+                }}
+                title="Reindex schema embeddings"
               >
-                SKILLS
+                {reindexing ? 'Indexing…' : 'Reindex'}
               </button>
               {busy ? (
                 <button
                   type="button"
-                  className="border border-error/50 px-sm py-xs font-label text-[10px] tracking-widest text-error hover:border-error"
+                  className="rounded-lg border border-error/50 px-md py-sm font-label text-[12px] text-error"
                   onClick={stopAsk}
                 >
-                  STOP
+                  Stop
                 </button>
               ) : null}
               <button
                 type="button"
-                className="border border-outline-variant px-sm py-xs font-label text-[10px] tracking-widest text-on-surface-variant hover:border-primary-fixed"
-                disabled={busy || !messages.some((m) => m.role === 'user')}
-                onClick={regenerate}
-              >
-                REGEN
-              </button>
-              <button
-                type="button"
-                className="border border-outline-variant px-sm py-xs font-label text-[10px] tracking-widest text-on-surface-variant hover:border-primary-fixed"
+                className="rounded-lg border border-outline-variant px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white"
                 onClick={() => {
                   setMessages([])
                   setFocusTables([])
                   setActiveMentions([])
                 }}
               >
-                CLEAR
+                Clear
               </button>
             </div>
           </div>
 
           {showSkills ? (
-            <div className="shrink-0 border-b border-outline-variant bg-surface-container-low px-md py-sm">
-              <p className="mb-sm font-label text-[9px] tracking-widest text-on-surface-variant">
-                SLASH SKILLS · TYPE / OR CLICK · USE @ FOR TABLES
+            <div className="mb-md shrink-0 rounded-xl border border-outline-variant/30 bg-white/70 p-md">
+              <p className="mb-sm font-label text-[11px] text-on-surface-variant">
+                Slash skills · type / or click · use @ for tables
               </p>
               <div className="flex flex-wrap gap-sm">
                 {CHAT_SKILLS.map((s) => (
@@ -613,12 +761,12 @@ export function ChatPage() {
                       setShowSkills(false)
                       textareaRef.current?.focus()
                     }}
-                    className="border border-outline-variant bg-surface-container px-sm py-xs text-left hover:border-primary-fixed disabled:opacity-40"
+                    className="rounded-full border border-outline-variant bg-white px-md py-sm text-left hover:bg-[#ffdbd2] disabled:opacity-40"
                   >
-                    <span className="font-label text-[10px] tracking-wider text-primary-fixed">
+                    <span className="font-label text-[12px] text-primary">
                       {s.slash}
                     </span>
-                    <span className="ml-sm font-body text-[11px] text-on-surface-variant">
+                    <span className="ml-sm font-body text-[12px] text-on-surface-variant">
                       {s.label}
                     </span>
                   </button>
@@ -627,39 +775,47 @@ export function ChatPage() {
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1 space-y-lg overflow-y-auto p-md">
+          <div className="min-h-0 flex-1 space-y-lg overflow-y-auto pr-sm">
             {messages.length === 0 ? (
-              <div className="mx-auto flex max-w-2xl flex-col gap-md pt-xl">
-                <h1 className="font-headline text-2xl font-semibold text-on-surface">
-                  Ask about your schema
-                </h1>
-                <p className="font-body text-sm text-on-surface-variant">
-                  Type <code className="text-primary-fixed">@</code> to mention
-                  tables/columns, <code className="text-primary-fixed">/</code>{' '}
-                  for skills, or pick from the sidebar. Answers use Que metadata
-                  only — never raw warehouse rows.
-                </p>
-                <div className="flex flex-wrap gap-sm pt-sm">
-                  {CHAT_SKILLS.filter((s) =>
-                    ['list', 'suggested', 'diff', 'help'].includes(s.id),
-                  ).map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      disabled={!canWrite}
-                      onClick={() => void ask(s.buildPrompt([]))}
-                      className="border border-outline-variant bg-surface-container px-md py-sm text-left font-body text-xs text-on-surface transition-colors hover:border-primary-fixed disabled:opacity-40"
-                    >
-                      <span className="text-primary-fixed">{s.slash}</span>{' '}
-                      {s.label}
-                    </button>
-                  ))}
+              <div className="flex max-w-4xl gap-md">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container font-label text-sm font-bold text-on-primary">
+                  AI
                 </div>
-                {!canWrite ? (
-                  <p className="font-label text-[10px] tracking-widest text-on-surface-variant">
-                    READ-ONLY · VIEWER CANNOT CHAT
-                  </p>
-                ) : null}
+                <div className="space-y-sm">
+                  <div className="rounded-xl rounded-tl-none border border-sand/30 bg-white/80 p-lg shadow-sm backdrop-blur-sm">
+                    <p className="font-body text-base leading-relaxed text-on-surface">
+                      Hello! I am here to help you navigate your data mesh. I have
+                      analyzed{' '}
+                      <span className="font-bold text-primary">{workspaceName}</span>
+                      {context?.stats?.tableCount
+                        ? ` — ${context.stats.tableCount} tables and ${context.stats.relationshipCount ?? 0} relationships ready for schema-only answers.`
+                        : '. Sync a source or ask about tables with @mentions.'}
+                    </p>
+                  </div>
+                  <span className="ml-1 font-label text-[12px] text-on-surface-variant/60">
+                    Assistant · Ready
+                  </span>
+                  <div className="flex flex-wrap gap-sm pt-sm">
+                    {CHAT_SKILLS.filter((s) =>
+                      ['list', 'suggested', 'diff', 'help'].includes(s.id),
+                    ).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={!canWrite}
+                        onClick={() => void ask(s.buildPrompt([]))}
+                        className="rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  {!canWrite ? (
+                    <p className="font-label text-[11px] text-on-surface-variant">
+                      Read-only — viewer cannot chat
+                    </p>
+                  ) : null}
+                </div>
               </div>
             ) : (
               messages.map((m) => (
@@ -689,36 +845,91 @@ export function ChatPage() {
               ))
             )}
             {busy ? (
-              <p className="font-label text-[10px] tracking-widest text-on-surface-variant">
-                READING SCHEMA PACK…
-              </p>
+              <div className="flex gap-md">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container/60 font-label text-sm text-on-primary">
+                  …
+                </div>
+                <p className="rounded-xl rounded-tl-none border border-sand/30 bg-white/70 px-md py-sm font-label text-[12px] text-on-surface-variant">
+                  Reading schema pack…
+                </p>
+              </div>
             ) : null}
             <div ref={bottomRef} />
           </div>
 
-          <div className="shrink-0 border-t border-outline-variant p-md">
+          <div className="mt-md shrink-0 space-y-md">
             {activeMentions.length > 0 ? (
-              <div className="mx-auto mb-sm flex max-w-4xl flex-wrap gap-xs">
+              <div className="flex flex-wrap gap-xs">
                 {activeMentions.map((name) => (
                   <button
                     key={name}
                     type="button"
-                    className="border border-primary-fixed/40 bg-surface-container-high px-sm py-xs font-label text-[10px] tracking-wider text-primary-fixed"
+                    className="rounded-full border border-primary/30 bg-[#ffdbd2] px-sm py-xs font-label text-[11px] text-primary"
                     onClick={() =>
                       setActiveMentions((prev) =>
                         prev.filter((n) => n !== name),
                       )
                     }
-                    title="Remove focus"
                   >
                     @{name} ×
                   </button>
                 ))}
               </div>
             ) : null}
-            <div className="relative mx-auto max-w-4xl">
+
+            <div className="flex flex-wrap gap-sm">
+              <button
+                type="button"
+                disabled={!canWrite}
+                onClick={() => {
+                  setInput('/sql ')
+                  textareaRef.current?.focus()
+                }}
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+              >
+                Generate SQL
+              </button>
+              <button
+                type="button"
+                disabled={!canWrite}
+                onClick={() => {
+                  setInput('/describe ')
+                  textareaRef.current?.focus()
+                }}
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+              >
+                Explain table
+              </button>
+              <button
+                type="button"
+                disabled={!canWrite}
+                onClick={() => void ask('/suggested')}
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+              >
+                Visualize joins
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white"
+                onClick={() => setShowSkills((v) => !v)}
+              >
+                ···
+              </button>
+              {canWrite && messages.some((m) => m.role === 'user') ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={regenerate}
+                  className="rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white disabled:opacity-40"
+                >
+                  Regen
+                </button>
+              ) : null}
+            </div>
+
+            <div className="relative">
               {suggestOpen && suggestions.length > 0 ? (
-                <div className="absolute bottom-full left-0 right-0 z-20 mb-xs max-h-56 overflow-y-auto border border-outline-variant bg-surface-container-high shadow-lg">
+                <div className="absolute bottom-full left-0 right-0 z-20 mb-xs max-h-56 overflow-y-auto rounded-xl border border-outline-variant/40 bg-white shadow-lg">
                   {suggestions.map((s, i) => {
                     const active = i === suggestIndex
                     if (s.kind === 'mention') {
@@ -728,8 +939,8 @@ export function ChatPage() {
                           type="button"
                           className={`flex w-full items-center justify-between px-md py-sm text-left font-body text-xs ${
                             active
-                              ? 'bg-primary-container/20 text-on-surface'
-                              : 'text-on-surface-variant hover:bg-surface-container'
+                              ? 'bg-[#ffdbd2]/50 text-on-surface'
+                              : 'text-on-surface-variant hover:bg-surface-container-low'
                           }`}
                           onMouseDown={(e) => {
                             e.preventDefault()
@@ -737,12 +948,12 @@ export function ChatPage() {
                           }}
                         >
                           <span>
-                            <span className="font-label text-[9px] tracking-wider text-primary-fixed uppercase">
+                            <span className="font-label text-[10px] text-primary uppercase">
                               {s.item.kind}
                             </span>{' '}
                             {s.item.label}
                           </span>
-                          <span className="font-label text-[9px] text-on-surface-variant">
+                          <span className="font-label text-[10px] text-on-surface-variant">
                             {s.item.detail}
                           </span>
                         </button>
@@ -754,8 +965,8 @@ export function ChatPage() {
                         type="button"
                         className={`flex w-full items-center justify-between px-md py-sm text-left font-body text-xs ${
                           active
-                            ? 'bg-primary-container/20 text-on-surface'
-                            : 'text-on-surface-variant hover:bg-surface-container'
+                            ? 'bg-[#ffdbd2]/50 text-on-surface'
+                            : 'text-on-surface-variant hover:bg-surface-container-low'
                         }`}
                         onMouseDown={(e) => {
                           e.preventDefault()
@@ -763,12 +974,10 @@ export function ChatPage() {
                         }}
                       >
                         <span>
-                          <span className="text-primary-fixed">
-                            {s.item.slash}
-                          </span>{' '}
+                          <span className="text-primary">{s.item.slash}</span>{' '}
                           {s.item.label}
                         </span>
-                        <span className="max-w-[50%] truncate font-label text-[9px] text-on-surface-variant">
+                        <span className="max-w-[50%] truncate font-label text-[10px] text-on-surface-variant">
                           {s.item.description}
                         </span>
                       </button>
@@ -776,159 +985,435 @@ export function ChatPage() {
                   })}
                 </div>
               ) : null}
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => {
-                  const v = e.target.value
-                  setInput(v)
-                  setActiveMentions(extractMentions(v).tables)
-                  syncTriggerFromCaret(v, e.target.selectionStart ?? v.length)
-                }}
-                onClick={(e) => {
-                  const t = e.currentTarget
-                  syncTriggerFromCaret(t.value, t.selectionStart ?? 0)
-                }}
-                onKeyUp={(e) => {
-                  const t = e.currentTarget
-                  syncTriggerFromCaret(t.value, t.selectionStart ?? 0)
-                }}
-                onKeyDown={(e) => {
-                  if (suggestOpen && suggestions.length > 0) {
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault()
-                      setSuggestIndex(
-                        (i) => (i + 1) % suggestions.length,
-                      )
-                      return
-                    }
-                    if (e.key === 'ArrowUp') {
-                      e.preventDefault()
-                      setSuggestIndex(
-                        (i) =>
-                          (i - 1 + suggestions.length) % suggestions.length,
-                      )
-                      return
-                    }
-                    if (e.key === 'Escape') {
-                      e.preventDefault()
-                      setSuggestOpen(false)
-                      setTrigger({ type: null, start: -1, query: '' })
-                      return
-                    }
-                    if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
-                      const picked = suggestions[suggestIndex]
-                      if (picked) {
+
+              <div
+                className={[
+                  'relative rounded-2xl border bg-white p-md shadow-sm transition-colors focus-within:border-primary focus-within:shadow-md',
+                  composerDragOver
+                    ? 'border-primary border-dashed bg-primary/5'
+                    : 'border-outline-variant/60',
+                ].join(' ')}
+                onDragOver={onComposerDragOver}
+                onDragLeave={onComposerDragLeave}
+                onDrop={onComposerDrop}
+              >
+                {composerDragOver ? (
+                  <p className="pointer-events-none absolute inset-x-0 top-2 z-10 text-center font-label text-[10px] font-bold tracking-wide text-primary">
+                    Drop to mention @table or @table.column
+                  </p>
+                ) : null}
+
+                {attachments.length > 0 ? (
+                  <div className="mb-sm flex flex-wrap gap-xs">
+                    {attachments.map((a) => (
+                      <span
+                        key={a.id}
+                        className="inline-flex max-w-full items-center gap-xs rounded-full border border-outline-variant/40 bg-secondary-container/40 px-sm py-1 font-label text-[11px] text-on-surface"
+                      >
+                        <span className="truncate" title={a.name}>
+                          📎 {a.name}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${a.name}`}
+                          onClick={() =>
+                            setAttachments((prev) =>
+                              prev.filter((x) => x.id !== a.id),
+                            )
+                          }
+                          className="rounded-full px-1 text-on-surface-variant hover:text-error"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setInput(v)
+                    setActiveMentions(extractMentions(v).tables)
+                    syncTriggerFromCaret(v, e.target.selectionStart ?? v.length)
+                  }}
+                  onDragOver={onComposerDragOver}
+                  onDrop={onComposerDrop}
+                  onClick={(e) => {
+                    const t = e.currentTarget
+                    syncTriggerFromCaret(t.value, t.selectionStart ?? 0)
+                  }}
+                  onKeyUp={(e) => {
+                    const t = e.currentTarget
+                    syncTriggerFromCaret(t.value, t.selectionStart ?? 0)
+                  }}
+                  onKeyDown={(e) => {
+                    if (suggestOpen && suggestions.length > 0) {
+                      if (e.key === 'ArrowDown') {
                         e.preventDefault()
-                        if (picked.kind === 'mention') pickMention(picked.item)
-                        else pickSkill(picked.item)
+                        setSuggestIndex((i) => (i + 1) % suggestions.length)
                         return
                       }
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        setSuggestIndex(
+                          (i) =>
+                            (i - 1 + suggestions.length) % suggestions.length,
+                        )
+                        return
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault()
+                        setSuggestOpen(false)
+                        setTrigger({ type: null, start: -1, query: '' })
+                        return
+                      }
+                      if (
+                        e.key === 'Tab' ||
+                        (e.key === 'Enter' && !e.shiftKey)
+                      ) {
+                        const picked = suggestions[suggestIndex]
+                        if (picked) {
+                          e.preventDefault()
+                          if (picked.kind === 'mention')
+                            pickMention(picked.item)
+                          else pickSkill(picked.item)
+                          return
+                        }
+                      }
                     }
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      void ask(input)
+                    }
+                  }}
+                  rows={2}
+                  disabled={!canWrite}
+                  placeholder={
+                    canWrite
+                      ? 'Ask Que anything about your pipelines…  @table  /sql'
+                      : 'Read-only — viewer cannot send chat'
                   }
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    void ask(input)
-                  }
-                }}
-                rows={3}
-                disabled={!canWrite}
-                placeholder={
-                  canWrite
-                    ? 'Ask about schema…  @table  @table.column  /list  /sql  /job'
-                    : 'Read-only — viewer cannot send chat'
-                }
-                className="w-full resize-none border border-outline-variant bg-surface-container p-md pr-16 font-body text-sm text-on-surface outline-none placeholder:text-on-surface-variant/40 focus:border-primary-fixed disabled:opacity-50"
-              />
-              <button
-                type="button"
-                disabled={!canWrite || busy || !input.trim()}
-                onClick={() => void ask(input)}
-                className="absolute bottom-md right-md bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary-fixed disabled:opacity-40"
-              >
-                SEND
-              </button>
+                  className="max-h-40 min-h-[3rem] w-full resize-none border-none bg-transparent px-xs py-xs font-body text-base leading-relaxed text-on-surface outline-none placeholder:text-on-surface-variant/40 disabled:opacity-50"
+                />
+
+                <div className="mt-sm flex flex-wrap items-center gap-xs border-t border-outline-variant/20 pt-sm">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".sql,.md,.txt,.json,.csv,.yml,.yaml"
+                    className="hidden"
+                    onChange={(e) => {
+                      void onPickAttachments(e.target.files)
+                      e.target.value = ''
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!canWrite}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                    title="Attach schema note (.sql, .md, .txt…)"
+                    aria-label="Attach file"
+                  >
+                    <PaperclipIcon />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canWrite}
+                    onClick={() => {
+                      const el = textareaRef.current
+                      const caret = el?.selectionStart ?? input.length
+                      const before = input.slice(0, caret)
+                      const after = input.slice(caret)
+                      const needsSpace =
+                        before.length > 0 && !/\s$/.test(before) ? ' ' : ''
+                      const next = `${before}${needsSpace}@${after}`
+                      const nextCaret = (before + needsSpace + '@').length
+                      setInput(next)
+                      syncTriggerFromCaret(next, nextCaret)
+                      requestAnimationFrame(() => {
+                        const ta = textareaRef.current
+                        if (!ta) return
+                        ta.focus()
+                        ta.setSelectionRange(nextCaret, nextCaret)
+                      })
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-full font-label text-sm font-bold text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                    title="Mention a table"
+                    aria-label="Mention table"
+                  >
+                    @
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canWrite}
+                    onClick={() => {
+                      setShowSkills(true)
+                      setInput((prev) => (prev.startsWith('/') ? prev : '/'))
+                      requestAnimationFrame(() => textareaRef.current?.focus())
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-full font-label text-sm text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                    title="Skills / commands"
+                    aria-label="Open skills"
+                  >
+                    /
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canWrite}
+                    onClick={toggleVoiceInput}
+                    className={[
+                      'flex h-9 w-9 items-center justify-center rounded-full transition-colors disabled:opacity-40',
+                      listening
+                        ? 'bg-error/15 text-error'
+                        : 'text-on-surface-variant hover:bg-secondary-container',
+                    ].join(' ')}
+                    title={listening ? 'Stop listening' : 'Voice input'}
+                    aria-label={listening ? 'Stop voice input' : 'Voice input'}
+                    aria-pressed={listening}
+                  >
+                    <MicIcon />
+                  </button>
+
+                  <div className="ml-auto flex items-center gap-sm">
+                    <label className="flex max-w-[11rem] items-center gap-1 rounded-full border border-outline-variant/40 bg-surface-container-low px-sm py-1.5">
+                      <span className="sr-only">Model</span>
+                      <select
+                        value={modelId}
+                        onChange={(e) => setModelId(e.target.value)}
+                        disabled={!canWrite || !aiStatus?.models?.length}
+                        className="max-w-[9.5rem] truncate border-none bg-transparent font-label text-[12px] font-medium text-on-surface outline-none disabled:opacity-40"
+                        title="Generation model"
+                      >
+                        {(aiStatus?.models?.length
+                          ? aiStatus.models
+                          : [{ id: '', label: 'heuristic' }]
+                        ).map((m) => (
+                          <option key={m.id || 'heuristic'} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {busy ? (
+                      <button
+                        type="button"
+                        onClick={stopAsk}
+                        className="flex h-10 items-center justify-center rounded-full border border-outline-variant px-md font-label text-xs font-bold text-on-surface-variant hover:bg-secondary-container"
+                      >
+                        Stop
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={
+                          !canWrite ||
+                          (!input.trim() && attachments.length === 0)
+                        }
+                        onClick={() => void ask(input)}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary font-label text-sm font-bold text-on-primary transition-transform hover:bg-primary-container active:scale-90 disabled:opacity-40"
+                        aria-label="Send"
+                      >
+                        →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="mt-sm text-center font-label text-[9px] tracking-widest text-on-surface-variant/50">
-              {contextError
-                ? `CONTEXT ERROR · ${contextError}`
-                : `TABLES ${context?.stats?.tableCount ?? '—'} · RELS ${context?.stats?.relationshipCount ?? '—'} · SUGGESTED ${context?.stats?.suggestedJoins ?? '—'} · @ MENTION · / SKILLS · RAG ${aiStatus?.vectorReady ? 'ON' : 'OFF'}`}
+            <p className="pb-sm text-center font-label text-[12px] text-on-surface-variant/40">
+              AI can make mistakes. Verify critical schema changes.
+              {contextError ? ` · Context error: ${contextError}` : ''}
             </p>
           </div>
         </main>
 
-        <aside className="hidden w-80 shrink-0 flex-col border-l border-outline-variant bg-surface-container lg:flex">
-          <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high p-md">
-            <h2 className="flex items-center gap-sm font-label text-[11px] font-bold tracking-widest text-primary-fixed">
-              TABLES
-              {contextRefreshing ? (
-                <span className="font-label text-[9px] tracking-widest text-on-surface-variant">
-                  REFRESHING
+        <aside className="hidden w-80 shrink-0 flex-col gap-lg overflow-y-auto py-lg pr-lg pl-md xl:flex">
+          <div className="space-y-md rounded-xl border border-sand/30 bg-white/80 p-lg shadow-sm backdrop-blur-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="font-label text-sm font-bold tracking-widest text-on-surface uppercase">
+                Active Context
+              </h3>
+              <button
+                type="button"
+                onClick={() => void reloadContext()}
+                className="font-label text-[10px] tracking-wide text-on-surface-variant hover:text-primary"
+              >
+                {contextRefreshing ? '…' : 'Refresh'}
+              </button>
+            </div>
+            <div className="space-y-sm">
+              <div className="flex items-center justify-between gap-sm">
+                <span className="font-label text-[12px] text-on-surface-variant">
+                  Selected model
                 </span>
-              ) : null}
-            </h2>
-            <button
-              type="button"
-              onClick={() => void reloadContext()}
-              className="border border-outline-variant px-sm py-xs font-label text-[9px] tracking-widest text-on-surface-variant hover:border-primary-fixed"
-            >
-              REFRESH
-            </button>
-          </div>
-          <div className="border-b border-outline-variant p-sm">
-            <input
-              value={sidebarQuery}
-              onChange={(e) => setSidebarQuery(e.target.value)}
-              placeholder="Filter tables / columns…"
-              className="w-full border border-outline-variant bg-surface-container-lowest px-sm py-xs font-body text-xs text-on-surface outline-none placeholder:text-on-surface-variant/40 focus:border-primary-fixed"
-            />
-            <p className="mt-xs font-label text-[8px] tracking-widest text-on-surface-variant/60">
-              CLICK TABLE OR COLUMN TO PASTE INTO CHAT
-            </p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {focusTables.length > 0 ? (
-              <div className="border-b border-outline-variant bg-surface-container-low px-md py-xs">
-                <span className="font-label text-[9px] tracking-widest text-primary-fixed">
-                  PINNED FROM CHAT
+                <span className="truncate font-label text-[12px] font-bold text-primary underline">
+                  {modelId || aiStatus?.models?.[0]?.label || 'heuristic'}
                 </span>
               </div>
-            ) : null}
-            {(focusTables.length > 0 ? sidebarTables : []).map((t) => (
-              <SidebarTableCard
-                key={`focus-${t.connection}-${t.name}`}
-                table={t}
-                canWrite={canWrite}
-                onPickTable={() => insertFromSidebar(`@${t.name}`)}
-                onPickColumn={(col) =>
-                  insertFromSidebar(`@${t.name}.${col}`)
-                }
-                onDescribe={() => void ask(`/describe @${t.name}`)}
+              <div className="h-1 w-full overflow-hidden rounded-full bg-secondary-container">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{
+                    width: aiStatus?.vectorReady ? '75%' : '40%',
+                  }}
+                />
+              </div>
+            </div>
+            <div className="space-y-xs pt-sm">
+              <p className="font-label text-[12px] font-semibold text-on-surface">
+                Referenced tables
+              </p>
+              <input
+                value={sidebarQuery}
+                onChange={(e) => setSidebarQuery(e.target.value)}
+                placeholder="Filter tables…"
+                className="mb-sm w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-xs font-body text-xs outline-none focus:border-primary"
               />
-            ))}
-            <div className="border-b border-outline-variant bg-surface-container-low px-md py-xs">
-              <span className="font-label text-[9px] tracking-widest text-on-surface-variant">
-                WORKSPACE CATALOG · {catalogTables.length}
+              <ul className="max-h-64 space-y-xs overflow-y-auto">
+                {sidebarTables.slice(0, 24).map((t) => {
+                  const key = `${t.connection}:${t.name}`
+                  const open =
+                    expandedTables[key] ||
+                    (sidebarQuery.trim().length > 0 &&
+                      t.columns.some((c) =>
+                        c.name
+                          .toLowerCase()
+                          .includes(sidebarQuery.trim().toLowerCase()),
+                      ))
+                  return (
+                    <li key={key} className="rounded-lg hover:bg-secondary-container/40">
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          aria-expanded={open}
+                          aria-label={
+                            open
+                              ? `Collapse columns for ${t.name}`
+                              : `Expand columns for ${t.name}`
+                          }
+                          onClick={() => toggleTableExpand(key)}
+                          className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-on-surface-variant hover:bg-secondary-container hover:text-primary"
+                        >
+                          <span
+                            className={`inline-block text-[10px] transition-transform ${open ? 'rotate-90' : ''}`}
+                            aria-hidden
+                          >
+                            ▸
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canWrite}
+                          draggable={canWrite}
+                          onDragStart={(e) =>
+                            onMentionDragStart(e, `@${t.name}`)
+                          }
+                          onClick={() => insertFromSidebar(`@${t.name}`)}
+                          title={
+                            canWrite
+                              ? `Click or drag @${t.name} into chat`
+                              : t.name
+                          }
+                          className="flex min-w-0 flex-1 items-center gap-sm rounded-lg px-xs py-xs text-left text-[13px] text-on-surface-variant hover:text-primary disabled:cursor-default disabled:opacity-40"
+                        >
+                          <span className="text-tertiary" aria-hidden>
+                            ▤
+                          </span>
+                          <span className="truncate font-medium">{t.name}</span>
+                          <span className="ml-auto shrink-0 font-label text-[9px] text-on-surface-variant/50">
+                            {t.columns.length}
+                          </span>
+                        </button>
+                      </div>
+                      {open ? (
+                        <ul className="mb-xs ml-7 space-y-0.5 border-l border-outline-variant/30 pl-sm">
+                          {t.columns.length === 0 ? (
+                            <li className="py-xs font-body text-[11px] text-on-surface-variant">
+                              No columns in context pack
+                            </li>
+                          ) : (
+                            t.columns.map((c) => (
+                              <li key={`${key}:${c.name}`}>
+                                <button
+                                  type="button"
+                                  disabled={!canWrite}
+                                  draggable={canWrite}
+                                  onDragStart={(e) =>
+                                    onMentionDragStart(
+                                      e,
+                                      `@${t.name}.${c.name}`,
+                                    )
+                                  }
+                                  onClick={() =>
+                                    insertFromSidebar(`@${t.name}.${c.name}`)
+                                  }
+                                  title={
+                                    canWrite
+                                      ? `Click or drag @${t.name}.${c.name}`
+                                      : c.name
+                                  }
+                                  className="flex w-full items-center gap-sm rounded-md px-xs py-1 text-left font-body text-[12px] text-on-surface-variant hover:bg-white hover:text-primary disabled:opacity-40"
+                                >
+                                  <span
+                                    className="font-mono text-[10px] text-primary/70"
+                                    aria-hidden
+                                  >
+                                    ·
+                                  </span>
+                                  <span className="truncate">{c.name}</span>
+                                  <span className="ml-auto shrink-0 font-label text-[9px] uppercase tracking-wide text-on-surface-variant/45">
+                                    {c.keyKind && c.keyKind !== 'none'
+                                      ? c.keyKind
+                                      : c.dataType}
+                                  </span>
+                                </button>
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      ) : null}
+                    </li>
+                  )
+                })}
+                {sidebarTables.length === 0 ? (
+                  <li className="font-body text-xs text-on-surface-variant">
+                    No tables yet — sync a source first.
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+            <div className="pt-md">
+              <Link
+                to="/workspace"
+                className="block w-full rounded-lg border border-primary/20 py-sm text-center font-label text-[12px] text-primary transition-all hover:bg-[#ffdbd2]"
+              >
+                View Graph Representation
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-tertiary/10 bg-[#bbeed4]/30 p-lg">
+            <div className="mb-sm flex items-center gap-sm text-tertiary">
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-tertiary text-[10px] font-bold text-on-tertiary"
+                aria-hidden
+              >
+                ✓
+              </span>
+              <span className="font-label text-sm font-bold">
+                Optimization Tip
               </span>
             </div>
-            {catalogTables.length === 0 ? (
-              <p className="p-md font-body text-xs text-on-surface-variant">
-                No tables yet — sync a source first.
-              </p>
-            ) : (
-              catalogTables.map((t) => (
-                <SidebarTableCard
-                  key={`cat-${t.connection}-${t.name}`}
-                  table={t}
-                  canWrite={canWrite}
-                  onPickTable={() => insertFromSidebar(`@${t.name}`)}
-                  onPickColumn={(col) =>
-                    insertFromSidebar(`@${t.name}.${col}`)
-                  }
-                  onDescribe={() => void ask(`/describe @${t.name}`)}
-                />
-              ))
-            )}
+            <p className="font-body text-sm leading-relaxed text-[#1f4f3c]">
+              {context?.stats?.suggestedJoins
+                ? `You have ${context.stats.suggestedJoins} suggested join(s) waiting for review. Promote accepted joins before shipping a dbt PR.`
+                : 'Ask about joins with /suggested, or mention tables with @name for schema-only answers — never raw warehouse rows.'}
+            </p>
           </div>
         </aside>
       </div>
@@ -936,69 +1421,6 @@ export function ChatPage() {
   )
 }
 
-function SidebarTableCard({
-  table: t,
-  canWrite,
-  onPickTable,
-  onPickColumn,
-  onDescribe,
-}: {
-  table: ChatReferencedTable
-  canWrite: boolean
-  onPickTable: () => void
-  onPickColumn: (col: string) => void
-  onDescribe: () => void
-}) {
-  return (
-    <div className="border-b border-outline-variant">
-      <div className="flex items-center justify-between gap-xs p-md pb-sm">
-        <button
-          type="button"
-          disabled={!canWrite}
-          onClick={onPickTable}
-          className="min-w-0 text-left font-body text-xs font-bold text-on-surface hover:text-primary-fixed disabled:opacity-40"
-          title="Insert @table into chat"
-        >
-          @{t.name}
-        </button>
-        <div className="flex shrink-0 items-center gap-xs">
-          <span className="font-label text-[9px] tracking-wider text-on-surface-variant uppercase">
-            {t.sourceType}
-          </span>
-          <button
-            type="button"
-            disabled={!canWrite}
-            onClick={onDescribe}
-            className="border border-outline-variant px-xs py-px font-label text-[8px] tracking-widest text-on-surface-variant hover:border-primary-fixed disabled:opacity-40"
-            title="Describe this table"
-          >
-            DESC
-          </button>
-        </div>
-      </div>
-      <div className="space-y-xs px-md pb-md">
-        {t.columns.map((c) => (
-          <button
-            key={c.name}
-            type="button"
-            disabled={!canWrite}
-            onClick={() => onPickColumn(c.name)}
-            className="flex w-full justify-between font-label text-[10px] tracking-wide hover:text-primary-fixed disabled:opacity-40"
-            title={`Insert @${t.name}.${c.name}`}
-          >
-            <span className="text-primary-fixed">{c.name}</span>
-            <span className="text-on-surface-variant">
-              {c.dataType}
-              {c.keyKind && c.keyKind !== 'none'
-                ? ` ${c.keyKind.toUpperCase()}`
-                : ''}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 function ChatBubble({
   message,
@@ -1015,163 +1437,202 @@ function ChatBubble({
 }) {
   if (message.role === 'user') {
     return (
-      <div className="ml-auto flex max-w-2xl flex-col items-end gap-xs">
-        <div className="border border-outline-variant bg-secondary-container p-md text-on-surface-variant">
-          <p className="font-body text-sm whitespace-pre-wrap">
-            {message.content}
-          </p>
+      <div className="ml-auto flex max-w-4xl flex-row-reverse gap-md">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary font-label text-sm font-bold text-on-secondary">
+          You
         </div>
-        <span className="font-label text-[9px] tracking-widest text-on-surface-variant/50 uppercase">
-          User · {message.at}
-        </span>
+        <div className="space-y-sm text-right">
+          <div className="rounded-xl rounded-tr-none bg-primary-container p-lg text-left">
+            <p className="font-body text-base leading-relaxed whitespace-pre-wrap text-on-primary">
+              {message.content}
+            </p>
+          </div>
+          <span className="mr-1 font-label text-[12px] text-on-surface-variant/60">
+            You · {message.at}
+          </span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex max-w-4xl flex-col items-start gap-xs">
-      <div className="mb-xs flex flex-wrap items-center gap-sm">
-        <div className="flex h-6 w-6 items-center justify-center bg-primary-container font-label text-[10px] font-bold text-on-primary-fixed">
-          AI
-        </div>
-        <span className="font-label text-[11px] font-bold tracking-widest text-primary-fixed">
-          QUE AI
-        </span>
-        {onCopy ? (
-          <button
-            type="button"
-            onClick={onCopy}
-            className="border border-outline-variant px-sm py-px font-label text-[8px] tracking-widest text-on-surface-variant hover:border-primary-fixed"
-          >
-            COPY
-          </button>
-        ) : null}
-        {onFeedback ? (
-          <>
-            <button
-              type="button"
-              disabled={message.feedback === 1}
-              onClick={() => onFeedback(1)}
-              className="border border-outline-variant px-sm py-px font-label text-[8px] tracking-widest text-on-surface-variant hover:border-primary-fixed disabled:border-primary-fixed disabled:text-primary-fixed"
-            >
-              +1
-            </button>
-            <button
-              type="button"
-              disabled={message.feedback === -1}
-              onClick={() => onFeedback(-1)}
-              className="border border-outline-variant px-sm py-px font-label text-[8px] tracking-widest text-on-surface-variant hover:border-primary-fixed disabled:border-error disabled:text-error"
-            >
-              -1
-            </button>
-          </>
-        ) : null}
+    <div className="flex max-w-5xl gap-md">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container font-label text-sm font-bold text-on-primary">
+        AI
       </div>
-      <div className="w-full space-y-md border border-outline-variant bg-surface-container p-md">
-        <AssistantBody text={message.content} />
-        {message.samplePreviews && message.samplePreviews.length > 0
-          ? message.samplePreviews.map((p) => (
-              <SamplePreviewTable key={p.table} preview={p} />
-            ))
-          : null}
-        {message.retrievedChunks && message.retrievedChunks.length > 0 ? (
-          <div className="flex flex-wrap gap-xs">
-            <span className="w-full font-label text-[8px] tracking-widest text-on-surface-variant">
-              RETRIEVED
-            </span>
-            {message.retrievedChunks.slice(0, 8).map((c) => (
-              <span
-                key={c.sourceRef}
-                className="border border-outline-variant/80 px-sm py-xs font-label text-[9px] tracking-wider text-on-surface-variant"
-                title={`score ${c.score.toFixed(3)} · ${c.sourceKind}`}
-              >
-                {c.title}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {message.referencedTables && message.referencedTables.length > 0 ? (
-          <div className="flex flex-wrap gap-xs">
-            {message.referencedTables.slice(0, 8).map((t) => (
+      <div className="w-full min-w-0 space-y-sm">
+        <div className="space-y-md rounded-xl rounded-tl-none border border-sand/30 bg-white/80 p-lg shadow-sm backdrop-blur-sm">
+          <div className="mb-xs flex flex-wrap items-center gap-sm">
+            {onCopy ? (
               <button
-                key={`${t.connection}-${t.name}`}
                 type="button"
-                disabled={!onInsertMention}
-                onClick={() => onInsertMention?.(`@${t.name}`)}
-                className="border border-outline-variant px-sm py-xs font-label text-[9px] tracking-wider text-primary-fixed hover:border-primary-fixed disabled:opacity-40"
+                onClick={onCopy}
+                className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-primary"
               >
-                @{t.name}
+                Copy
               </button>
-            ))}
-          </div>
-        ) : null}
-        {message.sql ? (
-          <div className="relative border-l-2 border-primary-fixed bg-surface-container-lowest p-md">
-            <span className="absolute top-0 right-0 bg-outline-variant px-sm py-xs font-label text-[10px] tracking-widest text-primary-fixed">
-              SQL
-            </span>
-            <pre className="overflow-x-auto font-body text-xs text-primary-fixed whitespace-pre-wrap">
-              {message.sql}
-            </pre>
-            <button
-              type="button"
-              className="mt-sm bg-outline-variant px-sm py-xs font-label text-[10px] tracking-widest text-on-background hover:bg-primary-container hover:text-on-primary-fixed"
-              onClick={() => void navigator.clipboard.writeText(message.sql!)}
-            >
-              COPY
-            </button>
-          </div>
-        ) : null}
-        {message.jobDraft ? (
-          <div className="border border-primary-fixed/40 bg-surface-container-low p-md">
-            <p className="font-label text-[10px] tracking-widest text-primary-fixed">
-              JOB DRAFT · {message.jobDraft.status.toUpperCase()}
-            </p>
-            <p className="mt-xs font-body text-sm font-bold text-on-surface">
-              {message.jobDraft.title}
-            </p>
-            <ol className="mt-sm list-decimal space-y-xs pl-md font-body text-xs text-on-surface-variant">
-              {message.jobDraft.steps.map((s) => (
-                <li key={s.id}>
-                  <span className="text-on-surface">{s.action}</span> —{' '}
-                  {s.detail}
-                </li>
-              ))}
-            </ol>
-            <div className="mt-md flex gap-sm">
-              {message.savedJobId ? (
-                <Link
-                  to="/jobs"
-                  className="bg-outline-variant px-sm py-xs font-label text-[10px] tracking-widest text-on-background"
-                >
-                  OPEN IN JOBS
-                </Link>
-              ) : onSaveJob ? (
+            ) : null}
+            {onFeedback ? (
+              <>
                 <button
                   type="button"
-                  onClick={onSaveJob}
-                  className="bg-primary-container px-sm py-xs font-label text-[10px] tracking-widest text-on-primary-fixed"
+                  disabled={message.feedback === 1}
+                  onClick={() => onFeedback(1)}
+                  className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-primary disabled:border-primary disabled:text-primary"
                 >
-                  SAVE TO JOBS
+                  +1
                 </button>
-              ) : null}
-            </div>
+                <button
+                  type="button"
+                  disabled={message.feedback === -1}
+                  onClick={() => onFeedback(-1)}
+                  className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-error disabled:border-error disabled:text-error"
+                >
+                  -1
+                </button>
+              </>
+            ) : null}
           </div>
-        ) : null}
-        {message.citations && message.citations.length > 0 ? (
-          <p className="font-label text-[9px] tracking-wider text-on-surface-variant/60">
-            CITED: {message.citations.slice(0, 10).join(' · ')}
-          </p>
-        ) : null}
+          <AssistantBody text={message.content} />
+          {message.referencedTables && message.referencedTables.length > 0 ? (
+            <div className="my-md flex flex-col items-stretch gap-lg rounded-lg border border-sand/30 bg-white/50 p-md md:flex-row md:items-center">
+              <div className="flex w-full flex-col items-center gap-sm md:w-1/3">
+                {message.referencedTables.slice(0, 2).map((t, i) => (
+                  <div key={`${t.connection}-${t.name}`} className="w-full">
+                    {i > 0 ? (
+                      <p className="mb-sm text-center font-label text-primary">
+                        ⟷
+                      </p>
+                    ) : null}
+                    <div className="flex h-12 w-full items-center justify-center rounded-lg border border-secondary bg-secondary-container/50 px-sm font-label text-sm text-secondary">
+                      {t.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex-1 space-y-sm">
+                {message.referencedTables[0]?.columns
+                  ?.filter((c) => c.keyKind === 'pk' || c.keyKind === 'fk')
+                  .slice(0, 3)
+                  .map((c) => (
+                    <div key={c.name} className="flex items-center gap-sm">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          c.keyKind === 'pk' ? 'bg-primary' : 'bg-tertiary'
+                        }`}
+                      />
+                      <p className="font-label text-[12px]">
+                        {c.keyKind === 'pk' ? 'Primary Key' : 'Foreign Key'}:{' '}
+                        <span className="font-bold">{c.name}</span>
+                      </p>
+                    </div>
+                  ))}
+                <div className="flex flex-wrap gap-xs pt-xs">
+                  {message.referencedTables.slice(0, 6).map((t) => (
+                    <button
+                      key={`${t.connection}-${t.name}`}
+                      type="button"
+                      disabled={!onInsertMention}
+                      onClick={() => onInsertMention?.(`@${t.name}`)}
+                      className="rounded-full border border-outline-variant px-sm py-xs font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                    >
+                      @{t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {message.samplePreviews && message.samplePreviews.length > 0
+            ? message.samplePreviews.map((p) => (
+                <SamplePreviewTable key={p.table} preview={p} />
+              ))
+            : null}
+          {message.retrievedChunks && message.retrievedChunks.length > 0 ? (
+            <div className="flex flex-wrap gap-xs">
+              <span className="w-full font-label text-[10px] tracking-widest text-on-surface-variant">
+                Retrieved
+              </span>
+              {message.retrievedChunks.slice(0, 8).map((c) => (
+                <span
+                  key={c.sourceRef}
+                  className="rounded-full border border-outline-variant/80 px-sm py-xs font-label text-[11px] text-on-surface-variant"
+                  title={`score ${c.score.toFixed(3)} · ${c.sourceKind}`}
+                >
+                  {c.title}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {message.sql ? (
+            <div className="relative overflow-hidden rounded-lg border border-sand/40 bg-surface-container-lowest p-md">
+              <span className="absolute top-0 right-0 rounded-bl-lg bg-secondary-container px-sm py-xs font-label text-[10px] tracking-widest text-primary">
+                SQL
+              </span>
+              <pre className="overflow-x-auto font-label text-xs whitespace-pre-wrap text-primary">
+                {message.sql}
+              </pre>
+              <button
+                type="button"
+                className="mt-sm rounded-lg bg-secondary-container px-sm py-xs font-label text-[11px] text-on-secondary-container hover:bg-primary-container hover:text-on-primary"
+                onClick={() => void navigator.clipboard.writeText(message.sql!)}
+              >
+                Copy SQL
+              </button>
+            </div>
+          ) : null}
+          {message.jobDraft ? (
+            <div className="rounded-xl border border-primary/20 bg-surface-container-low p-md">
+              <p className="font-label text-[11px] tracking-widest text-primary">
+                Job draft · {message.jobDraft.status}
+              </p>
+              <p className="mt-xs font-body text-sm font-bold text-on-surface">
+                {message.jobDraft.title}
+              </p>
+              <ol className="mt-sm list-decimal space-y-xs pl-md font-body text-xs text-on-surface-variant">
+                {message.jobDraft.steps.map((s) => (
+                  <li key={s.id}>
+                    <span className="text-on-surface">{s.action}</span> —{' '}
+                    {s.detail}
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-md flex gap-sm">
+                {message.savedJobId ? (
+                  <Link
+                    to="/jobs"
+                    className="rounded-lg bg-secondary-container px-sm py-xs font-label text-[11px] text-on-secondary-container"
+                  >
+                    Open in Jobs
+                  </Link>
+                ) : onSaveJob ? (
+                  <button
+                    type="button"
+                    onClick={onSaveJob}
+                    className="rounded-lg bg-primary-container px-sm py-xs font-label text-[11px] text-on-primary"
+                  >
+                    Save to Jobs
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {message.citations && message.citations.length > 0 ? (
+            <p className="font-label text-[11px] text-on-surface-variant/60">
+              Cited: {message.citations.slice(0, 10).join(' · ')}
+            </p>
+          ) : null}
+        </div>
+        <span className="ml-1 font-label text-[12px] text-on-surface-variant/60">
+          Assistant · {message.at}
+          {message.mode ? ` · ${message.mode}` : ''}
+          {message.model ? ` · ${message.model}` : ''}
+        </span>
       </div>
-      <span className="font-label text-[9px] tracking-widest text-on-surface-variant/50 uppercase">
-        AI · {message.at}
-        {message.mode ? ` · ${message.mode}` : ''}
-        {message.model ? ` · ${message.model}` : ''}
-      </span>
     </div>
   )
 }
+
 
 function SamplePreviewTable({ preview }: { preview: SamplePreview }) {
   const cols = preview.columns
@@ -1240,6 +1701,45 @@ function SamplePreviewTable({ preview }: { preview: SamplePreview }) {
   )
 }
 
+function PaperclipIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21.44 11.05 12.1 20.4a5.5 5.5 0 0 1-7.78-7.78l9.9-9.9a3.5 3.5 0 0 1 4.95 4.95l-9.9 9.9a1.5 1.5 0 1 1-2.12-2.12l8.49-8.48" />
+    </svg>
+  )
+}
+
+function MicIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v4" />
+      <path d="M8 22h8" />
+    </svg>
+  )
+}
+
 function formatCell(value: unknown): string {
   if (value == null || value === '') return '—'
   if (typeof value === 'object') {
@@ -1255,11 +1755,11 @@ function formatCell(value: unknown): string {
 function AssistantBody({ text }: { text: string }) {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
   return (
-    <p className="font-body text-sm text-on-surface whitespace-pre-wrap">
+    <p className="font-body text-base leading-relaxed text-on-surface whitespace-pre-wrap">
       {parts.map((part, i) => {
         if (part.startsWith('`') && part.endsWith('`')) {
           return (
-            <code key={i} className="text-primary-fixed">
+            <code key={i} className="rounded bg-secondary-container px-1 text-sm text-primary">
               {part.slice(1, -1)}
             </code>
           )

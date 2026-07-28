@@ -10,6 +10,7 @@ import {
 } from './ai/vectorStore.js'
 import { feedbackStats } from './ai/feedback.js'
 import { getSecretsStatus, resolveProviderKeys } from './secrets.js'
+import { getSsoConfig } from './auth.js'
 
 const DEFAULT_SETTINGS = {
   includeSamplesDefault: true,
@@ -20,6 +21,8 @@ const DEFAULT_SETTINGS = {
   ragIncludeDocs: true,
   /** Block dbt/json/sql export when open high-severity drift or broken contract */
   blockExportOnDrift: true,
+  /** Block export when suggested (unreviewed) joins touch job tables */
+  blockExportOnUnreviewedJoins: true,
   /** Emit contract/drift events to outbox (+ optional webhook) */
   emitContractEvents: true,
   contractWebhookUrl: '',
@@ -113,7 +116,14 @@ export async function getWorkspaceSettings(workspaceId) {
         }
       : null,
     capabilities: {
-      connectors: ['postgresql', 'excel', 'csv', 'mongodb', 'databricks'],
+      connectors: [
+        'postgresql',
+        'excel',
+        'csv',
+        'mongodb',
+        'databricks',
+        'snowflake',
+      ],
       llm: {
         openaiConfigured: Boolean(keys.openai),
         anthropicConfigured: Boolean(keys.anthropic),
@@ -146,6 +156,7 @@ export async function getWorkspaceSettings(workspaceId) {
         tokenConfigured: Boolean(process.env.GITHUB_TOKEN),
         dbtExport: true,
       },
+      sso: getSsoConfig(),
       brand: 'Que',
       wedge:
         'Schema-only stitch layer between messy sources and production jobs.',
@@ -192,6 +203,9 @@ function pickAllowed(patch) {
   }
   if (typeof patch.blockExportOnDrift === 'boolean') {
     out.blockExportOnDrift = patch.blockExportOnDrift
+  }
+  if (typeof patch.blockExportOnUnreviewedJoins === 'boolean') {
+    out.blockExportOnUnreviewedJoins = patch.blockExportOnUnreviewedJoins
   }
   if (typeof patch.emitContractEvents === 'boolean') {
     out.emitContractEvents = patch.emitContractEvents

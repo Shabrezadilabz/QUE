@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>New Sync Job - SchemaGraph</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500&amp;family=Geist:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "on-error": "#ffffff",
+                  "background": "#fbf8ff",
+                  "on-primary": "#ffffff",
+                  "outline": "#88726d",
+                  "on-primary-fixed": "#3c0800",
+                  "tertiary-fixed-dim": "#9fd1b8",
+                  "surface-container-highest": "#dfe0ff",
+                  "tertiary-fixed": "#bbeed4",
+                  "on-error-container": "#93000a",
+                  "inverse-surface": "#2b2e48",
+                  "on-secondary": "#ffffff",
+                  "primary-fixed-dim": "#ffb4a1",
+                  "on-secondary-fixed": "#1c1c11",
+                  "on-tertiary-fixed-variant": "#1f4f3c",
+                  "primary-fixed": "#ffdbd2",
+                  "on-surface": "#161a32",
+                  "primary": "#9a442d",
+                  "primary-container": "#e07a5f",
+                  "secondary-container": "#e6e3d0",
+                  "on-primary-container": "#5b1604",
+                  "surface-tint": "#9a442d",
+                  "error": "#ba1a1a",
+                  "outline-variant": "#dbc1ba",
+                  "on-secondary-fixed-variant": "#48473a",
+                  "surface-container": "#edecff",
+                  "inverse-on-surface": "#f1efff",
+                  "on-primary-fixed-variant": "#7c2e19",
+                  "surface": "#fbf8ff",
+                  "secondary-fixed-dim": "#c9c7b5",
+                  "on-surface-variant": "#55423e",
+                  "surface-variant": "#dfe0ff",
+                  "on-tertiary": "#ffffff",
+                  "error-container": "#ffdad6",
+                  "tertiary": "#386753",
+                  "secondary-fixed": "#e6e3d0",
+                  "secondary": "#605f50",
+                  "inverse-primary": "#ffb4a1",
+                  "surface-bright": "#fbf8ff",
+                  "surface-container-low": "#f4f2ff",
+                  "surface-container-high": "#e6e6ff",
+                  "tertiary-container": "#70a18a",
+                  "surface-dim": "#d6d8f9",
+                  "surface-container-lowest": "#ffffff",
+                  "on-tertiary-container": "#003725",
+                  "on-background": "#161a32",
+                  "on-tertiary-fixed": "#002115",
+                  "on-secondary-container": "#666556"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.25rem",
+                  "lg": "8px",
+                  "xl": "16px",
+                  "full": "9999px"
+          },
+          "spacing": {
+                  "lg": "24px",
+                  "md": "16px",
+                  "sm": "8px",
+                  "margin-desktop": "48px",
+                  "xs": "4px",
+                  "margin-mobile": "16px",
+                  "base": "4px",
+                  "xl": "40px",
+                  "max-width": "1440px",
+                  "gutter": "24px"
+          },
+          "fontFamily": {
+                  "code-md": ["Geist"],
+                  "headline-lg": ["Hanken Grotesk"],
+                  "headline-xl": ["Hanken Grotesk"],
+                  "body-sm": ["Inter"],
+                  "label-sm": ["Geist"],
+                  "headline-md": ["Hanken Grotesk"],
+                  "label-md": ["Geist"],
+                  "body-md": ["Inter"],
+                  "body-lg": ["Inter"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #F2EDE4; /* Secondary Cream Base */
+      color: #161A32;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      vertical-align: middle;
+    }
+    .stepper-line {
+      height: 2px;
+      flex-grow: 1;
+      background-color: #dbc1ba;
+      margin: 0 16px;
+    }
+    .source-card-selected {
+      border: 2px solid #9a442d !important;
+      background-color: #ffffff;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #F2EDE4;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #dbc1ba;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-body-md text-body-md">
+<!-- Top Navigation (Shared Component Context) -->
+<header class="bg-surface border-b border-outline-variant/30 shadow-sm flex justify-between items-center px-margin-desktop w-full h-16 sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<span class="font-headline-md text-headline-md font-bold text-primary">SchemaGraph</span>
+<nav class="hidden md:flex gap-6 items-center h-full">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Workspace</a>
+<a class="font-body-md text-body-md text-primary border-b-2 border-primary pb-1" href="#">Sources</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Jobs</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">help</button>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-secondary-container">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a data engineer in a modern office environment. The lighting is soft and natural, emphasizing a calm and focused atmosphere. The background shows a hint of technical equipment and warm wooden textures, consistent with a premium workplace aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAT4tIJmx5RLaT92R7dkMR-OdOVeDd7f-WGeFpBbC5ftA9UNwSMMWFFKM9-Njb7FfeLOiFzlTsblBa_mrHseHQAkX-ooj2JUA4RkCRC4dY9X5s8BAfWFsUuSTAFvGMh9ilBwjaJN-6ybmOvM9G1rNvmxkCq-PAFxoNUbjYcspS_RoOMAxymg0hNUNd5FJaldW9y-zSq5bqt4boP_6S-XX-aF6eRsDmJJeyTP-nFvAOHqGQdOlKjV7wj"/>
+</div>
+</div>
+</header>
+<main class="flex-1 flex flex-col items-center py-xl px-margin-desktop max-w-max-width mx-auto w-full">
+<!-- Wizard Header & Stepper -->
+<section class="w-full max-w-4xl mb-xl">
+<div class="mb-lg">
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Create New Sync Job</h1>
+<p class="text-on-surface-variant font-body-md">Configure your data pipeline flow in four easy steps.</p>
+</div>
+<!-- Progress Stepper -->
+<div class="flex items-center justify-between w-full px-xs">
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">1</div>
+<span class="font-label-md text-label-md text-primary">Sources</span>
+</div>
+<div class="stepper-line"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant flex items-center justify-center font-bold">2</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Transformation</span>
+</div>
+<div class="stepper-line"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant flex items-center justify-center font-bold">3</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Schedule</span>
+</div>
+<div class="stepper-line"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant flex items-center justify-center font-bold">4</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Review</span>
+</div>
+</div>
+</section>
+<!-- Source Selection Content -->
+<div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-lg items-start">
+<!-- Main Selection Grid (Left Side) -->
+<div class="lg:col-span-8 space-y-lg">
+<div class="bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-lg shadow-sm">
+<div class="flex justify-between items-center mb-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Select Data Source</h2>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 rounded-lg bg-surface-container border-none focus:ring-2 focus:ring-primary text-body-sm" placeholder="Search sources..." type="text"/>
+</div>
+</div>
+<!-- Grid of Source Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-md">
+<!-- PostgreSQL -->
+<button class="source-card group text-left p-md rounded-xl bg-white border border-secondary-fixed hover:border-primary/40 transition-all active:scale-95" id="source-postgres" onclick="selectSource('postgres')">
+<div class="flex items-center gap-3 mb-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">database</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface">PostgreSQL</h3>
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant">Relational DB</p>
+</div>
+</div>
+<p class="text-body-sm text-on-surface-variant line-clamp-2">Connect to your managed RDS or on-prem instances.</p>
+</button>
+<!-- Snowflake -->
+<button class="source-card group text-left p-md rounded-xl bg-white border border-secondary-fixed hover:border-primary/40 transition-all active:scale-95" id="source-snowflake" onclick="selectSource('snowflake')">
+<div class="flex items-center gap-3 mb-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary">ac_unit</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface">Snowflake</h3>
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant">Data Warehouse</p>
+</div>
+</div>
+<p class="text-body-sm text-on-surface-variant line-clamp-2">Cloud data platform for enterprise analytics.</p>
+</button>
+<!-- AWS S3 -->
+<button class="source-card group text-left p-md rounded-xl bg-white border border-secondary-fixed hover:border-primary/40 transition-all active:scale-95" id="source-s3" onclick="selectSource('s3')">
+<div class="flex items-center gap-3 mb-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container">cloud</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface">AWS S3</h3>
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant">Object Store</p>
+</div>
+</div>
+<p class="text-body-sm text-on-surface-variant line-clamp-2">Sync JSON, CSV, or Parquet files from buckets.</p>
+</button>
+<!-- MongoDB -->
+<button class="source-card group text-left p-md rounded-xl bg-white border border-secondary-fixed hover:border-primary/40 transition-all active:scale-95" id="source-mongodb" onclick="selectSource('mongodb')">
+<div class="flex items-center gap-3 mb-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-fixed-variant">source</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface">MongoDB</h3>
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant">NoSQL</p>
+</div>
+</div>
+<p class="text-body-sm text-on-surface-variant line-clamp-2">High-performance document-based database.</p>
+</button>
+<!-- Google BigQuery -->
+<button class="source-card group text-left p-md rounded-xl bg-white border border-secondary-fixed hover:border-primary/40 transition-all active:scale-95" id="source-bigquery" onclick="selectSource('bigquery')">
+<div class="flex items-center gap-3 mb-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container">analytics</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface">BigQuery</h3>
+<p class="text-[10px] uppercase tracking-wider text-on-surface-variant">Data Warehouse</p>
+</div>
+</div>
+<p class="text-body-sm text-on-surface-variant line-clamp-2">Google's serverless, multi-cloud data warehouse.</p>
+</button>
+<!-- Add New -->
+<button class="group text-center p-md rounded-xl bg-surface border border-dashed border-outline-variant hover:bg-surface-container-high transition-all flex flex-col items-center justify-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant">add_circle</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Request Source</span>
+</button>
+</div>
+</div>
+<!-- Target Destination Section -->
+<div class="bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-lg shadow-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-md">Target Destination</h2>
+<div class="flex items-center p-md bg-secondary-container/30 border border-secondary-fixed rounded-xl gap-4">
+<div class="w-12 h-12 rounded-full bg-white flex items-center justify-center border border-secondary-fixed">
+<span class="material-symbols-outlined text-primary text-3xl">hub</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between">
+<h3 class="font-label-md text-label-md text-on-surface">Main Warehouse Cluster</h3>
+<span class="text-[10px] bg-tertiary/10 text-tertiary px-2 py-0.5 rounded-full font-bold">ACTIVE</span>
+</div>
+<p class="text-body-sm text-on-surface-variant">Environment: Production · Region: us-east-1 · Type: SchemaGraph Native</p>
+</div>
+<button class="px-4 py-2 border border-secondary-fixed rounded-lg font-label-md text-label-md text-on-secondary-container hover:bg-white transition-colors">Change</button>
+</div>
+</div>
+</div>
+<!-- Action Panel & Summary (Right Side) -->
+<aside class="lg:col-span-4 space-y-lg sticky top-24">
+<div class="bg-white border border-outline-variant/20 rounded-xl p-lg shadow-md">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-md">Sync Overview</h3>
+<div class="space-y-4 mb-lg">
+<div class="flex justify-between items-start">
+<span class="text-on-surface-variant text-body-sm">Selected Source:</span>
+<span class="font-bold text-primary text-right" id="summary-source">-</span>
+</div>
+<div class="flex justify-between items-start">
+<span class="text-on-surface-variant text-body-sm">Destination:</span>
+<span class="font-bold text-on-surface text-right">Main Warehouse</span>
+</div>
+<div class="flex justify-between items-start border-t border-outline-variant/20 pt-4">
+<span class="text-on-surface-variant text-body-sm">Estimated Latency:</span>
+<span class="text-on-surface text-right text-body-sm">&lt; 150ms</span>
+</div>
+</div>
+<div class="flex flex-col gap-3">
+<button class="w-full py-3 bg-primary-container text-on-primary font-bold rounded-lg opacity-50 cursor-not-allowed hover:bg-primary transition-all active:scale-[0.98]" disabled="" id="next-button">
+              Next Step: Transformation
+            </button>
+<button class="w-full py-3 bg-transparent text-on-surface-variant font-bold rounded-lg hover:bg-surface-container transition-all">
+              Cancel Wizard
+            </button>
+</div>
+<div class="mt-lg p-md bg-secondary-fixed/20 rounded-lg">
+<div class="flex gap-2 items-start">
+<span class="material-symbols-outlined text-primary text-lg">info</span>
+<p class="text-[12px] text-on-secondary-fixed-variant leading-relaxed">
+                Selecting a source will automatically scan for available schemas. You'll map tables in the next step.
+              </p>
+</div>
+</div>
+</div>
+<!-- Atmospheric Element: Shader Background Decorative Card -->
+<div class="relative h-48 rounded-xl overflow-hidden shadow-sm group">
+
+<div class="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent flex flex-col justify-end p-md">
+<p class="text-white font-headline-md text-headline-md leading-tight">Need help with custom connectors?</p>
+<a class="text-white text-body-sm underline mt-2" href="#">View Documentation</a>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Mobile Bottom Nav (Shared Component Context) -->
+<footer class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-outline-variant/30 px-margin-mobile h-16 flex items-center justify-between z-50">
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px]">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">sync</span>
+<span class="text-[10px]">Syncs</span>
+</button>
+<div class="w-12 h-12 bg-primary rounded-full -mt-10 border-4 border-background flex items-center justify-center text-on-primary shadow-lg">
+<span class="material-symbols-outlined">add</span>
+</div>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-[10px]">Metrics</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px]">Account</span>
+</button>
+</footer>
+<script>
+    function selectSource(id) {
+      // Remove previous selection classes
+      document.querySelectorAll('.source-card').forEach(card => {
+        card.classList.remove('source-card-selected');
+        card.classList.remove('shadow-lg');
+      });
+      
+      // Add selection class to clicked card
+      const selectedEl = document.getElementById('source-' + id);
+      selectedEl.classList.add('source-card-selected');
+      selectedEl.classList.add('shadow-lg');
+      
+      // Update summary
+      const names = {
+        'postgres': 'PostgreSQL Production',
+        'snowflake': 'Snowflake Analytics',
+        's3': 'AWS S3 Raw Buckets',
+        'mongodb': 'MongoDB Atlas',
+        'bigquery': 'Google BigQuery'
+      };
+      
+      const summaryLabel = document.getElementById('summary-source');
+      summaryLabel.innerText = names[id];
+      summaryLabel.classList.add('animate-pulse');
+      setTimeout(() => summaryLabel.classList.remove('animate-pulse'), 500);
+
+      // Enable Next Button
+      const nextBtn = document.getElementById('next-button');
+      nextBtn.disabled = false;
+      nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      nextBtn.classList.add('shadow-md');
+    }
+
+    // Micro-interactions for hovering cards
+    document.querySelectorAll('.source-card').forEach(card => {
+      card.addEventListener('mouseenter', () => {
+        if (!card.classList.contains('source-card-selected')) {
+          card.style.borderColor = 'rgba(154, 68, 45, 0.4)';
+        }
+      });
+      card.addEventListener('mouseleave', () => {
+        if (!card.classList.contains('source-card-selected')) {
+          card.style.borderColor = '#e6e3d0';
+        }
+      });
+    });
+  </script>
+</body></html>

@@ -54,6 +54,9 @@ export interface MainDiagramLayoutProps extends MainDiagramLayoutSlots {
   onSyncSource?: (sourceId: string) => void | Promise<void>
   /** Canvas → stitch job one-click */
   onCreateStitchJob?: (tableNames: string[]) => void | Promise<void>
+  /** Open two-source stitch session from canvas top-right */
+  onOpenStitchSession?: () => void
+  stitchSessionLabel?: string
   syncing?: boolean
   /** Offline / demo banner */
   statusBanner?: string | null

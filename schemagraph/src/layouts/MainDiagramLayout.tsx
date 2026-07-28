@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import type { MainDiagramLayoutProps } from '@/types/diagram'
-import { DataSourceSidebar } from '@/components/DataSourceSidebar'
 import { MainCanvas } from '@/components/MainCanvas'
 import { RightSidebar } from '@/components/RightSidebar'
 import { TopBar } from '@/components/TopBar'
@@ -9,7 +8,6 @@ import { useToast } from '@/context/ToastContext'
 import type { DiagramAction } from '@/types/schema'
 import { findTable } from '@/data/dummyTableDetail'
 import { DUMMY_RELATIONSHIPS, DUMMY_TABLES } from '@/data/dummySchema'
-import { DUMMY_DATA_SOURCES } from '@/data/dummySources'
 import { filterDiagramData } from '@/utils/filterDiagram'
 import type { ExportFormat } from '@/types/topBar'
 
@@ -26,26 +24,29 @@ export function MainDiagramLayout({
   className = '',
   tables: tablesProp,
   relationships: relationshipsProp,
-  sources: sourcesProp,
+  sources: _sourcesProp,
   fromApi = false,
   readOnly = false,
   statusBanner = null,
   onDismissBanner,
   onPromoteRelationship,
   onRejectRelationship,
-  onSyncSource,
+  onSyncSource: _onSyncSource,
   onCreateStitchJob,
-  syncing = false,
+  onOpenStitchSession,
+  stitchSessionLabel,
+  syncing: _syncing = false,
 }: MainDiagramLayoutProps) {
   const tables = tablesProp ?? DUMMY_TABLES
   const relationships = relationshipsProp ?? DUMMY_RELATIONSHIPS
-  const sources = sourcesProp ?? DUMMY_DATA_SOURCES
+  void _sourcesProp
+  void _onSyncSource
+  void _syncing
   const { pushToast } = useToast()
 
   const {
     showRightSidebar: showRightSidebarCtx,
     selection,
-    selectConnection,
     selectTable,
     selectColumn,
     setViewport,
@@ -133,7 +134,7 @@ export function MainDiagramLayout({
           URL.revokeObjectURL(url)
           return
         }
-        ctx.fillStyle = '#0a0a0a'
+        ctx.fillStyle = '#f2ede4'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(img, 0, 0)
         canvas.toBlob((blob) => {
@@ -167,8 +168,8 @@ export function MainDiagramLayout({
     }
     w.document.write(`<!doctype html><html><head><title>Que export</title>
       <style>
-        body{font-family:ui-monospace,monospace;background:#131313;color:#e2e2e2;padding:24px}
-        h1{font-family:system-ui,sans-serif;color:#c3f400}
+        body{font-family:Inter,system-ui,sans-serif;background:#f2ede4;color:#161a32;padding:24px}
+        h1{font-family:Hanken Grotesk,system-ui,sans-serif;color:#9a442d}
         pre{white-space:pre-wrap;font-size:11px;border:1px solid #444933;padding:16px}
       </style></head><body>
       <h1>Que schema export</h1>
@@ -209,19 +210,8 @@ export function MainDiagramLayout({
       onDiagramAction={handleDiagramAction}
       onPromoteRelationship={onPromoteRelationship}
       onRejectRelationship={onRejectRelationship}
-    />
-  )
-
-  const defaultLeftSidebar = (
-    <DataSourceSidebar
-      sources={sources}
-      selectedSourceId={selection.connectionId}
-      onSelect={(id) =>
-        selectConnection(selection.connectionId === id ? null : id)
-      }
-      onSyncSource={onSyncSource}
-      syncing={syncing}
-      readOnlySync={!onSyncSource}
+      onOpenStitchSession={onOpenStitchSession}
+      stitchSessionLabel={stitchSessionLabel}
     />
   )
 
@@ -259,11 +249,11 @@ export function MainDiagramLayout({
   return (
     <div
       data-layout="main-diagram"
-      className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-background ${className}`}
+      className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-canvas ${className}`}
     >
       <div data-slot="top-bar">{topBar ?? defaultTopBar}</div>
       {statusBanner ? (
-        <div className="shrink-0 border-b border-[#FF3E00]/40 bg-[#FF3E00]/10 px-md py-xs text-center font-label text-[10px] tracking-widest text-[#FF3E00]">
+        <div className="shrink-0 border-b border-error/30 bg-error-container px-md py-xs text-center font-label text-[10px] tracking-widest text-error">
           {statusBanner}
           {onDismissBanner ? (
             <button
@@ -282,7 +272,11 @@ export function MainDiagramLayout({
         className="flex min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
       >
         <div className="flex h-full min-w-[720px] flex-1 md:min-w-[960px]">
-          <div data-slot="left-sidebar">{leftSidebar ?? defaultLeftSidebar}</div>
+          {leftSidebar ? (
+            <div data-slot="left-sidebar" className="relative z-10">
+              {leftSidebar}
+            </div>
+          ) : null}
 
           <div
             data-slot="main-canvas"
@@ -292,7 +286,7 @@ export function MainDiagramLayout({
           </div>
 
           {showRight ? (
-            <div data-slot="right-sidebar">
+            <div data-slot="right-sidebar" className="relative z-20">
               {rightSidebar ?? defaultRightSidebar}
             </div>
           ) : null}
@@ -327,8 +321,8 @@ function buildExportSvg(
     .map((t) => {
       const x = t.position?.x ?? 40
       const y = t.position?.y ?? 40
-      return `<rect x="${x}" y="${y}" width="220" height="56" fill="#1f1f1f" stroke="#c3f400" stroke-width="1"/>
-      <text x="${x + 12}" y="${y + 34}" fill="#e2e2e2" font-family="monospace" font-size="14">${escapeHtml(t.name)}</text>`
+      return `<rect x="${x}" y="${y}" width="220" height="56" rx="12" fill="#ffffff" stroke="#e07a5f" stroke-width="1.5"/>
+      <text x="${x + 12}" y="${y + 34}" fill="#161a32" font-family="Hanken Grotesk,sans-serif" font-size="14">${escapeHtml(t.name)}</text>`
     })
     .join('\n')
   const edges = relationships

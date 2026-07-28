@@ -3,51 +3,53 @@ import type { ReactNode } from 'react'
 import { AuthSessionControls } from '@/components/AuthSessionControls'
 import { MobileNav } from '@/components/MobileNav'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
-
-const navClass = ({ isActive }: { isActive: boolean }) =>
-  isActive
-    ? 'border-b-2 border-primary-fixed pb-1 font-label text-[11px] font-bold tracking-[0.12em] text-primary-fixed uppercase sm:text-xs'
-    : 'font-label text-[11px] font-bold tracking-[0.12em] text-on-surface-variant uppercase transition-colors hover:text-primary-fixed sm:text-xs'
+import { primaryNavLinkClass } from '@/components/primaryNavStyles'
 
 interface QueAppChromeProps {
   children: ReactNode
   eyebrow?: string
 }
 
-/** Shared top chrome for Chat / Jobs / other non-canvas pages. */
+/** Shared top chrome — Sunset Clay (cream / terracotta). */
 export function QueAppChrome({
   children,
   eyebrow = 'SCHEMA-ONLY · NO RAW DATA',
 }: QueAppChromeProps) {
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-md border-b border-outline-variant px-md sm:h-16">
-        <div className="flex min-w-0 items-center gap-sm sm:gap-md lg:gap-lg">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-canvas">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-md border-b border-secondary-container/30 bg-background px-md sm:h-16 sm:px-lg lg:px-xl">
+        <div className="flex min-w-0 items-center gap-md sm:gap-lg lg:gap-xl">
           <MobileNav showBelow="md" />
           <Link
             to="/workspace"
-            className="shrink-0 font-headline text-xl font-bold tracking-tight text-on-surface sm:text-2xl"
+            className="shrink-0 font-headline text-[1.35rem] font-bold leading-none tracking-tight text-primary sm:text-[1.65rem]"
           >
             Que
           </Link>
-          <nav className="hidden items-center gap-md md:flex lg:gap-lg">
+          <nav
+            className="hidden items-center gap-5 md:flex lg:gap-7"
+            aria-label="Primary"
+          >
             <WorkspaceSwitcher variant="nav" />
-            <NavLink to="/chat" className={navClass}>
+            <NavLink to="/workspace" className={primaryNavLinkClass} end={false}>
+              Workspace
+            </NavLink>
+            <NavLink to="/chat" className={primaryNavLinkClass}>
               AI Chat
             </NavLink>
-            <NavLink to="/sources" className={navClass}>
+            <NavLink to="/sources" className={primaryNavLinkClass}>
               Sources
             </NavLink>
-            <NavLink to="/jobs" className={navClass}>
+            <NavLink to="/jobs" className={primaryNavLinkClass}>
               Jobs
             </NavLink>
-            <NavLink to="/settings" className={navClass}>
+            <NavLink to="/settings" className={primaryNavLinkClass}>
               Settings
             </NavLink>
           </nav>
         </div>
         <div className="flex shrink-0 items-center gap-sm sm:gap-md">
-          <p className="hidden font-label text-[10px] tracking-[0.14em] text-on-surface-variant xl:block">
+          <p className="hidden font-label text-[10px] tracking-[0.14em] text-on-surface-variant/70 xl:block">
             {eyebrow}
           </p>
           <AuthSessionControls />

@@ -1,0 +1,128 @@
+{
+  "name": "que-join-golden-set",
+  "version": 2,
+  "description": "Labeled join pairs incl. ugly Excel↔PG chaos for precision/recall. Positive = should suggest; negative = must not.",
+  "cases": [
+    {
+      "id": "exact-email",
+      "label": "positive",
+      "from": { "col": "email", "table": "customers", "type": "text", "key": "unique", "samples": ["a@x.com", "b@x.com", "c@x.com"] },
+      "to": { "col": "email", "table": "leads", "type": "varchar", "key": "none", "samples": ["a@x.com", "d@x.com"] }
+    },
+    {
+      "id": "alias-owner-email",
+      "label": "positive",
+      "from": { "col": "email", "table": "users", "type": "text", "key": "unique", "samples": ["u1@ex.com"] },
+      "to": { "col": "owner_email", "table": "accounts", "type": "text", "key": "none", "samples": ["u1@ex.com"] }
+    },
+    {
+      "id": "fk-prefix-user",
+      "label": "positive",
+      "from": { "col": "user_id", "table": "orders", "type": "uuid", "key": "fk", "samples": [] },
+      "to": { "col": "id", "table": "users", "type": "uuid", "key": "pk", "samples": [] }
+    },
+    {
+      "id": "customer-id-alias",
+      "label": "positive",
+      "from": { "col": "customer_id", "table": "invoices", "type": "integer", "key": "fk", "samples": ["1", "2"] },
+      "to": { "col": "cust_id", "table": "customers_xlsx", "type": "integer", "key": "none", "samples": ["1", "3"] }
+    },
+    {
+      "id": "fuzzy-userid",
+      "label": "positive",
+      "from": { "col": "user_id", "table": "events", "type": "text", "key": "fk", "samples": ["u1"] },
+      "to": { "col": "userid", "table": "profiles", "type": "text", "key": "pk", "samples": ["u1", "u2"] }
+    },
+    {
+      "id": "ref-label",
+      "label": "positive",
+      "from": { "col": "org_id", "table": "members", "type": "uuid", "key": "fk", "ref": "organizations.id", "samples": [] },
+      "to": { "col": "id", "table": "organizations", "type": "uuid", "key": "pk", "samples": [] }
+    },
+    {
+      "id": "sample-overlap-strong",
+      "label": "positive",
+      "from": { "col": "email", "table": "crm", "type": "text", "key": "none", "samples": ["a@x.com", "b@x.com", "c@x.com", "d@x.com", "e@x.com"] },
+      "to": { "col": "email", "table": "billing", "type": "text", "key": "none", "samples": ["a@x.com", "b@x.com", "c@x.com", "f@x.com"] }
+    },
+    {
+      "id": "xlsx-email-address-alias",
+      "label": "positive",
+      "from": { "col": "email", "table": "customers", "type": "text", "key": "unique", "samples": ["ada@ex.com", "bob@ex.com"] },
+      "to": { "col": "Email Address", "table": "Leads_Export", "type": "varchar", "key": "none", "samples": ["ada@ex.com", "zoe@ex.com"] }
+    },
+    {
+      "id": "xlsx-cust-id-messy",
+      "label": "positive",
+      "from": { "col": "id", "table": "customers", "type": "integer", "key": "pk", "samples": ["101", "102"] },
+      "to": { "col": "Customer ID", "table": "orders_sheet", "type": "numeric", "key": "fk", "samples": ["101", "103"] }
+    },
+    {
+      "id": "org-id-alias",
+      "label": "positive",
+      "from": { "col": "org_id", "table": "memberships", "type": "uuid", "key": "fk", "samples": [] },
+      "to": { "col": "organization_id", "table": "orgs_xlsx", "type": "uuid", "key": "none", "samples": [] }
+    },
+    {
+      "id": "manager-email-alias",
+      "label": "positive",
+      "from": { "col": "email", "table": "employees", "type": "text", "key": "unique", "samples": ["m@co.com"] },
+      "to": { "col": "manager_email", "table": "hr_export", "type": "text", "key": "none", "samples": ["m@co.com"] }
+    },
+    {
+      "id": "neg-unrelated-names",
+      "label": "negative",
+      "from": { "col": "amount", "table": "orders", "type": "numeric", "key": "none", "samples": ["10"] },
+      "to": { "col": "quantity", "table": "items", "type": "integer", "key": "none", "samples": ["2"] }
+    },
+    {
+      "id": "neg-type-mismatch",
+      "label": "negative",
+      "from": { "col": "created_at", "table": "orders", "type": "timestamp", "key": "none", "samples": [] },
+      "to": { "col": "created_at", "table": "users", "type": "boolean", "key": "none", "samples": [] }
+    },
+    {
+      "id": "neg-bare-id-id",
+      "label": "negative",
+      "from": { "col": "id", "table": "orders", "type": "uuid", "key": "pk", "samples": [] },
+      "to": { "col": "id", "table": "products", "type": "uuid", "key": "pk", "samples": [] }
+    },
+    {
+      "id": "neg-prior-rejected-shape",
+      "label": "negative",
+      "priorRejected": true,
+      "from": { "col": "email", "table": "a", "type": "text", "key": "none", "samples": ["x@y.com"] },
+      "to": { "col": "notes", "table": "b", "type": "text", "key": "none", "samples": ["hello"] }
+    },
+    {
+      "id": "neg-name-chaos",
+      "label": "negative",
+      "from": { "col": "status_code", "table": "shipments", "type": "text", "key": "none", "samples": ["OK"] },
+      "to": { "col": "country_code", "table": "geo", "type": "text", "key": "none", "samples": ["US"] }
+    },
+    {
+      "id": "neg-xlsx-header-noise",
+      "label": "negative",
+      "from": { "col": "Column1", "table": "Sheet1", "type": "text", "key": "none", "samples": ["foo"] },
+      "to": { "col": "id", "table": "customers", "type": "uuid", "key": "pk", "samples": [] }
+    },
+    {
+      "id": "neg-phone-vs-email",
+      "label": "negative",
+      "from": { "col": "phone", "table": "contacts_xlsx", "type": "text", "key": "none", "samples": ["555-0100"] },
+      "to": { "col": "email", "table": "customers", "type": "text", "key": "unique", "samples": ["a@x.com"] }
+    },
+    {
+      "id": "neg-date-named-alike",
+      "label": "negative",
+      "from": { "col": "order_date", "table": "orders", "type": "date", "key": "none", "samples": ["2024-01-01"] },
+      "to": { "col": "ship_date", "table": "shipments_xlsx", "type": "date", "key": "none", "samples": ["2024-01-02"] }
+    },
+    {
+      "id": "neg-amount-vs-balance",
+      "label": "negative",
+      "from": { "col": "amount", "table": "payments", "type": "numeric", "key": "none", "samples": ["99.5"] },
+      "to": { "col": "balance", "table": "ledger_xlsx", "type": "numeric", "key": "none", "samples": ["99.5"] }
+    }
+  ]
+}

@@ -4,6 +4,8 @@
  */
 import { query } from './db.js'
 import { emitContractEvent } from './adapters/contractEvents.js'
+import { openGithubDriftIssue } from './exporters/githubPr.js'
+import { getWorkspaceSettings } from './workspaceSettings.js'
 
 /**
  * Snapshot connection tables + columns + accepted joins (before sync mutates).
@@ -256,10 +258,63 @@ export async function buildSyncDrift(
         connectionId,
         drift,
       })
+
+      // Notify engineers where they ship (GitHub issue) when accepted joins break
+      if (joinsBroken.length > 0) {
+        void notifyBrokenJoins(workspaceId, connectionId, drift).catch(
+          (err) =>
+            console.warn(
+              '[Que drift] github notify skipped:',
+              err.message || err,
+            ),
+        )
+      }
     }
   } catch (err) {
     console.warn('[Que drift] persist skipped:', err.message || err)
   }
 
   return drift
+}
+
+async function notifyBrokenJoins(workspaceId, connectionId, drift) {
+  const ws = await getWorkspaceSettings(workspaceId)
+  const settings = ws?.settings || {}
+  const owner = String(settings.githubOwner || '').trim()
+  const repo = String(settings.githubRepo || '').trim()
+  const broken = (drift.joinsBroken || [])
+    .slice(0, 10)
+    .map((j) => {
+      const label =
+        j.fromTable && j.toTable
+          ? `${j.fromTable}.${j.fromColumn || '?'} → ${j.toTable}.${j.toColumn || '?'}`
+          : j.id || 'join'
+      return `- \`${label}\``
+    })
+    .join('\n')
+  const body = [
+    `## Que drift: accepted joins broken`,
+    ``,
+    `Sync on connection \`${connectionId}\` broke promoted joins.`,
+    ``,
+    `**Summary:** ${drift.summary}`,
+    ``,
+    `### Broken joins`,
+    broken || '- (see drift detail in Que)',
+    ``,
+    `### Action`,
+    `1. Open Que workspace → review canvas`,
+    `2. Re-promote or reject stale edges`,
+    `3. Re-freeze affected jobs before export`,
+    ``,
+    `_Schema-only policy · Que does not centralize warehouse rows._`,
+  ].join('\n')
+
+  return openGithubDriftIssue({
+    token: process.env.GITHUB_TOKEN,
+    owner,
+    repo,
+    title: `Que drift: ${drift.joinsBroken?.length || 0} accepted join(s) broken`,
+    body,
+  })
 }

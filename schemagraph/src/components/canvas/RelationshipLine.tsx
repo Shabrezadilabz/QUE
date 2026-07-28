@@ -92,19 +92,19 @@ export function resolveLineStyle(
 
   if (relationship.type === 'ai-inferred') {
     return {
-      stroke: muted ? '#5c6148' : emphasized ? '#FFB020' : '#C4A035',
+      stroke: muted ? '#c9c7b5' : emphasized ? '#e07a5f' : '#f2cc8f',
       strokeWidth: emphasized ? 2.25 : conf >= 0.75 ? 1.75 : 1.25,
       strokeDasharray: '6 4',
-      markerFill: muted ? '#5c6148' : emphasized ? '#FFB020' : '#C4A035',
+      markerFill: muted ? '#c9c7b5' : emphasized ? '#e07a5f' : '#f2cc8f',
       label: 'AI-inferred',
     }
   }
 
   return {
-    stroke: muted ? '#5c6148' : emphasized ? '#c3f400' : '#abd600',
+    stroke: muted ? '#c9c7b5' : emphasized ? '#9a442d' : '#dbc1ba',
     strokeWidth: emphasized ? 2.5 : 1.75,
-    strokeDasharray: undefined,
-    markerFill: muted ? '#5c6148' : emphasized ? '#c3f400' : '#abd600',
+    strokeDasharray: emphasized ? undefined : '4 4',
+    markerFill: muted ? '#c9c7b5' : emphasized ? '#9a442d' : '#dbc1ba',
     label: 'Explicit',
   }
 }
@@ -183,7 +183,7 @@ const EdgeGroup = styled.g<{ $active: boolean }>`
     `}
 
   &:focus-visible .rl-hit {
-    stroke: #c3f400;
+    stroke: #e07a5f;
     stroke-opacity: 0.45;
   }
 `
@@ -194,13 +194,14 @@ const TooltipCard = styled.div<{ $interactive?: boolean }>`
   width: 260px;
   max-width: calc(100vw - 24px);
   padding: 10px 12px;
-  background: #0e0e0e;
-  border: 1px solid #c3f400;
-  box-shadow: 0 0 16px -4px rgba(195, 244, 0, 0.4);
-  font-family: 'JetBrains Mono', monospace;
+  background: #ffffff;
+  border: 1px solid rgba(242, 204, 143, 0.55);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px rgba(61, 64, 91, 0.1);
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.45;
-  color: #e2e2e2;
+  color: #161a32;
   pointer-events: ${({ $interactive }) => ($interactive ? 'auto' : 'none')};
 `
 
@@ -213,14 +214,15 @@ const TipActions = styled.div`
 const TipButton = styled.button<{ $primary?: boolean }>`
   flex: 1;
   border: 1px solid
-    ${({ $primary }) => ($primary ? '#c3f400' : '#444933')};
+    ${({ $primary }) => ($primary ? '#e07a5f' : '#dbc1ba')};
+  border-radius: 0.5rem;
   background: ${({ $primary }) =>
-    $primary ? '#c3f400' : 'transparent'};
-  color: ${({ $primary }) => ($primary ? '#161e00' : '#c4c9ac')};
-  font-family: 'Space Mono', monospace;
+    $primary ? '#e07a5f' : 'transparent'};
+  color: ${({ $primary }) => ($primary ? '#ffffff' : '#55423e')};
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 8px 6px;
   cursor: pointer;
@@ -236,12 +238,12 @@ const TipButton = styled.button<{ $primary?: boolean }>`
 `
 
 const TipTitle = styled.div`
-  font-family: 'Space Mono', monospace;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #c3f400;
+  color: #9a442d;
   margin-bottom: 8px;
 `
 
@@ -251,13 +253,13 @@ const TipRow = styled.div`
 `
 
 const TipMuted = styled.span`
-  color: #c4c9ac;
+  color: #55423e;
 `
 
 const TipNote = styled.p`
   margin: 8px 0 0;
   padding-top: 8px;
-  border-top: 1px solid #444933;
+  border-top: 1px solid rgba(219, 193, 186, 0.55);
   color: #c4c9ac;
   font-size: 10px;
   line-height: 1.5;

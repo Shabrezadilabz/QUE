@@ -245,7 +245,7 @@ export function MiniMap({
   return (
     <div
       data-region="mini-map"
-      className={`absolute bottom-md right-md z-20 overflow-hidden border border-[#2a2a2a] bg-[#0e0e0e]/70 backdrop-blur-[2px] ${className}`}
+      className={`absolute bottom-md right-md z-20 overflow-hidden rounded-xl border border-sand/50 bg-surface-container-lowest/90 backdrop-blur-[2px] ${className}`}
       style={{
         width: frameW,
         height: frameH,
@@ -271,8 +271,8 @@ export function MiniMap({
           y={0}
           width={frameW}
           height={frameH}
-          fill="#0e0e0e"
-          fillOpacity={0.85}
+          fill="#f2ede4"
+          fillOpacity={0.95}
           onPointerDown={onBackgroundPointerDown}
           style={{ cursor: 'crosshair' }}
         />
@@ -305,7 +305,7 @@ export function MiniMap({
               key={rel.id}
               d={`M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`}
               fill="none"
-              stroke={inferred ? '#5a5340' : '#3a3f2e'}
+              stroke={inferred ? '#f2cc8f' : '#dbc1ba'}
               strokeWidth={1}
               strokeDasharray={inferred ? '3 2' : undefined}
               pointerEvents="none"
@@ -325,8 +325,9 @@ export function MiniMap({
                 y={p.y}
                 width={Math.max(w, 4)}
                 height={Math.max(h, 4)}
-                fill="#1b1b1b"
-                stroke="#444933"
+                rx={2}
+                fill="#ffffff"
+                stroke="#dbc1ba"
                 strokeWidth={1}
               />
               {/* Source header strip */}
@@ -335,7 +336,7 @@ export function MiniMap({
                 y={p.y}
                 width={Math.max(w, 4)}
                 height={Math.max(SOURCE_HEADER_HEIGHT * scale, 2)}
-                fill="#2a2a2a"
+                fill="#e07a5f"
               />
             </g>
           )
@@ -347,8 +348,8 @@ export function MiniMap({
           y={vpMini.y}
           width={Math.max(vpMini.w, 12)}
           height={Math.max(vpMini.h, 10)}
-          fill="rgba(195, 244, 0, 0.08)"
-          stroke="#8e9379"
+          fill="rgba(224, 122, 95, 0.12)"
+          stroke="#9a442d"
           strokeWidth={dragging ? 2 : 1.5}
           style={{ cursor: dragging ? 'grabbing' : 'grab' }}
           onPointerDown={onViewportPointerDown}
@@ -356,7 +357,7 @@ export function MiniMap({
         />
       </svg>
 
-      <div className="pointer-events-none absolute bottom-xs right-xs font-label text-[9px] tracking-widest text-[#5c6148]">
+      <div className="pointer-events-none absolute bottom-xs right-xs font-label text-[9px] tracking-widest text-on-surface-variant/70">
         MINIMAP
       </div>
     </div>

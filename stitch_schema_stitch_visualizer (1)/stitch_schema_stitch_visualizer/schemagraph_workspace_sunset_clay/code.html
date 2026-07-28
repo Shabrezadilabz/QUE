@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SchemaGraph | Workspace</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&amp;family=Inter:wght@400;500&amp;family=Geist:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#55423e",
+                        "on-secondary-container": "#666556",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "tertiary": "#386753",
+                        "surface-container-high": "#e6e6ff",
+                        "tertiary-container": "#70a18a",
+                        "outline-variant": "#dbc1ba",
+                        "secondary-container": "#e6e3d0",
+                        "inverse-primary": "#ffb4a1",
+                        "surface-variant": "#dfe0ff",
+                        "surface-container-highest": "#dfe0ff",
+                        "on-background": "#161a32",
+                        "surface-dim": "#d6d8f9",
+                        "on-primary-fixed": "#3c0800",
+                        "tertiary-fixed": "#bbeed4",
+                        "primary": "#9a442d",
+                        "inverse-on-surface": "#f1efff",
+                        "surface-container": "#edecff",
+                        "primary-fixed": "#ffdbd2",
+                        "on-surface": "#161a32",
+                        "background": "#fbf8ff",
+                        "surface-tint": "#9a442d",
+                        "on-error-container": "#93000a",
+                        "secondary": "#605f50",
+                        "on-secondary-fixed": "#1c1c11",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#1f4f3c",
+                        "primary-container": "#e07a5f",
+                        "secondary-fixed-dim": "#c9c7b5",
+                        "secondary-fixed": "#e6e3d0",
+                        "on-primary-container": "#5b1604",
+                        "inverse-surface": "#2b2e48",
+                        "outline": "#88726d",
+                        "surface-bright": "#fbf8ff",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#003725",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#48473a",
+                        "primary-fixed-dim": "#ffb4a1",
+                        "surface-container-low": "#f4f2ff",
+                        "on-tertiary-fixed": "#002115",
+                        "on-primary-fixed-variant": "#7c2e19",
+                        "tertiary-fixed-dim": "#9fd1b8",
+                        "surface": "#fbf8ff",
+                        "on-secondary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "lg": "24px",
+                        "xl": "40px",
+                        "base": "4px",
+                        "xs": "4px",
+                        "max-width": "1440px",
+                        "gutter": "24px",
+                        "margin-desktop": "48px",
+                        "sm": "8px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-lg": ["Inter"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "body-sm": ["Inter"],
+                        "label-md": ["Geist"],
+                        "label-sm": ["Geist"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "code-md": ["Geist"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-02em", "fontWeight": "700"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "500"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "code-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #F2EDE4; /* Secondary Cream from Brand Anchor */
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        .canvas-grid {
+            background-image: radial-gradient(#dbc1ba 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+        }
+        .pipeline-line {
+            stroke: #dbc1ba;
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 4;
+            animation: dash 20s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -100; }
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="w-full h-16 bg-background dark:bg-inverse-surface border-b border-secondary-container/30 flex justify-between items-center px-lg z-50">
+<div class="flex items-center gap-xl">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">SchemaGraph</span>
+<nav class="hidden md:flex gap-lg">
+<a class="font-body-md text-body-md text-primary dark:text-primary-fixed border-b-2 border-primary dark:border-primary-fixed pb-1 cursor-pointer transition-transform active:scale-95" href="#">Workspace</a>
+<a class="font-body-md text-body-md text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary dark:hover:text-primary-fixed transition-colors cursor-pointer active:scale-95" href="#">Sources</a>
+<a class="font-body-md text-body-md text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary dark:hover:text-primary-fixed transition-colors cursor-pointer active:scale-95" href="#">Jobs</a>
+<a class="font-body-md text-body-md text-on-surface-variant dark:text-on-secondary-fixed-variant hover:text-primary dark:hover:text-primary-fixed transition-colors cursor-pointer active:scale-95" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-secondary-container rounded-full transition-all">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-secondary-container rounded-full transition-all">help_outline</button>
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional studio portrait of a senior data engineer with a friendly expression. The lighting is soft and warm, reflecting a premium professional environment. The background is a blurred office space with minimalist organic design elements and a soft cream color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDj5cixojBEMDvCzC_azUqLSLkVfLadnHjay3b3JcS7qiMrDWKzh1kS4yb2VcLg53nMcvkTwMRxEwHPCoMII4F9DTOGhfTOlw3Xc_N0TejdKDlaAgZ7elXCGoNMeMpgsPaTjKj02aemLo-n2TrY-LwAxW54nuzNxeYDKLF30bFzJ3ApsKiAJ4JJjGLzRDYc23-uiUqhMFrqKKL8vCpX4LnwHC1lvCsScTN3UE9ASv258fNaJZKlDMST"/>
+</div>
+</div>
+</header>
+<div class="flex-1 flex overflow-hidden">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-full py-lg px-md gap-sm bg-surface-container-low dark:bg-surface-container-lowest w-64 rounded-r-xl border-r border-outline-variant/20">
+<div class="mb-lg px-sm">
+<div class="flex items-center gap-sm mb-base">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">schema</span>
+</div>
+<div>
+<h2 class="font-label-md text-label-md font-bold text-on-surface">Project Alpha</h2>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest">Data Mesh</p>
+</div>
+</div>
+</div>
+<button class="mb-md mx-sm py-md bg-primary text-on-primary font-label-md text-label-md rounded-lg flex items-center justify-center gap-sm shadow-sm active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                New Pipeline
+            </button>
+<nav class="flex flex-col gap-xs flex-1">
+<div class="flex items-center gap-md px-md py-sm cursor-pointer hover:bg-secondary-fixed dark:hover:bg-on-secondary-fixed-variant transition-all rounded-lg text-on-surface-variant font-label-md text-label-md">
+<span class="material-symbols-outlined">account_tree</span>
+<span>Pipeline</span>
+</div>
+<div class="flex items-center gap-md px-md py-sm cursor-pointer bg-secondary-container dark:bg-on-secondary-fixed text-on-secondary-container dark:text-secondary-fixed rounded-lg font-bold transition-all">
+<span class="material-symbols-outlined">schema</span>
+<span>Models</span>
+</div>
+<div class="flex items-center gap-md px-md py-sm cursor-pointer hover:bg-secondary-fixed dark:hover:bg-on-secondary-fixed-variant transition-all rounded-lg text-on-surface-variant font-label-md text-label-md">
+<span class="material-symbols-outlined">schedule</span>
+<span>Orchestration</span>
+</div>
+<div class="flex items-center gap-md px-md py-sm cursor-pointer hover:bg-secondary-fixed dark:hover:bg-on-secondary-fixed-variant transition-all rounded-lg text-on-surface-variant font-label-md text-label-md">
+<span class="material-symbols-outlined">receipt_long</span>
+<span>Logs</span>
+</div>
+<div class="flex items-center gap-md px-md py-sm cursor-pointer hover:bg-secondary-fixed dark:hover:bg-on-secondary-fixed-variant transition-all rounded-lg text-on-surface-variant font-label-md text-label-md">
+<span class="material-symbols-outlined">database</span>
+<span>Metadata</span>
+</div>
+</nav>
+<div class="mt-auto border-t border-outline-variant/20 pt-md">
+<div class="flex items-center gap-md px-md py-sm cursor-pointer hover:bg-secondary-fixed transition-all rounded-lg text-on-surface-variant font-label-md text-label-md">
+<span class="material-symbols-outlined">menu_book</span>
+<span>Documentation</span>
+</div>
+<div class="flex items-center gap-md px-md py-sm cursor-pointer hover:bg-secondary-fixed transition-all rounded-lg text-on-surface-variant font-label-md text-label-md">
+<span class="material-symbols-outlined">support_agent</span>
+<span>Support</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 relative overflow-hidden flex">
+<!-- Canvas Area -->
+<div class="flex-1 canvas-grid relative bg-[#F2EDE4]">
+<!-- Floating Toolbar -->
+<div class="absolute top-md left-md flex gap-sm bg-white/80 backdrop-blur-md p-sm rounded-xl border border-outline-variant/30 shadow-sm z-20">
+<button class="p-sm hover:bg-secondary-fixed rounded-lg transition-colors"><span class="material-symbols-outlined">pan_tool</span></button>
+<button class="p-sm hover:bg-secondary-fixed rounded-lg transition-colors bg-secondary-container"><span class="material-symbols-outlined text-primary">near_me</span></button>
+<div class="w-[1px] h-6 bg-outline-variant/30 self-center"></div>
+<button class="p-sm hover:bg-secondary-fixed rounded-lg transition-colors"><span class="material-symbols-outlined">zoom_in</span></button>
+<button class="p-sm hover:bg-secondary-fixed rounded-lg transition-colors"><span class="material-symbols-outlined">zoom_out</span></button>
+</div>
+<!-- SVG Layer for Connections -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-10">
+<path class="pipeline-line" d="M350 200 C450 200, 450 350, 550 350"></path>
+<path class="pipeline-line" d="M350 220 C450 220, 450 500, 550 500"></path>
+</svg>
+<!-- Nodes -->
+<!-- Users Node -->
+<div class="absolute top-32 left-24 w-64 bg-white rounded-[24px] border border-outline-variant/40 shadow-sm z-20 overflow-hidden group cursor-move hover:border-primary/50 transition-all">
+<div class="bg-primary/5 px-md py-sm border-b border-outline-variant/20 flex justify-between items-center">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-md text-label-md text-on-surface">users</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">more_vert</span>
+</div>
+<div class="p-sm flex flex-col gap-xs">
+<div class="flex justify-between items-center px-sm py-base hover:bg-surface-container-low rounded-lg transition-colors">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-tertiary">key</span>
+<span class="font-code-md text-code-md text-on-surface-variant">user_id</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">uuid</span>
+</div>
+<div class="flex justify-between items-center px-sm py-base hover:bg-surface-container-low rounded-lg transition-colors">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-outline">notes</span>
+<span class="font-code-md text-code-md text-on-surface-variant">email</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">varchar</span>
+</div>
+<div class="flex justify-between items-center px-sm py-base hover:bg-surface-container-low rounded-lg transition-colors">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-outline">calendar_today</span>
+<span class="font-code-md text-code-md text-on-surface-variant">created_at</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">timestamp</span>
+</div>
+</div>
+</div>
+<!-- Orders Node -->
+<div class="absolute top-64 left-[480px] w-64 bg-white rounded-[24px] border border-outline-variant/40 shadow-lg z-20 overflow-hidden ring-2 ring-primary/20 cursor-move transition-all">
+<div class="bg-primary-container px-md py-sm border-b border-outline-variant/20 flex justify-between items-center">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+<span class="font-label-md text-label-md text-white">orders</span>
+</div>
+<span class="material-symbols-outlined text-white/80 text-[18px]">push_pin</span>
+</div>
+<div class="p-sm flex flex-col gap-xs">
+<div class="flex justify-between items-center px-sm py-base bg-secondary-container/30 rounded-lg">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-tertiary">key</span>
+<span class="font-code-md text-code-md text-on-surface">order_id</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary">pk</span>
+</div>
+<div class="flex justify-between items-center px-sm py-base hover:bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-primary">link</span>
+<span class="font-code-md text-code-md text-on-surface">user_id</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary-fixed-variant">fk</span>
+</div>
+<div class="flex justify-between items-center px-sm py-base hover:bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-outline">payments</span>
+<span class="font-code-md text-code-md text-on-surface-variant">amount</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">decimal</span>
+</div>
+</div>
+</div>
+<!-- Products Node -->
+<div class="absolute bottom-24 left-[480px] w-64 bg-white rounded-[24px] border border-outline-variant/40 shadow-sm z-20 overflow-hidden cursor-move hover:border-primary/50 transition-all">
+<div class="bg-tertiary/5 px-md py-sm border-b border-outline-variant/20 flex justify-between items-center">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="font-label-md text-label-md text-on-surface">products</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">more_vert</span>
+</div>
+<div class="p-sm flex flex-col gap-xs">
+<div class="flex justify-between items-center px-sm py-base hover:bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-tertiary">key</span>
+<span class="font-code-md text-code-md text-on-surface-variant">product_id</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">int</span>
+</div>
+</div>
+</div>
+<!-- Stats Widget -->
+<div class="absolute bottom-md left-md bg-white/60 backdrop-blur-md p-md rounded-xl border border-outline-variant/30 flex gap-lg z-20">
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Total Nodes</span>
+<span class="font-headline-md text-headline-md text-primary">12</span>
+</div>
+<div class="w-[1px] h-8 bg-outline-variant/30 self-center"></div>
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Relationships</span>
+<span class="font-headline-md text-headline-md text-tertiary">08</span>
+</div>
+</div>
+</div>
+<!-- Properties Panel -->
+<aside class="w-80 bg-white border-l border-outline-variant/30 flex flex-col z-30 shadow-[-10px_0_30px_rgba(61,64,91,0.03)]">
+<div class="p-lg border-b border-outline-variant/20">
+<div class="flex items-center justify-between mb-md">
+<h3 class="font-headline-md text-headline-md text-on-surface">Properties</h3>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">close</span>
+</div>
+<div class="flex items-center gap-md p-md bg-primary-fixed rounded-xl border border-primary/20">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+</div>
+<div>
+<p class="font-label-md text-label-md font-bold text-on-primary-fixed">orders</p>
+<p class="text-[11px] text-on-primary-fixed-variant">Table · Schema: public</p>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-lg flex flex-col gap-lg">
+<section>
+<h4 class="font-label-sm text-label-sm text-outline uppercase tracking-widest mb-sm">Description</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+                            Transactional records of all customer purchases. Connects users to products via the order_items join table.
+                        </p>
+</section>
+<section>
+<div class="flex items-center justify-between mb-sm">
+<h4 class="font-label-sm text-label-sm text-outline uppercase tracking-widest">Columns (5)</h4>
+<span class="material-symbols-outlined text-[18px] text-primary cursor-pointer">add_circle</span>
+</div>
+<div class="flex flex-col gap-xs">
+<div class="flex items-center justify-between p-sm border border-outline-variant/30 rounded-lg hover:border-primary/40 transition-colors bg-surface-container-low/30">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-tertiary">key</span>
+<span class="font-code-md text-code-md">order_id</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-outline">settings</span>
+</div>
+<div class="flex items-center justify-between p-sm border border-outline-variant/30 rounded-lg hover:border-primary/40 transition-colors">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-primary">link</span>
+<span class="font-code-md text-code-md">user_id</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-outline">settings</span>
+</div>
+</div>
+</section>
+<section>
+<h4 class="font-label-sm text-label-sm text-outline uppercase tracking-widest mb-sm">Metadata Tags</h4>
+<div class="flex flex-wrap gap-xs">
+<span class="px-sm py-base bg-tertiary/10 text-tertiary text-[10px] font-bold rounded-full uppercase">PII: Sensitive</span>
+<span class="px-sm py-base bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase">Bronze Tier</span>
+<span class="px-sm py-base bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded-full uppercase">Daily Refresh</span>
+</div>
+</section>
+<section>
+<h4 class="font-label-sm text-label-sm text-outline uppercase tracking-widest mb-sm">Preview Data</h4>
+<div class="border border-outline-variant/20 rounded-xl overflow-hidden bg-surface-container-low">
+<table class="w-full text-left text-[11px]">
+<thead class="bg-white border-b border-outline-variant/20">
+<tr>
+<th class="p-sm font-label-sm text-outline">ID</th>
+<th class="p-sm font-label-sm text-outline">USER</th>
+<th class="p-sm font-label-sm text-outline">AMT</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-outline-variant/10">
+<td class="p-sm font-code-md">#401</td>
+<td class="p-sm font-code-md">usr_92</td>
+<td class="p-sm font-code-md">$120.00</td>
+</tr>
+<tr>
+<td class="p-sm font-code-md">#402</td>
+<td class="p-sm font-code-md">usr_14</td>
+<td class="p-sm font-code-md">$45.50</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+<div class="p-lg bg-surface-container-low/50 border-t border-outline-variant/20">
+<button class="w-full py-md bg-on-background text-white font-label-md text-label-md rounded-xl hover:bg-primary transition-colors active:scale-95">
+                        Save Changes
+                    </button>
+</div>
+</aside>
+</main>
+</div>
+<!-- Micro-interaction Scripts -->
+<script>
+        // Simple drag simulation logic for visual feedback
+        const nodes = document.querySelectorAll('.cursor-move');
+        nodes.forEach(node => {
+            node.addEventListener('mousedown', (e) => {
+                node.style.transition = 'none';
+                node.style.zIndex = '100';
+                
+                const startX = e.clientX - node.offsetLeft;
+                const startY = e.clientY - node.offsetTop;
+
+                function mouseMove(e) {
+                    node.style.left = (e.clientX - startX) + 'px';
+                    node.style.top = (e.clientY - startY) + 'px';
+                }
+
+                function mouseUp() {
+                    node.style.zIndex = '20';
+                    node.style.transition = 'all 0.2s ease-out';
+                    document.removeEventListener('mousemove', mouseMove);
+                    document.removeEventListener('mouseup', mouseUp);
+                }
+
+                document.addEventListener('mousemove', mouseMove);
+                document.addEventListener('mouseup', mouseUp);
+            });
+        });
+
+        // Toggle properties panel close for demo
+        document.querySelector('.material-symbols-outlined[innerText="close"]')?.addEventListener('click', () => {
+            document.querySelector('aside.w-80').style.display = 'none';
+        });
+    </script>
+</body></html>

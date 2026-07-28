@@ -1,0 +1,30 @@
+{
+  "schema": "PUBLIC",
+  "database": "QUE_DEMO",
+  "tables": [
+    {
+      "name": "CUSTOMERS",
+      "columns": [
+        { "name": "ID", "dataType": "NUMBER", "keyKind": "pk", "samples": ["1", "2", "3"] },
+        { "name": "EMAIL", "dataType": "VARCHAR", "keyKind": "unique", "samples": ["a@example.com", "b@example.com"] },
+        { "name": "NAME", "dataType": "VARCHAR", "samples": ["Ada", "Bob"] }
+      ]
+    },
+    {
+      "name": "ORDERS",
+      "columns": [
+        { "name": "ID", "dataType": "NUMBER", "keyKind": "pk", "samples": ["10", "11"] },
+        { "name": "CUSTOMER_ID", "dataType": "NUMBER", "keyKind": "fk", "references": "CUSTOMERS.ID", "samples": ["1", "2"] },
+        { "name": "AMOUNT", "dataType": "NUMBER", "samples": ["42.5", "10"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    {
+      "fromTable": "ORDERS",
+      "fromColumn": "CUSTOMER_ID",
+      "toTable": "CUSTOMERS",
+      "toColumn": "ID"
+    }
+  ]
+}

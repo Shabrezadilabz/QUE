@@ -1,65 +1,54 @@
-import { useState, type CSSProperties, type MouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useState, type MouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import styled, { css } from 'styled-components'
 import type { SchemaColumn, SchemaTable } from '@/types/schema'
 import {
   COLUMN_LIST_PADDING_Y,
   COLUMN_ROW_HEIGHT,
-  SOURCE_HEADER_HEIGHT,
+  TABLE_NODE_HEADER_HEIGHT,
   TABLE_NODE_WIDTH,
-  TABLE_TITLE_HEIGHT,
 } from '@/components/canvas/layoutMetrics'
 import { SourceTypeIcon } from '@/components/sidebar/SourceTypeIcon'
 import {
   ColumnKeyIcon,
-  ColumnTypeIcon,
   keyKindLabel,
 } from '@/components/canvas/ColumnIcons'
 import { SAMPLE_TABLE_NODE } from '@/data/dummySchema'
 
-/* ─────────────────────────────────────────────────────────────────────────────
- * TableNode
- *
- * Rectangle card for one schema table on the diagram canvas.
- *
- * Layout:
- *  ┌─ SourceHeader (icon + label) — drag handle ───────────────────────────┐
- *  │ TitleBar (name + expand toggle + entity badge)                        │
- *  │ ColumnList (when expanded) — name, type icon, key icon + tooltip      │
- *  └───────────────────────────────────────────────────────────────────────┘
- *
- * Required props: table, isSelected, onExpand, onSelectColumn
- * Canvas extras (optional): isExpanded, selectedColumnId, dragging, drag handlers
- * ─────────────────────────────────────────────────────────────────────────── */
+/* Sunset Clay table card — 24px radius, soft shadow, tinted header */
 
 export interface TableNodeProps {
-  /** Table payload (name, source, columns, position, …) */
   table: SchemaTable
-  /** Selection highlight (lime border / source header) */
   isSelected: boolean
-  /**
-   * Expand / collapse toggle.
-   * Called with the table id and the *next* expanded boolean.
-   */
   onExpand: (tableId: string, expanded: boolean) => void
-  /** Column click — bubbles to parent / right sidebar */
   onSelectColumn: (tableId: string, columnId: string) => void
-
-  /* ── Optional canvas integration ──────────────────────────────────────── */
-  /** Controlled expand state (parent owns map). Defaults to table.defaultExpanded */
   isExpanded?: boolean
   selectedColumnId?: string | null
-  /** Real-time TopBar search match — amber outline pulse */
   isSearchMatch?: boolean
-  /** Column ids matched by current search (row highlight) */
   matchedColumnIds?: Set<string>
-  /** Card click selects the table (without toggling expand) */
   onSelect?: (tableId: string) => void
   dragging?: boolean
   onPointerDownDrag?: (e: ReactPointerEvent, tableId: string) => void
   className?: string
 }
 
-/* ── Styled pieces ─────────────────────────────────────────────────────────── */
+function headerTone(sourceType: string, selected: boolean): {
+  bg: string
+  fg: string
+  muted: string
+} {
+  if (selected) {
+    return { bg: '#e07a5f', fg: '#ffffff', muted: 'rgba(255,255,255,0.75)' }
+  }
+  switch (sourceType) {
+    case 'mongodb':
+    case 'databricks':
+      return { bg: 'rgba(56,103,83,0.08)', fg: '#161a32', muted: '#55423e' }
+    case 'snowflake':
+      return { bg: 'rgba(154,68,45,0.06)', fg: '#161a32', muted: '#55423e' }
+    default:
+      return { bg: 'rgba(154,68,45,0.05)', fg: '#161a32', muted: '#55423e' }
+  }
+}
 
 const Card = styled.div<{
   $selected: boolean
@@ -68,19 +57,19 @@ const Card = styled.div<{
 }>`
   position: absolute;
   width: ${TABLE_NODE_WIDTH}px;
-  background: #1f1f1f;
+  background: #ffffff;
+  border-radius: 24px;
+  overflow: hidden;
   border: ${({ $selected, $searchMatch }) =>
     $selected
-      ? '2px solid #c3f400'
+      ? '1px solid rgba(224, 122, 95, 0.45)'
       : $searchMatch
-        ? '2px solid #FFB020'
-        : '1px solid #444933'};
-  box-shadow: ${({ $selected, $searchMatch }) =>
+        ? '1px solid rgba(242, 204, 143, 0.8)'
+        : '1px solid rgba(219, 193, 186, 0.4)'};
+  box-shadow: ${({ $selected }) =>
     $selected
-      ? '0 0 15px -5px rgba(195, 244, 0, 0.35)'
-      : $searchMatch
-        ? '0 0 12px -4px rgba(255, 176, 32, 0.45)'
-        : 'none'};
+      ? '0 8px 28px rgba(154, 68, 45, 0.16), 0 0 0 2px rgba(224, 122, 95, 0.2)'
+      : '0 4px 20px rgba(61, 64, 91, 0.06)'};
   cursor: default;
   user-select: none;
   z-index: ${({ $dragging, $searchMatch }) =>
@@ -90,26 +79,21 @@ const Card = styled.div<{
   will-change: ${({ $dragging }) => ($dragging ? 'left, top' : 'auto')};
 
   &:hover {
-    border-color: #c3f400;
+    border-color: rgba(224, 122, 95, 0.5);
   }
 `
 
-const SourceHeader = styled.div<{ $active: boolean }>`
-  height: ${SOURCE_HEADER_HEIGHT}px;
+const Header = styled.div<{ $bg: string; $fg: string }>`
+  height: ${TABLE_NODE_HEADER_HEIGHT}px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 12px;
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  background: ${({ $active }) => ($active ? '#c3f400' : '#353535')};
-  color: ${({ $active }) => ($active ? '#161e00' : '#c4c9ac')};
+  padding: 0 14px;
+  background: ${({ $bg }) => $bg};
+  color: ${({ $fg }) => $fg};
+  border-bottom: 1px solid rgba(219, 193, 186, 0.2);
   cursor: grab;
-  /* Required for smooth touch dragging (prevents browser scroll/zoom steal) */
   touch-action: none;
   user-select: none;
 
@@ -118,74 +102,38 @@ const SourceHeader = styled.div<{ $active: boolean }>`
   }
 `
 
-const SourceLeft = styled.span`
+const HeaderLeft = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 `
 
-const TitleBar = styled.div`
-  height: ${TABLE_TITLE_HEIGHT}px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 8px 0 12px;
-  border-bottom: 1px solid #444933;
-  background: #2a2a2a;
-`
-
-const TableNameBtn = styled.button`
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  color: #e2e2e2;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
+const TableName = styled.span`
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0;
-
-  &:hover {
-    color: #c3f400;
-  }
 `
 
-const ExpandToggle = styled.button<{ $open: boolean }>`
+const HeaderAction = styled.button<{ $fg: string }>`
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #444933;
-  background: #1f1f1f;
-  color: #c3f400;
+  border: none;
+  background: transparent;
+  color: ${({ $fg }) => $fg};
+  opacity: 0.7;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1;
-  transform: rotate(${({ $open }) => ($open ? '90deg' : '0deg')});
-  transition: transform 0.12s ease;
+  padding: 4px;
+  border-radius: 8px;
 
   &:hover {
-    border-color: #c3f400;
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.06);
   }
-`
-
-const Badge = styled.span`
-  flex-shrink: 0;
-  padding: 2px 6px;
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: #c3f400;
-  background: rgba(195, 244, 0, 0.12);
-  border: 1px solid rgba(195, 244, 0, 0.3);
 `
 
 const ColumnList = styled.ul`
@@ -194,7 +142,7 @@ const ColumnList = styled.ul`
   padding: ${COLUMN_LIST_PADDING_Y}px 8px;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
 `
 
 const ColumnRow = styled.li<{ $selected: boolean }>`
@@ -202,59 +150,60 @@ const ColumnRow = styled.li<{ $selected: boolean }>`
   height: ${COLUMN_ROW_HEIGHT}px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 0 8px;
+  padding: 0 10px;
+  border-radius: 0.5rem;
   cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: ${({ $selected }) => ($selected ? '#c3f400' : '#e2e2e2')};
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  color: ${({ $selected }) => ($selected ? '#161a32' : '#55423e')};
 
   ${({ $selected }) =>
     $selected &&
     css`
-      background: rgba(195, 244, 0, 0.08);
-      outline: 1px solid rgba(195, 244, 0, 0.35);
+      background: rgba(230, 227, 208, 0.45);
     `}
 
   &:hover {
-    color: #c3f400;
-    background: rgba(195, 244, 0, 0.06);
+    background: rgba(244, 242, 255, 0.9);
   }
 `
 
-const ColName = styled.span`
-  flex: 1;
+const ColLeft = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
+  flex: 1;
+`
+
+const ColName = styled.span`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 `
 
 const TypeMuted = styled.span`
-  margin-left: 6px;
-  opacity: 0.45;
-  color: #c4c9ac;
-  font-size: 11px;
-`
-
-const TypeIconWrap = styled.span`
-  display: inline-flex;
-  color: #8e9379;
   flex-shrink: 0;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: #88726d;
 `
 
-const KeyIconWrap = styled.span`
+const KeyWrap = styled.span`
   display: inline-flex;
-  color: #c3f400;
+  color: #386753;
   flex-shrink: 0;
 `
 
 const ExpandHint = styled.div`
-  padding: 8px 16px 12px;
-  font-family: 'Space Mono', monospace;
+  padding: 8px 16px 14px;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
-  letter-spacing: 0.08em;
-  color: #8e9379;
+  letter-spacing: 0.06em;
+  color: #88726d;
   text-transform: uppercase;
 `
 
@@ -266,57 +215,38 @@ const Tooltip = styled.div`
   z-index: 50;
   width: 220px;
   padding: 10px 12px;
-  background: #0e0e0e;
-  border: 1px solid #c3f400;
-  box-shadow: 0 0 12px -4px rgba(195, 244, 0, 0.35);
+  background: #ffffff;
+  border: 1px solid rgba(242, 204, 143, 0.55);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px rgba(61, 64, 91, 0.1);
   pointer-events: none;
   text-align: left;
 `
 
 const TipTitle = styled.div`
-  font-family: 'JetBrains Mono', monospace;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 12px;
-  font-weight: 700;
-  color: #c3f400;
+  font-weight: 600;
+  color: #9a442d;
   margin-bottom: 6px;
 `
 
 const TipMeta = styled.div`
-  font-family: 'Space Mono', monospace;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
-  letter-spacing: 0.06em;
-  color: #c4c9ac;
+  letter-spacing: 0.04em;
+  color: #55423e;
   text-transform: uppercase;
   margin-bottom: 4px;
 `
 
 const TipBody = styled.p`
   margin: 0 0 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.4;
-  color: #e2e2e2;
+  color: #161a32;
 `
-
-const SampleList = styled.ul`
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-`
-
-const SampleItem = styled.li`
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: #abd600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`
-
-/* ── Tooltip content ───────────────────────────────────────────────────────── */
 
 function ColumnTooltip({ column }: { column: SchemaColumn }) {
   const keyLabel = keyKindLabel(column.keyKind)
@@ -324,40 +254,18 @@ function ColumnTooltip({ column }: { column: SchemaColumn }) {
     <Tooltip role="tooltip" data-region="column-tooltip">
       <TipTitle>
         {column.name}
-        <TypeMuted> {column.dataType}</TypeMuted>
+        <TypeMuted style={{ marginLeft: 6 }}> {column.dataType}</TypeMuted>
       </TipTitle>
-
       {keyLabel ? <TipMeta>{keyLabel}</TipMeta> : null}
-      {column.references ? (
-        <TipMeta>→ {column.references}</TipMeta>
-      ) : null}
+      {column.references ? <TipMeta>→ {column.references}</TipMeta> : null}
       {column.nullable !== undefined ? (
         <TipMeta>{column.nullable ? 'NULLABLE' : 'NOT NULL'}</TipMeta>
       ) : null}
-
       {column.description ? <TipBody>{column.description}</TipBody> : null}
-
-      {column.sampleValues && column.sampleValues.length > 0 ? (
-        <>
-          <TipMeta>Sample values</TipMeta>
-          <SampleList>
-            {column.sampleValues.slice(0, 4).map((v) => (
-              <SampleItem key={v}>{v}</SampleItem>
-            ))}
-          </SampleList>
-        </>
-      ) : (
-        <TipBody style={{ opacity: 0.6 }}>No sample values</TipBody>
-      )}
     </Tooltip>
   )
 }
 
-/* ── Main component ────────────────────────────────────────────────────────── */
-
-/**
- * Rectangle card for a single table on the schema diagram.
- */
 export function TableNode({
   table,
   isSelected,
@@ -379,6 +287,7 @@ export function TableNode({
 
   const expandControlled = isExpandedProp !== undefined
   const isExpanded = expandControlled ? isExpandedProp : uncontrolledExpanded
+  const tone = headerTone(table.sourceType, isSelected)
 
   function handleExpandToggle(e: MouseEvent) {
     e.stopPropagation()
@@ -405,50 +314,26 @@ export function TableNode({
         onSelect?.(table.id)
       }}
     >
-      {/* Source strip + icon — drag handle when canvas provides handler */}
-      <SourceHeader
-        $active={isSelected}
+      <Header
+        $bg={tone.bg}
+        $fg={tone.fg}
         onPointerDown={(e) => onPointerDownDrag?.(e, table.id)}
       >
-        <SourceLeft>
-          <SourceTypeIcon type={table.sourceType} className="h-3.5 w-3.5" />
-          <span
-            style={
-              {
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              } satisfies CSSProperties
-            }
-          >
-            {table.sourceLabel}
-          </span>
-        </SourceLeft>
-      </SourceHeader>
-
-      {/* Table name + dedicated expand/collapse control */}
-      <TitleBar>
-        <TableNameBtn
+        <HeaderLeft>
+          <SourceTypeIcon type={table.sourceType} className="h-4 w-4 shrink-0" />
+          <TableName title={table.name}>{table.name}</TableName>
+        </HeaderLeft>
+        <HeaderAction
           type="button"
-          title={table.name}
-          onClick={(e) => {
-            e.stopPropagation()
-            onSelect?.(table.id)
-          }}
-        >
-          {table.name}
-        </TableNameBtn>
-        <Badge>{table.entityKind ?? 'TABLE'}</Badge>
-        <ExpandToggle
-          type="button"
-          $open={isExpanded}
+          $fg={tone.fg}
           aria-expanded={isExpanded}
           aria-label={isExpanded ? 'Collapse columns' : 'Expand columns'}
           onClick={handleExpandToggle}
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          ▸
-        </ExpandToggle>
-      </TitleBar>
+          {isExpanded ? '▾' : '▸'}
+        </HeaderAction>
+      </Header>
 
       {isExpanded ? (
         <ColumnList>
@@ -468,18 +353,20 @@ export function TableNode({
                 onSelectColumn(table.id, col.id)
               }}
             >
-              <TypeIconWrap title={col.dataType}>
-                <ColumnTypeIcon dataType={col.dataType} />
-              </TypeIconWrap>
-              <ColName>
-                {col.name}
-                <TypeMuted>{col.dataType}</TypeMuted>
-              </ColName>
-              <KeyIconWrap>
-                <ColumnKeyIcon kind={col.keyKind} />
-              </KeyIconWrap>
+              <ColLeft>
+                <KeyWrap>
+                  <ColumnKeyIcon kind={col.keyKind} />
+                </KeyWrap>
+                <ColName>{col.name}</ColName>
+              </ColLeft>
+              <TypeMuted>
+                {col.keyKind === 'pk'
+                  ? 'pk'
+                  : col.keyKind === 'fk'
+                    ? 'fk'
+                    : col.dataType}
+              </TypeMuted>
 
-              {/* Hover tooltip: PK/FK, samples, description */}
               {hoveredColumnId === col.id ? (
                 <ColumnTooltip column={col} />
               ) : null}
@@ -495,7 +382,6 @@ export function TableNode({
   )
 }
 
-/** Re-export sample for isolated demos / docs */
 export { SAMPLE_TABLE_NODE }
 
 export default TableNode

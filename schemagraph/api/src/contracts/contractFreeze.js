@@ -267,3 +267,36 @@ export async function listRecentDrift(workspaceId, limit = 20) {
     createdAt: r.created_at,
   }))
 }
+
+/**
+ * Count suggested joins that touch any of the given table names.
+ */
+export async function countUnreviewedJoinsForTables(
+  workspaceId,
+  tableNames = [],
+) {
+  const names = [...new Set((tableNames || []).map(String).filter(Boolean))]
+  if (names.length === 0) {
+    const { rows } = await query(
+      `SELECT COUNT(*)::int AS n FROM relationships
+       WHERE workspace_id = $1 AND status = 'suggested'`,
+      [workspaceId],
+    )
+    return rows[0]?.n || 0
+  }
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS n
+     FROM relationships r
+     JOIN schema_objects fo ON fo.id = r.from_object_id
+     JOIN schema_objects too ON too.id = r.to_object_id
+     WHERE r.workspace_id = $1
+       AND r.status = 'suggested'
+       AND (
+         lower(fo.name) = ANY($2::text[])
+         OR lower(too.name) = ANY($2::text[])
+       )`,
+    [workspaceId, names.map((n) => n.toLowerCase())],
+  )
+  return rows[0]?.n || 0
+}
+

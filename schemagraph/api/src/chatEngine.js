@@ -20,6 +20,7 @@ import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
+import { bestJoinOnClause } from './inferJoins.js'
 
 function finalizeChatResult(result, pack) {
   return attachSamplePreviews(result, pack, 3, 5)
@@ -476,8 +477,8 @@ function explainJoins(pack, mentioned) {
     return {
       reply:
         `No stored relationship between \`${a.name}\` and \`${b.name}\` yet.\n\n` +
-        `Possible stitch: match columns by name/type, then **Promote** on the canvas if it looks right.\n\n` +
-        `Draft SQL (review before running):\n`,
+        `Que will **not invent** a join path — Promote on the canvas / stitch session first.\n\n` +
+        `Blocked draft (promote, then re-run /sql):\n`,
       citations: [a.name, b.name],
       jobDraft: null,
       referencedTables: mentioned.map(compactTable),
@@ -669,42 +670,58 @@ function draftJob(pack, mentioned, message) {
   }
 }
 
-function proposeHeuristicSql(a, b, rels = []) {
+function proposeHeuristicSql(a, b, rels = [], opts = {}) {
+  const requireAccepted = opts.requireAcceptedJoins !== false
   let on = null
-  if (rels[0]) {
-    const [, fc] = rels[0].from.split('.')
-    const [, tc] = rels[0].to.split('.')
-    const fromIsA = rels[0].from.startsWith(`${a.name}.`)
+  let joinSource = 'none'
+
+  const accepted = (rels || []).filter(
+    (r) =>
+      r.status === 'accepted' ||
+      r.status == null ||
+      // schema pack relationships for accepted omit rejected; treat stored as usable
+      r.type === 'explicit',
+  )
+  const suggestedOnly = (rels || []).filter(
+    (r) => r.status === 'suggested' || r.type === 'ai-inferred',
+  )
+
+  const usable =
+    accepted.length > 0
+      ? accepted
+      : requireAccepted
+        ? []
+        : rels || []
+
+  if (usable[0]) {
+    const [, fc] = usable[0].from.split('.')
+    const [, tc] = usable[0].to.split('.')
+    const fromIsA = usable[0].from.startsWith(`${a.name}.`)
     on = fromIsA ? `a.${fc} = b.${tc}` : `a.${tc} = b.${fc}`
-  } else {
-    const aKeys = a.columns.filter(
-      (c) =>
-        c.keyKind === 'fk' ||
-        c.keyKind === 'unique' ||
-        /email|_id$|^id$/i.test(c.name),
+    joinSource = accepted.length > 0 ? 'accepted' : 'stored'
+  } else if (!requireAccepted) {
+    const scored = bestJoinOnClause(a, b)
+    on = scored?.on || null
+    joinSource = scored ? 'inferred' : 'none'
+  }
+
+  if (!on) {
+    const hint =
+      suggestedOnly.length > 0
+        ? `-- ${suggestedOnly.length} suggested join(s) exist — promote on canvas / stitch session first`
+        : `-- No accepted joins between ${a.name} and ${b.name} — promote a join before trusting AI SQL`
+    return (
+      `-- Que: AI SQL blocked from inventing join paths (accepted-join graph only)\n` +
+      `${hint}\n` +
+      `SELECT a.*, b.*\n` +
+      `FROM ${a.name} a\n` +
+      `-- JOIN ${b.name} b ON …  -- promote a relationship, then re-run /sql\n` +
+      `LIMIT 0;`
     )
-    const bKeys = b.columns.filter(
-      (c) =>
-        c.keyKind === 'pk' ||
-        c.keyKind === 'unique' ||
-        /email|_id$|^id$/i.test(c.name),
-    )
-    outer: for (const ac of aKeys) {
-      for (const bc of bKeys) {
-        if (
-          ac.name.toLowerCase() === bc.name.toLowerCase() ||
-          (ac.name.toLowerCase().includes('email') &&
-            bc.name.toLowerCase().includes('email'))
-        ) {
-          on = `a.${ac.name} = b.${bc.name}`
-          break outer
-        }
-      }
-    }
-    if (!on) on = `a.id = b.id -- TODO: confirm join keys`
   }
 
   return (
+    `-- Que join source: ${joinSource} (schema-only)\n` +
     `SELECT a.*, b.*\n` +
     `FROM ${a.name} a\n` +
     `JOIN ${b.name} b\n` +

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SchemaGraph | Job Code Editor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Inter:wght@400;500&family=Geist:wght@400;500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Hanken+Grotesk:wght@100..900&family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "background": "#fbf8ff",
+                        "on-primary": "#ffffff",
+                        "outline": "#88726d",
+                        "on-primary-fixed": "#3c0800",
+                        "tertiary-fixed-dim": "#9fd1b8",
+                        "surface-container-highest": "#dfe0ff",
+                        "tertiary-fixed": "#bbeed4",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#2b2e48",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#ffb4a1",
+                        "on-secondary-fixed": "#1c1c11",
+                        "on-tertiary-fixed-variant": "#1f4f3c",
+                        "primary-fixed": "#ffdbd2",
+                        "on-surface": "#161a32",
+                        "primary": "#9a442d",
+                        "primary-container": "#e07a5f",
+                        "secondary-container": "#e6e3d0",
+                        "on-primary-container": "#5b1604",
+                        "surface-tint": "#9a442d",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#dbc1ba",
+                        "on-secondary-fixed-variant": "#48473a",
+                        "surface-container": "#edecff",
+                        "inverse-on-surface": "#f1efff",
+                        "on-primary-fixed-variant": "#7c2e19",
+                        "surface": "#fbf8ff",
+                        "secondary-fixed-dim": "#c9c7b5",
+                        "on-surface-variant": "#55423e",
+                        "surface-variant": "#dfe0ff",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#386753",
+                        "secondary-fixed": "#e6e3d0",
+                        "secondary": "#605f50",
+                        "inverse-primary": "#ffb4a1",
+                        "surface-bright": "#fbf8ff",
+                        "surface-container-low": "#f4f2ff",
+                        "surface-container-high": "#e6e6ff",
+                        "tertiary-container": "#70a18a",
+                        "surface-dim": "#d6d8f9",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#003725",
+                        "on-background": "#161a32",
+                        "on-tertiary-fixed": "#002115",
+                        "on-secondary-container": "#666556"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "margin-desktop": "48px",
+                        "xs": "4px",
+                        "margin-mobile": "16px",
+                        "base": "4px",
+                        "xl": "40px",
+                        "max-width": "1440px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "code-md": ["Geist"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "body-sm": ["Inter"],
+                        "label-sm": ["Geist"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "label-md": ["Geist"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #F2EDE4; /* Overriding with Design System's Secondary Cream for the organic feel */
+        }
+        .code-editor-bg {
+            background-color: #1c1c11; /* Custom charcoal for editor */
+        }
+        .syntax-keyword { color: #E07A5F; } /* Terracotta */
+        .syntax-string { color: #81B29A; }  /* Sage */
+        .syntax-comment { color: #605F50; opacity: 0.6; }
+        .syntax-function { color: #F2CC8F; } /* Sand */
+    </style>
+</head>
+<body class="font-body-md text-on-surface">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-surface dark:bg-surface-dim border-b border-outline-variant/30 shadow-sm flex justify-between items-center px-margin-desktop w-full h-16 fixed top-0 z-50">
+<div class="flex items-center gap-xl">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">SchemaGraph</span>
+<nav class="hidden md:flex gap-md">
+<a class="font-body-md text-body-md text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors transition-all active:opacity-80" href="#">Workspace</a>
+<a class="font-body-md text-body-md text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors transition-all active:opacity-80" href="#">Sources</a>
+<a class="font-body-md text-body-md text-primary dark:text-primary-fixed-dim border-b-2 border-primary dark:border-primary-fixed-dim pb-1 transition-all active:opacity-80" href="#">Jobs</a>
+<a class="font-body-md text-body-md text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors transition-all active:opacity-80" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant">help</span>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A high-quality professional portrait of a data engineer in a modern workspace, shot with shallow depth of field. The lighting is soft and warm, reflecting the Sunset Clay brand palette with subtle terracotta and cream highlights. The individual has a focused, professional expression, wearing minimalist tech-wear." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3Okb4wrLJf4MOFeh-dABiF_qxTtbMehm4agHnE2DlmOiQvpfSkDxln_opzBn5gVdw9FYMsHPnNT4u9D9oPzX1uinADcYyC7SmtreET4Ggg7g_rMsNwwpTW2E9erzjYoVT0CFGEP52-TTTh90iY1cRPtL-fYDv07oSuj49pBA4y9zbweXKdrfoYIa7T6iGnFYdRmRpo4ThaOFb0hAbxWRQrgEE3hFOA_SJzJx1fsitgrFalKIiYO13"/>
+</div>
+</div>
+</header>
+<main class="pt-16 h-screen flex overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="bg-surface-container-low dark:bg-surface-container flex flex-col gap-sm p-md h-full w-64 border-r border-outline-variant/20 hidden md:flex">
+<div class="mb-lg">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div>
+<h2 class="font-label-md text-label-md text-primary">Workspace</h2>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Data Pipeline Alpha</p>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-base">
+<button class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-label-md text-label-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="schema">schema</span> Diagram
+                </button>
+<button class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-label-md text-label-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="account_tree">account_tree</span> Lineage
+                </button>
+<button class="flex items-center gap-3 bg-secondary-container dark:bg-secondary-fixed-dim text-on-secondary-container dark:text-on-secondary-fixed rounded-lg px-4 py-2 font-label-md text-label-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="database">database</span> Models
+                </button>
+<button class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-label-md text-label-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="table_chart">table_chart</span> Schemas
+                </button>
+<button class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant px-4 py-2 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-label-md text-label-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="history">history</span> History
+                </button>
+</div>
+<div class="mt-auto">
+<button class="w-full bg-primary text-on-primary font-label-md text-label-md py-3 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+                    Deploy Pipeline
+                </button>
+</div>
+</aside>
+<!-- Main Editor Canvas -->
+<section class="flex-1 flex flex-col min-w-0 bg-[#F2EDE4]">
+<!-- Editor Header -->
+<div class="h-14 border-b border-outline-variant/20 flex items-center justify-between px-md bg-white/50 backdrop-blur-sm">
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-secondary-container rounded-lg border border-outline-variant/10">
+<span class="material-symbols-outlined text-primary text-[20px]">code</span>
+<span class="font-label-md text-label-md text-on-secondary-container">transform_user_events.py</span>
+</div>
+<div class="flex gap-1">
+<span class="px-2 py-0.5 bg-tertiary/10 text-tertiary rounded text-[10px] font-bold uppercase">Production</span>
+<span class="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-bold uppercase">Modified</span>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="flex items-center gap-2 px-4 py-2 text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span> Run Test
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary font-label-md text-label-md rounded-lg shadow-sm hover:opacity-90 transition-opacity">
+                        Commit Changes
+                    </button>
+</div>
+</div>
+<!-- Workspace Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Code Editor Pane -->
+<div class="flex-1 flex flex-col border-r border-outline-variant/20 bg-surface-container-lowest">
+<div class="h-10 border-b border-outline-variant/10 flex items-center px-4 bg-surface-container-low/30">
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-60">PYTHON CORE</span>
+</div>
+<div class="flex-1 code-editor-bg p-4 font-code-md text-code-md text-secondary-fixed overflow-auto relative">
+<div class="flex gap-4">
+<div class="text-on-surface-variant/40 text-right select-none pr-2 border-r border-on-surface-variant/10">
+                                01<br/>02<br/>03<br/>04<br/>05<br/>06<br/>07<br/>08<br/>09<br/>10<br/>11<br/>12<br/>13<br/>14<br/>15
+                            </div>
+<pre class="leading-relaxed"><code class="block"><span class="syntax-keyword">import</span> polars <span class="syntax-keyword">as</span> pl
+<span class="syntax-keyword">from</span> schemagraph.core <span class="syntax-keyword">import</span> transform
+
+<span class="syntax-comment"># Initialize transformation context</span>
+<span class="syntax-keyword">@transform</span>(source=<span class="syntax-string">"s3://raw-events"</span>)
+<span class="syntax-keyword">def</span> <span class="syntax-function">clean_user_activity</span>(df):
+    <span class="syntax-comment"># Drop null records and cast types</span>
+    df = df.filter(pl.col(<span class="syntax-string">"user_id"</span>).is_not_null())
+    
+    <span class="syntax-comment"># Apply business logic: Sessionize events</span>
+    df = df.with_columns([
+        pl.col(<span class="syntax-string">"timestamp"</span>).str.to_datetime(),
+        (pl.col(<span class="syntax-string">"user_id"</span>) != pl.col(<span class="syntax-string">"user_id"</span>).shift()).alias(<span class="syntax-string">"new_session"</span>)
+    ])
+    
+    <span class="syntax-keyword">return</span> df.select([<span class="syntax-string">"user_id"</span>, <span class="syntax-string">"timestamp"</span>, <span class="syntax-string">"event_type"</span>])</code></pre>
+</div>
+<div class="absolute bottom-4 right-4 flex gap-2">
+<span class="px-2 py-1 bg-surface-container/20 rounded text-[10px] text-on-surface-variant/60">UTF-8</span>
+<span class="px-2 py-1 bg-surface-container/20 rounded text-[10px] text-on-surface-variant/60">Python 3.10</span>
+</div>
+</div>
+</div>
+<!-- Preview Pane -->
+<div class="w-1/3 flex flex-col bg-white">
+<div class="h-10 border-b border-outline-variant/10 flex items-center justify-between px-4 bg-surface-container-low/30">
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-60">REAL-TIME PREVIEW</span>
+<div class="flex gap-2">
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[16px]">refresh</span>
+</button>
+</div>
+</div>
+<div class="flex-1 overflow-auto p-4 flex flex-col gap-lg">
+<!-- Input Preview -->
+<div class="space-y-sm">
+<div class="flex items-center justify-between">
+<h3 class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">input</span>
+                                    Input Sample
+                                </h3>
+<span class="text-[10px] text-on-surface-variant/50">1,240 rows loaded</span>
+</div>
+<div class="overflow-x-auto rounded-xl border border-outline-variant/20">
+<table class="w-full text-left font-label-sm text-label-sm">
+<thead class="bg-surface-container-low text-on-surface-variant/60 uppercase tracking-widest">
+<tr>
+<th class="p-3 border-b border-outline-variant/10">user_id</th>
+<th class="p-3 border-b border-outline-variant/10">timestamp</th>
+</tr>
+</thead>
+<tbody class="text-on-surface-variant">
+<tr class="border-b border-outline-variant/5 hover:bg-secondary-container/20">
+<td class="p-3 font-code-md">usr_9421</td>
+<td class="p-3 font-code-md">2023-10-24 14:20:01</td>
+</tr>
+<tr class="border-b border-outline-variant/5 hover:bg-secondary-container/20">
+<td class="p-3 font-code-md">usr_9421</td>
+<td class="p-3 font-code-md">2023-10-24 14:21:05</td>
+</tr>
+<tr class="hover:bg-secondary-container/20">
+<td class="p-3 font-code-md">usr_1022</td>
+<td class="p-3 font-code-md">2023-10-24 14:25:33</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Output Preview -->
+<div class="space-y-sm">
+<div class="flex items-center justify-between">
+<h3 class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-[18px]">output</span>
+                                    Output Result
+                                </h3>
+<span class="px-2 py-0.5 bg-tertiary/10 text-tertiary rounded text-[10px] font-bold">SUCCESS</span>
+</div>
+<div class="overflow-x-auto rounded-xl border border-tertiary/30 bg-tertiary/5">
+<table class="w-full text-left font-label-sm text-label-sm">
+<thead class="bg-tertiary/10 text-tertiary uppercase tracking-widest">
+<tr>
+<th class="p-3">user_id</th>
+<th class="p-3">new_session</th>
+</tr>
+</thead>
+<tbody class="text-on-surface-variant">
+<tr class="border-b border-outline-variant/10">
+<td class="p-3 font-code-md">usr_9421</td>
+<td class="p-3 font-code-md text-tertiary">true</td>
+</tr>
+<tr class="border-b border-outline-variant/10">
+<td class="p-3 font-code-md">usr_9421</td>
+<td class="p-3 font-code-md text-tertiary">false</td>
+</tr>
+<tr>
+<td class="p-3 font-code-md">usr_1022</td>
+<td class="p-3 font-code-md text-tertiary">true</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Stats Bottom Panel -->
+<footer class="h-28 border-t border-outline-variant/20 bg-white px-md py-sm flex gap-xl items-center">
+<div class="flex flex-col gap-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-60 uppercase tracking-widest">Execution Stats</span>
+<div class="flex gap-md">
+<div class="flex items-center gap-3 bg-surface-container-low px-4 py-2 rounded-lg border border-outline-variant/10">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[18px]">timer</span>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant/60 uppercase">Latency</p>
+<p class="font-label-md text-label-md text-on-surface">142ms</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-surface-container-low px-4 py-2 rounded-lg border border-outline-variant/10">
+<div class="w-8 h-8 rounded-full bg-secondary text-white/80 flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">memory</span>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant/60 uppercase">Memory</p>
+<p class="font-label-md text-label-md text-on-surface">1.2GB <span class="text-error text-[10px]">↑ 4%</span></p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-surface-container-low px-4 py-2 rounded-lg border border-outline-variant/10">
+<div class="w-8 h-8 rounded-full bg-tertiary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary text-[18px]">bolt</span>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant/60 uppercase">CPU Usage</p>
+<p class="font-label-md text-label-md text-on-surface">24.5%</p>
+</div>
+</div>
+</div>
+</div>
+<div class="ml-auto flex items-center gap-lg">
+<div class="flex flex-col items-end">
+<span class="text-[10px] text-on-surface-variant/60 uppercase">Auto-save Status</span>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Cloud Sync Active</span>
+</div>
+</div>
+<div class="h-10 w-px bg-outline-variant/20"></div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">expand_less</span>
+</button>
+</div>
+</footer>
+</section>
+</main>
+<!-- Interactive Layer for cursor and micro-interactions -->
+<script>
+        // Simple micro-interaction for the editor
+        const codeEditor = document.querySelector('.code-editor-bg');
+        codeEditor.addEventListener('mouseenter', () => {
+            codeEditor.classList.add('shadow-inner');
+        });
+
+        // Hover animation for table rows
+        const rows = document.querySelectorAll('tr');
+        rows.forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transition = 'background-color 0.2s ease';
+            });
+        });
+    </script>
+</body></html>

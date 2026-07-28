@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { AuthSessionControls } from '@/components/AuthSessionControls'
 import { MobileNav } from '@/components/MobileNav'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
+import { primaryNavLinkClass } from '@/components/primaryNavStyles'
 import type { DataSourceType } from '@/types/dataSource'
 import type {
   DiagramFilters,
@@ -40,10 +41,12 @@ const REL_OPTIONS: { value: RelationshipFilterType; label: string }[] = [
   { value: 'ai-inferred', label: 'AI-inferred' },
 ]
 
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  isActive
-    ? 'border-b-2 border-primary-fixed pb-1 font-label text-[11px] font-bold tracking-[0.12em] text-primary-fixed uppercase sm:text-xs'
-    : 'font-label text-[11px] font-bold tracking-[0.12em] text-on-surface-variant uppercase transition-colors hover:text-primary-fixed sm:text-xs'
+const CONFIDENCE_OPTIONS: { value: string; label: string }[] = [
+  { value: '0', label: 'Any confidence' },
+  { value: '0.5', label: 'Conf ≥ 50%' },
+  { value: '0.7', label: 'Conf ≥ 70%' },
+  { value: '0.85', label: 'Conf ≥ 85%' },
+]
 
 /**
  * Workspace top bar — search, filters, counts, export, session.
@@ -112,37 +115,40 @@ export function TopBar({
   return (
     <header
       data-region="top-bar"
-      className={`z-50 shrink-0 border-b border-outline-variant bg-background ${className}`}
+      className={`z-50 shrink-0 border-b border-secondary-container/30 bg-background ${className}`}
     >
-      <div className="flex h-14 items-center gap-sm px-md sm:h-16 sm:gap-md lg:px-margin-desktop">
+      <div className="flex h-14 items-center gap-sm px-lg sm:h-16 sm:gap-md lg:px-lg">
         {/* Brand + nav */}
-        <div className="flex shrink-0 items-center gap-sm sm:gap-md lg:gap-lg">
+        <div className="flex shrink-0 items-center gap-md sm:gap-lg lg:gap-xl">
           <MobileNav showBelow="lg" />
-          <span className="font-headline text-xl font-bold leading-none tracking-tight text-on-surface sm:text-2xl">
+          <span className="font-headline text-[1.35rem] font-bold leading-none tracking-tight text-primary sm:text-[1.65rem]">
             Que
           </span>
           <nav
-            className="hidden items-center gap-md lg:flex lg:gap-lg"
+            className="hidden items-center gap-5 lg:flex lg:gap-7"
             aria-label="Primary"
           >
             <WorkspaceSwitcher variant="nav" />
-            <NavLink to="/chat" className={navLinkClass}>
+            <NavLink to="/workspace" className={primaryNavLinkClass}>
+              Workspace
+            </NavLink>
+            <NavLink to="/chat" className={primaryNavLinkClass}>
               AI Chat
             </NavLink>
-            <NavLink to="/sources" className={navLinkClass}>
+            <NavLink to="/sources" className={primaryNavLinkClass}>
               Sources
             </NavLink>
-            <NavLink to="/jobs" className={navLinkClass}>
+            <NavLink to="/jobs" className={primaryNavLinkClass}>
               Jobs
             </NavLink>
-            <NavLink to="/settings" className={navLinkClass}>
+            <NavLink to="/settings" className={primaryNavLinkClass}>
               Settings
             </NavLink>
           </nav>
         </div>
 
         {/* Search — keep a real minimum width so it never collapses to an icon */}
-        <div className="mx-sm flex min-h-9 min-w-[9rem] flex-1 items-center gap-sm border border-outline-variant bg-surface-container-high px-sm focus-within:border-primary-fixed sm:min-h-10 sm:min-w-[14rem] sm:max-w-[22rem] sm:px-md lg:mx-md">
+        <div className="mx-sm flex min-h-9 min-w-[9rem] flex-1 items-center gap-sm rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm shadow-sm focus-within:border-primary-fixed sm:min-h-10 sm:min-w-[14rem] sm:max-w-[22rem] sm:px-md lg:mx-md">
           <span
             className="shrink-0 font-label text-xs text-on-surface-variant"
             aria-hidden
@@ -167,12 +173,6 @@ export function TopBar({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-sm" ref={toolsRef}>
-          <VisibleCounts
-            tables={visibleTableCount}
-            relationships={visibleRelationshipCount}
-            className="hidden xl:flex"
-          />
-
           {/* Wide desktop: inline tools, never wrap */}
           <div className="hidden items-center gap-sm 2xl:flex">
             <FilterControls filters={filters} onChange={patchFilters} />
@@ -181,7 +181,7 @@ export function TopBar({
 
           <button
             type="button"
-            className="border border-outline-variant px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-primary-fixed hover:text-primary-fixed 2xl:hidden"
+            className="rounded-lg border border-outline-variant/50 px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-primary-fixed hover:text-primary-fixed 2xl:hidden"
             aria-expanded={menuOpen}
             aria-controls="topbar-collapsed-panel"
             onClick={() => setMenuOpen((o) => !o)}
@@ -196,7 +196,7 @@ export function TopBar({
       {menuOpen ? (
         <div
           id="topbar-collapsed-panel"
-          className="flex flex-col gap-md border-t border-outline-variant bg-surface-container px-md py-md 2xl:hidden"
+          className="flex flex-col gap-md border-t border-secondary-container/30 bg-surface-container-low px-md py-md 2xl:hidden"
         >
           <VisibleCounts
             tables={visibleTableCount}
@@ -225,11 +225,11 @@ function VisibleCounts({
       className={`items-center gap-sm font-label text-[10px] tracking-[0.14em] text-on-surface-variant ${className}`}
       aria-live="polite"
     >
-      <span className="whitespace-nowrap border border-outline-variant bg-surface-container px-sm py-xs">
-        <span className="text-primary-fixed">{tables}</span> TABLES
+      <span className="que-pill whitespace-nowrap border border-sand/40 bg-surface-container-lowest px-sm py-xs">
+        <span className="text-primary">{tables}</span> TABLES
       </span>
-      <span className="whitespace-nowrap border border-outline-variant bg-surface-container px-sm py-xs">
-        <span className="text-primary-fixed">{relationships}</span> RELS
+      <span className="que-pill whitespace-nowrap border border-sand/40 bg-surface-container-lowest px-sm py-xs">
+        <span className="text-primary">{relationships}</span> RELS
       </span>
     </div>
   )
@@ -261,6 +261,12 @@ function FilterControls({
         }
       />
       <SelectControl
+        label="Min confidence"
+        value={String(filters.minConfidence)}
+        options={CONFIDENCE_OPTIONS}
+        onChange={(v) => onChange({ minConfidence: Number(v) || 0 })}
+      />
+      <SelectControl
         label="Source type"
         value={filters.sourceType}
         options={SOURCE_OPTIONS}
@@ -283,7 +289,7 @@ function SelectControl({
 }) {
   const id = useId()
   return (
-    <label className="flex shrink-0 items-center gap-sm border border-outline-variant bg-surface-container-high px-sm py-xs">
+    <label className="flex shrink-0 items-center gap-sm rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-xs">
       <span className="sr-only">{label}</span>
       <select
         id={id}
@@ -293,7 +299,7 @@ function SelectControl({
         aria-label={label}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} className="bg-surface-container">
+          <option key={o.value} value={o.value} className="bg-surface-container-lowest">
             {o.label}
           </option>
         ))}
@@ -315,7 +321,7 @@ function ExportButtons({
           key={fmt}
           type="button"
           onClick={() => onExport(fmt)}
-          className="border border-outline-variant bg-surface-container px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase transition-colors hover:border-primary-fixed hover:text-primary-fixed"
+          className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase transition-colors hover:border-primary-fixed hover:text-primary-fixed"
         >
           {fmt}
         </button>

@@ -8,6 +8,7 @@ import { introspectPostgres, withSourceClient } from './connectors/postgres.js'
 import { introspectSpreadsheet } from './connectors/spreadsheet.js'
 import { introspectMongo } from './connectors/mongo.js'
 import { introspectDatabricks } from './connectors/databricks.js'
+import { introspectSnowflake } from './connectors/snowflake.js'
 import { inferCrossSourceJoins } from './inferJoins.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { buildSyncDrift, capturePreSyncDrift } from './syncDrift.js'
@@ -108,10 +109,12 @@ export async function syncConnection(workspaceId, connectionId) {
       }
     : null
 
-  const suggestedJoins =
-    prefs?.inferJoinsOnSync === false
-      ? 0
-      : await inferCrossSourceJoins(workspaceId, connectionId)
+  let suggestedJoins = 0
+  if (prefs?.inferJoinsOnSync !== false) {
+    const inferResult = await inferCrossSourceJoins(workspaceId, connectionId)
+    suggestedJoins =
+      typeof inferResult === 'number' ? inferResult : inferResult.created || 0
+  }
 
   const drift = await buildSyncDrift(
     workspaceId,
@@ -164,6 +167,10 @@ async function runIntrospect(sourceType, config) {
 
   if (sourceType === 'databricks') {
     return introspectDatabricks(config)
+  }
+
+  if (sourceType === 'snowflake') {
+    return introspectSnowflake(config)
   }
 
   const err = new Error(

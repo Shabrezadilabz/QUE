@@ -9,10 +9,11 @@ import {
 } from './connections.js'
 import { runReadonlyQuery as runPg } from './connectors/postgres.js'
 import { runReadonlyQuery as runDatabricks } from './connectors/databricks.js'
+import { runReadonlyQuery as runSnowflake } from './connectors/snowflake.js'
 
 const WRITE_RE =
   /\b(insert|update|delete|drop|alter|truncate|merge|create|grant|revoke|call|copy)\b/i
-const LIVE_ENGINES = new Set(['postgresql', 'databricks'])
+const LIVE_ENGINES = new Set(['postgresql', 'databricks', 'snowflake'])
 
 /** Product cap for live / validate reads — never pull full tables. */
 export const LIVE_VALIDATE_MAX_ROWS = 20
@@ -152,6 +153,16 @@ export async function executeLiveSql(connection, sql, opts = {}) {
 
   if (connection.type === 'databricks') {
     const result = await runDatabricks(connection.config, prepared, { maxRows })
+    return {
+      ...result,
+      connectionId: connection.id,
+      connectionName: connection.name,
+      sqlExecuted: prepared,
+    }
+  }
+
+  if (connection.type === 'snowflake') {
+    const result = await runSnowflake(connection.config, prepared, { maxRows })
     return {
       ...result,
       connectionId: connection.id,

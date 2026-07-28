@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Schema-Only Attestation (one-pager)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; line-height: 1.45; color: #1a1a1a; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .meta { color: #555; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .box { border-left: 4px solid #3c4d00; background: #f7f8f3; padding: 12px 14px; margin: 16px 0; }
+    ul { padding-left: 1.2em; }
+    code { font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>Que schema-only attestation</h1>
+  <p class="meta">Customer / CISO one-pager · generated from product guarantees in code · Jul 2026</p>
+
+  <div class="box">
+    <strong>Policy:</strong> <code>schema-only</code><br />
+    Que uses schema metadata and capped column samples only. Raw warehouse rows are not centralized for model training or chat prompts.
+  </div>
+
+  <h2>Guarantees (enforced in product)</h2>
+  <ul>
+    <li>No full-table extracts stored for AI training</li>
+    <li>Chat prompts use schema context packs only</li>
+    <li>Live validate / dry-run respect hard row caps (samples ≤10 · validate ≤20)</li>
+    <li>Human promote/reject owns join truth — AI never auto-promotes</li>
+    <li>AI SQL drafts prefer the <em>accepted-join graph</em>; inventing join paths is blocked</li>
+    <li>Every export carries a machine-readable attestation + fingerprint in <code>export_audit_events</code></li>
+  </ul>
+
+  <h2>What leaves the customer network</h2>
+  <ul>
+    <li>Optional LLM BYOK: schema packs + product docs — not warehouse dumps</li>
+    <li>Optional GitHub export: SQL / dbt / attestation JSON to the customer’s repo</li>
+    <li>Optional webhook: contract/drift envelopes (metadata events)</li>
+  </ul>
+
+  <h2>Diligence hooks</h2>
+  <ul>
+    <li><code>npm run test:diligence</code> — join golden-set + privacy red-team</li>
+    <li>CI workflow: <code>.github/workflows/que-diligence.yml</code></li>
+    <li>Attestation module: <code>api/src/exporters/attestation.js</code></li>
+  </ul>
+
+  <p class="meta">This page is sales ammo for Legal/Security — not a substitute for a customer SOC2 or DPA.</p>
+</body>
+</html>

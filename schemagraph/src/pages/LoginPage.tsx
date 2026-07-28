@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 
 /**
  * Login — email/password against stitch-api sessions.
- * Responsive Midnight Cyber: Space Grotesk headlines, JetBrains body, Space Mono labels.
+ * Sunset Clay: Hanken Grotesk headlines, Inter body, Geist labels.
  */
 export function LoginPage() {
   const { user, ready, login } = useAuth()
@@ -19,7 +19,7 @@ export function LoginPage() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-full w-full items-center justify-center bg-background font-label text-[11px] tracking-widest text-on-surface-variant">
+      <div className="flex min-h-full w-full items-center justify-center bg-canvas font-label text-[11px] tracking-widest text-on-surface-variant">
         CHECKING SESSION…
       </div>
     )
@@ -43,13 +43,13 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-full w-full items-stretch justify-center overflow-y-auto bg-background sm:items-center sm:px-lg sm:py-xl">
-      <div className="flex w-full max-w-[26rem] flex-col border-outline-variant bg-surface-container sm:my-lg sm:border md:max-w-[28rem]">
-        <header className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high px-md py-md sm:px-lg">
-          <span className="font-headline text-lg font-bold tracking-tight text-on-surface sm:text-xl">
+    <div className="flex min-h-full w-full items-stretch justify-center overflow-y-auto bg-canvas sm:items-center sm:px-lg sm:py-xl">
+      <div className="que-card flex w-full max-w-[26rem] flex-col sm:my-lg md:max-w-[28rem]">
+        <header className="flex items-center justify-between border-b border-secondary-container/40 bg-surface-container-low px-md py-md sm:px-lg">
+          <span className="font-headline text-lg font-bold tracking-tight text-primary sm:text-xl">
             Que
           </span>
-          <span className="font-label text-[10px] font-bold tracking-[0.18em] text-primary-fixed sm:text-[11px]">
+          <span className="font-label text-[10px] font-bold tracking-[0.18em] text-on-surface-variant sm:text-[11px]">
             SIGN IN
           </span>
         </header>
@@ -110,7 +110,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="min-h-12 w-full bg-primary-container px-md py-md font-label text-[11px] font-bold tracking-[0.2em] text-on-primary-fixed transition-opacity hover:opacity-90 disabled:opacity-40 sm:text-xs"
+            className="min-h-12 w-full rounded-lg bg-primary-container px-md py-md font-label text-[11px] font-bold tracking-[0.2em] text-on-primary transition-opacity hover:opacity-90 disabled:opacity-40 sm:text-xs"
           >
             {busy ? 'SIGNING IN…' : 'SIGN IN'}
           </button>

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { SchemaColumn, SchemaTable } from '@/types/schema'
 import type {
   RightSidebarStatus,
@@ -7,35 +7,23 @@ import type {
   TableDetailStats,
 } from '@/types/tableDetail'
 import {
-  buildSampleRowsFromColumns,
   resolveSampleRows,
   resolveTableStats,
 } from '@/data/dummyTableDetail'
 import { SourceTypeIcon, sourceTypeLabel } from '@/components/sidebar/SourceTypeIcon'
-import {
-  ColumnKeyIcon,
-  ColumnTypeIcon,
-  keyKindLabel,
-} from '@/components/canvas/ColumnIcons'
+import { ColumnKeyIcon } from '@/components/canvas/ColumnIcons'
 
-/* ─────────────────────────────────────────────────────────────────────────────
- * RightSidebar
- *
- * Fixed 320px inspector for the selected TableNode.
- * States: empty | loading | error | ready (with expandable Schema / Details /
- * Sample Data sections) + action buttons (Add to Job, Preview, Lineage).
- *
- * Primary props type: TableDetailProps (exported below and from types/).
- * ─────────────────────────────────────────────────────────────────────────── */
-
-export type { TableDetailProps, TableDetailStats, SampleDataRow, RightSidebarStatus }
-
-type SectionKey = 'schema' | 'details' | 'sample'
+export type {
+  TableDetailProps,
+  TableDetailStats,
+  SampleDataRow,
+  RightSidebarStatus,
+}
 
 const WIDTH_PX = 320
 
 /**
- * Right-hand table detail rail.
+ * Properties panel — Sunset Clay workspace mock fidelity.
  */
 export function RightSidebar({
   table,
@@ -51,7 +39,6 @@ export function RightSidebar({
   onSelectColumn,
   className = '',
 }: TableDetailProps) {
-  /** Derive status when parent does not force one */
   const status: RightSidebarStatus =
     statusProp ?? (table ? 'ready' : 'empty')
 
@@ -65,266 +52,167 @@ export function RightSidebar({
     return resolveSampleRows(table)
   }, [table, sampleRowsProp])
 
-  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
-    schema: true,
-    details: true,
-    sample: true,
-  })
-
-  function toggleSection(key: SectionKey) {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }))
-  }
-
   return (
     <aside
       data-region="right-sidebar"
-      className={`flex h-full shrink-0 flex-col border-l border-outline-variant bg-surface-container-low ${className}`}
+      className={`flex h-full shrink-0 flex-col border-l border-outline-variant/30 bg-white shadow-[-10px_0_30px_rgba(61,64,91,0.03)] ${className}`}
       style={{ width: WIDTH_PX }}
-      aria-label="Table details"
+      aria-label="Properties"
     >
-      {/* ── Chrome header ──────────────────────────────────────────────── */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container px-md">
-        <span className="font-label text-[11px] font-bold tracking-widest text-primary-fixed">
-          TABLE DETAILS
-        </span>
-        <button
-          type="button"
-          className="text-sm text-on-surface-variant transition-colors hover:text-on-surface"
-          aria-label="Close table details"
-          onClick={onClose}
-        >
-          ×
-        </button>
+      <div className="shrink-0 border-b border-outline-variant/20 p-lg">
+        <div className="mb-md flex items-center justify-between">
+          <h3 className="font-headline text-xl font-semibold text-on-surface">
+            Properties
+          </h3>
+          <button
+            type="button"
+            className="rounded-full p-xs text-on-surface-variant transition-colors hover:bg-secondary-container"
+            aria-label="Close properties"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        {status === 'ready' && table ? (
+          <div className="flex items-center gap-md rounded-xl border border-primary/20 bg-[#ffdbd2] p-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white text-primary shadow-sm">
+              <SourceTypeIcon type={table.sourceType} className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate font-label text-sm font-bold text-[#3c0800]">
+                {table.name}
+              </p>
+              <p className="text-[11px] text-[#7c2e19]">
+                Table · {table.sourceLabel || sourceTypeLabel(table.sourceType)}
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {/* ── Body ───────────────────────────────────────────────────────── */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-lg">
         {status === 'loading' ? <LoadingState /> : null}
         {status === 'error' ? <ErrorState message={errorMessage} /> : null}
-        {status === 'empty' || (!table && status !== 'loading' && status !== 'error') ? (
+        {status === 'empty' ||
+        (!table && status !== 'loading' && status !== 'error') ? (
           <EmptyState />
         ) : null}
 
         {status === 'ready' && table ? (
-          <TableDetailBody
-            table={table}
-            stats={stats}
-            sampleRows={sampleRows}
-            selectedColumnId={selectedColumnId}
-            openSections={openSections}
-            onToggleSection={toggleSection}
-            onSelectColumn={onSelectColumn}
-          />
+          <div className="flex flex-col gap-lg">
+            <Section title="Description">
+              <p className="font-body text-sm leading-relaxed text-on-surface-variant">
+                {stats.description ||
+                  `${table.name} schema metadata from ${
+                    table.sourceLabel || sourceTypeLabel(table.sourceType)
+                  }.`}
+              </p>
+            </Section>
+
+            <Section
+              title={`Columns (${table.columns.length})`}
+              action={
+                <span className="font-label text-[10px] text-primary">
+                  {stats.rowCount != null
+                    ? `${stats.rowCount.toLocaleString()} rows`
+                    : null}
+                </span>
+              }
+            >
+              <div className="flex flex-col gap-xs">
+                {table.columns.map((col) => (
+                  <ColumnPill
+                    key={col.id}
+                    column={col}
+                    selected={selectedColumnId === col.id}
+                    onSelect={() => onSelectColumn?.(col.id)}
+                  />
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Metadata Tags">
+              <div className="flex flex-wrap gap-xs">
+                <Tag tone="sage">Schema only</Tag>
+                <Tag tone="primary">
+                  {sourceTypeLabel(table.sourceType)}
+                </Tag>
+                <Tag tone="sand">
+                  {(table.entityKind ?? 'TABLE').toString()}
+                </Tag>
+                {stats.storageLabel ? (
+                  <Tag tone="sand">{stats.storageLabel}</Tag>
+                ) : null}
+              </div>
+            </Section>
+
+            <Section title="Preview Data">
+              <PreviewTable rows={sampleRows} />
+              {onPreviewData ? (
+                <button
+                  type="button"
+                  className="mt-sm font-label text-[10px] tracking-widest text-primary hover:underline"
+                  onClick={() => onPreviewData(table.id)}
+                >
+                  Refresh preview
+                </button>
+              ) : null}
+            </Section>
+
+            {onShowLineage ? (
+              <button
+                type="button"
+                className="rounded-lg border border-outline-variant/40 px-md py-sm font-label text-[11px] tracking-widest text-on-surface-variant hover:border-primary"
+                onClick={() => onShowLineage(table.id)}
+              >
+                Show lineage
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
-      {/* ── Actions (enabled only when a table is ready) ───────────────── */}
-      <div className="shrink-0 space-y-sm border-t border-outline-variant p-md">
-        <ActionButton
-          label="Create stitch job"
-          primary
+      <div className="shrink-0 border-t border-outline-variant/20 bg-surface-container-low/50 p-lg">
+        <button
+          type="button"
           disabled={!table || status !== 'ready'}
           onClick={() => table && onAddToJob?.(table.id)}
-        />
-        <div className="grid grid-cols-2 gap-sm">
-          <ActionButton
-            label="Preview Data"
-            disabled={!table || status !== 'ready'}
-            onClick={() => table && onPreviewData?.(table.id)}
-          />
-          <ActionButton
-            label="Show Lineage"
-            disabled={!table || status !== 'ready'}
-            onClick={() => table && onShowLineage?.(table.id)}
-          />
-        </div>
+          className="w-full rounded-xl bg-on-background py-md font-label text-sm font-medium text-white transition-colors hover:bg-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save Changes
+        </button>
+        <p className="mt-xs text-center font-label text-[9px] tracking-wide text-on-surface-variant/70">
+          Creates a stitch job from this table + neighbors
+        </p>
       </div>
     </aside>
   )
 }
 
-/* ── Body when table is selected ───────────────────────────────────────────── */
-
-interface TableDetailBodyProps {
-  table: SchemaTable
-  stats: TableDetailStats
-  sampleRows: SampleDataRow[]
-  selectedColumnId: string | null
-  openSections: Record<SectionKey, boolean>
-  onToggleSection: (key: SectionKey) => void
-  onSelectColumn?: (columnId: string) => void
-}
-
-function TableDetailBody({
-  table,
-  stats,
-  sampleRows,
-  selectedColumnId,
-  openSections,
-  onToggleSection,
-  onSelectColumn,
-}: TableDetailBodyProps) {
-  return (
-    <div className="space-y-0 p-md">
-      {/* Title + data source */}
-      <div className="mb-md">
-        <h2 className="font-headline text-[22px] font-semibold leading-tight text-on-surface">
-          {table.name}
-        </h2>
-        <div className="mt-sm flex items-center gap-sm text-on-surface-variant">
-          <SourceTypeIcon type={table.sourceType} className="h-4 w-4" />
-          <span className="font-label text-[10px] font-bold tracking-widest uppercase">
-            {table.sourceLabel || sourceTypeLabel(table.sourceType)}
-          </span>
-          <span className="font-body text-[10px] opacity-50">·</span>
-          <span className="font-label text-[10px] tracking-widest uppercase opacity-70">
-            {table.entityKind ?? 'TABLE'}
-          </span>
-        </div>
-        {stats.description ? (
-          <p className="mt-sm font-body text-xs leading-relaxed text-on-surface-variant">
-            {stats.description}
-          </p>
-        ) : null}
-      </div>
-
-      {/* Quick stats */}
-      <div className="mb-md grid grid-cols-2 gap-sm">
-        <StatCard
-          label="Row count"
-          value={
-            stats.rowCount != null
-              ? stats.rowCount.toLocaleString()
-              : '—'
-          }
-        />
-        <StatCard label="Storage" value={stats.storageLabel ?? '—'} />
-      </div>
-
-      {/* Expandable: Schema */}
-      <ExpandableSection
-        title="Schema"
-        open={openSections.schema}
-        onToggle={() => onToggleSection('schema')}
-      >
-        <ul className="space-y-xs">
-          {table.columns.map((col) => (
-            <ColumnRow
-              key={col.id}
-              column={col}
-              selected={selectedColumnId === col.id}
-              onSelect={() => onSelectColumn?.(col.id)}
-            />
-          ))}
-        </ul>
-      </ExpandableSection>
-
-      {/* Expandable: Details */}
-      <ExpandableSection
-        title="Details"
-        open={openSections.details}
-        onToggle={() => onToggleSection('details')}
-      >
-        <dl className="space-y-sm font-body text-xs">
-          <DetailRow label="Table ID" value={table.id} />
-          <DetailRow label="Source ID" value={table.sourceId} />
-          <DetailRow label="Source type" value={sourceTypeLabel(table.sourceType)} />
-          <DetailRow
-            label="Columns"
-            value={String(table.columns.length)}
-          />
-          <DetailRow
-            label="Primary keys"
-            value={
-              table.columns
-                .filter((c) => c.keyKind === 'pk')
-                .map((c) => c.name)
-                .join(', ') || '—'
-            }
-          />
-          <DetailRow
-            label="Foreign keys"
-            value={
-              table.columns
-                .filter((c) => c.keyKind === 'fk')
-                .map((c) =>
-                  c.references ? `${c.name} → ${c.references}` : c.name,
-                )
-                .join('; ') || '—'
-            }
-          />
-        </dl>
-      </ExpandableSection>
-
-      {/* Expandable: Sample data */}
-      <ExpandableSection
-        title="Sample data"
-        open={openSections.sample}
-        onToggle={() => onToggleSection('sample')}
-      >
-        {sampleRows.length === 0 ? (
-          <p className="font-body text-xs text-on-surface-variant opacity-70">
-            No sample rows available.
-          </p>
-        ) : (
-          <SampleDataTable table={table} rows={sampleRows} />
-        )}
-      </ExpandableSection>
-    </div>
-  )
-}
-
-/* ── Subcomponents ─────────────────────────────────────────────────────────── */
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-outline-variant bg-surface-container p-sm">
-      <span className="mb-xs block font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
-        {label}
-      </span>
-      <span className="font-body text-sm text-primary-fixed">{value}</span>
-    </div>
-  )
-}
-
-function ExpandableSection({
+function Section({
   title,
-  open,
-  onToggle,
+  action,
   children,
 }: {
   title: string
-  open: boolean
-  onToggle: () => void
+  action?: ReactNode
   children: ReactNode
 }) {
   return (
-    <section className="mb-sm border border-outline-variant bg-surface-container">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between px-sm py-sm text-left hover:bg-surface-container-high"
-        aria-expanded={open}
-        onClick={onToggle}
-      >
-        <span className="font-label text-[11px] font-bold tracking-widest text-on-surface-variant uppercase">
+    <section>
+      <div className="mb-sm flex items-center justify-between gap-sm">
+        <h4 className="font-label text-[11px] font-medium tracking-widest text-outline uppercase">
           {title}
-        </span>
-        <span
-          className="text-primary-fixed transition-transform"
-          style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}
-          aria-hidden
-        >
-          ▸
-        </span>
-      </button>
-      {open ? (
-        <div className="border-t border-outline-variant px-sm py-sm">{children}</div>
-      ) : null}
+        </h4>
+        {action}
+      </div>
+      {children}
     </section>
   )
 }
 
-function ColumnRow({
+function ColumnPill({
   column,
   selected,
   onSelect,
@@ -333,90 +221,98 @@ function ColumnRow({
   selected: boolean
   onSelect: () => void
 }) {
-  const key = keyKindLabel(column.keyKind)
   return (
-    <li>
-      <button
-        type="button"
-        onClick={onSelect}
-        className={`flex w-full items-start gap-sm px-xs py-xs text-left transition-colors ${
-          selected
-            ? 'bg-primary-fixed/10 outline outline-1 outline-primary-fixed/40'
-            : 'hover:bg-surface-container-high'
-        }`}
-      >
-        <span className="mt-0.5 text-on-surface-variant">
-          <ColumnTypeIcon dataType={column.dataType} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-body text-xs text-on-surface">
-            {column.name}
-            <span className="ml-sm text-on-surface-variant opacity-50">
-              {column.dataType}
-            </span>
-          </span>
-          {key ? (
-            <span className="mt-0.5 block font-label text-[9px] tracking-wider text-primary-fixed">
-              {key}
-              {column.references ? ` · ${column.references}` : ''}
-            </span>
-          ) : null}
-        </span>
-        <span className="mt-0.5 text-primary-fixed">
+    <button
+      type="button"
+      onClick={onSelect}
+      className={[
+        'flex w-full items-center justify-between rounded-lg border px-sm py-sm text-left transition-colors',
+        selected
+          ? 'border-primary/40 bg-surface-container-low'
+          : 'border-outline-variant/30 bg-surface-container-low/30 hover:border-primary/40',
+      ].join(' ')}
+    >
+      <span className="flex min-w-0 items-center gap-sm">
+        <span className="text-tertiary">
           <ColumnKeyIcon kind={column.keyKind} />
         </span>
-      </button>
-    </li>
+        <span className="truncate font-label text-[13px] text-on-surface">
+          {column.name}
+        </span>
+      </span>
+      <span className="shrink-0 font-label text-[10px] tracking-wide text-outline uppercase">
+        {column.keyKind === 'pk'
+          ? 'pk'
+          : column.keyKind === 'fk'
+            ? 'fk'
+            : column.dataType}
+      </span>
+    </button>
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-sm">
-      <dt className="shrink-0 font-label text-[10px] tracking-wider text-on-surface-variant uppercase">
-        {label}
-      </dt>
-      <dd className="truncate text-right text-on-surface">{value}</dd>
-    </div>
-  )
-}
-
-function SampleDataTable({
-  table,
-  rows,
+function Tag({
+  children,
+  tone,
 }: {
-  table: SchemaTable
-  rows: SampleDataRow[]
+  children: ReactNode
+  tone: 'sage' | 'primary' | 'sand'
 }) {
-  const cols = table.columns
+  const cls =
+    tone === 'sage'
+      ? 'bg-tertiary/10 text-tertiary'
+      : tone === 'primary'
+        ? 'bg-primary/10 text-primary'
+        : 'bg-secondary-container text-on-secondary-container'
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-max border-collapse font-body text-[11px]">
-        <thead>
+    <span
+      className={`rounded-full px-sm py-xs text-[10px] font-bold tracking-wide uppercase ${cls}`}
+    >
+      {children}
+    </span>
+  )
+}
+
+function PreviewTable({ rows }: { rows: SampleDataRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-sm font-body text-xs text-on-surface-variant">
+        No sample values on columns yet.
+      </p>
+    )
+  }
+  const keys = Object.keys(rows[0] ?? {}).slice(0, 3)
+  return (
+    <div className="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low">
+      <table className="w-full text-left text-[11px]">
+        <thead className="border-b border-outline-variant/20 bg-white">
           <tr>
-            {cols.map((c) => (
+            {keys.map((k) => (
               <th
-                key={c.id}
-                className="border-b border-outline-variant px-xs py-xs text-left font-label text-[9px] tracking-wider text-on-surface-variant uppercase"
+                key={k}
+                className="p-sm font-label text-[10px] tracking-wide text-outline uppercase"
               >
-                {c.name}
+                {k}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-outline-variant/50">
-              {cols.map((c) => (
-                <td
-                  key={c.id}
-                  className="max-w-[120px] truncate px-xs py-xs text-on-surface"
-                  title={String(row[c.name] ?? '')}
-                >
-                  {row[c.name] == null ? (
+          {rows.slice(0, 4).map((row, i) => (
+            <tr
+              key={i}
+              className={
+                i % 2 === 1
+                  ? 'bg-surface-container/60'
+                  : 'border-b border-outline-variant/10'
+              }
+            >
+              {keys.map((k) => (
+                <td key={k} className="max-w-[5rem] truncate p-sm font-label">
+                  {row[k] == null ? (
                     <span className="opacity-40">null</span>
                   ) : (
-                    String(row[c.name])
+                    String(row[k])
                   )}
                 </td>
               ))}
@@ -428,42 +324,15 @@ function SampleDataTable({
   )
 }
 
-function ActionButton({
-  label,
-  onClick,
-  disabled,
-  primary,
-}: {
-  label: string
-  onClick: () => void
-  disabled?: boolean
-  primary?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={
-        primary
-          ? 'w-full bg-primary-container py-md font-label text-[11px] font-bold tracking-widest text-on-primary-container transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40'
-          : 'w-full border border-outline-variant py-sm font-label text-[10px] font-bold tracking-widest text-on-surface-variant transition-colors hover:border-primary-fixed hover:text-primary-fixed disabled:cursor-not-allowed disabled:opacity-40'
-      }
-    >
-      {label}
-    </button>
-  )
-}
-
 function EmptyState() {
   return (
-    <div className="p-md">
+    <div>
       <p className="font-headline text-lg font-semibold text-on-surface">
         No table selected
       </p>
-      <p className="mt-sm font-body text-xs text-on-surface-variant">
-        Select a table on the canvas to inspect schema, details, and sample
-        data.
+      <p className="mt-sm font-body text-sm text-on-surface-variant">
+        Select a table on the canvas to inspect columns, tags, and sample
+        values.
       </p>
     </div>
   )
@@ -471,10 +340,10 @@ function EmptyState() {
 
 function LoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-sm p-lg" role="status">
-      <div className="h-8 w-8 animate-pulse border-2 border-primary-fixed border-t-transparent" />
+    <div className="flex flex-col items-center gap-sm py-lg" role="status">
+      <div className="h-8 w-8 animate-pulse rounded-full border-2 border-primary-fixed border-t-transparent" />
       <p className="font-label text-[11px] tracking-widest text-on-surface-variant">
-        LOADING DETAILS…
+        LOADING…
       </p>
     </div>
   )
@@ -482,8 +351,11 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="m-md border border-[#FF0055]/60 bg-[#FF0055]/10 p-md" role="alert">
-      <p className="font-label text-[11px] font-bold tracking-widest text-[#FF0055]">
+    <div
+      className="rounded-xl border border-error/40 bg-error-container p-md"
+      role="alert"
+    >
+      <p className="font-label text-[11px] font-bold tracking-widest text-error">
         ERROR
       </p>
       <p className="mt-sm font-body text-xs text-on-surface">{message}</p>
@@ -491,7 +363,5 @@ function ErrorState({ message }: { message: string }) {
   )
 }
 
-/** Synthesize sample rows when callers only have column.sampleValues */
-export { buildSampleRowsFromColumns }
-
+export { buildSampleRowsFromColumns } from '@/data/dummyTableDetail'
 export default RightSidebar

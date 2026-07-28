@@ -129,3 +129,87 @@ export async function createGithubPullRequest({
     baseBranch,
   }
 }
+
+/**
+ * Comment on an existing PR (or open a tracking issue) when accepted joins break on sync.
+ */
+export async function postGithubDriftComment({
+  token,
+  owner,
+  repo,
+  issueNumber,
+  body,
+}) {
+  if (!token || !owner || !repo || !issueNumber) {
+    return { posted: false, reason: 'missing token/owner/repo/issueNumber' }
+  }
+  try {
+    const comment = await gh(
+      token,
+      `/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ body }),
+      },
+    )
+    return {
+      posted: true,
+      url: comment.html_url,
+      id: comment.id,
+    }
+  } catch (err) {
+    return { posted: false, reason: String(err.message || err) }
+  }
+}
+
+/**
+ * Open a lightweight GitHub issue for high-severity Que drift (broken accepted joins).
+ */
+export async function openGithubDriftIssue({
+  token,
+  owner,
+  repo,
+  title,
+  body,
+}) {
+  if (!token) {
+    return { opened: false, reason: 'GITHUB_TOKEN not set on API server' }
+  }
+  if (!owner || !repo) {
+    return {
+      opened: false,
+      reason: 'githubOwner / githubRepo not configured',
+    }
+  }
+  try {
+    const issue = await gh(token, `/repos/${owner}/${repo}/issues`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        body,
+        labels: ['que-drift'],
+      }),
+    })
+    return {
+      opened: true,
+      url: issue.html_url,
+      number: issue.number,
+    }
+  } catch (err) {
+    // Labels may not exist — retry without labels
+    try {
+      const issue = await gh(token, `/repos/${owner}/${repo}/issues`, {
+        method: 'POST',
+        body: JSON.stringify({ title, body }),
+      })
+      return {
+        opened: true,
+        url: issue.html_url,
+        number: issue.number,
+        reason: String(err.message || err),
+      }
+    } catch (err2) {
+      return { opened: false, reason: String(err2.message || err2) }
+    }
+  }
+}

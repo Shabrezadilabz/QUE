@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 
-/** Compact signed-in identity + role + logout (workspace switch is in nav). */
+/** Compact signed-in identity — Sunset Clay avatar chip. */
 export function AuthSessionControls() {
   const { user, logout } = useAuth()
   const { role } = useWorkspaceRole()
@@ -16,38 +16,26 @@ export function AuthSessionControls() {
   }
 
   const localPart = user.email.split('@')[0] ?? user.email
+  const initial = (user.displayName || localPart).charAt(0).toUpperCase()
 
   return (
-    <div className="flex shrink-0 items-center gap-xs sm:gap-sm">
+    <div className="flex shrink-0 items-center gap-sm">
       {role ? (
         <span
-          className="border border-outline-variant px-sm py-xs font-label text-[9px] font-bold tracking-[0.14em] text-primary-fixed uppercase"
+          className="hidden rounded-full bg-secondary-container px-sm py-xs font-label text-[9px] font-medium tracking-wide text-on-secondary-container uppercase sm:inline"
           title={`${user.email} · ${role}`}
         >
           {role}
         </span>
-      ) : (
-        <span
-          className="border border-outline-variant px-sm py-xs font-label text-[9px] tracking-[0.14em] text-on-surface-variant uppercase"
-          title="No role on active workspace"
-        >
-          no role
-        </span>
-      )}
-      <span
-        className="hidden max-w-[7rem] truncate font-body text-[11px] text-on-surface-variant 2xl:inline"
-        title={user.email}
-      >
-        {localPart}
-      </span>
+      ) : null}
       <button
         type="button"
         onClick={() => void onLogout()}
         title={`Sign out (${user.email})`}
-        className="border border-outline-variant px-sm py-xs font-label text-[9px] font-bold tracking-[0.14em] text-on-surface-variant uppercase transition-colors hover:border-primary-fixed hover:text-primary-fixed sm:text-[10px]"
+        className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-outline-variant/40 bg-[#ffdbd2] font-label text-xs font-bold text-primary transition-opacity hover:opacity-90"
+        aria-label={`Signed in as ${user.email}. Click to sign out.`}
       >
-        <span className="sm:hidden">Out</span>
-        <span className="hidden sm:inline">Log out</span>
+        {initial}
       </button>
     </div>
   )

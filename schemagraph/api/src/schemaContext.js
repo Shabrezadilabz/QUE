@@ -9,7 +9,7 @@ import { query } from './db.js'
  * @param {string} workspaceId
  */
 export async function buildSchemaContextPack(workspaceId) {
-  const [objects, columns, rels, snap] = await Promise.all([
+  const [objects, columns, rels, rejected, snap] = await Promise.all([
     query(
       `SELECT o.id, o.name, o.entity_kind, o.connection_id,
               c.name AS connection_name, c.source_type
@@ -39,6 +39,20 @@ export async function buildSchemaContextPack(workspaceId) {
        JOIN schema_columns tc ON tc.id = r.to_column_id
        WHERE r.workspace_id = $1 AND r.status <> 'rejected'
        ORDER BY r.relation_type, r.confidence DESC`,
+      [workspaceId],
+    ),
+    query(
+      `SELECT r.id, r.confidence, r.label,
+              fo.name AS from_table, fc.name AS from_column,
+              tro.name AS to_table, tc.name AS to_column
+       FROM relationships r
+       JOIN schema_objects fo ON fo.id = r.from_object_id
+       JOIN schema_columns fc ON fc.id = r.from_column_id
+       JOIN schema_objects tro ON tro.id = r.to_object_id
+       JOIN schema_columns tc ON tc.id = r.to_column_id
+       WHERE r.workspace_id = $1 AND r.status = 'rejected'
+       ORDER BY r.updated_at DESC
+       LIMIT 40`,
       [workspaceId],
     ),
     query(
@@ -87,6 +101,13 @@ export async function buildSchemaContextPack(workspaceId) {
     aiNotes: r.ai_notes ?? undefined,
   }))
 
+  const rejectedJoins = rejected.rows.map((r) => ({
+    from: `${r.from_table}.${r.from_column}`,
+    to: `${r.to_table}.${r.to_column}`,
+    label: r.label ?? undefined,
+    confidence: Number(r.confidence),
+  }))
+
   const pack = {
     workspaceId,
     generatedAt: new Date().toISOString(),
@@ -99,6 +120,7 @@ export async function buildSchemaContextPack(workspaceId) {
       : null,
     tables,
     relationships,
+    rejectedJoins,
     stats: {
       tableCount: tables.length,
       columnCount: columns.rows.length,
@@ -106,6 +128,7 @@ export async function buildSchemaContextPack(workspaceId) {
       suggestedJoins: relationships.filter(
         (r) => r.type === 'ai-inferred' && r.status === 'suggested',
       ).length,
+      rejectedJoins: rejectedJoins.length,
     },
   }
 
@@ -138,6 +161,12 @@ export function formatContextForPrompt(pack) {
       lines.push(
         `- [${r.type}/${r.status} conf=${r.confidence}] ${r.from} → ${r.to}`,
       )
+    }
+  }
+  if (pack.rejectedJoins?.length) {
+    lines.push('', '## Rejected joins (do not suggest again)')
+    for (const r of pack.rejectedJoins) {
+      lines.push(`- ${r.from} → ${r.to}`)
     }
   }
   return lines.join('\n')

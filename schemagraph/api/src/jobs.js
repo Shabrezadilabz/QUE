@@ -7,9 +7,15 @@ import { randomUUID } from 'node:crypto'
 import { query } from './db.js'
 import { buildDbtBundle, loadAcceptedJoins } from './exporters/dbtBundle.js'
 import { createGithubPullRequest } from './exporters/githubPr.js'
+import {
+  attestationFingerprint,
+  buildSchemaOnlyAttestation,
+} from './exporters/attestation.js'
+import { recordExportAudit } from './exporters/exportAudit.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import {
   buildContract,
+  countUnreviewedJoinsForTables,
   getLatestSnapshot,
   validateContract,
 } from './contracts/contractFreeze.js'
@@ -330,6 +336,7 @@ export async function updateJob(workspaceId, jobId, patch = {}) {
 
 /**
  * @param {'json' | 'sql' | 'dbt' | 'dbt-pr'} format
+ * @param {{ force?: boolean, githubOwner?: string, githubRepo?: string, githubBaseBranch?: string, branchName?: string, actorUserId?: string }} options
  */
 export async function exportJob(workspaceId, jobId, format = 'json', options = {}) {
   let job = await getJob(workspaceId, jobId)
@@ -343,6 +350,7 @@ export async function exportJob(workspaceId, jobId, format = 'json', options = {
   const settingsPayload = await getWorkspaceSettings(workspaceId)
   const settings = settingsPayload?.settings ?? {}
   const blockOnDrift = settings.blockExportOnDrift !== false
+  const blockOnUnreviewed = settings.blockExportOnUnreviewedJoins === true
 
   const validation = await validateContract(workspaceId, job.contract, {
     blockOnHigh: blockOnDrift,
@@ -357,13 +365,47 @@ export async function exportJob(workspaceId, jobId, format = 'json', options = {
     throw err
   }
 
+  if (blockOnUnreviewed && !options.force) {
+    const pending = await countUnreviewedJoinsForTables(
+      workspaceId,
+      job.tables || [],
+    )
+    if (pending > 0) {
+      const err = new Error(
+        `Export blocked: ${pending} suggested join(s) still need Promote/Reject on job tables`,
+      )
+      err.status = 409
+      err.validation = {
+        blocking: true,
+        errors: [`${pending} unreviewed suggested join(s)`],
+        warnings: validation.warnings || [],
+      }
+      throw err
+    }
+  }
+
   if (format === 'dbt' || format === 'dbt-pr') {
     return exportJobDbtLayer(workspaceId, job, format, options, validation)
   }
 
+  let joins = Array.isArray(job.joinsSnapshot) ? job.joinsSnapshot : []
+  if (joins.length === 0) {
+    joins = await loadAcceptedJoins(workspaceId, job.tables || [])
+  }
+
+  const attestation = buildSchemaOnlyAttestation({
+    workspaceId,
+    job,
+    joins,
+    format,
+  })
+  const fingerprint = attestationFingerprint(attestation)
+
   const payload = {
     format,
-    exportedAt: new Date().toISOString(),
+    exportedAt: attestation.exportedAt,
+    attestation,
+    attestationFingerprint: fingerprint,
     contractValidation: validation,
     job: {
       id: job.id,
@@ -383,7 +425,7 @@ export async function exportJob(workspaceId, jobId, format = 'json', options = {
   }
 
   if (format === 'sql') {
-    payload.sql =
+    const bodySql =
       primarySqlFromNotebook(job.notebook) ||
       job.sqlText ||
       `-- Que job: ${job.title}\n` +
@@ -392,14 +434,32 @@ export async function exportJob(workspaceId, jobId, format = 'json', options = {
           .map((s) => `-- ${s.id}. ${s.action}: ${s.detail}`)
           .join('\n') +
         '\n-- (no SQL draft attached — add joins on the canvas / chat)'
+    payload.sql =
+      `-- Que schema-only attestation\n` +
+      `-- policy: ${attestation.policy}\n` +
+      `-- fingerprint: ${fingerprint}\n` +
+      `-- snapshot: ${attestation.schemaSnapshotId || 'none'}\n` +
+      `-- approved_joins: ${attestation.approvedRelationshipIds.length}\n` +
+      `-- claim: ${attestation.claim}\n` +
+      `--\n` +
+      bodySql
   }
 
   const updated = await updateJob(workspaceId, jobId, { status: 'exported' })
+  await recordExportAudit({
+    workspaceId,
+    jobId: job.id,
+    actorUserId: options.actorUserId || null,
+    format,
+    attestation,
+    meta: { validation },
+  })
   void emitContractEvent(workspaceId, 'contract.exported', {
     jobId: job.id,
     format,
     schemaSnapshotId: job.schemaSnapshotId,
     validation,
+    attestationFingerprint: fingerprint,
   })
   return { job: updated, export: payload }
 }
@@ -421,6 +481,27 @@ async function exportJobDbtLayer(
   const bundle = await buildDbtBundle(workspaceId, jobForBundle)
   const settingsPayload = await getWorkspaceSettings(workspaceId)
   const settings = settingsPayload?.settings ?? {}
+
+  // Production path requires at least one promoted/frozen join
+  if (bundle.joins.length === 0 && !options.force) {
+    const err = new Error(
+      'dbt export requires at least one promoted join — promote on canvas, then re-freeze the job',
+    )
+    err.status = 409
+    err.validation = {
+      blocking: true,
+      errors: ['No accepted joins in job scope'],
+      warnings: validation?.warnings || [],
+    }
+    throw err
+  }
+
+  // Stamp format on attestation copy for audit
+  const attestation = {
+    ...bundle.attestation,
+    format,
+  }
+  const fingerprint = attestationFingerprint(attestation)
 
   let github = {
     opened: false,
@@ -449,13 +530,14 @@ async function exportJobDbtLayer(
       `- **Model:** \`${bundle.modelName}\``,
       `- **Frozen joins:** ${bundle.joins.length}`,
       `- **Schema snapshot:** \`${jobForBundle.schemaSnapshotId || 'n/a'}\``,
-      `- **Policy:** ${bundle.attestation.policy}`,
+      `- **Policy:** ${attestation.policy}`,
+      `- **Attestation fingerprint:** \`${fingerprint}\``,
       ``,
       validation?.warnings?.length
         ? `### Contract warnings\n${validation.warnings.map((w) => `- ${w}`).join('\n')}\n`
         : '',
       `### Attestation`,
-      bundle.attestation.claim,
+      attestation.claim,
       ``,
       `### Merge checklist`,
       `- [ ] Review SQL joins against promoted Que relations`,
@@ -490,6 +572,17 @@ async function exportJobDbtLayer(
     status: 'exported',
   })
 
+  await recordExportAudit({
+    workspaceId,
+    jobId: job.id,
+    actorUserId: options.actorUserId || null,
+    format,
+    attestation,
+    githubOpened: Boolean(github.opened),
+    githubPrUrl: github.prUrl || null,
+    meta: { validation, modelName: bundle.modelName },
+  })
+
   void emitContractEvent(workspaceId, 'contract.exported', {
     jobId: job.id,
     format,
@@ -497,17 +590,19 @@ async function exportJobDbtLayer(
     schemaSnapshotId: jobForBundle.schemaSnapshotId,
     githubOpened: Boolean(github.opened),
     validation,
+    attestationFingerprint: fingerprint,
   })
 
   return {
     job: updated,
     export: {
       format,
-      exportedAt: bundle.attestation.exportedAt,
+      exportedAt: attestation.exportedAt,
       modelName: bundle.modelName,
       modelsPath: bundle.modelsPath,
       joins: bundle.joins,
-      attestation: bundle.attestation,
+      attestation,
+      attestationFingerprint: fingerprint,
       contract: jobForBundle.contract,
       contractValidation: validation,
       files: bundle.files,

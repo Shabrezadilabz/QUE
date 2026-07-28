@@ -12,6 +12,35 @@ export function authDisabled() {
   return String(process.env.STITCH_AUTH_DISABLED || '').toLowerCase() === 'true'
 }
 
+/**
+ * SSO config surface for enterprise diligence.
+ * IMPORTANT: This is NOT Okta/Azure AD login. It only reports whether OIDC env
+ * vars are present for a future IdP integration.
+ * Env: QUE_OIDC_ISSUER, QUE_OIDC_CLIENT_ID, QUE_OIDC_CLIENT_SECRET (secret never returned).
+ */
+export function getSsoConfig() {
+  const issuer = String(process.env.QUE_OIDC_ISSUER || '').trim()
+  const clientId = String(process.env.QUE_OIDC_CLIENT_ID || '').trim()
+  const hasSecret = Boolean(String(process.env.QUE_OIDC_CLIENT_SECRET || '').trim())
+  const redirectUri = String(
+    process.env.QUE_OIDC_REDIRECT_URI || 'http://localhost:5173/auth/callback',
+  ).trim()
+  const envPresent = Boolean(issuer && clientId)
+  return {
+    provider: 'oidc',
+    /** True only when issuer + client id env vars are set — not that login works. */
+    configured: envPresent,
+    issuer: issuer || null,
+    clientId: clientId || null,
+    hasClientSecret: hasSecret,
+    redirectUri,
+    /** Diligence-honest status — never claim Okta-ready without authorize/callback. */
+    status: envPresent ? 'env_stub_only' : 'not_configured',
+    loginImplemented: false,
+    note: 'Password sessions only today. OIDC authorize/token/callback not implemented.',
+  }
+}
+
 export function hashPassword(password) {
   const salt = randomBytes(16).toString('hex')
   const hash = scryptSync(String(password), salt, 64).toString('hex')

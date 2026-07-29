@@ -5,11 +5,20 @@ import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import { getApiBase } from '@/services/stitchApi'
 import {
+  createWorkspaceInvite,
+  fetchWorkspaceInvites,
+  fetchWorkspaceMembers,
   fetchWorkspaceSettings,
   reindexAi,
+  removeWorkspaceMember,
+  revokeWorkspaceInvite,
   runJoinInference,
   updateWorkspaceLlmSecrets,
+  updateWorkspaceMemberRole,
   updateWorkspaceSettings,
+  type WorkspaceInvite,
+  type WorkspaceMember,
+  type WorkspaceMemberRole,
   type WorkspaceSecretSlot,
   type WorkspaceSettingsFlags,
   type WorkspaceSettingsPayload,
@@ -19,7 +28,7 @@ type MemberRow = {
   id: string
   name: string
   email: string
-  role: 'owner' | 'admin' | 'member' | 'viewer'
+  role: WorkspaceMemberRole
   lastActive: string
   you?: boolean
 }
@@ -42,6 +51,12 @@ export function SettingsPage() {
   const [anthropicKeyDraft, setAnthropicKeyDraft] = useState('')
   const [memberQuery, setMemberQuery] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [membersApi, setMembersApi] = useState<WorkspaceMember[]>([])
+  const [invites, setInvites] = useState<WorkspaceInvite[]>([])
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<WorkspaceMemberRole>('member')
+  const [inviteBusy, setInviteBusy] = useState(false)
 
   useEffect(() => {
     setData(null)
@@ -77,24 +92,38 @@ export function SettingsPage() {
       )
   }, [workspaceId])
 
-  const members = useMemo(() => {
-    const rows: MemberRow[] = []
-    if (user) {
-      const r =
-        role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer'
-          ? role
-          : 'member'
-      rows.push({
-        id: user.id,
-        name: user.displayName || user.email.split('@')[0] || 'You',
-        email: user.email,
-        role: r,
-        lastActive: 'Just now',
-        you: true,
-      })
+  async function reloadMembers() {
+    try {
+      const rows = await fetchWorkspaceMembers()
+      setMembersApi(rows)
+      if (canAdmin) {
+        const inv = await fetchWorkspaceInvites()
+        setInvites(inv.filter((i) => !i.acceptedAt))
+      } else {
+        setInvites([])
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     }
-    return rows
-  }, [user, role])
+  }
+
+  useEffect(() => {
+    void reloadMembers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId, canAdmin])
+
+  const members = useMemo((): MemberRow[] => {
+    return membersApi.map((m) => ({
+      id: m.id,
+      name: m.displayName || m.email.split('@')[0] || m.email,
+      email: m.email,
+      role: m.role,
+      lastActive: m.joinedAt
+        ? new Date(m.joinedAt).toLocaleDateString()
+        : '—',
+      you: user?.id === m.id,
+    }))
+  }, [membersApi, user?.id])
 
   const filteredMembers = useMemo(() => {
     const q = memberQuery.trim().toLowerCase()
@@ -201,13 +230,13 @@ export function SettingsPage() {
               <button
                 type="button"
                 disabled={!canAdmin}
-                onClick={() =>
-                  setToast(
-                    canAdmin
-                      ? 'Invite link flow coming soon — use demo accounts for now'
-                      : 'Admin required to invite members',
-                  )
-                }
+                onClick={() => {
+                  if (!canAdmin) {
+                    setToast('Admin required to invite members')
+                    return
+                  }
+                  setInviteOpen(true)
+                }}
                 className="inline-flex items-center justify-center gap-sm rounded-lg bg-primary px-lg py-sm font-label text-sm font-medium text-on-primary transition-all hover:shadow-md active:scale-95 disabled:opacity-40"
               >
                 <span aria-hidden>+</span>
@@ -312,22 +341,74 @@ export function SettingsPage() {
                                 </div>
                               </td>
                               <td className="px-sm py-md">
-                                <RoleBadge role={m.role} />
+                                {canAdmin && !m.you ? (
+                                  <select
+                                    value={m.role}
+                                    aria-label={`Role for ${m.email}`}
+                                    onChange={(e) => {
+                                      const next = e.target
+                                        .value as WorkspaceMemberRole
+                                      void (async () => {
+                                        try {
+                                          await updateWorkspaceMemberRole(
+                                            m.id,
+                                            next,
+                                          )
+                                          await reloadMembers()
+                                          setToast(`Updated ${m.email} → ${next}`)
+                                        } catch (err) {
+                                          setError(
+                                            err instanceof Error
+                                              ? err.message
+                                              : String(err),
+                                          )
+                                        }
+                                      })()
+                                    }}
+                                    className="rounded-lg border border-outline-variant/40 bg-canvas px-sm py-xs font-label text-[11px] uppercase"
+                                  >
+                                    <option value="viewer">viewer</option>
+                                    <option value="member">member</option>
+                                    <option value="admin">admin</option>
+                                    {role === 'owner' ? (
+                                      <option value="owner">owner</option>
+                                    ) : null}
+                                  </select>
+                                ) : (
+                                  <RoleBadge role={m.role} />
+                                )}
                               </td>
                               <td className="px-sm py-md text-on-surface-variant">
                                 {m.lastActive}
                               </td>
                               <td className="px-sm py-md text-right">
-                                <button
-                                  type="button"
-                                  className="rounded-lg px-sm py-xs font-label text-on-surface-variant hover:bg-secondary-container hover:text-primary"
-                                  aria-label={`Actions for ${m.name}`}
-                                  onClick={() =>
-                                    setToast(`Member actions for ${m.email}`)
-                                  }
-                                >
-                                  ···
-                                </button>
+                                {canAdmin && !m.you ? (
+                                  <button
+                                    type="button"
+                                    className="rounded-lg px-sm py-xs font-label text-[11px] text-error hover:bg-error/10"
+                                    onClick={() => {
+                                      void (async () => {
+                                        try {
+                                          await removeWorkspaceMember(m.id)
+                                          await reloadMembers()
+                                          setToast(`Removed ${m.email}`)
+                                        } catch (err) {
+                                          setError(
+                                            err instanceof Error
+                                              ? err.message
+                                              : String(err),
+                                          )
+                                        }
+                                      })()
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                ) : (
+                                  <span className="font-label text-[10px] text-on-surface-variant">
+                                    —
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -335,11 +416,52 @@ export function SettingsPage() {
                       </table>
                     </div>
                     <p className="mt-md font-body text-xs text-on-surface-variant">
-                      Showing your membership for this workspace. Admins can
-                      invite users via{' '}
-                      <code className="text-[11px]">POST /workspaces/:id/invites</code>
-                      .
+                      Live membership from the API. Admins invite by email;
+                      users join on next login / SSO.
                     </p>
+                    {canAdmin && invites.length > 0 ? (
+                      <div className="mt-md border-t border-outline-variant/20 pt-md">
+                        <p className="mb-sm font-label text-[10px] tracking-widest text-on-surface-variant">
+                          PENDING INVITES
+                        </p>
+                        <ul className="space-y-xs">
+                          {invites.map((inv) => (
+                            <li
+                              key={inv.id}
+                              className="flex items-center justify-between gap-sm font-body text-xs"
+                            >
+                              <span>
+                                {inv.email}{' '}
+                                <span className="text-on-surface-variant">
+                                  · {inv.role}
+                                </span>
+                              </span>
+                              <button
+                                type="button"
+                                className="font-label text-[10px] text-error underline"
+                                onClick={() => {
+                                  void (async () => {
+                                    try {
+                                      await revokeWorkspaceInvite(inv.id)
+                                      await reloadMembers()
+                                      setToast('Invite revoked')
+                                    } catch (err) {
+                                      setError(
+                                        err instanceof Error
+                                          ? err.message
+                                          : String(err),
+                                      )
+                                    }
+                                  })()
+                                }}
+                              >
+                                Revoke
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </section>
 
                   {/* Right column */}
@@ -543,6 +665,92 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {inviteOpen ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-md">
+          <div
+            role="dialog"
+            aria-label="Invite member"
+            className="w-full max-w-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-lg shadow-xl"
+          >
+            <h2 className="font-headline text-xl font-semibold text-on-surface">
+              Invite member
+            </h2>
+            <p className="mt-xs font-body text-sm text-on-surface-variant">
+              They join this workspace on next login or SSO with that email.
+            </p>
+            <label className="mt-md block">
+              <span className="mb-xs block font-label text-[10px] tracking-widest text-on-surface-variant">
+                EMAIL
+              </span>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="w-full border border-outline-variant px-md py-sm font-body text-sm outline-none focus:border-primary"
+                required
+              />
+            </label>
+            <label className="mt-md block">
+              <span className="mb-xs block font-label text-[10px] tracking-widest text-on-surface-variant">
+                ROLE
+              </span>
+              <select
+                value={inviteRole}
+                onChange={(e) =>
+                  setInviteRole(e.target.value as WorkspaceMemberRole)
+                }
+                className="w-full border border-outline-variant px-md py-sm font-body text-sm"
+              >
+                <option value="viewer">viewer</option>
+                <option value="member">member</option>
+                <option value="admin">admin</option>
+                {role === 'owner' ? (
+                  <option value="owner">owner</option>
+                ) : null}
+              </select>
+            </label>
+            <div className="mt-lg flex justify-end gap-sm">
+              <button
+                type="button"
+                className="px-md py-sm font-label text-sm text-on-surface-variant"
+                onClick={() => setInviteOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={inviteBusy || !inviteEmail.trim()}
+                className="rounded-lg bg-primary px-md py-sm font-label text-sm text-on-primary disabled:opacity-40"
+                onClick={() => {
+                  void (async () => {
+                    setInviteBusy(true)
+                    try {
+                      await createWorkspaceInvite(
+                        inviteEmail.trim(),
+                        inviteRole,
+                      )
+                      setInviteEmail('')
+                      setInviteRole('member')
+                      setInviteOpen(false)
+                      await reloadMembers()
+                      setToast('Invite sent — they join on next login')
+                    } catch (err) {
+                      setError(
+                        err instanceof Error ? err.message : String(err),
+                      )
+                    } finally {
+                      setInviteBusy(false)
+                    }
+                  })()
+                }}
+              >
+                {inviteBusy ? 'Sending…' : 'Send invite'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </QueAppChrome>
   )
 }

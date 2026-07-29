@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import {
   JobsMonitorView,
@@ -63,8 +63,10 @@ function safeSlug(title: string) {
 export function JobsPage() {
   const { canWrite } = useWorkspaceRole()
   const { workspaceId } = useAuth()
+  const [searchParams] = useSearchParams()
+  const deepLinkJobId = searchParams.get('job')
   const [jobs, setJobs] = useState<StitchJob[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(deepLinkJobId)
   const [activeCellId, setActiveCellId] = useState<string | null>(null)
   const [draftCells, setDraftCells] = useState<JobNotebookCell[]>([])
   const [filter, setFilter] = useState('')
@@ -110,7 +112,10 @@ export function JobsPage() {
       setError(null)
       setSelectedId((prev) => {
         if (prev && list.some((j) => j.id === prev)) return prev
-        return null
+        if (deepLinkJobId && list.some((j) => j.id === deepLinkJobId)) {
+          return deepLinkJobId
+        }
+        return list[0]?.id ?? null
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -118,7 +123,7 @@ export function JobsPage() {
   }
 
   useEffect(() => {
-    setSelectedId(null)
+    setSelectedId(deepLinkJobId)
     setDbtFiles(null)
     setDbtGithub(null)
     void reload()
@@ -140,7 +145,7 @@ export function JobsPage() {
         setSchemaTableNames(names)
       })
       .catch(() => setSchemaTableNames([]))
-  }, [workspaceId])
+  }, [workspaceId, deepLinkJobId])
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase()

@@ -6,7 +6,7 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
 } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
@@ -82,6 +82,7 @@ interface UiMessage {
  */
 export function ChatPage() {
   const { canWrite } = useWorkspaceRole()
+  const navigate = useNavigate()
   const { workspaceId, workspaces } = useAuth()
   const workspaceName =
     workspaces.find((w) => w.id === workspaceId)?.name || 'Workspace'
@@ -629,7 +630,8 @@ export function ChatPage() {
           m.id === messageId ? { ...m, savedJobId: job.id } : m,
         ),
       )
-      pushToast('Job saved', 'success')
+      pushToast('Job saved — opening Jobs…', 'success')
+      navigate(`/jobs?job=${encodeURIComponent(job.id)}`)
     } catch (err) {
       pushToast(
         err instanceof Error ? err.message : 'Save job failed',

@@ -104,6 +104,59 @@ export async function loginRequest(
   }
 }
 
+export async function registerRequest(input: {
+  email: string
+  password: string
+  displayName?: string
+  workspaceName?: string
+  createWorkspace?: boolean
+}): Promise<{
+  token: string
+  user: AuthUser
+  workspaces: AuthWorkspace[]
+}> {
+  const res = await fetch(`${getApiBase()}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    token?: string
+    user?: AuthUser
+    workspaces?: AuthWorkspace[]
+    error?: string
+  }
+  if (!res.ok || !body.token || !body.user) {
+    throw new AuthError(body.error ?? `register ${res.status}`, res.status)
+  }
+  setAuthSession(body.token, body.user)
+  return {
+    token: body.token,
+    user: body.user,
+    workspaces: body.workspaces ?? [],
+  }
+}
+
+export async function createWorkspaceRequest(input: {
+  name: string
+  slug?: string
+}): Promise<AuthWorkspace> {
+  const res = await fetch(`${getApiBase()}/workspaces`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    ok?: boolean
+    workspace?: AuthWorkspace
+    error?: string
+  }
+  if (!res.ok || !body.workspace) {
+    throw new AuthError(body.error ?? `create workspace ${res.status}`, res.status)
+  }
+  return body.workspace
+}
+
 export async function logoutRequest(): Promise<void> {
   try {
     await fetch(`${getApiBase()}/auth/logout`, {

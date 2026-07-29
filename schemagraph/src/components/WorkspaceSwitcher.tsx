@@ -15,11 +15,14 @@ export function WorkspaceSwitcher({
   /** nav = primary nav look; compact = denser header chip */
   variant?: 'nav' | 'compact'
 }) {
-  const { workspaces, workspaceId, setWorkspaceId } = useAuth()
+  const { workspaces, workspaceId, setWorkspaceId, createWorkspace } = useAuth()
   const { role } = useWorkspaceRole()
   const navigate = useNavigate()
   const location = useLocation()
   const [open, setOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const listId = useId()
 
@@ -55,11 +58,63 @@ export function WorkspaceSwitcher({
     navigate('/workspace')
   }
 
+  async function onCreateWorkspace() {
+    const name = newName.trim()
+    if (!name) {
+      setCreateError('Name required')
+      return
+    }
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const ws = await createWorkspace(name)
+      setNewName('')
+      setOpen(false)
+      notifySchemaChanged('manual')
+      navigate('/workspace')
+      void ws
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCreating(false)
+    }
+  }
+
   if (!current && workspaces.length === 0) {
     return (
-      <span className="font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
-        No workspace
-      </span>
+      <div className="relative" ref={rootRef}>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={workspaceNavTriggerClass({ emphasized: open })}
+        >
+          Create workspace ▾
+        </button>
+        {open ? (
+          <div className="absolute top-full left-0 z-[120] mt-sm min-w-[16rem] rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-md shadow-lg">
+            <p className="mb-sm font-label text-[9px] tracking-widest text-on-surface-variant">
+              NEW WORKSPACE
+            </p>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Workspace name"
+              className="mb-sm w-full border border-outline-variant px-sm py-sm font-body text-sm outline-none focus:border-primary"
+            />
+            {createError ? (
+              <p className="mb-sm font-body text-xs text-error">{createError}</p>
+            ) : null}
+            <button
+              type="button"
+              disabled={creating}
+              onClick={() => void onCreateWorkspace()}
+              className="w-full rounded-lg bg-primary-container py-sm font-label text-[11px] text-on-primary disabled:opacity-40"
+            >
+              {creating ? 'Creating…' : 'Create'}
+            </button>
+          </div>
+        ) : null}
+      </div>
     )
   }
 
@@ -134,6 +189,32 @@ export function WorkspaceSwitcher({
             )
           })}
           <div className="mt-xs border-t border-outline-variant/30 px-md py-sm">
+            <p className="mb-xs font-label text-[9px] tracking-widest text-on-surface-variant">
+              NEW WORKSPACE
+            </p>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Name"
+              className="mb-xs w-full border border-outline-variant/40 bg-surface-container-low px-sm py-xs font-body text-xs outline-none focus:border-primary"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void onCreateWorkspace()
+                }
+              }}
+            />
+            {createError ? (
+              <p className="mb-xs font-body text-[11px] text-error">{createError}</p>
+            ) : null}
+            <button
+              type="button"
+              disabled={creating}
+              onClick={() => void onCreateWorkspace()}
+              className="mb-sm w-full rounded-lg bg-primary-container py-xs font-label text-[10px] tracking-widest text-on-primary disabled:opacity-40"
+            >
+              {creating ? 'CREATING…' : '+ CREATE WORKSPACE'}
+            </button>
             <button
               type="button"
               className="font-label text-[11px] tracking-wide text-primary underline"

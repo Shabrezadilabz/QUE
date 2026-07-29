@@ -1,7 +1,14 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import {
+  createHash,
+  randomBytes,
+  randomUUID,
+  scryptSync,
+  timingSafeEqual,
+} from 'node:crypto'
 import { query } from './db.js'
 import { isProduction } from './env.js'
 import { oidcReady, oidcEnv } from './oidc.js'
+import { acceptPendingInvites } from './invites.js'
 
 const SESSION_DAYS = Number(process.env.STITCH_SESSION_DAYS || 14)
 
@@ -84,6 +91,7 @@ export async function login(email, password) {
     [user.id, hashToken(token), expires.toISOString()],
   )
 
+  await acceptPendingInvites(user.id, user.email)
   const workspaces = await listWorkspacesForUser(user.id)
   return {
     token,
@@ -95,6 +103,115 @@ export async function login(email, password) {
     },
     workspaces,
   }
+}
+
+/**
+ * Self-serve register — creates user, claims invites, optional personal workspace.
+ * Body: { email, password, displayName?, createWorkspace?: boolean, workspaceName? }
+ */
+export async function register(body = {}) {
+  const email = String(body.email || '')
+    .trim()
+    .toLowerCase()
+  const password = String(body.password || '')
+  const displayName =
+    String(body.displayName || '').trim() ||
+    (email.includes('@') ? email.split('@')[0] : 'User')
+  if (!email.includes('@')) {
+    const err = new Error('valid email required')
+    err.status = 400
+    throw err
+  }
+  if (password.length < 8) {
+    const err = new Error('password must be at least 8 characters')
+    err.status = 400
+    throw err
+  }
+  const { rows: existing } = await query(
+    `SELECT id FROM users WHERE lower(email) = lower($1)`,
+    [email],
+  )
+  if (existing.length) {
+    const err = new Error('email already registered')
+    err.status = 409
+    throw err
+  }
+  const id = randomUUID()
+  await query(
+    `INSERT INTO users (id, email, display_name, password_hash)
+     VALUES ($1, $2, $3, $4)`,
+    [id, email, displayName, hashPassword(password)],
+  )
+  await acceptPendingInvites(id, email)
+
+  const wantWs =
+    body.createWorkspace !== false &&
+    String(process.env.QUE_REGISTER_CREATE_WORKSPACE || 'true').toLowerCase() !==
+      'false'
+  let workspaces = await listWorkspacesForUser(id)
+  if (wantWs && workspaces.length === 0) {
+    const wsName =
+      String(body.workspaceName || '').trim() || `${displayName}'s workspace`
+    await createWorkspace(id, { name: wsName })
+    workspaces = await listWorkspacesForUser(id)
+  }
+
+  const token = randomBytes(32).toString('hex')
+  const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000)
+  await query(
+    `INSERT INTO sessions (user_id, token_hash, expires_at)
+     VALUES ($1, $2, $3)`,
+    [id, hashToken(token), expires.toISOString()],
+  )
+  return {
+    token,
+    expiresAt: expires.toISOString(),
+    user: { id, email, displayName },
+    workspaces,
+  }
+}
+
+function slugify(name) {
+  const base = String(name || 'workspace')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 48)
+  return base || 'workspace'
+}
+
+/** Create workspace; caller becomes owner. */
+export async function createWorkspace(userId, { name, slug } = {}) {
+  const wsName = String(name || '').trim()
+  if (!wsName) {
+    const err = new Error('workspace name required')
+    err.status = 400
+    throw err
+  }
+  let s = slugify(slug || wsName)
+  const id = randomUUID()
+  // Ensure unique slug
+  for (let i = 0; i < 6; i++) {
+    const trySlug = i === 0 ? s : `${s}-${randomBytes(2).toString('hex')}`
+    try {
+      await query(
+        `INSERT INTO workspaces (id, name, slug, settings_json)
+         VALUES ($1, $2, $3, '{}'::jsonb)`,
+        [id, wsName, trySlug],
+      )
+      s = trySlug
+      break
+    } catch (err) {
+      if (String(err.message || err).includes('unique') && i < 5) continue
+      throw err
+    }
+  }
+  await query(
+    `INSERT INTO workspace_members (workspace_id, user_id, role)
+     VALUES ($1, $2, 'owner')`,
+    [id, userId],
+  )
+  return { id, name: wsName, slug: s, role: 'owner' }
 }
 
 export async function logout(token) {

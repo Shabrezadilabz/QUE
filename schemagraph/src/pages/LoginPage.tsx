@@ -4,17 +4,19 @@ import { useAuth } from '@/context/AuthContext'
 import { getApiBase } from '@/services/apiConfig'
 
 /**
- * Login — email/password + optional OIDC SSO.
- * Sunset Clay: Hanken Grotesk headlines, Inter body, Geist labels.
+ * Login / Sign up — email/password + optional OIDC SSO.
  */
 export function LoginPage() {
-  const { user, ready, login } = useAuth()
+  const { user, ready, login, register } = useAuth()
   const location = useLocation()
   const from =
     (location.state as { from?: string } | null)?.from || '/workspace'
 
+  const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [workspaceName, setWorkspaceName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [ssoReady, setSsoReady] = useState(false)
@@ -54,7 +56,16 @@ export function LoginPage() {
     setBusy(true)
     setError(null)
     try {
-      await login(email.trim(), password)
+      if (mode === 'register') {
+        await register({
+          email: email.trim(),
+          password,
+          displayName: displayName.trim() || undefined,
+          workspaceName: workspaceName.trim() || undefined,
+        })
+      } else {
+        await login(email.trim(), password)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -70,7 +81,7 @@ export function LoginPage() {
             Que
           </span>
           <span className="font-label text-[10px] font-bold tracking-[0.18em] text-on-surface-variant sm:text-[11px]">
-            SIGN IN
+            {mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'}
           </span>
         </header>
 
@@ -80,11 +91,40 @@ export function LoginPage() {
         >
           <div className="space-y-sm">
             <h1 className="font-headline text-[1.75rem] leading-tight font-semibold tracking-tight text-on-surface sm:text-[2rem] md:text-[2.25rem]">
-              Workspace access
+              {mode === 'login' ? 'Workspace access' : 'Get started'}
             </h1>
             <p className="max-w-[36ch] font-body text-[13px] leading-relaxed text-on-surface-variant sm:text-sm">
-              Schema metadata only — membership is enforced per workspace.
+              {mode === 'login'
+                ? 'Schema metadata only — membership is enforced per workspace.'
+                : 'Create an account and your first workspace. Invites are claimed automatically on login.'}
             </p>
+          </div>
+
+          <div className="flex gap-sm rounded-lg border border-outline-variant/40 p-xs">
+            <button
+              type="button"
+              onClick={() => setMode('login')}
+              className={[
+                'flex-1 rounded-md py-sm font-label text-[11px] tracking-widest',
+                mode === 'login'
+                  ? 'bg-primary-container text-on-primary'
+                  : 'text-on-surface-variant',
+              ].join(' ')}
+            >
+              SIGN IN
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('register')}
+              className={[
+                'flex-1 rounded-md py-sm font-label text-[11px] tracking-widest',
+                mode === 'register'
+                  ? 'bg-primary-container text-on-primary'
+                  : 'text-on-surface-variant',
+              ].join(' ')}
+            >
+              CREATE ACCOUNT
+            </button>
           </div>
 
           {error ? (
@@ -97,6 +137,21 @@ export function LoginPage() {
           ) : null}
 
           <div className="space-y-md">
+            {mode === 'register' ? (
+              <label className="block">
+                <span className="mb-sm block font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant sm:text-[11px]">
+                  DISPLAY NAME
+                </span>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[15px] text-on-surface outline-none focus:border-primary-fixed sm:min-h-12 sm:text-base"
+                />
+              </label>
+            ) : null}
+
             <label className="block">
               <span className="mb-sm block font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant sm:text-[11px]">
                 EMAIL
@@ -118,13 +173,36 @@ export function LoginPage() {
               </span>
               <input
                 type="password"
-                autoComplete="current-password"
+                autoComplete={
+                  mode === 'register' ? 'new-password' : 'current-password'
+                }
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                minLength={mode === 'register' ? 8 : undefined}
                 className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[15px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-primary-fixed sm:min-h-12 sm:text-base"
                 required
               />
+              {mode === 'register' ? (
+                <span className="mt-xs block font-body text-[11px] text-on-surface-variant">
+                  At least 8 characters
+                </span>
+              ) : null}
             </label>
+
+            {mode === 'register' ? (
+              <label className="block">
+                <span className="mb-sm block font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant sm:text-[11px]">
+                  FIRST WORKSPACE NAME
+                </span>
+                <input
+                  type="text"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  placeholder="My workspace"
+                  className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[15px] text-on-surface outline-none focus:border-primary-fixed sm:min-h-12 sm:text-base"
+                />
+              </label>
+            ) : null}
           </div>
 
           <button
@@ -132,10 +210,16 @@ export function LoginPage() {
             disabled={busy}
             className="min-h-12 w-full rounded-lg bg-primary-container px-md py-md font-label text-[11px] font-bold tracking-[0.2em] text-on-primary transition-opacity hover:opacity-90 disabled:opacity-40 sm:text-xs"
           >
-            {busy ? 'SIGNING IN…' : 'SIGN IN'}
+            {busy
+              ? mode === 'register'
+                ? 'CREATING…'
+                : 'SIGNING IN…'
+              : mode === 'register'
+                ? 'CREATE ACCOUNT'
+                : 'SIGN IN'}
           </button>
 
-          {ssoReady ? (
+          {ssoReady && mode === 'login' ? (
             <a
               href={`${getApiBase()}/auth/sso/start`}
               className="block w-full rounded-xl border border-outline-variant/40 py-3 text-center font-label text-sm text-primary hover:bg-secondary-container/50"
@@ -144,7 +228,7 @@ export function LoginPage() {
             </a>
           ) : null}
 
-          {import.meta.env.DEV ? (
+          {import.meta.env.DEV && mode === 'login' ? (
             <div className="mt-auto space-y-sm border-t border-outline-variant pt-md">
               <p className="font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant">
                 LOCAL DEMO (DEV ONLY)

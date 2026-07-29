@@ -23,6 +23,7 @@ import {
   scryptSync,
 } from 'node:crypto'
 import { query } from './db.js'
+import { acceptPendingInvites } from './invites.js'
 
 function hashPassword(password) {
   const salt = randomBytes(16).toString('hex')
@@ -259,25 +260,6 @@ function allowedDomains() {
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
-}
-
-async function acceptPendingInvites(userId, email) {
-  const { rows } = await query(
-    `UPDATE workspace_invites
-     SET accepted_at = now()
-     WHERE lower(email) = lower($1) AND accepted_at IS NULL
-     RETURNING workspace_id, role`,
-    [email],
-  )
-  for (const inv of rows) {
-    await query(
-      `INSERT INTO workspace_members (workspace_id, user_id, role)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
-      [inv.workspace_id, userId, inv.role],
-    )
-  }
-  return rows.length
 }
 
 async function ensureOidcUser({ email, displayName }) {

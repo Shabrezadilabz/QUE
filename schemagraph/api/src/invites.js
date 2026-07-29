@@ -21,7 +21,10 @@ export async function listInvites(workspaceId) {
   }))
 }
 
-export async function createInvite(workspaceId, { email, role = 'member', invitedBy }) {
+export async function createInvite(
+  workspaceId,
+  { email, role = 'member', invitedBy },
+) {
   const normalized = String(email || '').trim().toLowerCase()
   if (!normalized || !normalized.includes('@')) {
     const err = new Error('valid email required')
@@ -59,4 +62,24 @@ export async function revokeInvite(workspaceId, inviteId) {
     [workspaceId, inviteId],
   )
   return rowCount > 0
+}
+
+/** Claim open invites for this email → workspace_members. */
+export async function acceptPendingInvites(userId, email) {
+  const { rows } = await query(
+    `UPDATE workspace_invites
+     SET accepted_at = now()
+     WHERE lower(email) = lower($1) AND accepted_at IS NULL
+     RETURNING workspace_id, role`,
+    [email],
+  )
+  for (const inv of rows) {
+    await query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+      [inv.workspace_id, userId, inv.role],
+    )
+  }
+  return rows.length
 }

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Built Today, Near-Term Include, Future Compete</title>
+  <style>
+    @page { size: A4; margin: 12mm 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.38;
+      color: #1a1a1a;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 12px 14px 28px;
+    }
+    h1 { font-size: 16pt; margin: 0 0 4px; letter-spacing: -0.02em; color: #2c1a14; }
+    h2 {
+      font-size: 11.5pt;
+      margin: 18px 0 7px;
+      padding-bottom: 3px;
+      border-bottom: 2px solid #5c3a2e;
+      color: #3d241c;
+      page-break-after: avoid;
+    }
+    h3 { font-size: 10pt; margin: 12px 0 5px; color: #4a3028; page-break-after: avoid; }
+    p, li { margin: 0 0 4px; }
+    ul, ol { margin: 0 0 8px; padding-left: 1.15em; }
+    .meta { color: #555; font-size: 8.5pt; margin-bottom: 10px; }
+    .cover {
+      border: 2px solid #5c3a2e;
+      padding: 18px 16px;
+      margin-bottom: 14px;
+      background: linear-gradient(165deg, #faf6f1 0%, #f0e4d8 100%);
+    }
+    .cover .brand {
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #8b4a34;
+    }
+    .verdict {
+      border: 2px solid #8b4a34;
+      background: #fff8f3;
+      padding: 10px 12px;
+      margin: 8px 0 0;
+    }
+    .verdict strong { color: #5c3a2e; }
+    .box {
+      border: 1px solid #c9b8a8;
+      padding: 8px 10px;
+      margin: 8px 0;
+      background: #faf7f3;
+      page-break-inside: avoid;
+    }
+    .ok { border-left: 4px solid #2f6b4f; background: #f1f7f3; padding: 7px 10px; margin: 6px 0; }
+    .warn { border-left: 4px solid #b8860b; background: #fff8e8; padding: 7px 10px; margin: 6px 0; }
+    .bad { border-left: 4px solid #a33; background: #fdf0ee; padding: 7px 10px; margin: 6px 0; }
+    .page-break { page-break-before: always; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0 10px;
+      font-size: 8pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #c9b8a8;
+      padding: 4px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #efe4d8; font-weight: 600; }
+    .built { color: #1f5c3f; font-weight: 700; }
+    .partial { color: #8a5a00; font-weight: 700; }
+    .gap { color: #8b2e2e; font-weight: 700; }
+    .future { color: #3d4a6b; font-weight: 700; }
+    .badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-right: 4px;
+    }
+    .b-now { background: #d8ebe1; color: #1f5c3f; }
+    .b-next { background: #f5e6c8; color: #6a4a00; }
+    .b-later { background: #dde4f2; color: #2c3d66; }
+    .b-no { background: #f0d4d0; color: #7a2424; }
+    .toc ol { margin: 4px 0 0; }
+    .toc li { margin-bottom: 2px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media print {
+      .two-col { break-inside: avoid; }
+      body { padding: 0; }
+    }
+    footer {
+      margin-top: 16px;
+      padding-top: 8px;
+      border-top: 1px solid #c9b8a8;
+      font-size: 8pt;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que · Product truth sheet</div>
+  <h1>What We Built · What to Include Next · Future Compete</h1>
+  <p class="meta">
+    Audience: founders, investors, SE / design partners · Tech-only · Sunset Clay product · July 2026<br />
+    Companion to: <em>Que-Tech-Diligence-Investor.pdf</em>
+  </p>
+  <div class="verdict">
+    <strong>One-line truth:</strong> Que is a <em>join HITL → freeze → attested export/PR</em> appliance on a schema-metadata plane.
+    It is <strong>ready for a controlled paid POC</strong>.
+    It is <strong>not</strong> “replace Atlan/Collibra this quarter,” and
+    <strong>not</strong> unattended multi-tenant SaaS at a Big-4 audit bar — yet.
+  </div>
+</div>
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li>Hard claims — allowed vs forbidden now</li>
+    <li>What we have built (inventory)</li>
+    <li>What must be included next (near-term)</li>
+    <li>Competitive levels today</li>
+    <li>Future — compete with Atlan / Collibra / Alation / DataHub</li>
+    <li>Future — Big-4 multi-tenant SaaS bar</li>
+    <li>Phased roadmap (when each claim becomes honest)</li>
+  </ol>
+</div>
+
+<!-- 1 -->
+<h2>1. Hard claims — allowed vs forbidden now</h2>
+<table>
+  <tr>
+    <th style="width:50%">Allowed now (honest)</th>
+    <th style="width:50%">Forbidden now (do not say)</th>
+  </tr>
+  <tr>
+    <td>
+      <ul>
+        <li>Paid design-partner POC with fixed SOW (2–3 sources)</li>
+        <li>Human-approved cross-source joins</li>
+        <li>Contract freeze + HMAC-attested JSON / SQL / dbt export</li>
+        <li>Optional GitHub dbt PR from approved contracts</li>
+        <li>Schema-only defaults; scrubbed/capped samples</li>
+        <li>Encrypted warehouse credentials; workspace roles + invites</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li><strong>“Replace Atlan / Collibra this quarter”</strong></li>
+        <li>Full enterprise catalog / glossary / stewardship OS</li>
+        <li>Complete multi-hop column lineage everywhere</li>
+        <li><strong>Unattended multi-tenant SaaS at Big-4 audit bar</strong></li>
+        <li>SOC 2 Type II / SCIM / contractual SLA already done</li>
+        <li>Unity Catalog or Snowflake Horizon replacement</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+<div class="bad">
+  Diligence fails when Phase-0 software is sold with Phase-3/4 category language.
+  Sell the <strong>wedge</strong>; roadmap the <strong>category</strong>.
+</div>
+
+<!-- 2 -->
+<div class="page-break"></div>
+<h2>2. What we have built (inventory)</h2>
+<p>Everything below is implemented and demoable in the current Que stack (Vite SPA + Express API + Postgres/pgvector).</p>
+
+<h3><span class="badge b-now">Built</span> Access &amp; tenancy</h3>
+<ul>
+  <li>Create account / sign in; optional OIDC SSO (PKCE, JWKS, hash token delivery)</li>
+  <li>Create / switch workspaces; invite members; pending invites; role change / remove</li>
+  <li>Roles: viewer → member → admin → owner (last-owner protections)</li>
+  <li>In-app onboarding roadmap dialog (Skip / Next / Done; reopen via ?)</li>
+</ul>
+
+<h3><span class="badge b-now">Built</span> Sources, schema, joins</h3>
+<ul>
+  <li>Connectors: PostgreSQL, Databricks, Snowflake, Excel/CSV, Mongo (fixture and/or live)</li>
+  <li>Encrypted credentials at rest (<code>__enc</code> AES-GCM)</li>
+  <li>Sync → canvas graph; join inference; <strong>Promote / Reject</strong> HITL; stitch session</li>
+  <li>Optional Databricks query-history assist for joins</li>
+</ul>
+
+<h3><span class="badge b-now">Built</span> Privacy, AI, chat</h3>
+<ul>
+  <li>Schema-only defaults; sample scrub; policy toggles in Settings</li>
+  <li>Chat skills + optional LLM/RAG; capped sample previews</li>
+  <li>Job draft from chat → <strong>Save to Jobs</strong> with deep-link navigation</li>
+</ul>
+
+<h3><span class="badge b-now">Built</span> Jobs &amp; ship path</h3>
+<ul>
+  <li>Notebook cells; dry-run; capped live validate (read-oriented)</li>
+  <li>Export JSON / SQL / dbt / optional dbt-PR to GitHub</li>
+  <li>Contract freeze; drift gates; HMAC attestation + verify endpoint</li>
+</ul>
+
+<h3><span class="badge b-now">Built</span> Security &amp; ops spine</h3>
+<ul>
+  <li>Prod boot gates (secrets, CORS, no auth bypass); health endpoint</li>
+  <li>Automated diligence / unit / smoke / Playwright browser E2E</li>
+  <li>Docs: Feature Guide, Local Setup, Manual Test Plan, Investor Diligence PDF</li>
+</ul>
+
+<div class="two-col">
+  <div class="ok">
+    <strong>POC success definition</strong><br />
+    N promoted joins + 1 attested export (JSON or dbt) + precision/recall on
+    <em>their</em> golden join pairs — not “catalog coverage %.”
+  </div>
+  <div class="warn">
+    <strong>Partial / demo risk</strong><br />
+    Join <em>evidence</em> UX on every edge; Settings billing stubs; live warehouse quality
+    varies by customer network/tokens.
+  </div>
+</div>
+
+<!-- 3 -->
+<h2>3. What must be included next (near-term)</h2>
+<p>Include these <strong>before</strong> chasing catalog parity with Atlan/Collibra. They harden the wedge.</p>
+
+<table>
+  <tr><th>#</th><th>Include</th><th>Why it matters</th><th>When</th></tr>
+  <tr>
+    <td>P0.1</td>
+    <td>Join evidence on every suggested edge (signals + optional SQL snippet)</td>
+    <td>Trust hinge in every SE demo</td>
+    <td><span class="badge b-next">Next</span></td>
+  </tr>
+  <tr>
+    <td>P0.2</td>
+    <td>Customer golden-set eval → printable POC report</td>
+    <td>Investor / SE proof of join quality</td>
+    <td><span class="badge b-next">Next</span></td>
+  </tr>
+  <tr>
+    <td>P0.3</td>
+    <td>One-click POC pack (migrate, fixtures, verify attestation)</td>
+    <td>Days-not-weeks time-to-value</td>
+    <td><span class="badge b-next">Next</span></td>
+  </tr>
+  <tr>
+    <td>P0.4</td>
+    <td>Hide billing / upgrade stubs outside DEV</td>
+    <td>Credibility with paid buyers</td>
+    <td><span class="badge b-next">Next</span></td>
+  </tr>
+  <tr>
+    <td>P0.5</td>
+    <td>Audit log export + session revoke + basic rate limits</td>
+    <td>Minimum enterprise hygiene</td>
+    <td><span class="badge b-next">Next</span></td>
+  </tr>
+  <tr>
+    <td>P1.1</td>
+    <td>Snowflake query-history join mining (parity with DBX)</td>
+    <td>Cross-cloud SF↔DBX wedge</td>
+    <td><span class="badge b-next">Soon</span></td>
+  </tr>
+  <tr>
+    <td>P1.2</td>
+    <td>Deeper dbt manifest round-trip</td>
+    <td>Ship into real customer repos</td>
+    <td><span class="badge b-next">Soon</span></td>
+  </tr>
+  <tr>
+    <td>P1.3</td>
+    <td>GitHub check showing attestation fingerprint + approved join IDs</td>
+    <td>Non-repudiation in CI</td>
+    <td><span class="badge b-next">Soon</span></td>
+  </tr>
+</table>
+
+<div class="box">
+  <strong>Also include in every paid POC SOW:</strong> fixed sources, success = promoted joins + attested artifact,
+  golden-set evaluation, no claim of full lineage or catalog replacement, optional GH PR (token provided by customer).
+</div>
+
+<!-- 4 -->
+<div class="page-break"></div>
+<h2>4. Competitive levels today</h2>
+<p>
+  Score relative to category incumbents. <span class="built">Strong</span> =
+  Que wins the niche; <span class="partial">Partial</span> = usable but not parity;
+  <span class="gap">Weak / Gap</span> = do not compete here yet.
+</p>
+
+<table>
+  <tr>
+    <th>Capability</th>
+    <th>Atlan / Alation / Collibra / DataHub</th>
+    <th>Unity / Horizon</th>
+    <th>Que today</th>
+    <th>Level</th>
+  </tr>
+  <tr>
+    <td>Asset breadth, glossary, stewardship</td>
+    <td>Strong</td>
+    <td>Platform-native</td>
+    <td>Not built (by design)</td>
+    <td class="gap">Gap</td>
+  </tr>
+  <tr>
+    <td>Automated multi-hop column lineage at scale</td>
+    <td>Stronger when configured</td>
+    <td>Strong in-platform</td>
+    <td>Inference + optional DBX history</td>
+    <td class="partial">Partial</td>
+  </tr>
+  <tr>
+    <td>Cross-source join HITL → freeze</td>
+    <td>Rare as first-class loop</td>
+    <td>In-platform only</td>
+    <td>Core product loop</td>
+    <td class="built">Strong</td>
+  </tr>
+  <tr>
+    <td>Attested schema-only export / dbt PR</td>
+    <td>Rare</td>
+    <td>N/A as product</td>
+    <td>Core product loop</td>
+    <td class="built">Strong</td>
+  </tr>
+  <tr>
+    <td>Time-to-value for DE POC</td>
+    <td>Weeks–months</td>
+    <td>Fast if already on platform</td>
+    <td>Days with fixtures/docs</td>
+    <td class="built">Strong</td>
+  </tr>
+  <tr>
+    <td>Enterprise IdP (SCIM), SOC2 evidence</td>
+    <td>Expected</td>
+    <td>Expected</td>
+    <td>Not there</td>
+    <td class="gap">Gap</td>
+  </tr>
+  <tr>
+    <td>Query / warehouse governance</td>
+    <td>Partial</td>
+    <td>Native</td>
+    <td>Out of scope</td>
+    <td class="gap">Gap</td>
+  </tr>
+  <tr>
+    <td>AI suggestions with mandatory human review</td>
+    <td>Mixed</td>
+    <td>Platform-tied</td>
+    <td>Promote/Reject required</td>
+    <td class="built">Strong</td>
+  </tr>
+</table>
+
+<div class="warn">
+  <strong>Competitive posture:</strong> do not beat them on catalog completeness.
+  Beat them on a <strong>narrow DE workflow they under-serve</strong>: trusted, reviewable, shippable join contracts across systems.
+</div>
+
+<h3>Who Que is / is not competing with (now)</h3>
+<table>
+  <tr><th>Competing now (wedge)</th><th>Not competing yet (category)</th></tr>
+  <tr>
+    <td>
+      Manual join discovery across SF / DBX / PG<br />
+      Spreadsheet / tribal knowledge of keys<br />
+      Hand-written dbt joins with no attestation<br />
+      Catalogs that stop at “search” without a PR
+    </td>
+    <td>
+      Atlan / Collibra / Alation as catalog of record<br />
+      DataHub as enterprise metadata OS<br />
+      Unity Catalog / Horizon as platform control plane<br />
+      Big-4-audited unattended SaaS platforms
+    </td>
+  </tr>
+</table>
+
+<!-- 5 -->
+<div class="page-break"></div>
+<h2>5. Future — compete with Atlan / Collibra / Alation / DataHub</h2>
+<p>
+  “Replace Atlan/Collibra this quarter” is a <strong>category claim</strong>.
+  It requires becoming a catalog + governance platform, not only a join-shipping appliance.
+  Build only if strategy expands — <em>after</em> wedge revenue.
+</p>
+
+<div class="bad">
+  <span class="badge b-no">Not this quarter</span>
+  Do not market glossary depth, stewardship workflows, or full column lineage you have not built.
+  Competitors already lose deals on incomplete lineage — overclaiming is fatal.
+</div>
+
+<h3><span class="badge b-later">Future A</span> Catalog breadth (parity table stakes)</h3>
+<ul>
+  <li>Connectors at scale: BigQuery, Redshift, Synapse, Glue, Kafka, S3 lakes, Airflow / OpenLineage ingest</li>
+  <li>Asset types beyond tables: dashboards, metrics, ML features, pipelines as first-class nodes</li>
+  <li>Search ranked by popularity/usage; duplicate dataset detection</li>
+  <li>Business glossary + term↔table linking; stewardship (certify, expire, owner queues)</li>
+  <li>Automated multi-hop <strong>column lineage</strong> across SQL + dbt + BI</li>
+  <li>Quality / profiling signals (null rates, freshness) — privacy-gated</li>
+</ul>
+
+<h3><span class="badge b-later">Future B</span> Governance &amp; collaboration (Collibra / Alation territory)</h3>
+<ul>
+  <li>Policy packs: PII tags, retention, access-request tickets</li>
+  <li>Workflow engine: approvals, RACI, scheduled digests</li>
+  <li>Integrations: Jira / ServiceNow, Slack / Teams</li>
+  <li>Domain / data-product modeling; steward UX mode without killing the DE wedge</li>
+</ul>
+
+<h3><span class="badge b-later">Future C</span> AI enterprises will trust</h3>
+<ul>
+  <li>Grounded answers with citations to lineage edges + owners</li>
+  <li>Hallucination eval harnesses; schema-only guarantees in contract language</li>
+  <li>Optional “propose PR” with <strong>mandatory HITL</strong> (keep Que’s DNA)</li>
+</ul>
+
+<div class="ok">
+  <strong>Honest future claim (only after Phase 3 depth):</strong>
+  “Works as catalog + join-shipping platform beside or instead of lighter catalog installs” —
+  still not a casual “replace Collibra overnight” soundbite.
+</div>
+
+<!-- 6 -->
+<h2>6. Future — Big-4 audit bar multi-tenant SaaS</h2>
+<p>
+  Unattended multi-tenant SaaS sold into Big-4-audited enterprises needs a
+  <strong>control plane + evidence pack</strong>, not just features.
+  Que is <strong>not there yet</strong>.
+</p>
+
+<div class="bad">
+  <span class="badge b-no">Not yet</span>
+  Do not claim SOC 2 Type II, SCIM directory sync, HA isolation proof, pen-test pack, or contractual uptime SLAs until evidence exists.
+</div>
+
+<table>
+  <tr><th>Area</th><th>Must add to reach the bar</th></tr>
+  <tr>
+    <td>Identity</td>
+    <td>SCIM 2.0; org-wide SSO enforce; break-glass; session revoke UI; scoped API keys; optional CMK</td>
+  </tr>
+  <tr>
+    <td>Compliance evidence</td>
+    <td>SOC 2 Type II (then ISO if needed); annual pen-test; SBOM; immutable audit export; DPA / residency options</td>
+  </tr>
+  <tr>
+    <td>Tenant reliability</td>
+    <td>Hard isolation + automated isolation tests; HA Postgres; backups/PITR; DR RPO/RTO drilled; queues; rate limits</td>
+  </tr>
+  <tr>
+    <td>Ops &amp; delivery</td>
+    <td>Observability + status page; on-call; SLAs; VPC / private link; optional self-hosted gateway; admin console</td>
+  </tr>
+</table>
+
+<div class="warn">
+  Big-4 buyers ask for <strong>evidence</strong>, not slideware. Budget calendar time for audit — not only engineering features.
+</div>
+
+<!-- 7 -->
+<div class="page-break"></div>
+<h2>7. Phased roadmap — when each claim becomes honest</h2>
+<table>
+  <tr><th>Phase</th><th>Goal</th><th>Build focus</th><th>Claim you may make</th></tr>
+  <tr>
+    <td><strong>0 — Now</strong></td>
+    <td>Paid design-partner POC</td>
+    <td>Wedge reliability, evidence UX, golden-set reports, hide stubs</td>
+    <td>“Join HITL → freeze → attested PR”</td>
+  </tr>
+  <tr>
+    <td><strong>1 — Wedge scale</strong></td>
+    <td>Repeatable DE POCs</td>
+    <td>SF query history, deeper dbt, GH checks, audit export</td>
+    <td>“Cross-source join contracts for DE teams”</td>
+  </tr>
+  <tr>
+    <td><strong>2 — Platform light</strong></td>
+    <td>Expand without catalog lie</td>
+    <td>More connectors, BI lineage depth, better admin</td>
+    <td>“Works beside your catalog”</td>
+  </tr>
+  <tr>
+    <td><strong>3 — Catalog compete</strong></td>
+    <td>Only if strategy expands</td>
+    <td>Glossary, stewardship, column lineage at scale (§5)</td>
+    <td>Cautious catalog language — still not “replace this quarter”</td>
+  </tr>
+  <tr>
+    <td><strong>4 — Big-4 SaaS</strong></td>
+    <td>Unattended enterprise</td>
+    <td>SCIM, SOC2 T2, HA/isolation, pen-test, SLAs (§6)</td>
+    <td>“Enterprise-ready multi-tenant” (with evidence)</td>
+  </tr>
+</table>
+
+<div class="verdict">
+  <strong>Summary for investors / SE:</strong><br />
+  <strong>Built:</strong> the DE join-shipping wedge (auth, sources, HITL, jobs, attestation, docs/tests).<br />
+  <strong>Include next:</strong> evidence UX, golden-set POC report, POC pack, hygiene (audit/revoke/hide stubs), SF history + deeper dbt/CI.<br />
+  <strong>Future compete:</strong> catalog breadth + governance only in Phase 3; Big-4 SaaS only in Phase 4.<br />
+  <strong>Do not say now:</strong> “replace Atlan/Collibra this quarter” · “unattended multi-tenant at Big-4 audit bar.”
+</div>
+
+<footer>
+  Que · Built / Roadmap / Compete · July 2026 · Internal &amp; diligence use ·
+  Regenerated from product truth, not marketing copy.
+</footer>
+
+</body>
+</html>

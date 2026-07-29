@@ -54,12 +54,14 @@ import {
 import { getSecretsStatus, setSecret } from './secrets.js'
 import {
   authDisabled,
+  createWorkspace,
   ensureDevUserPassword,
   getSsoConfig,
   listWorkspacesForUser,
   login,
   logout,
   optionalAuth,
+  register,
   requireAuth,
   requireMinRole,
   requireWorkspaceMember,
@@ -74,6 +76,11 @@ import { ingestDbtManifest } from './exporters/dbtManifestAssist.js'
 import { verifyAttestationSignature } from './exporters/attestation.js'
 import { assertProductionSecrets, corsOrigins } from './env.js'
 import { createInvite, listInvites, revokeInvite } from './invites.js'
+import {
+  listMembers,
+  removeMember,
+  updateMemberRole,
+} from './members.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -144,6 +151,15 @@ app.get('/openapi.json', (_req, res) => {
 })
 
 /** Auth */
+app.post('/auth/register', async (req, res) => {
+  try {
+    const result = await register(req.body ?? {})
+    res.status(201).json({ ok: true, ...result })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
 app.post('/auth/login', async (req, res) => {
   try {
     const result = await login(req.body?.email, req.body?.password)
@@ -212,6 +228,18 @@ app.get('/workspaces', requireAuth, async (req, res) => {
     res.json({ workspaces })
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post('/workspaces', requireAuth, async (req, res) => {
+  try {
+    const workspace = await createWorkspace(req.user.id, {
+      name: req.body?.name,
+      slug: req.body?.slug,
+    })
+    res.status(201).json({ ok: true, workspace })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
   }
 })
 
@@ -1180,6 +1208,51 @@ app.delete(
   },
 )
 
+app.get('/workspaces/:workspaceId/members', async (req, res) => {
+  try {
+    const members = await listMembers(req.params.workspaceId)
+    res.json({ ok: true, members })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/members/:userId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const member = await updateMemberRole(
+        req.params.workspaceId,
+        req.params.userId,
+        req.body?.role,
+        req.user.id,
+        req.workspaceRole,
+      )
+      res.json({ ok: true, member })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/members/:userId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await removeMember(
+        req.params.workspaceId,
+        req.params.userId,
+        req.workspaceRole,
+      )
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.get('/workspaces/:workspaceId/bi-lineage', async (req, res) => {
   try {
     const items = await listLatestBiLineage(req.params.workspaceId)
@@ -1223,6 +1296,7 @@ app.get('/', (_req, res) => {
     authDisabled: authDisabled(),
     endpoints: [
       'GET /health',
+      'POST /auth/register',
       'POST /auth/login',
       'POST /auth/logout',
       'GET /auth/me',
@@ -1232,6 +1306,13 @@ app.get('/', (_req, res) => {
       'GET /openapi.json',
       'POST /auth/attestation/verify',
       'GET /workspaces',
+      'POST /workspaces',
+      'GET /workspaces/:workspaceId/members',
+      'PATCH /workspaces/:workspaceId/members/:userId',
+      'DELETE /workspaces/:workspaceId/members/:userId',
+      'GET /workspaces/:workspaceId/invites',
+      'POST /workspaces/:workspaceId/invites',
+      'DELETE /workspaces/:workspaceId/invites/:inviteId',
       'POST /workspaces/:workspaceId/bi-lineage',
       'POST /workspaces/:workspaceId/dbt-manifest',
       'GET /workspaces/:workspaceId/sources',

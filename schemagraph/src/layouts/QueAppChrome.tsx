@@ -1,9 +1,13 @@
 import { Link, NavLink } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AuthSessionControls } from '@/components/AuthSessionControls'
 import { MobileNav } from '@/components/MobileNav'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
 import { primaryNavLinkClass } from '@/components/primaryNavStyles'
+import {
+  OnboardingRoadmapDialog,
+  OnboardingRoadmapTrigger,
+} from '@/components/OnboardingRoadmapDialog'
 
 interface QueAppChromeProps {
   children: ReactNode
@@ -15,6 +19,8 @@ export function QueAppChrome({
   children,
   eyebrow = 'SCHEMA-ONLY · NO RAW DATA',
 }: QueAppChromeProps) {
+  const [roadmapForce, setRoadmapForce] = useState(false)
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-canvas">
       <header className="flex h-14 shrink-0 items-center justify-between gap-md border-b border-secondary-container/30 bg-background px-md sm:h-16 sm:px-lg lg:px-xl">
@@ -52,10 +58,15 @@ export function QueAppChrome({
           <p className="hidden font-label text-[10px] tracking-[0.14em] text-on-surface-variant/70 xl:block">
             {eyebrow}
           </p>
+          <OnboardingRoadmapTrigger onOpen={() => setRoadmapForce(true)} />
           <AuthSessionControls />
         </div>
       </header>
       {children}
+      <OnboardingRoadmapDialog
+        forceOpen={roadmapForce}
+        onCloseForce={() => setRoadmapForce(false)}
+      />
     </div>
   )
 }

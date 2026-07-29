@@ -1097,6 +1097,104 @@ export async function updateWorkspaceLlmSecrets(
   return body.secrets
 }
 
+export type WorkspaceMemberRole = 'owner' | 'admin' | 'member' | 'viewer'
+
+export interface WorkspaceMember {
+  id: string
+  email: string
+  displayName: string | null
+  role: WorkspaceMemberRole
+  joinedAt?: string
+}
+
+export interface WorkspaceInvite {
+  id: string
+  email: string
+  role: string
+  invitedBy?: string | null
+  acceptedAt?: string | null
+  createdAt?: string
+}
+
+export async function fetchWorkspaceMembers(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceMember[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/members`)
+  if (!res.ok) throw new Error(`members ${res.status}`)
+  const body = (await res.json()) as { members: WorkspaceMember[] }
+  return body.members ?? []
+}
+
+export async function updateWorkspaceMemberRole(
+  userId: string,
+  nextRole: WorkspaceMemberRole,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceMember> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/members/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role: nextRole }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    member?: WorkspaceMember
+    error?: string
+  }
+  if (!res.ok || !body.member) {
+    throw new Error(body.error ?? `member role ${res.status}`)
+  }
+  return body.member
+}
+
+export async function removeWorkspaceMember(
+  userId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/members/${userId}`, {
+    method: 'DELETE',
+  })
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error ?? `remove member ${res.status}`)
+}
+
+export async function fetchWorkspaceInvites(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceInvite[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/invites`)
+  if (!res.ok) throw new Error(`invites ${res.status}`)
+  const body = (await res.json()) as { invites: WorkspaceInvite[] }
+  return body.invites ?? []
+}
+
+export async function createWorkspaceInvite(
+  email: string,
+  role: WorkspaceMemberRole = 'member',
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceInvite> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/invites`, {
+    method: 'POST',
+    body: JSON.stringify({ email, role }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    invite?: WorkspaceInvite
+    error?: string
+  }
+  if (!res.ok || !body.invite) {
+    throw new Error(body.error ?? `invite ${res.status}`)
+  }
+  return body.invite
+}
+
+export async function revokeWorkspaceInvite(
+  inviteId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/invites/${inviteId}`,
+    { method: 'DELETE' },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error ?? `revoke invite ${res.status}`)
+}
+
 /** Load workspace graph. Auth errors never silently become dummy data. */
 export type WorkspaceLoadError = 'auth' | 'forbidden' | 'offline' | null
 

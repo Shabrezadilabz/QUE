@@ -9,10 +9,12 @@ import {
 } from 'react'
 import {
   AUTH_EXPIRED_EVENT,
+  createWorkspaceRequest,
   fetchMe,
   getStoredUser,
   loginRequest,
   logoutRequest,
+  registerRequest,
   setAuthSession,
   type AuthUser,
   type AuthWorkspace,
@@ -28,6 +30,13 @@ interface AuthContextValue {
   workspaceId: string
   ready: boolean
   login: (email: string, password: string) => Promise<void>
+  register: (input: {
+    email: string
+    password: string
+    displayName?: string
+    workspaceName?: string
+  }) => Promise<void>
+  createWorkspace: (name: string) => Promise<AuthWorkspace>
   acceptToken: (token: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
@@ -95,6 +104,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setWorkspaceIdState(next)
   }, [])
 
+  const register = useCallback(
+    async (input: {
+      email: string
+      password: string
+      displayName?: string
+      workspaceName?: string
+    }) => {
+      const result = await registerRequest({
+        ...input,
+        createWorkspace: true,
+      })
+      setUser(result.user)
+      setWorkspaces(result.workspaces)
+      const next = pickWorkspaceId(result.workspaces)
+      setActiveWorkspaceId(next)
+      setWorkspaceIdState(next)
+    },
+    [],
+  )
+
+  const createWorkspace = useCallback(async (name: string) => {
+    const ws = await createWorkspaceRequest({ name })
+    setWorkspaces((prev) => {
+      const next = prev.some((w) => w.id === ws.id) ? prev : [...prev, ws]
+      return next
+    })
+    setActiveWorkspaceId(ws.id)
+    setWorkspaceIdState(ws.id)
+    return ws
+  }, [])
+
   const acceptToken = useCallback(async (token: string) => {
     setAuthSession(token, {
       id: 'pending',
@@ -123,6 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaceId,
       ready,
       login,
+      register,
+      createWorkspace,
       acceptToken,
       logout,
       refresh,
@@ -134,6 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaceId,
       ready,
       login,
+      register,
+      createWorkspace,
       acceptToken,
       logout,
       refresh,

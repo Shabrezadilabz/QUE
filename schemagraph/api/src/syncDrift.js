@@ -6,6 +6,7 @@ import { query } from './db.js'
 import { emitContractEvent } from './adapters/contractEvents.js'
 import { openGithubDriftIssue } from './exporters/githubPr.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
+import { resolveGithubToken } from './secrets.js'
 
 /**
  * Snapshot connection tables + columns + accepted joins (before sync mutates).
@@ -310,8 +311,9 @@ async function notifyBrokenJoins(workspaceId, connectionId, drift) {
     `_Schema-only policy · Que does not centralize warehouse rows._`,
   ].join('\n')
 
+  const ghTok = await resolveGithubToken(workspaceId)
   return openGithubDriftIssue({
-    token: process.env.GITHUB_TOKEN,
+    token: ghTok.token,
     owner,
     repo,
     title: `Que drift: ${drift.joinsBroken?.length || 0} accepted join(s) broken`,

@@ -1,7 +1,20 @@
 /**
  * Schema-only attestation — attached to every Que export (json/sql/dbt/dbt-pr).
- * Machine-readable stub for CISO / Legal diligence.
+ * Cryptographically signed (HMAC-SHA256) for audit / diligence.
  */
+import {
+  attestationFingerprint,
+  signAttestation,
+  verifyAttestationSignature,
+  payloadHash,
+} from './attestationCrypto.js'
+
+export {
+  attestationFingerprint,
+  signAttestation,
+  verifyAttestationSignature,
+  payloadHash,
+}
 
 /**
  * @param {{
@@ -10,6 +23,7 @@
  *   joins?: Array<{ id: string }>,
  *   format?: string,
  *   extras?: Record<string, unknown>,
+ *   sign?: boolean,
  * }} args
  */
 export function buildSchemaOnlyAttestation({
@@ -18,13 +32,14 @@ export function buildSchemaOnlyAttestation({
   joins = [],
   format = 'json',
   extras = {},
+  sign = true,
 }) {
   const approvedRelationshipIds = (joins || [])
     .map((j) => j?.id)
     .filter(Boolean)
 
-  return {
-    version: 1,
+  const base = {
+    version: 2,
     brand: 'Que',
     policy: 'schema-only',
     claim:
@@ -34,6 +49,7 @@ export function buildSchemaOnlyAttestation({
       'Chat prompts use schema context packs only',
       'Live validate / dry-run respect hard row caps',
       'Human promote/reject owns join truth',
+      'Export attestation is HMAC-signed for non-repudiation (MVP)',
     ],
     format,
     jobId: job?.id ?? null,
@@ -51,18 +67,19 @@ export function buildSchemaOnlyAttestation({
     exportedAt: new Date().toISOString(),
     ...extras,
   }
-}
 
-/** Stable-ish fingerprint for audit (not a cryptographic seal). */
-export function attestationFingerprint(attestation) {
-  const core = {
-    v: attestation.version,
-    policy: attestation.policy,
-    jobId: attestation.jobId,
-    workspaceId: attestation.workspaceId,
-    schemaSnapshotId: attestation.schemaSnapshotId,
-    approvedRelationshipIds: [...(attestation.approvedRelationshipIds || [])].sort(),
-    exportedAt: attestation.exportedAt,
+  if (!sign) return base
+  try {
+    return signAttestation(base)
+  } catch (err) {
+    // Dev without keys: return unsigned but mark status
+    return {
+      ...base,
+      signature: {
+        alg: 'none',
+        error: String(err.message || err),
+        signedAt: null,
+      },
+    }
   }
-  return Buffer.from(JSON.stringify(core)).toString('base64url').slice(0, 32)
 }

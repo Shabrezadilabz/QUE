@@ -1,0 +1,79 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Que API",
+    "version": "0.2.0",
+    "description": "Schema-only stitch API — diagram, joins, jobs, attestation, SSO."
+  },
+  "servers": [{ "url": "http://localhost:8787" }],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "This OpenAPI document",
+        "responses": { "200": { "description": "OpenAPI JSON" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Password login",
+        "responses": { "200": { "description": "Session token" } }
+      }
+    },
+    "/auth/sso": {
+      "get": {
+        "summary": "SSO readiness",
+        "responses": { "200": { "description": "OIDC status" } }
+      }
+    },
+    "/auth/sso/start": {
+      "get": {
+        "summary": "Start OIDC authorize redirect",
+        "responses": { "302": { "description": "Redirect to IdP" } }
+      }
+    },
+    "/auth/sso/callback": {
+      "get": {
+        "summary": "OIDC callback",
+        "responses": { "302": { "description": "Redirect to SPA with token" } }
+      }
+    },
+    "/auth/attestation/verify": {
+      "post": {
+        "summary": "Verify HMAC attestation signature",
+        "responses": { "200": { "description": "Verification result" } }
+      }
+    },
+    "/workspaces/{workspaceId}/connections/{connectionId}/sync": {
+      "post": {
+        "summary": "Sync connection schema (+ optional Databricks query-history joins)",
+        "parameters": [
+          { "name": "workspaceId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "connectionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Sync result" } }
+      }
+    },
+    "/workspaces/{workspaceId}/jobs/{jobId}/export": {
+      "post": {
+        "summary": "Export job (json/sql/dbt/dbt-pr) with signed attestation",
+        "responses": { "200": { "description": "Export payload" }, "409": { "description": "Blocked by drift/joins" } }
+      }
+    },
+    "/workspaces/{workspaceId}/bi-lineage": {
+      "get": { "summary": "List recent BI reverse lineage ingest", "responses": { "200": { "description": "Items" } } },
+      "post": { "summary": "Ingest thin BI reverse lineage JSON", "responses": { "200": { "description": "Ingest result" } } }
+    },
+    "/workspaces/{workspaceId}/dbt-manifest": {
+      "post": {
+        "summary": "Ingest dbt manifest for table lineage assist",
+        "responses": { "200": { "description": "Parse summary" } }
+      }
+    }
+  }
+}

@@ -9,11 +9,12 @@ import {
   vectorExtensionReady,
 } from './ai/vectorStore.js'
 import { feedbackStats } from './ai/feedback.js'
-import { getSecretsStatus, resolveProviderKeys } from './secrets.js'
+import { getSecretsStatus, resolveProviderKeys, resolveGithubToken } from './secrets.js'
 import { getSsoConfig } from './auth.js'
 
 const DEFAULT_SETTINGS = {
-  includeSamplesDefault: true,
+  includeSamplesDefault: false,
+  scrubSamples: true,
   inferJoinsOnSync: true,
   preferLlmChat: false,
   aiModelId: 'gpt-4o-mini',
@@ -21,16 +22,20 @@ const DEFAULT_SETTINGS = {
   ragIncludeDocs: true,
   /** Block dbt/json/sql export when open high-severity drift or broken contract */
   blockExportOnDrift: true,
+  /** Block dbt-pr when open column-level drift touches job tables */
+  blockPrOnColumnDrift: true,
   /** Block export when suggested (unreviewed) joins touch job tables */
   blockExportOnUnreviewedJoins: true,
   /** Emit contract/drift events to outbox (+ optional webhook) */
   emitContractEvents: true,
   contractWebhookUrl: '',
-  /** Additive dbt / GitHub export layer (no secrets — token is env GITHUB_TOKEN) */
+  /** Additive dbt / GitHub export layer — token via workspace secret or env */
   githubOwner: '',
   githubRepo: '',
   githubBaseBranch: 'main',
   dbtModelsPath: 'models/que',
+  /** Databricks query-history assisted joins (MVP) */
+  databricksQueryJoinAssist: true,
 }
 
 function mergeSettings(raw) {
@@ -152,10 +157,14 @@ export async function getWorkspaceSettings(workspaceId) {
           customModelTraining: false,
         },
       },
-      github: {
-        tokenConfigured: Boolean(process.env.GITHUB_TOKEN),
-        dbtExport: true,
-      },
+      github: await (async () => {
+        const gh = await resolveGithubToken(workspaceId)
+        return {
+          tokenConfigured: Boolean(gh.token),
+          tokenSource: gh.source,
+          dbtExport: true,
+        }
+      })(),
       sso: getSsoConfig(),
       brand: 'Que',
       wedge:
@@ -206,6 +215,15 @@ function pickAllowed(patch) {
   }
   if (typeof patch.blockExportOnUnreviewedJoins === 'boolean') {
     out.blockExportOnUnreviewedJoins = patch.blockExportOnUnreviewedJoins
+  }
+  if (typeof patch.blockPrOnColumnDrift === 'boolean') {
+    out.blockPrOnColumnDrift = patch.blockPrOnColumnDrift
+  }
+  if (typeof patch.scrubSamples === 'boolean') {
+    out.scrubSamples = patch.scrubSamples
+  }
+  if (typeof patch.databricksQueryJoinAssist === 'boolean') {
+    out.databricksQueryJoinAssist = patch.databricksQueryJoinAssist
   }
   if (typeof patch.emitContractEvents === 'boolean') {
     out.emitContractEvents = patch.emitContractEvents

@@ -966,13 +966,16 @@ export interface DbtGithubResult {
 
 export interface WorkspaceSettingsFlags {
   includeSamplesDefault: boolean
+  scrubSamples?: boolean
   inferJoinsOnSync: boolean
   preferLlmChat: boolean
   aiModelId: string
   ragTopK: number
   ragIncludeDocs: boolean
   blockExportOnDrift: boolean
+  blockPrOnColumnDrift?: boolean
   blockExportOnUnreviewedJoins: boolean
+  databricksQueryJoinAssist?: boolean
   emitContractEvents: boolean
   contractWebhookUrl: string
   githubOwner: string
@@ -1020,7 +1023,11 @@ export interface WorkspaceSettingsPayload {
       feedback: { up: number; down: number }
       pillars: Record<string, boolean>
     }
-    github?: { tokenConfigured: boolean; dbtExport: boolean }
+    github?: {
+      tokenConfigured: boolean
+      dbtExport: boolean
+      tokenSource?: string
+    }
     brand: string
     wedge: string
   }
@@ -1035,7 +1042,9 @@ export interface WorkspaceSecretSlot {
 export interface WorkspaceSecretsStatus {
   openai: WorkspaceSecretSlot
   anthropic: WorkspaceSecretSlot
+  github?: WorkspaceSecretSlot
   byok: boolean
+  secretsKeyConfigured?: boolean
   note?: string
 }
 
@@ -1067,7 +1076,11 @@ export async function updateWorkspaceSettings(
 
 /** BYOK — set/clear workspace LLM keys. Never returns plaintext. */
 export async function updateWorkspaceLlmSecrets(
-  patch: { openaiApiKey?: string | null; anthropicApiKey?: string | null },
+  patch: {
+    openaiApiKey?: string | null
+    anthropicApiKey?: string | null
+    githubToken?: string | null
+  },
   workspaceId: string = getActiveWorkspaceId(),
 ): Promise<WorkspaceSecretsStatus> {
   const res = await apiFetch(`/workspaces/${workspaceId}/secrets/llm`, {

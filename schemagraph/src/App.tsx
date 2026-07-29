@@ -3,6 +3,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ToastProvider } from '@/context/ToastContext'
 import { RequireAuth } from '@/components/RequireAuth'
 import { LoginPage } from '@/pages/LoginPage'
+import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
 import { WorkspacePage } from '@/pages/WorkspacePage'
 import { ChatPage } from '@/pages/ChatPage'
 import { JobsPage } from '@/pages/JobsPage'
@@ -19,6 +20,7 @@ export default function App() {
         <ToastProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route
               path="/"
               element={

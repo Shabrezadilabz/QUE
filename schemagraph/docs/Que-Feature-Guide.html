@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Feature-by-Feature Guide &amp; Test Oracles</title>
+  <style>
+    @page { size: A4; margin: 16mm 14mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 10pt;
+      line-height: 1.42;
+      color: #1a1a1a;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 { font-size: 20pt; margin: 0 0 6px; letter-spacing: -0.02em; }
+    h2 {
+      font-size: 13pt;
+      margin: 26px 0 8px;
+      padding-bottom: 4px;
+      border-bottom: 2px solid #5c3a2e;
+      page-break-after: avoid;
+      color: #3d241c;
+    }
+    h3 { font-size: 11pt; margin: 16px 0 6px; page-break-after: avoid; color: #4a3028; }
+    h4 { font-size: 10pt; margin: 10px 0 4px; }
+    p, li { margin: 0 0 5px; }
+    ul, ol { margin: 0 0 8px; padding-left: 1.25em; }
+    .meta { color: #555; font-size: 9pt; margin-bottom: 14px; }
+    .cover {
+      border: 2px solid #5c3a2e;
+      padding: 26px 22px;
+      margin-bottom: 22px;
+      background: linear-gradient(165deg, #faf6f1 0%, #f0e4d8 100%);
+    }
+    .cover .brand {
+      font-size: 10pt;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8b4a34;
+    }
+    .toc { page-break-after: always; }
+    .toc ol { font-size: 10pt; columns: 1; }
+    .toc a { color: #1a1a1a; text-decoration: none; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0 12px;
+      font-size: 8.5pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #c9b8a8;
+      padding: 4px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #efe4d8; font-weight: 600; }
+    code, pre {
+      font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+      font-size: 8pt;
+    }
+    code { background: #f3ebe3; padding: 1px 3px; }
+    pre {
+      background: #2a211c;
+      color: #f0e6dc;
+      padding: 10px 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      page-break-inside: avoid;
+      margin: 6px 0 10px;
+    }
+    .ok {
+      border-left: 3px solid #4a7c59;
+      background: #eef6f0;
+      padding: 7px 10px;
+      margin: 8px 0;
+      font-size: 9pt;
+    }
+    .test {
+      border-left: 3px solid #8b4a34;
+      background: #faf4ef;
+      padding: 7px 10px;
+      margin: 8px 0;
+      font-size: 9pt;
+    }
+    .fail {
+      border-left: 3px solid #a33;
+      background: #faf0f0;
+      padding: 7px 10px;
+      margin: 8px 0;
+      font-size: 9pt;
+    }
+    .note {
+      border-left: 3px solid #c4a574;
+      background: #f8f4ec;
+      padding: 7px 10px;
+      margin: 8px 0;
+      font-size: 9pt;
+    }
+    .feature {
+      border: 1px solid #d9c9b8;
+      padding: 12px 14px;
+      margin: 14px 0 18px;
+      background: #fffefb;
+      page-break-inside: avoid;
+    }
+    .feature > h3 { margin-top: 0; }
+    .label {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8b4a34;
+      margin-right: 6px;
+    }
+    .footer-note { margin-top: 28px; font-size: 8pt; color: #666; }
+    .page-break { page-break-before: always; }
+    .kpi { font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que · Product &amp; QA Documentation</div>
+  <h1>Feature-by-Feature Guide &amp; Test Oracles</h1>
+  <p class="meta">
+    Product: <strong>Que</strong> (SchemaGraph) — join truth → human approve → freeze → attested PR<br />
+    Codebase: <code>adc/schemagraph</code> · SPA default <code>http://localhost:5173</code> · API <code>http://localhost:8787</code><br />
+    Document version: <strong>2.0</strong> · Date: 29 Jul 2026<br />
+    Audience: QA, design partners, engineers · Companion checklist: <code>docs/MANUAL_TEST_PLAN.md</code>
+  </p>
+  <p>
+    This document explains <strong>every major feature</strong>: what it is for, how it must work,
+    how to test it, and what a <strong>correct response</strong> looks like (UI + API).
+    Use it as the source of truth for functional / production-level validation before a paid POC.
+  </p>
+  <p class="note" style="margin-bottom:0">
+    <strong>Wedge (sell this):</strong> Cross-source join discovery with human-in-the-loop review,
+    contract freeze, and HMAC-attested dbt PRs — schema metadata only (no warehouse row lake).<br />
+    <strong>Avoid claiming for now:</strong> SOC2 Type II, SCIM, full catalog replacement this quarter.
+  </p>
+</div>
+
+<nav class="toc">
+  <h2>Table of contents</h2>
+  <ol>
+    <li><a href="#s0">How to use this guide</a></li>
+    <li><a href="#s1">F1 — Password auth &amp; sessions</a></li>
+    <li><a href="#s2">F2 — OIDC SSO (PKCE, JWKS, hash token)</a></li>
+    <li><a href="#s3">F3 — Workspaces, roles &amp; invites</a></li>
+    <li><a href="#s4">F4 — Sources &amp; credential encryption</a></li>
+    <li><a href="#s5">F5 — Sync, canvas &amp; layout</a></li>
+    <li><a href="#s6">F6 — Join inference, promote / reject, stitch</a></li>
+    <li><a href="#s7">F7 — Privacy &amp; sample scrub</a></li>
+    <li><a href="#s8">F8 — Jobs notebook, run, validate, export</a></li>
+    <li><a href="#s9">F9 — Contracts, drift &amp; export gates</a></li>
+    <li><a href="#s10">F10 — Attestation (HMAC)</a></li>
+    <li><a href="#s11">F11 — Workspace settings &amp; BYOK secrets</a></li>
+    <li><a href="#s12">F12 — AI chat &amp; RAG</a></li>
+    <li><a href="#s13">F13 — BI lineage &amp; dbt manifest assist</a></li>
+    <li><a href="#s14">F14 — Health, CORS, OpenAPI, production boot</a></li>
+    <li><a href="#s15">End-to-end happy path (design partner)</a></li>
+    <li><a href="#s16">Role permission matrix</a></li>
+    <li><a href="#s17">Environment reference</a></li>
+    <li><a href="#s18">Automation commands</a></li>
+  </ol>
+</nav>
+
+<!-- ========== 0 ========== -->
+<h2 id="s0">0. How to use this guide</h2>
+<p>For each feature section you get four blocks:</p>
+<table>
+  <tr><th>Block</th><th>Meaning</th></tr>
+  <tr><td><span class="label">Purpose</span></td><td>Why the feature exists in the product wedge</td></tr>
+  <tr><td><span class="label">How it works</span></td><td>Correct runtime behavior (inputs → processing → outputs)</td></tr>
+  <tr><td><span class="label">Correct response</span></td><td>Oracle: UI state and/or HTTP status + JSON fields that must appear</td></tr>
+  <tr><td><span class="label">How to test</span></td><td>Manual steps + common fail oracles</td></tr>
+</table>
+<p>
+  Mark results in <code>docs/MANUAL_TEST_PLAN.md</code>. Run automation first:
+  <code>cd api &amp;&amp; npm run test:diligence</code>.
+</p>
+
+<!-- ========== F1 ========== -->
+<div class="page-break"></div>
+<h2 id="s1">F1 — Password authentication &amp; sessions</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Gate every workspace behind identity. Sessions are Bearer tokens; roles enforce write/admin actions.</p>
+
+  <h3>How it works</h3>
+  <ol>
+    <li>User opens <code>/login</code> — email/password fields start <strong>blank</strong>.</li>
+    <li>Demo account shortcuts appear only in <strong>Vite DEV</strong> builds (not production UI).</li>
+    <li><code>POST /auth/login</code> verifies scrypt password hash → creates session (token hashed SHA-256 in DB).</li>
+    <li>SPA stores token and sends <code>Authorization: Bearer &lt;token&gt;</code> on API calls.</li>
+    <li>In production, <code>STITCH_AUTH_DISABLED</code> is ignored by <code>authDisabled()</code> and boot refuses if set.</li>
+  </ol>
+
+  <div class="ok">
+    <strong>Correct response — login success</strong><br />
+    HTTP <strong>200</strong>:
+<pre>{
+  "ok": true,
+  "token": "&lt;64+ hex&gt;",
+  "expiresAt": "ISO-8601",
+  "user": { "id": "uuid", "email": "...", "displayName": "..." },
+  "workspaces": [{ "id": "uuid", "name": "...", "slug": "...", "role": "owner|admin|member|viewer" }]
+}</pre>
+    UI: redirect to <code>/workspace</code> (or prior <code>from</code> route). No demo passwords visible in prod build.
+  </div>
+
+  <div class="fail">
+    <strong>Failure oracles</strong><br />
+    Wrong password → <strong>401</strong> <code>invalid email or password</code>, stay on login.<br />
+    Expired/missing Bearer → <strong>401</strong> <code>unauthorized</code>, SPA returns to login.<br />
+    Prod boot with <code>STITCH_AUTH_DISABLED=true</code> → process exits before listen.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Open login — confirm blank fields; prod build has no “DEMO ACCOUNTS” block.</li>
+      <li>Valid owner credentials → lands in workspace; TopBar shows user.</li>
+      <li>Logout → protected routes redirect to <code>/login</code>.</li>
+      <li>Optional: set <code>QUE_ENV=production</code> + <code>STITCH_AUTH_DISABLED=true</code> — API must refuse to start.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F2 ========== -->
+<h2 id="s2">F2 — OIDC SSO (PKCE · JWKS · hash token · provisioning)</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Enterprise sign-in without putting session tokens in query strings or auto-joining a demo workspace.</p>
+
+  <h3>How it works</h3>
+  <ol>
+    <li><code>GET /auth/sso</code> reports readiness. If ready, Login shows “Continue with SSO”.</li>
+    <li><code>GET /auth/sso/start</code> stores PKCE <code>code_verifier</code> in Postgres table <code>oidc_pending_states</code>, redirects to IdP.</li>
+    <li>Callback exchanges code, verifies <code>id_token</code> via JWKS (RS256), provisions/updates user.</li>
+    <li>Membership: accept pending invites; enforce <code>QUE_SSO_ALLOWED_DOMAINS</code>; if <code>QUE_SSO_REQUIRE_INVITE=true</code>, new users need an invite; optional <code>QUE_SSO_DEFAULT_WORKSPACE_ID</code> only when configured — <strong>never silent demo auto-join</strong>.</li>
+    <li>Redirect to SPA: <code>.../auth/callback#token=...&amp;expiresAt=...</code> (hash fragment).</li>
+    <li>SPA reads hash, calls <code>acceptToken</code>, then <code>history.replaceState</code> strips the URL.</li>
+  </ol>
+
+  <div class="ok">
+    <strong>Correct response</strong><br />
+    <code>GET /auth/sso</code> → <code>sso.loginImplemented: true</code>, <code>status: "ready"</code>.<br />
+    Browser address after IdP: hash contains <code>token=</code>; <strong>query must not</strong> contain <code>token</code>.<br />
+    After callback page settles: URL is <code>/auth/callback</code> or <code>/workspace</code> with <strong>no token</strong> left.<br />
+    User has membership in invited / allowlisted workspace only.
+  </div>
+
+  <div class="fail">
+    <strong>Failure oracles</strong><br />
+    <code>?token=</code> in query → SPA error: token must not be in query string.<br />
+    Domain not allowlisted → <strong>403</strong> SSO email domain not allowed.<br />
+    Invite required, none present → <strong>403</strong> No workspace invite…<br />
+    Expired state → <strong>400</strong> invalid or expired OIDC state.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Configure OIDC env (see §17); restart API; confirm SSO button.</li>
+      <li>Complete login; watch Network/Address bar for <code>#token=</code> only.</li>
+      <li>Create invite via API as admin; SSO with new email → joins correct role.</li>
+      <li>SSO with disallowed domain → blocked.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F3 ========== -->
+<div class="page-break"></div>
+<h2 id="s3">F3 — Workspaces, roles &amp; invites</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Multi-tenant isolation. Every resource is scoped by <code>workspaceId</code> + membership role.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li>Roles (ascending): <code>viewer</code> &lt; <code>member</code> &lt; <code>admin</code> &lt; <code>owner</code>.</li>
+    <li>Writes (sync, jobs, promote) require ≥ <code>member</code>; connection create / settings / invites ≥ <code>admin</code>.</li>
+    <li>Invites API: <code>GET|POST|DELETE /workspaces/:id/invites</code> (admin). Claimed on next login/SSO.</li>
+    <li>Settings “Members” UI shows the <strong>current user</strong> (real ACL), not a fake roster.</li>
+  </ul>
+
+  <div class="ok">
+    <strong>Correct response — create invite</strong><br />
+    HTTP <strong>201</strong>: <code>{ "ok": true, "invite": { "id", "email", "role", "createdAt", "acceptedAt": null } }</code>
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>As viewer: attempt create connection → <strong>403</strong>.</li>
+      <li>As admin: <code>POST .../invites</code> with email + role → 201; list shows invite.</li>
+      <li>Login/SSO as that email → invite disappears (<code>acceptedAt</code> set) and workspace appears in <code>/auth/me</code>.</li>
+      <li>Access another workspace UUID → <strong>403</strong> not a member.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F4 ========== -->
+<h2 id="s4">F4 — Sources &amp; credential encryption</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Connect warehouses (Postgres, Databricks, Snowflake) and files without storing plaintext secrets in <code>config_json</code>.</p>
+
+  <h3>How it works</h3>
+  <ol>
+    <li>Admin creates connection on <code>/sources</code> (type + host/catalog/token/password).</li>
+    <li>API seals secret fields into AES-GCM <code>__enc</code> blob (<code>QUE_SECRETS_KEY</code>).</li>
+    <li>Public GET returns redacted config (<code>••••••••</code>) + <code>hasSecrets: true</code>.</li>
+    <li>Sync / live exec unseals in memory only; blank password on PATCH keeps previous secret.</li>
+    <li>Modes: <code>live</code> or <code>fixture</code> (demo JSON for DBX/SF without real warehouse).</li>
+  </ol>
+
+  <div class="ok">
+    <strong>Correct response — create</strong><br />
+    HTTP <strong>201</strong>: connection object with <code>syncable: true</code> for PG/DBX/SF, <code>hasSecrets: true</code> when token/password provided.<br />
+    <strong>DB check:</strong> <code>connections.config_json</code> contains <code>__enc</code>; must <strong>not</strong> contain raw <code>token</code> / <code>password</code> strings.
+  </div>
+
+  <div class="fail">
+    Duplicate name → <strong>409</strong>. Bad live credentials on sync → connection <code>status: error</code>, sync <strong>502</strong> introspect failed.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Create Snowflake/Databricks fixture connection → Sync → tables appear on canvas.</li>
+      <li>Inspect DB row for <code>__enc</code> only.</li>
+      <li>Edit connection leaving password blank → sync still works.</li>
+      <li>Delete connection → removed from Sources and schema.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F5 ========== -->
+<h2 id="s5">F5 — Schema sync, canvas &amp; layout</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Show tables as a graph: sources on the left, draggable nodes, edges for relationships.</p>
+
+  <h3>How it works</h3>
+  <ol>
+    <li>Sync introspects columns (+ optional capped samples) into <code>schema_objects</code> / <code>schema_columns</code>.</li>
+    <li><code>GET /workspaces/:id/schema</code> returns tables + non-rejected relationships + saved positions.</li>
+    <li>Drag nodes → <code>PUT /layout</code> merges positions into <code>diagram_layouts</code>.</li>
+    <li>Right sidebar shows selected table columns / samples (scrubbed if policy on).</li>
+  </ol>
+
+  <div class="ok">
+    <strong>Correct response — schema</strong><br />
+    HTTP <strong>200</strong>: <code>tables[]</code> with <code>id, name, sourceId, sourceType, columns[], position</code>;
+    <code>relationships[]</code> with <code>status</code> in <code>suggested|accepted|explicit</code> (rejected omitted).<br />
+    After reload, node positions match last drag.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Sync two sources → both appear in left sidebar filters.</li>
+      <li>Drag a table, hard-refresh → position restored.</li>
+      <li>Select table → right panel columns match source names/types.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F6 ========== -->
+<div class="page-break"></div>
+<h2 id="s6">F6 — Join inference, promote / reject, stitch session</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Core wedge: discover cross-source joins as <em>suggestions</em>; humans promote before freeze/export.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li>On sync (if <code>inferJoinsOnSync</code>): multi-signal name/type scoring creates <code>status=suggested</code> edges — <strong>never auto-accepted</strong>.</li>
+    <li>Databricks live: optional query-history SQL JOIN parse (<code>databricksQueryJoinAssist</code>).</li>
+    <li>Promote → <code>accepted</code>, confidence 1, audit event; Reject → hidden from graph/export.</li>
+    <li>Stitch session: pick two connections → infer → optional job + dbt PR (blocked until ≥1 promoted join between them).</li>
+  </ul>
+
+  <div class="ok">
+    <strong>Correct response — promote</strong><br />
+    HTTP <strong>200</strong>: <code>{ "ok": true, "relationship": { "id", "status": "accepted", "confidence": 1, ... } }</code><br />
+    Edge style on canvas updates from suggested → accepted.<br />
+    Join inference: <code>{ "ok": true, "created": N, "scanned": M, "durationMs": ... }</code>
+  </div>
+
+  <div class="fail">
+    Stitch ship without promoted join → <strong>409</strong> Ship blocked: promote at least one join…
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Sync two fixtures → suggested edges appear.</li>
+      <li>Promote one → stays after reload; Reject another → gone from schema GET.</li>
+      <li>Stitch session dialog: run inference; try ship before promote → 409; after promote → job/export proceeds.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F7 ========== -->
+<h2 id="s7">F7 — Privacy &amp; sample scrub</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Schema-only posture: if samples are collected, tokenize before metadata DB storage.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li>Defaults: <code>includeSamplesDefault: false</code>, <code>scrubSamples: true</code>.</li>
+    <li>When samples on + scrub on: emails → <code>email_…</code>, UUIDs → <code>uuid_…</code>, free text → <code>tok_…</code>.</li>
+    <li>Live validate / chat sample previews are capped (≤20 / ≤5) and must not dump warehouse rows into prompts.</li>
+  </ul>
+
+  <div class="ok">
+    <strong>Correct response</strong><br />
+    After sync with scrub: column sample arrays in DB/UI look tokenized, not raw PII.<br />
+    Settings toggles Save → GET settings echoes same booleans.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Settings → enable include samples + scrub → Save → sync → inspect samples.</li>
+      <li>Disable scrub → re-sync (dev only) → rawer values (still capped).</li>
+      <li>Automation: <code>npm run test:privacy</code> must PASS.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F8 ========== -->
+<h2 id="s8">F8 — Jobs notebook (run · validate · ready · export)</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Turn reviewed joins into a notebook job, freeze a schema-only contract, and export attested artifacts / dbt PRs.</p>
+
+  <h3>How it works</h3>
+  <ol>
+    <li>Create job from canvas/stitch or blank → freezes contract (tables + accepted joins + column types + snapshot id).</li>
+    <li>Edit markdown + SQL cells (light notebook UI on <code>/jobs</code>).</li>
+    <li><strong>Run Test</strong> (<code>mode: dry_run</code>): lint + schema sample previews — no warehouse write.</li>
+    <li><strong>Validate</strong> (<code>mode: validate</code>): read-only live SQL, hard cap 20 rows; blocks DML/DDL/multi-statement.</li>
+    <li>Mark <strong>ready</strong> → Export <code>json | sql | dbt | dbt-pr</code>.</li>
+  </ol>
+
+  <div class="ok">
+    <strong>Correct response — run</strong><br />
+    HTTP <strong>201</strong>: <code>run.status</code> success/failed; <code>output.cellResults</code> / <code>liveResults</code> present; logs array non-empty for failures.<br />
+    <strong>Export JSON</strong> HTTP <strong>200</strong>: includes <code>export.attestation</code> with <code>policy: "schema-only"</code> and <code>signature.alg: "HMAC-SHA256"</code> (prod keys set).
+  </div>
+
+  <div class="fail">
+    <code>DELETE FROM …</code> / multi-statement → blocked by <code>prepareReadonlySql</code>.<br />
+    Export with open high drift / unreviewed joins / column drift (flags on) → <strong>409</strong> + <code>validation.blocking: true</code>.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Create job with SQL cell → Run Test → Process/Output populate.</li>
+      <li>Validate against live PG if available → ≤20 rows.</li>
+      <li>Export JSON → copy attestation → <code>POST /auth/attestation/verify</code> → <code>{ "ok": true }</code>.</li>
+      <li>With drift open + block flags → dbt-pr returns 409; ack / clear → PR opens (GitHub configured).</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F9 ========== -->
+<div class="page-break"></div>
+<h2 id="s9">F9 — Contracts, drift &amp; export gates</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Frozen contract is the truth for export. Drift detection blocks shipping until humans acknowledge or fix.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li>Sync computes drift events (<code>info|warn|high</code>) vs previous snapshot.</li>
+    <li>Settings: <code>blockExportOnDrift</code>, <code>blockExportOnUnreviewedJoins</code>, <code>blockPrOnColumnDrift</code>.</li>
+    <li><code>GET .../contract/validate</code> previews gates without exporting.</li>
+    <li><code>force: true</code> on export bypasses gates but still writes audit (footgun — admin only awareness).</li>
+  </ul>
+
+  <div class="ok">
+    <strong>Correct response — drift list</strong><br />
+    <code>{ "ok": true, "events": [...], "openHigh": [...], "hasBlockingRisk": boolean }</code><br />
+    Ack: <strong>200</strong> <code>{ "ok": true, "id": "..." }</code> — event no longer blocking.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Toggle block flags in Settings → Save.</li>
+      <li>Introduce suggested join on job tables → export 409.</li>
+      <li>Promote/reject → export succeeds.</li>
+      <li>Validate contract endpoint mirrors export gate messages.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F10 ========== -->
+<h2 id="s10">F10 — Schema-only attestation (HMAC)</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Prove an export was produced under schema-only policy with listed approved joins — verifiable offline via HMAC.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li>Every export embeds attestation v2: policy, snapshot id, approved relationship ids, guarantees, claim, fingerprint.</li>
+    <li>Signed with <code>QUE_ATTESTATION_HMAC_SECRET</code>.</li>
+    <li><code>POST /auth/attestation/verify</code> is public — recompute hash + HMAC.</li>
+  </ul>
+
+  <div class="ok">
+    <strong>Correct response — verify</strong><br />
+    Body: paste <code>export.attestation</code> object.<br />
+    HTTP <strong>200</strong>: <code>{ "ok": true, ... }</code>.<br />
+    Tamper any field → <code>{ "ok": false, "reason": "payload hash mismatch" | "bad signature" }</code>.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Export job → verify attestation → ok true.</li>
+      <li>Flip one character in claim → verify fails.</li>
+      <li>Automation covers sign/verify in <code>test:functional</code> / <code>test:privacy</code>.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F11 ========== -->
+<h2 id="s11">F11 — Workspace settings &amp; BYOK secrets</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Per-workspace policy surface for privacy, drift blocks, Databricks assist, GitHub dbt path, and encrypted LLM/GitHub keys.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li><code>GET/PATCH /settings</code> — admin for writes.</li>
+    <li>Policy toggles include scrub, infer joins, DBX query-history, block export/PR on drift, unreviewed joins.</li>
+    <li><code>PUT /secrets/llm</code> stores OpenAI/Anthropic/GitHub token encrypted; status returns <code>source: workspace|env|none</code> only (never raw key).</li>
+  </ul>
+
+  <div class="ok">
+    <strong>Correct response — settings GET</strong><br />
+    Includes <code>settings</code>, <code>stats</code>, <code>capabilities</code> (connectors, llm, secrets, sso, github, wedge note).<br />
+    After Save: dirty flag clears; Discard restores draft including scrub / blockPr / databricks flags.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Toggle scrub + block dbt PR on column drift + DBX assist → Save → reload → values persist.</li>
+      <li>Save GitHub token → secrets status shows workspace source.</li>
+      <li>Viewer cannot PATCH settings (403).</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F12 ========== -->
+<div class="page-break"></div>
+<h2 id="s12">F12 — AI chat &amp; RAG</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Answer schema questions and draft jobs from metadata packs — not from centralized row data.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li><code>POST .../chat</code> builds schema context; optional pgvector RAG; skills (<code>/list</code>, <code>/joins</code>, …) or LLM if <code>preferLlmChat</code> + keys.</li>
+    <li>@mentions insert table/column context in the composer.</li>
+    <li>Feedback <code>rating: 1|-1</code> stored for RLHF-lite.</li>
+  </ul>
+
+  <div class="ok">
+    <strong>Correct response</strong><br />
+    <code>{ "ok": true, "reply": "...", "citations": [...], "mode": "skill|llm|...", "vectorReady": boolean }</code><br />
+    Without LLM keys: still answers via skills/heuristics (not a hard failure).
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li>Ask “list tables” / use <code>/joins</code> — reply cites workspace tables.</li>
+      <li>@mention a table — token inserted; reply references it.</li>
+      <li>Confirm reply does not paste large raw sample dumps.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== F13 ========== -->
+<h2 id="s13">F13 — BI lineage &amp; dbt manifest assist (API)</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Thin reverse-lineage ingest and dbt manifest matching — assist joins/context; not a full BI catalog product.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li><code>POST .../bi-lineage</code> with tool + assets → match tables → snapshot.</li>
+    <li><code>POST .../dbt-manifest</code> with manifest JSON → extract refs → matched tables.</li>
+  </ul>
+
+  <div class="ok">
+    BI: <code>{ "ok": true, "linked": N, "preview": [...] }</code> (N may be 0 if no match — still ok).<br />
+    dbt: <code>{ "ok": true, "edges": [...], "matchedTables": [...] }</code>
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong> — use curl/Postman with Bearer token; then <code>GET .../bi-lineage</code> lists recent items.
+  </div>
+</div>
+
+<!-- ========== F14 ========== -->
+<h2 id="s14">F14 — Health, CORS, OpenAPI &amp; production boot</h2>
+<div class="feature">
+  <h3>Purpose</h3>
+  <p>Ops readiness and browser lock-down for paid POC hosting.</p>
+
+  <h3>How it works</h3>
+  <ul>
+    <li><code>GET /health</code> pings DB; reports <code>authDisabled</code> and SSO status.</li>
+    <li>CORS allowlist from <code>QUE_CORS_ORIGINS</code> (required in production).</li>
+    <li>Prod boot requires <code>QUE_SECRETS_KEY</code>, <code>QUE_ATTESTATION_HMAC_SECRET</code>, <code>QUE_CORS_ORIGINS</code>; refuses auth bypass.</li>
+    <li>TLS: terminate TLS 1.2+ at reverse proxy (documented; not in Node itself).</li>
+  </ul>
+
+  <div class="ok">
+    Health <strong>200</strong>: <code>{ "ok": true, "service": "que-api", "authDisabled": false, "sso": "ready"|"not_configured" }</code><br />
+    Allowed origin: browser XHR succeeds. Disallowed origin: CORS blocked.
+  </div>
+
+  <div class="test">
+    <strong>How to test</strong>
+    <ol>
+      <li><code>curl http://localhost:8787/health</code> and <code>/openapi.json</code>.</li>
+      <li>Set CORS to your SPA origin only; open from other origin → blocked.</li>
+      <li>Prod-like env missing key → process exits with clear error.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ========== E2E ========== -->
+<div class="page-break"></div>
+<h2 id="s15">15. End-to-end happy path (design partner)</h2>
+<ol>
+  <li><strong>Provision</strong> — migrate DB (incl. <code>014</code>), set secrets, start API + SPA.</li>
+  <li><strong>Auth</strong> — login or SSO with invite; confirm role.</li>
+  <li><strong>Sources</strong> — add SF + DBX (fixture or live); confirm <code>__enc</code>; Sync both.</li>
+  <li><strong>Joins</strong> — review suggested edges; Promote gold joins; Reject noise.</li>
+  <li><strong>Privacy</strong> — scrub on; samples tokenized if collected.</li>
+  <li><strong>Job</strong> — create notebook from stitch; Run Test; Validate; Ready.</li>
+  <li><strong>Gate</strong> — contract validate clean; export JSON; verify attestation.</li>
+  <li><strong>Ship</strong> — Open dbt PR (GitHub token + owner/repo set); PR body references attestation.</li>
+  <li><strong>Regression</strong> — change column → drift high → export 409 until ack/fix.</li>
+</ol>
+<p class="kpi">Pass criteria for paid POC: steps 1–8 complete with evidence; no plaintext warehouse secrets; no token in query string; attestation verifies.</p>
+
+<!-- ========== Roles ========== -->
+<h2 id="s16">16. Role permission matrix</h2>
+<table>
+  <tr>
+    <th>Action</th><th>viewer</th><th>member</th><th>admin</th><th>owner</th>
+  </tr>
+  <tr><td>View schema / jobs / chat read</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+  <tr><td>Sync / promote-reject / run job / export</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
+  <tr><td>Create/edit connections</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
+  <tr><td>Patch settings / secrets / invites</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
+</table>
+<p class="note">Exact gates: <code>requireMinRole</code> in <code>api/src/auth.js</code> + route wiring in <code>api/src/index.js</code>.</p>
+
+<!-- ========== Env ========== -->
+<h2 id="s17">17. Environment reference (paid POC)</h2>
+<table>
+  <tr><th>Variable</th><th>Required in prod?</th><th>Notes</th></tr>
+  <tr><td><code>QUE_SECRETS_KEY</code></td><td>Yes</td><td>AES key for connections + workspace secrets; ≠ default string</td></tr>
+  <tr><td><code>QUE_ATTESTATION_HMAC_SECRET</code></td><td>Yes</td><td>Export HMAC</td></tr>
+  <tr><td><code>QUE_CORS_ORIGINS</code></td><td>Yes</td><td>Comma-separated SPA origins</td></tr>
+  <tr><td><code>QUE_ENV=production</code></td><td>Yes (for gate)</td><td>Enables boot assertions</td></tr>
+  <tr><td><code>QUE_SEED_DEMO_USERS</code></td><td>Set false</td><td>Do not seed demo passwords in POC</td></tr>
+  <tr><td><code>STITCH_AUTH_DISABLED</code></td><td>Must be unset/false</td><td>Boot refuses if true in prod</td></tr>
+  <tr><td><code>QUE_OIDC_*</code> / <code>QUE_SSO_*</code></td><td>If SSO</td><td>See F2</td></tr>
+  <tr><td><code>VITE_STITCH_API_URL</code></td><td>SPA</td><td>API base URL</td></tr>
+</table>
+<p>Full template: <code>api/.env.production.example</code>.</p>
+
+<!-- ========== Automation ========== -->
+<h2 id="s18">18. Automation commands</h2>
+<pre>cd adc/schemagraph/api
+npm run test:diligence     # joins golden-set + privacy + functional/security
+npm run test:smoke         # optional live API smoke (needs running server)
+cd ..
+npx tsc --noEmit -p tsconfig.app.json
+
+# Manual PASS/FAIL sheet
+docs/MANUAL_TEST_PLAN.md
+
+# CI
+adc/.github/workflows/que-diligence.yml</pre>
+
+<p class="footer-note">
+  Que Feature Guide v2.0 · Generated for paid-POC readiness · Related:
+  <code>Que-Technical-Documentation.html</code>,
+  <code>Que-Schema-Only-Attestation.html</code>,
+  <code>MANUAL_TEST_PLAN.md</code>.<br />
+  Print this file to PDF (browser Print → Save as PDF) or use the companion
+  <code>Que-Feature-Guide.pdf</code> in the same folder when generated.
+</p>
+
+</body>
+</html>

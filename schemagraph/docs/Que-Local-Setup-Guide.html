@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Local Setup &amp; Run Guide</title>
+  <style>
+    @page { size: A4; margin: 15mm 14mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+      color: #1a1a1a;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+    h1 { font-size: 19pt; margin: 0 0 6px; letter-spacing: -0.02em; }
+    h2 {
+      font-size: 12.5pt;
+      margin: 22px 0 8px;
+      padding-bottom: 3px;
+      border-bottom: 2px solid #5c3a2e;
+      page-break-after: avoid;
+      color: #3d241c;
+    }
+    h3 { font-size: 10.5pt; margin: 14px 0 6px; page-break-after: avoid; color: #4a3028; }
+    p, li { margin: 0 0 5px; }
+    ul, ol { margin: 0 0 8px; padding-left: 1.25em; }
+    .meta { color: #555; font-size: 9pt; margin-bottom: 12px; }
+    .cover {
+      border: 2px solid #5c3a2e;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      background: linear-gradient(165deg, #faf6f1 0%, #f0e4d8 100%);
+    }
+    .cover .brand {
+      font-size: 10pt;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8b4a34;
+    }
+    .toc { page-break-after: always; }
+    .toc a { color: #1a1a1a; text-decoration: none; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0 12px;
+      font-size: 8.5pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #c9b8a8;
+      padding: 4px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #efe4d8; font-weight: 600; }
+    code, pre {
+      font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+      font-size: 7.8pt;
+    }
+    code { background: #f3ebe3; padding: 1px 3px; }
+    pre {
+      background: #2a211c;
+      color: #f0e6dc;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      page-break-inside: avoid;
+      margin: 6px 0 10px;
+    }
+    .step {
+      border: 1px solid #d9c9b8;
+      padding: 10px 12px;
+      margin: 10px 0 14px;
+      background: #fffefb;
+      page-break-inside: avoid;
+    }
+    .step h3 { margin-top: 0; }
+    .ok {
+      border-left: 3px solid #4a7c59;
+      background: #eef6f0;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .warn {
+      border-left: 3px solid #b45309;
+      background: #fff7ed;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .fail {
+      border-left: 3px solid #a33;
+      background: #faf0f0;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .note {
+      border-left: 3px solid #c4a574;
+      background: #f8f4ec;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: #efe4d8;
+      color: #5c3a2e;
+      padding: 2px 6px;
+      margin-right: 4px;
+    }
+    .page-break { page-break-before: always; }
+    .footer-note { margin-top: 24px; font-size: 8pt; color: #666; }
+    .two-col { display: flex; gap: 12px; }
+    .two-col > div { flex: 1; }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que · Local Development</div>
+  <h1>How to Run — Complete Local Setup Guide</h1>
+  <p class="meta">
+    Product: <strong>Que</strong> (SchemaGraph) · Path: <code>adc/schemagraph</code><br />
+    OS examples: <strong>Windows PowerShell</strong> (also works on macOS/Linux with small path tweaks)<br />
+    Document version: <strong>1.0</strong> · Date: 29 Jul 2026<br />
+    Goal: get UI + API + Postgres running on your machine for functional testing
+  </p>
+  <p>
+    This PDF lists <strong>every component</strong>, <strong>every command</strong>, env files,
+    ports, demo logins, optional add-ons, and how to verify the stack is healthy.
+  </p>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s1">What you will run (architecture)</a></li>
+    <li><a href="#s2">Prerequisites</a></li>
+    <li><a href="#s3">Quick start (recommended path)</a></li>
+    <li><a href="#s4">Step A — Postgres (pgvector)</a></li>
+    <li><a href="#s5">Step B — Migrations</a></li>
+    <li><a href="#s6">Step C — API env + install + start</a></li>
+    <li><a href="#s7">Step D — Frontend env + install + start</a></li>
+    <li><a href="#s8">Step E — Seed &amp; demo sources (optional)</a></li>
+    <li><a href="#s9">Daily startup (after first setup)</a></li>
+    <li><a href="#s10">Docker Compose alternative</a></li>
+    <li><a href="#s11">Login, URLs &amp; smoke checks</a></li>
+    <li><a href="#s12">Optional: LLM, GitHub, SSO, Mongo</a></li>
+    <li><a href="#s13">Automation tests</a></li>
+    <li><a href="#s14">Troubleshooting</a></li>
+    <li><a href="#s15">Stop / reset</a></li>
+    <li><a href="#s16">Command cheat sheet</a></li>
+  </ol>
+</nav>
+
+<!-- 1 -->
+<h2 id="s1">1. What you will run</h2>
+<table>
+  <tr><th>Process</th><th>What</th><th>Default URL / port</th><th>How started</th></tr>
+  <tr>
+    <td><span class="badge">1</span> Postgres</td>
+    <td>Metadata DB + pgvector (RAG)</td>
+    <td><code>localhost:5432</code> · db <code>stitch</code></td>
+    <td>Docker container <code>stitch-pg</code></td>
+  </tr>
+  <tr>
+    <td><span class="badge">2</span> Que API</td>
+    <td>Express API (auth, sync, jobs, chat)</td>
+    <td><code>http://localhost:8787</code></td>
+    <td><code>npm run dev</code> in <code>api/</code></td>
+  </tr>
+  <tr>
+    <td><span class="badge">3</span> Que UI</td>
+    <td>Vite + React SPA</td>
+    <td><code>http://localhost:5173</code></td>
+    <td><code>npm run dev</code> in <code>schemagraph/</code></td>
+  </tr>
+</table>
+<p class="note">
+  You need <strong>three terminals</strong> for the recommended path (or Docker Compose for Postgres+API, plus Vite for UI).
+  Warehouse connections (Snowflake / Databricks live) are optional — fixtures work offline.
+</p>
+
+<pre>  Browser  →  Vite UI :5173  →  Que API :8787  →  Postgres :5432 (stitch)
+                                    │
+                                    └─ optional: live SF / DBX / PG customer_demo / Mongo</pre>
+
+<!-- 2 -->
+<h2 id="s2">2. Prerequisites</h2>
+<table>
+  <tr><th>Tool</th><th>Version / notes</th><th>Check command</th></tr>
+  <tr><td>Node.js</td><td>20+ recommended (API Docker uses 22)</td><td><code>node -v</code></td></tr>
+  <tr><td>npm</td><td>Comes with Node</td><td><code>npm -v</code></td></tr>
+  <tr><td>Docker Desktop</td><td>Running; for Postgres (+ optional Compose)</td><td><code>docker version</code></td></tr>
+  <tr><td>Git</td><td>Clone / pull repo</td><td><code>git --version</code></td></tr>
+  <tr><td>PowerShell or Terminal</td><td>Windows / macOS / Linux</td><td>—</td></tr>
+</table>
+<p class="warn">
+  Postgres image must be <code>pgvector/pgvector:pg16</code> (not plain <code>postgres:16</code>), or AI RAG migration <code>007</code> fails.
+</p>
+
+<!-- 3 -->
+<div class="page-break"></div>
+<h2 id="s3">3. Quick start (recommended path)</h2>
+<p>From a clean machine, run these in order. Details for each step follow in §§4–7.</p>
+<pre># 0) Go to app root
+cd D:\ADC\prosols\adc\schemagraph
+
+# 1) Start / create Postgres (pgvector)
+docker start stitch-pg
+# If container does not exist yet — see Step A "First-time create"
+
+# 2) API install + migrate + seed + start
+cd api
+npm install
+npm run migrate
+npm run seed
+npm run dev
+# Leave this terminal running → http://localhost:8787
+
+# 3) UI install + start (new terminal)
+cd D:\ADC\prosols\adc\schemagraph
+npm install
+npm run dev
+# Leave this terminal running → open http://localhost:5173
+
+# 4) Login (DEV build shows demo shortcuts)
+#    Owner:  dev@stitch.local / stitch-dev</pre>
+
+<div class="ok">
+  <strong>Success =</strong> <code>GET http://localhost:8787/health</code> returns <code>{"ok":true,...}</code>
+  and the UI login page loads; after login you see the Workspace canvas.
+</div>
+
+<!-- 4 -->
+<h2 id="s4">4. Step A — Postgres (pgvector)</h2>
+
+<div class="step">
+  <h3>A1. If container already exists</h3>
+<pre>docker start stitch-pg
+docker ps --filter name=stitch-pg</pre>
+  <div class="ok">Status should show <code>Up</code> and ports <code>0.0.0.0:5432-&gt;5432/tcp</code>.</div>
+</div>
+
+<div class="step">
+  <h3>A2. First-time create</h3>
+<pre>docker run -d --name stitch-pg `
+  -e POSTGRES_USER=stitch `
+  -e POSTGRES_PASSWORD=stitch `
+  -e POSTGRES_DB=stitch `
+  -p 5432:5432 `
+  pgvector/pgvector:pg16</pre>
+  <p>macOS / Linux (same, without backticks — one line or <code>\</code>):</p>
+<pre>docker run -d --name stitch-pg \
+  -e POSTGRES_USER=stitch -e POSTGRES_PASSWORD=stitch \
+  -e POSTGRES_DB=stitch -p 5432:5432 \
+  pgvector/pgvector:pg16</pre>
+</div>
+
+<div class="step">
+  <h3>A3. Connection details</h3>
+  <table>
+    <tr><th>Setting</th><th>Value</th></tr>
+    <tr><td>Host</td><td><code>localhost</code></td></tr>
+    <tr><td>Port</td><td><code>5432</code></td></tr>
+    <tr><td>Database</td><td><code>stitch</code></td></tr>
+    <tr><td>User</td><td><code>stitch</code></td></tr>
+    <tr><td>Password</td><td><code>stitch</code></td></tr>
+    <tr><td>URL</td><td><code>postgresql://stitch:stitch@localhost:5432/stitch</code></td></tr>
+  </table>
+<pre># Optional: open psql inside container
+docker exec -it stitch-pg psql -U stitch -d stitch</pre>
+</div>
+
+<div class="warn">
+  If an old <code>stitch-pg</code> was created without pgvector, remove and recreate:<br />
+  <code>docker stop stitch-pg; docker rm stitch-pg</code> then run A2 again, then remigrate + reseed.
+</div>
+
+<!-- 5 -->
+<h2 id="s5">5. Step B — Migrations</h2>
+<div class="step">
+  <h3>Preferred: ordered migrator</h3>
+<pre>cd D:\ADC\prosols\adc\schemagraph\api
+npm install
+npm run migrate</pre>
+  <p>Applies <code>db/001_*.sql</code> … <code>db/014_*.sql</code> in order (skips already applied; tracks <code>schema_migrations</code>).</p>
+  <p>Includes: auth, jobs, RAG/pgvector, secrets, notebooks, join HITL, attestation audit, OIDC state + invites.</p>
+  <div class="ok">Console ends with <code>[Que] migrations up to date</code> or lists newly applied files as <code>ok</code>.</div>
+</div>
+
+<div class="note">
+  Customer demo SQL (<code>002_customer_demo.sql</code>, <code>002b_…</code>) is <strong>not</strong> auto-applied by the migrator
+  (filtered out). Use bootstrap scripts in Step E if you need the live PG demo source.
+</div>
+
+<!-- 6 -->
+<div class="page-break"></div>
+<h2 id="s6">6. Step C — API env, install, start</h2>
+
+<div class="step">
+  <h3>C1. Create / edit <code>api/.env</code></h3>
+  <p>File path: <code>adc/schemagraph/api/.env</code> (loaded automatically at API boot).</p>
+<pre># Minimum local
+DATABASE_URL=postgresql://stitch:stitch@localhost:5432/stitch
+PORT=8787
+DEMO_WORKSPACE_ID=22222222-2222-2222-2222-222222222222
+
+# Recommended local (stable encryption + attestation)
+QUE_SECRETS_KEY=que-local-dev-secrets-key-change-me-32c
+QUE_ATTESTATION_HMAC_SECRET=que-local-attestation-hmac-dev
+
+# Keep auth ON for realistic testing
+STITCH_AUTH_DISABLED=false
+
+# Demo users (owner/member/viewer) — OK for local only
+QUE_SEED_DEMO_USERS=true
+
+# CORS — optional locally (defaults include localhost:5173)
+# QUE_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+# Do NOT set QUE_ENV=production for day-to-day local work
+# (production boot requires real secrets + CORS and blocks auth bypass)</pre>
+</div>
+
+<div class="step">
+  <h3>C2. Install &amp; start API</h3>
+<pre>cd D:\ADC\prosols\adc\schemagraph\api
+npm install
+npm run migrate
+npm run seed
+npm run dev</pre>
+  <p><code>npm run dev</code> = <code>node --watch src/index.js</code> (auto-restarts on file change).</p>
+  <p>Production-style (no watch): <code>npm start</code>.</p>
+  <div class="ok">
+    Look for: <code>que-api listening on http://localhost:8787</code><br />
+    Demo seed may log that owner/member/viewer passwords were ensured.
+  </div>
+</div>
+
+<div class="step">
+  <h3>C3. API scripts reference</h3>
+  <table>
+    <tr><th>Command</th><th>Purpose</th></tr>
+    <tr><td><code>npm run dev</code></td><td>API with file watch</td></tr>
+    <tr><td><code>npm start</code></td><td>API once</td></tr>
+    <tr><td><code>npm run migrate</code></td><td>Apply SQL migrations</td></tr>
+    <tr><td><code>npm run seed</code></td><td>Seed demo workspace / fixtures metadata</td></tr>
+    <tr><td><code>npm run bootstrap:demo-source</code></td><td>Postgres <code>customer_demo</code> source</td></tr>
+    <tr><td><code>npm run bootstrap:demo-mongo</code></td><td>Mongo demo collections</td></tr>
+    <tr><td><code>npm run bootstrap:test-data</code></td><td>Extra test data</td></tr>
+    <tr><td><code>npm run test:diligence</code></td><td>Joins + privacy + functional tests</td></tr>
+    <tr><td><code>npm run test:smoke</code></td><td>Smoke vs running API</td></tr>
+  </table>
+</div>
+
+<!-- 7 -->
+<h2 id="s7">7. Step D — Frontend env, install, start</h2>
+
+<div class="step">
+  <h3>D1. Create / edit <code>.env.local</code> at SPA root</h3>
+  <p>File path: <code>adc/schemagraph/.env.local</code></p>
+<pre>VITE_STITCH_API_URL=http://localhost:8787
+VITE_STITCH_LIVE_ONLY=1</pre>
+  <table>
+    <tr><th>Variable</th><th>Meaning</th></tr>
+    <tr><td><code>VITE_STITCH_API_URL</code></td><td>API base URL the browser calls</td></tr>
+    <tr><td><code>VITE_STITCH_LIVE_ONLY=1</code></td><td>If API is down, show empty — not dummy offline schema</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <h3>D2. Install &amp; start UI</h3>
+<pre>cd D:\ADC\prosols\adc\schemagraph
+npm install
+npm run dev</pre>
+  <div class="ok">Vite prints a Local URL — usually <code>http://localhost:5173</code>. Open it in the browser.</div>
+  <p>Other UI scripts: <code>npm run build</code> · <code>npm run preview</code> · <code>npm run lint</code> · typecheck:
+  <code>npx tsc --noEmit -p tsconfig.app.json</code></p>
+</div>
+
+<!-- 8 -->
+<div class="page-break"></div>
+<h2 id="s8">8. Step E — Seed &amp; demo sources (optional)</h2>
+<p>After API is running at least once (or from <code>api/</code> with DB up):</p>
+<pre>cd D:\ADC\prosols\adc\schemagraph\api
+
+# Core metadata / workspace seed
+npm run seed
+
+# Optional: live Postgres customer_demo database + connection
+npm run bootstrap:demo-source
+
+# Optional: Mongo demo
+docker start stitch-mongo
+# First time:
+# docker run -d --name stitch-mongo -p 27017:27017 mongo:7
+npm run bootstrap:demo-mongo</pre>
+<p class="note">
+  On <strong>Sources</strong> you can also add <strong>Databricks / Snowflake fixture</strong> connections
+  (no cloud account) and click Sync — enough for join + job testing.
+</p>
+
+<!-- 9 -->
+<h2 id="s9">9. Daily startup (after first setup)</h2>
+<pre># Terminal 1 — Postgres
+docker start stitch-pg
+
+# Terminal 2 — API
+cd D:\ADC\prosols\adc\schemagraph\api
+npm run dev
+
+# Terminal 3 — UI
+cd D:\ADC\prosols\adc\schemagraph
+npm run dev</pre>
+<p>Only re-run <code>npm run migrate</code> after pulling new <code>db/*.sql</code> files. Re-seed only if you wiped the DB.</p>
+
+<!-- 10 -->
+<h2 id="s10">10. Docker Compose alternative</h2>
+<p>Starts <strong>Postgres + API</strong> together (UI still on host Vite).</p>
+<pre>cd D:\ADC\prosols\adc\schemagraph
+docker compose up --build</pre>
+<ul>
+  <li>Applies migrations inside the API container, then listens on <code>:8787</code>.</li>
+  <li>Postgres service name in Compose network: <code>stitch-pg</code>.</li>
+  <li>Then start UI: <code>npm run dev</code> in <code>schemagraph/</code> with <code>VITE_STITCH_API_URL=http://localhost:8787</code>.</li>
+</ul>
+<pre># Stop Compose stack
+docker compose down
+
+# Stop and delete DB volume (full reset)
+docker compose down -v</pre>
+
+<!-- 11 -->
+<h2 id="s11">11. Login, URLs &amp; smoke checks</h2>
+
+<h3>URLs</h3>
+<table>
+  <tr><th>What</th><th>URL</th></tr>
+  <tr><td>UI login</td><td><code>http://localhost:5173/login</code></td></tr>
+  <tr><td>Workspace</td><td><code>http://localhost:5173/workspace</code></td></tr>
+  <tr><td>Sources / Jobs / Chat / Settings</td><td><code>/sources</code> · <code>/jobs</code> · <code>/chat</code> · <code>/settings</code></td></tr>
+  <tr><td>API health</td><td><code>http://localhost:8787/health</code></td></tr>
+  <tr><td>OpenAPI stub</td><td><code>http://localhost:8787/openapi.json</code></td></tr>
+</table>
+
+<h3>Demo accounts (local DEV only)</h3>
+<table>
+  <tr><th>Role</th><th>Email</th><th>Password</th></tr>
+  <tr><td>Owner</td><td><code>dev@stitch.local</code></td><td><code>stitch-dev</code></td></tr>
+  <tr><td>Member</td><td><code>member@stitch.local</code></td><td><code>stitch-member</code></td></tr>
+  <tr><td>Viewer</td><td><code>viewer@stitch.local</code></td><td><code>stitch-viewer</code></td></tr>
+</table>
+<p class="warn">Demo shortcuts appear on the login page only in Vite <strong>development</strong> builds. Production UI leaves fields blank.</p>
+
+<h3>Smoke commands</h3>
+<pre># Health
+curl http://localhost:8787/health
+
+# Login (PowerShell)
+$body = @{ email = "dev@stitch.local"; password = "stitch-dev" } | ConvertTo-Json
+Invoke-RestMethod -Method POST -Uri http://localhost:8787/auth/login `
+  -ContentType "application/json" -Body $body
+
+# Expect: ok=true, token, workspaces[]</pre>
+
+<div class="ok">
+  <strong>Correct health shape:</strong>
+  <code>{"ok":true,"service":"que-api","authDisabled":false,"sso":"not_configured"|"ready"}</code>
+</div>
+
+<!-- 12 -->
+<div class="page-break"></div>
+<h2 id="s12">12. Optional: LLM, GitHub, SSO, Mongo</h2>
+
+<div class="step">
+  <h3>LLM (AI chat)</h3>
+  <p>Not required — skills/heuristics work without keys. For LLM mode, either:</p>
+  <ul>
+    <li>UI → <strong>Settings → BYOK</strong> (workspace encrypted keys), or</li>
+    <li>Add to <code>api/.env</code>:</li>
+  </ul>
+<pre>OPENAI_API_KEY=sk-...
+# and/or
+ANTHROPIC_API_KEY=sk-ant-...</pre>
+  <p>Then enable <strong>Prefer LLM for AI chat</strong> in Settings. Reindex: Settings or <code>POST .../ai/reindex</code>.</p>
+</div>
+
+<div class="step">
+  <h3>GitHub dbt PR export</h3>
+  <p>In Settings: set <code>githubOwner</code>, <code>githubRepo</code>, branch, dbt path; save <strong>GitHub token</strong> via secrets UI.<br />
+  Or env: <code>GITHUB_TOKEN=ghp_...</code></p>
+</div>
+
+<div class="step">
+  <h3>SSO (OIDC) — local IdP</h3>
+<pre># api/.env additions
+QUE_OIDC_ISSUER=https://your-idp.example.com
+QUE_OIDC_CLIENT_ID=...
+QUE_OIDC_CLIENT_SECRET=...
+QUE_OIDC_REDIRECT_URI=http://localhost:8787/auth/sso/callback
+QUE_OIDC_POST_LOGIN_REDIRECT=http://localhost:5173/auth/callback
+QUE_SSO_ALLOWED_DOMAINS=yourcompany.com
+QUE_SSO_REQUIRE_INVITE=true</pre>
+  <p>Register the API callback URL in the IdP. Token returns in URL <strong>hash</strong> (<code>#token=</code>), never query.</p>
+</div>
+
+<div class="step">
+  <h3>Mongo demo</h3>
+<pre>docker run -d --name stitch-mongo -p 27017:27017 mongo:7
+cd D:\ADC\prosols\adc\schemagraph\api
+npm run bootstrap:demo-mongo</pre>
+</div>
+
+<!-- 13 -->
+<h2 id="s13">13. Automation tests</h2>
+<pre>cd D:\ADC\prosols\adc\schemagraph\api
+
+# No live server required for diligence suite
+npm run test:diligence
+# = eval:joins + test:privacy + test:functional
+
+# Optional: API must already be running
+npm run test:smoke
+
+# Frontend typecheck
+cd D:\ADC\prosols\adc\schemagraph
+npx tsc --noEmit -p tsconfig.app.json</pre>
+<p>Manual checklist: <code>docs/MANUAL_TEST_PLAN.md</code> · Feature oracles: <code>docs/Que-Feature-Guide.pdf</code></p>
+
+<!-- 14 -->
+<h2 id="s14">14. Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
+  <tr>
+    <td>API crash: connection refused :5432</td>
+    <td>Postgres not up</td>
+    <td><code>docker start stitch-pg</code></td>
+  </tr>
+  <tr>
+    <td>Migration 007 fails (vector)</td>
+    <td>Wrong Postgres image</td>
+    <td>Recreate with <code>pgvector/pgvector:pg16</code></td>
+  </tr>
+  <tr>
+    <td>UI loads but no data / auth errors</td>
+    <td>Wrong API URL or API down</td>
+    <td>Check <code>.env.local</code>; open <code>/health</code></td>
+  </tr>
+  <tr>
+    <td>CORS errors in browser console</td>
+    <td>Origin not allowlisted</td>
+    <td>Set <code>QUE_CORS_ORIGINS</code> to include <code>http://localhost:5173</code></td>
+  </tr>
+  <tr>
+    <td>Login 401 with demo user</td>
+    <td>Seed skipped / wrong password</td>
+    <td><code>QUE_SEED_DEMO_USERS=true</code>, restart API, or <code>npm run seed</code></td>
+  </tr>
+  <tr>
+    <td>Port 8787 / 5173 / 5432 in use</td>
+    <td>Another process</td>
+    <td>Stop other app or change <code>PORT</code> / Vite port</td>
+  </tr>
+  <tr>
+    <td>API exits mentioning production secrets</td>
+    <td><code>QUE_ENV=production</code> or <code>NODE_ENV=production</code></td>
+    <td>Unset for local; or set real keys + CORS</td>
+  </tr>
+  <tr>
+    <td>Docker Desktop not running</td>
+    <td>Engine stopped</td>
+    <td>Start Docker Desktop, wait until ready</td>
+  </tr>
+</table>
+
+<!-- 15 -->
+<h2 id="s15">15. Stop / reset</h2>
+<pre># Stop processes
+# Ctrl+C in API and UI terminals
+
+docker stop stitch-pg
+# optional: docker stop stitch-mongo
+
+# Full DB wipe (destroys all local Que metadata)
+docker stop stitch-pg
+docker rm stitch-pg
+# then recreate with Step A2 → migrate → seed</pre>
+
+<!-- 16 -->
+<div class="page-break"></div>
+<h2 id="s16">16. Command cheat sheet</h2>
+<pre># === FIRST TIME ===
+cd D:\ADC\prosols\adc\schemagraph
+docker run -d --name stitch-pg -e POSTGRES_USER=stitch -e POSTGRES_PASSWORD=stitch -e POSTGRES_DB=stitch -p 5432:5432 pgvector/pgvector:pg16
+
+cd api
+npm install
+npm run migrate
+npm run seed
+npm run dev
+
+# new terminal
+cd D:\ADC\prosols\adc\schemagraph
+npm install
+# ensure .env.local has VITE_STITCH_API_URL=http://localhost:8787
+npm run dev
+
+# === EVERY DAY ===
+docker start stitch-pg
+cd api; npm run dev
+# other terminal: cd schemagraph; npm run dev
+
+# === VERIFY ===
+curl http://localhost:8787/health
+# Browser: http://localhost:5173/login
+# Login: dev@stitch.local / stitch-dev
+
+# === TESTS ===
+cd api; npm run test:diligence
+
+# === COMPOSE (API+DB) ===
+cd schemagraph; docker compose up --build</pre>
+
+<h3>Folder map</h3>
+<table>
+  <tr><th>Path</th><th>Role</th></tr>
+  <tr><td><code>adc/schemagraph/</code></td><td>SPA (Vite) root</td></tr>
+  <tr><td><code>adc/schemagraph/.env.local</code></td><td>Frontend env</td></tr>
+  <tr><td><code>adc/schemagraph/api/</code></td><td>Express API</td></tr>
+  <tr><td><code>adc/schemagraph/api/.env</code></td><td>API env</td></tr>
+  <tr><td><code>adc/schemagraph/db/</code></td><td>SQL migrations</td></tr>
+  <tr><td><code>adc/schemagraph/docker-compose.yml</code></td><td>Postgres + API containers</td></tr>
+  <tr><td><code>adc/schemagraph/docs/</code></td><td>This guide + feature/manual docs</td></tr>
+</table>
+
+<p class="footer-note">
+  Que Local Setup Guide v1.0 · Companion PDFs: <code>Que-Feature-Guide.pdf</code>, checklist <code>MANUAL_TEST_PLAN.md</code>.<br />
+  Repo path examples use <code>D:\ADC\prosols\adc\schemagraph</code> — adjust if your clone lives elsewhere.
+</p>
+
+</body>
+</html>

@@ -388,3 +388,5 @@ function escapeSql(value) {
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
+
+export { runSql as runDatabricksSql }

@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { getApiBase } from '@/services/apiConfig'
 
 /**
- * Login — email/password against stitch-api sessions.
+ * Login — email/password + optional OIDC SSO.
  * Sunset Clay: Hanken Grotesk headlines, Inter body, Geist labels.
  */
 export function LoginPage() {
@@ -12,10 +13,29 @@ export function LoginPage() {
   const from =
     (location.state as { from?: string } | null)?.from || '/workspace'
 
-  const [email, setEmail] = useState('dev@stitch.local')
-  const [password, setPassword] = useState('stitch-dev')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [ssoReady, setSsoReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/auth/sso`)
+        const body = (await res.json()) as {
+          sso?: { loginImplemented?: boolean }
+        }
+        if (!cancelled) setSsoReady(Boolean(body.sso?.loginImplemented))
+      } catch {
+        if (!cancelled) setSsoReady(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (!ready) {
     return (
@@ -115,40 +135,51 @@ export function LoginPage() {
             {busy ? 'SIGNING IN…' : 'SIGN IN'}
           </button>
 
-          <div className="mt-auto space-y-sm border-t border-outline-variant pt-md">
-            <p className="font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant">
-              DEMO ACCOUNTS
-            </p>
-            <ul className="space-y-sm">
-              <DemoAccount
-                role="Owner"
-                email="dev@stitch.local"
-                password="stitch-dev"
-                onUse={() => {
-                  setEmail('dev@stitch.local')
-                  setPassword('stitch-dev')
-                }}
-              />
-              <DemoAccount
-                role="Member"
-                email="member@stitch.local"
-                password="stitch-member"
-                onUse={() => {
-                  setEmail('member@stitch.local')
-                  setPassword('stitch-member')
-                }}
-              />
-              <DemoAccount
-                role="Viewer"
-                email="viewer@stitch.local"
-                password="stitch-viewer"
-                onUse={() => {
-                  setEmail('viewer@stitch.local')
-                  setPassword('stitch-viewer')
-                }}
-              />
-            </ul>
-          </div>
+          {ssoReady ? (
+            <a
+              href={`${getApiBase()}/auth/sso/start`}
+              className="block w-full rounded-xl border border-outline-variant/40 py-3 text-center font-label text-sm text-primary hover:bg-secondary-container/50"
+            >
+              Continue with SSO
+            </a>
+          ) : null}
+
+          {import.meta.env.DEV ? (
+            <div className="mt-auto space-y-sm border-t border-outline-variant pt-md">
+              <p className="font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant">
+                LOCAL DEMO (DEV ONLY)
+              </p>
+              <ul className="space-y-sm">
+                <DemoAccount
+                  role="Owner"
+                  email="dev@stitch.local"
+                  password="stitch-dev"
+                  onUse={() => {
+                    setEmail('dev@stitch.local')
+                    setPassword('stitch-dev')
+                  }}
+                />
+                <DemoAccount
+                  role="Member"
+                  email="member@stitch.local"
+                  password="stitch-member"
+                  onUse={() => {
+                    setEmail('member@stitch.local')
+                    setPassword('stitch-member')
+                  }}
+                />
+                <DemoAccount
+                  role="Viewer"
+                  email="viewer@stitch.local"
+                  password="stitch-viewer"
+                  onUse={() => {
+                    setEmail('viewer@stitch.local')
+                    setPassword('stitch-viewer')
+                  }}
+                />
+              </ul>
+            </div>
+          ) : null}
         </form>
       </div>
     </div>

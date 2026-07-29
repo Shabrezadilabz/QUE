@@ -6,18 +6,43 @@
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { query } from './db.js'
+import { isProduction } from './env.js'
 
-const SECRET_KEYS = ['openai_api_key', 'anthropic_api_key']
+const SECRET_KEYS = [
+  'openai_api_key',
+  'anthropic_api_key',
+  'github_token',
+]
 
 function masterKeyBytes() {
-  const raw =
-    process.env.QUE_SECRETS_KEY ||
-    process.env.STITCH_SECRETS_KEY ||
-    'que-local-dev-secrets-key-change-me'
+  const raw = String(
+    process.env.QUE_SECRETS_KEY || process.env.STITCH_SECRETS_KEY || '',
+  ).trim()
+  if (!raw) {
+    if (isProduction()) {
+      const err = new Error(
+        'QUE_SECRETS_KEY is required in production (32+ char random)',
+      )
+      err.status = 500
+      err.code = 'SECRETS_KEY_MISSING'
+      throw err
+    }
+    console.warn(
+      '[Que secrets] QUE_SECRETS_KEY unset — using insecure local-dev fallback. Do not deploy like this.',
+    )
+    return createHash('sha256')
+      .update('que-local-dev-secrets-key-change-me')
+      .digest()
+  }
+  if (raw === 'que-local-dev-secrets-key-change-me' && isProduction()) {
+    const err = new Error('Refuse default QUE_SECRETS_KEY in production')
+    err.status = 500
+    throw err
+  }
   return createHash('sha256').update(String(raw)).digest()
 }
 
-function encrypt(plaintext) {
+export function encryptBlob(plaintext) {
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', masterKeyBytes(), iv)
   const enc = Buffer.concat([
@@ -28,7 +53,7 @@ function encrypt(plaintext) {
   return `v1:${iv.toString('base64')}:${tag.toString('base64')}:${enc.toString('base64')}`
 }
 
-function decrypt(blob) {
+export function decryptBlob(blob) {
   const parts = String(blob || '').split(':')
   if (parts[0] !== 'v1' || parts.length !== 4) {
     throw new Error('invalid secret blob')
@@ -39,6 +64,14 @@ function decrypt(blob) {
   const decipher = createDecipheriv('aes-256-gcm', masterKeyBytes(), iv)
   decipher.setAuthTag(tag)
   return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8')
+}
+
+function encrypt(plaintext) {
+  return encryptBlob(plaintext)
+}
+
+function decrypt(blob) {
+  return decryptBlob(blob)
 }
 
 export function maskSecret(value) {
@@ -108,8 +141,10 @@ export async function getSecretsStatus(workspaceId) {
   const map = Object.fromEntries(rows.map((r) => [r.secret_key, r]))
   const openaiWorkspace = Boolean(map.openai_api_key)
   const anthropicWorkspace = Boolean(map.anthropic_api_key)
+  const githubWorkspace = Boolean(map.github_token)
   const openaiEnv = Boolean(process.env.OPENAI_API_KEY)
   const anthropicEnv = Boolean(process.env.ANTHROPIC_API_KEY)
+  const githubEnv = Boolean(process.env.GITHUB_TOKEN)
 
   return {
     openai: {
@@ -122,10 +157,34 @@ export async function getSecretsStatus(workspaceId) {
       source: anthropicWorkspace ? 'workspace' : anthropicEnv ? 'env' : 'none',
       hint: map.anthropic_api_key?.hint || (anthropicEnv ? 'env:ANTHROPIC_API_KEY' : null),
     },
+    github: {
+      configured: githubWorkspace || githubEnv,
+      source: githubWorkspace ? 'workspace' : githubEnv ? 'env' : 'none',
+      hint: map.github_token?.hint || (githubEnv ? 'env:GITHUB_TOKEN' : null),
+    },
     byok: true,
+    secretsKeyConfigured: Boolean(
+      String(process.env.QUE_SECRETS_KEY || process.env.STITCH_SECRETS_KEY || '').trim(),
+    ),
     note:
-      'Keys are encrypted at rest. Que still proxies LLM calls server-side (schema-only prompts) — your key, your provider bill, your retention policy.',
+      'Keys are encrypted at rest. Workspace github_token preferred over env GITHUB_TOKEN. Que still proxies LLM calls server-side (schema-only prompts).',
   }
+}
+
+/**
+ * Resolve GitHub token: workspace BYOK wins, else process env.
+ */
+export async function resolveGithubToken(workspaceId) {
+  if (workspaceId) {
+    try {
+      const ws = await getSecret(workspaceId, 'github_token')
+      if (ws) return { token: ws, source: 'workspace' }
+    } catch (err) {
+      console.warn('[Que secrets] github resolve failed:', err.message || err)
+    }
+  }
+  const env = process.env.GITHUB_TOKEN || null
+  return { token: env, source: env ? 'env' : 'none' }
 }
 
 /**

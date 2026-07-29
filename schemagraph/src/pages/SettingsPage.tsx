@@ -51,14 +51,19 @@ export function SettingsPage() {
         setData(payload)
         setDraft({
           includeSamplesDefault: payload.settings.includeSamplesDefault,
+          scrubSamples: payload.settings.scrubSamples !== false,
           inferJoinsOnSync: payload.settings.inferJoinsOnSync,
           preferLlmChat: payload.settings.preferLlmChat,
           aiModelId: payload.settings.aiModelId ?? 'gpt-4o-mini',
           ragTopK: payload.settings.ragTopK ?? 8,
           ragIncludeDocs: payload.settings.ragIncludeDocs !== false,
           blockExportOnDrift: payload.settings.blockExportOnDrift !== false,
+          blockPrOnColumnDrift:
+            payload.settings.blockPrOnColumnDrift !== false,
           blockExportOnUnreviewedJoins:
             payload.settings.blockExportOnUnreviewedJoins === true,
+          databricksQueryJoinAssist:
+            payload.settings.databricksQueryJoinAssist !== false,
           emitContractEvents: payload.settings.emitContractEvents !== false,
           contractWebhookUrl: payload.settings.contractWebhookUrl ?? '',
           githubOwner: payload.settings.githubOwner ?? '',
@@ -88,26 +93,6 @@ export function SettingsPage() {
         you: true,
       })
     }
-    // Demo seed accounts for visual registry (matches local auth fixtures)
-    const demos: MemberRow[] = [
-      {
-        id: 'demo-member',
-        name: 'Sarah Miller',
-        email: 'member@stitch.local',
-        role: 'member',
-        lastActive: '1 hour ago',
-      },
-      {
-        id: 'demo-viewer',
-        name: 'James Doe',
-        email: 'viewer@stitch.local',
-        role: 'viewer',
-        lastActive: 'Yesterday',
-      },
-    ]
-    for (const d of demos) {
-      if (!rows.some((r) => r.email === d.email)) rows.push(d)
-    }
     return rows
   }, [user, role])
 
@@ -126,14 +111,19 @@ export function SettingsPage() {
     draft &&
     data &&
     (draft.includeSamplesDefault !== data.settings.includeSamplesDefault ||
+      draft.scrubSamples !== (data.settings.scrubSamples !== false) ||
       draft.inferJoinsOnSync !== data.settings.inferJoinsOnSync ||
       draft.preferLlmChat !== data.settings.preferLlmChat ||
       draft.aiModelId !== (data.settings.aiModelId ?? 'gpt-4o-mini') ||
       draft.ragTopK !== (data.settings.ragTopK ?? 8) ||
       draft.ragIncludeDocs !== (data.settings.ragIncludeDocs !== false) ||
       draft.blockExportOnDrift !== (data.settings.blockExportOnDrift !== false) ||
+      draft.blockPrOnColumnDrift !==
+        (data.settings.blockPrOnColumnDrift !== false) ||
       draft.blockExportOnUnreviewedJoins !==
         (data.settings.blockExportOnUnreviewedJoins === true) ||
+      draft.databricksQueryJoinAssist !==
+        (data.settings.databricksQueryJoinAssist !== false) ||
       draft.emitContractEvents !== (data.settings.emitContractEvents !== false) ||
       draft.contractWebhookUrl !== (data.settings.contractWebhookUrl ?? '') ||
       draft.githubOwner !== data.settings.githubOwner ||
@@ -160,6 +150,7 @@ export function SettingsPage() {
   async function saveLlmSecrets(patch: {
     openaiApiKey?: string | null
     anthropicApiKey?: string | null
+    githubToken?: string | null
   }) {
     if (!canAdmin) return
     setSecretsBusy(true)
@@ -344,8 +335,10 @@ export function SettingsPage() {
                       </table>
                     </div>
                     <p className="mt-md font-body text-xs text-on-surface-variant">
-                      Demo registry shows seed accounts. Live invite API is not
-                      wired yet.
+                      Showing your membership for this workspace. Admins can
+                      invite users via{' '}
+                      <code className="text-[11px]">POST /workspaces/:id/invites</code>
+                      .
                     </p>
                   </section>
 
@@ -494,6 +487,7 @@ export function SettingsPage() {
                         saveLlmSecrets={saveLlmSecrets}
                         reindexing={reindexing}
                         setReindexing={setReindexing}
+                        setData={setData}
                       />
                     </div>
                   ) : null}
@@ -640,6 +634,7 @@ function PolicyAndAiBlocks({
   saveLlmSecrets,
   reindexing,
   setReindexing,
+  setData,
 }: {
   data: WorkspaceSettingsPayload
   draft: WorkspaceSettingsFlags
@@ -661,9 +656,11 @@ function PolicyAndAiBlocks({
   saveLlmSecrets: (patch: {
     openaiApiKey?: string | null
     anthropicApiKey?: string | null
+    githubToken?: string | null
   }) => Promise<void>
   reindexing: boolean
   setReindexing: (v: boolean) => void
+  setData: (v: WorkspaceSettingsPayload) => void
 }) {
   return (
     <>
@@ -675,7 +672,7 @@ function PolicyAndAiBlocks({
   ) : null}
   <Toggle
     label="Include column samples on sync"
-    hint="Capped metadata samples only — never full tables"
+    hint="Off by default for schema-only. If on, samples are tokenized before storage."
     checked={draft.includeSamplesDefault}
     disabled={!canAdmin}
     onChange={(v) =>
@@ -685,12 +682,30 @@ function PolicyAndAiBlocks({
     }
   />
   <Toggle
+    label="Scrub / tokenize samples"
+    hint="Hash emails, UUIDs, and free-text samples before metadata DB"
+    checked={draft.scrubSamples !== false}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, scrubSamples: v } : d))
+    }
+  />
+  <Toggle
     label="Infer cross-source joins on sync"
     hint="Creates suggested edges for review (Promote / Reject)"
     checked={draft.inferJoinsOnSync}
     disabled={!canAdmin}
     onChange={(v) =>
       setDraft((d) => (d ? { ...d, inferJoinsOnSync: v } : d))
+    }
+  />
+  <Toggle
+    label="Databricks query-history join assist"
+    hint="On live DBX sync, parse recent SQL JOINs into suggested edges"
+    checked={draft.databricksQueryJoinAssist !== false}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, databricksQueryJoinAssist: v } : d))
     }
   />
   <Toggle
@@ -730,6 +745,15 @@ function PolicyAndAiBlocks({
     disabled={!canAdmin}
     onChange={(v) =>
       setDraft((d) => (d ? { ...d, blockExportOnDrift: v } : d))
+    }
+  />
+  <Toggle
+    label="Block dbt PR on column-level drift"
+    hint="Stops Open dbt PR when column/type drift touches job tables"
+    checked={draft.blockPrOnColumnDrift !== false}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, blockPrOnColumnDrift: v } : d))
     }
   />
   <Toggle
@@ -862,6 +886,7 @@ function PolicyAndAiBlocks({
           setDraft({
             includeSamplesDefault:
               data.settings.includeSamplesDefault,
+            scrubSamples: data.settings.scrubSamples !== false,
             inferJoinsOnSync: data.settings.inferJoinsOnSync,
             preferLlmChat: data.settings.preferLlmChat,
             aiModelId: data.settings.aiModelId ?? 'gpt-4o-mini',
@@ -870,8 +895,12 @@ function PolicyAndAiBlocks({
               data.settings.ragIncludeDocs !== false,
             blockExportOnDrift:
               data.settings.blockExportOnDrift !== false,
+            blockPrOnColumnDrift:
+              data.settings.blockPrOnColumnDrift !== false,
             blockExportOnUnreviewedJoins:
               data.settings.blockExportOnUnreviewedJoins === true,
+            databricksQueryJoinAssist:
+              data.settings.databricksQueryJoinAssist !== false,
             emitContractEvents:
               data.settings.emitContractEvents !== false,
             contractWebhookUrl:
@@ -1048,10 +1077,10 @@ function PolicyAndAiBlocks({
   meta="ADDITIVE LAYER · NO SECRETS HERE"
 >
   <p className="mb-md font-body text-xs text-on-surface-variant">
-    Optional defaults for the Jobs → dbt / GitHub PR export. Token
-    stays on the API as{' '}
-    <code className="text-primary-fixed">GITHUB_TOKEN</code> — never
-    in workspace settings. JSON/SQL exports are unchanged.
+    Optional defaults for Jobs → dbt / GitHub PR export. Prefer a{' '}
+    <strong>workspace GitHub token</strong> (below); falls back to API env{' '}
+    <code className="text-primary-fixed">GITHUB_TOKEN</code>. JSON/SQL
+    exports are unchanged.
   </p>
   {!canAdmin ? (
     <p className="mb-md font-label text-[10px] tracking-widest text-on-surface-variant">
@@ -1099,10 +1128,40 @@ function PolicyAndAiBlocks({
   <p className="mt-md font-body text-xs text-on-surface-variant">
     GitHub token:{' '}
     <Flag on={Boolean(data.capabilities.github?.tokenConfigured)} />
+    {data.capabilities.github?.tokenSource
+      ? ` (${data.capabilities.github.tokenSource})`
+      : ''}
     {' · '}
     dbt export layer:{' '}
     <Flag on={Boolean(data.capabilities.github?.dbtExport)} />
   </p>
+  {canAdmin ? (
+    <div className="mt-md space-y-sm">
+      <label className="block font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
+        Workspace GitHub token (preferred over env)
+        <input
+          type="password"
+          className="mt-1 w-full rounded-lg border border-outline-variant/30 bg-white px-sm py-2 font-body text-sm"
+          placeholder="ghp_… leave blank to keep"
+          id="que-github-token"
+        />
+      </label>
+      <button
+        type="button"
+        disabled={secretsBusy}
+        onClick={() => {
+          const el = document.getElementById(
+            'que-github-token',
+          ) as HTMLInputElement | null
+          const v = el?.value?.trim()
+          if (v) void saveLlmSecrets({ githubToken: v })
+        }}
+        className="rounded-lg border border-outline-variant px-md py-sm font-label text-[11px] disabled:opacity-40"
+      >
+        Save GitHub token
+      </button>
+    </div>
+  ) : null}
   {canAdmin ? (
     <div className="flex justify-end gap-sm pt-md">
       <button

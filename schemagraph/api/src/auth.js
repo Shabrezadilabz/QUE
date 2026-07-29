@@ -1,43 +1,41 @@
-/**
- * Dev auth — email/password sessions + workspace membership ACL.
- * Tokens: Authorization: Bearer <token>
- * Disable with STITCH_AUTH_DISABLED=true (local only).
- */
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { query } from './db.js'
+import { isProduction } from './env.js'
+import { oidcReady, oidcEnv } from './oidc.js'
 
 const SESSION_DAYS = Number(process.env.STITCH_SESSION_DAYS || 14)
 
+/**
+ * Auth bypass — NEVER in production, even if env is set.
+ */
 export function authDisabled() {
+  if (isProduction()) return false
   return String(process.env.STITCH_AUTH_DISABLED || '').toLowerCase() === 'true'
 }
 
 /**
  * SSO config surface for enterprise diligence.
- * IMPORTANT: This is NOT Okta/Azure AD login. It only reports whether OIDC env
- * vars are present for a future IdP integration.
- * Env: QUE_OIDC_ISSUER, QUE_OIDC_CLIENT_ID, QUE_OIDC_CLIENT_SECRET (secret never returned).
+ * Env: QUE_OIDC_ISSUER, QUE_OIDC_CLIENT_ID, QUE_OIDC_CLIENT_SECRET,
+ *      QUE_OIDC_REDIRECT_URI (API callback), QUE_OIDC_POST_LOGIN_REDIRECT (SPA).
  */
 export function getSsoConfig() {
-  const issuer = String(process.env.QUE_OIDC_ISSUER || '').trim()
-  const clientId = String(process.env.QUE_OIDC_CLIENT_ID || '').trim()
-  const hasSecret = Boolean(String(process.env.QUE_OIDC_CLIENT_SECRET || '').trim())
-  const redirectUri = String(
-    process.env.QUE_OIDC_REDIRECT_URI || 'http://localhost:5173/auth/callback',
-  ).trim()
-  const envPresent = Boolean(issuer && clientId)
+  const env = oidcEnv()
+  const ready = oidcReady()
+  const hasSecret = Boolean(env.clientSecret)
   return {
     provider: 'oidc',
-    /** True only when issuer + client id env vars are set — not that login works. */
-    configured: envPresent,
-    issuer: issuer || null,
-    clientId: clientId || null,
+    configured: ready,
+    issuer: env.issuer || null,
+    clientId: env.clientId || null,
     hasClientSecret: hasSecret,
-    redirectUri,
-    /** Diligence-honest status — never claim Okta-ready without authorize/callback. */
-    status: envPresent ? 'env_stub_only' : 'not_configured',
-    loginImplemented: false,
-    note: 'Password sessions only today. OIDC authorize/token/callback not implemented.',
+    redirectUri: env.apiCallback,
+    postLoginRedirect: env.postLogin,
+    status: ready ? 'ready' : 'not_configured',
+    loginImplemented: ready,
+    authorizePath: '/auth/sso/start',
+    note: ready
+      ? 'OIDC authorize + PKCE callback implemented. Configure IdP redirect to API /auth/sso/callback.'
+      : 'Set QUE_OIDC_ISSUER + QUE_OIDC_CLIENT_ID to enable SSO.',
   }
 }
 
@@ -296,11 +294,25 @@ async function ensureMembership(workspaceId, userId, role) {
 
 /**
  * Ensure demo owner + viewer accounts (idempotent).
- * Called at API boot.
+ * Skipped in production unless QUE_SEED_DEMO_USERS=true (explicit opt-in).
  */
 export async function ensureDevUserPassword(
   password = process.env.STITCH_DEV_PASSWORD || 'stitch-dev',
 ) {
+  const seed =
+    String(process.env.QUE_SEED_DEMO_USERS || '').toLowerCase() === 'true' ||
+    (!isProduction() &&
+      String(process.env.QUE_SEED_DEMO_USERS || 'true').toLowerCase() !==
+        'false')
+  if (!seed) {
+    console.log('[Que auth] Skipping demo user seed (production / QUE_SEED_DEMO_USERS=false)')
+    return
+  }
+  if (isProduction()) {
+    console.warn(
+      '[Que auth] QUE_SEED_DEMO_USERS=true in production — demo passwords will be seeded. Prefer false.',
+    )
+  }
   const demoWs =
     process.env.DEMO_WORKSPACE_ID || '22222222-2222-2222-2222-222222222222'
   const sandboxWs =

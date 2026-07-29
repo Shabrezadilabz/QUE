@@ -36,6 +36,7 @@ const CREATABLE: DataSourceType[] = [
   'csv',
   'mongodb',
   'databricks',
+  'snowflake',
 ]
 
 const STATUS_DOT: Record<DataSourceStatus, string> = {
@@ -61,6 +62,9 @@ type FormState = {
   warehouseId: string
   token: string
   catalog: string
+  /** Snowflake account locator (without .snowflakecomputing.com) */
+  account: string
+  warehouse: string
 }
 
 type CatalogItem = {
@@ -85,8 +89,9 @@ const CONNECTOR_CATALOG: CatalogItem[] = [
     key: 'snowflake',
     title: 'Snowflake',
     category: 'Data Warehouse',
-    blurb: 'Cloud data platform for enterprise analytics.',
-    creatable: false,
+    blurb: 'Fixture demo or live SQL API (account + warehouse + token).',
+    type: 'snowflake',
+    creatable: true,
   },
   {
     key: 's3',
@@ -160,10 +165,15 @@ const emptyForm = (type: DataSourceType = 'postgresql'): FormState => ({
     2,
   ),
   dbxMode: 'fixture',
-  fixturesPath: 'fixtures/databricks_unity_demo.json',
+  fixturesPath:
+    type === 'snowflake'
+      ? 'fixtures/snowflake_demo.json'
+      : 'fixtures/databricks_unity_demo.json',
   warehouseId: '',
   token: '',
   catalog: 'main',
+  account: '',
+  warehouse: 'COMPUTE_WH',
 })
 
 function formFromSource(s: DataSource): FormState {
@@ -194,12 +204,17 @@ function formFromSource(s: DataSource): FormState {
     ),
     dbxMode: c.mode === 'live' ? 'live' : 'fixture',
     fixturesPath: String(
-      c.fixturesPath ?? 'fixtures/databricks_unity_demo.json',
+      c.fixturesPath ??
+        (s.type === 'snowflake'
+          ? 'fixtures/snowflake_demo.json'
+          : 'fixtures/databricks_unity_demo.json'),
     ),
     warehouseId: String(c.warehouseId ?? ''),
     token:
       typeof c.token === 'string' && c.token !== '••••••••' ? c.token : '',
     catalog: String(c.catalog ?? 'main'),
+    account: String(c.account ?? ''),
+    warehouse: String(c.warehouse ?? c.warehouseId ?? 'COMPUTE_WH'),
   }
 }
 
@@ -235,7 +250,7 @@ function buildConfig(form: FormState): Record<string, unknown> {
         token: form.token,
         catalog: form.catalog || 'main',
         schema: form.schema || 'default',
-        includeSamples: true,
+        includeSamples: false,
         sampleLimit: 5,
       }
     }
@@ -244,7 +259,30 @@ function buildConfig(form: FormState): Record<string, unknown> {
       fixturesPath: form.fixturesPath || 'fixtures/databricks_unity_demo.json',
       catalog: form.catalog || 'main',
       schema: form.schema || 'analytics',
-      includeSamples: true,
+      includeSamples: false,
+      sampleLimit: 5,
+    }
+  }
+  if (form.type === 'snowflake') {
+    if (form.dbxMode === 'live') {
+      return {
+        mode: 'live',
+        account: form.account,
+        warehouse: form.warehouse || form.warehouseId,
+        database: form.database,
+        schema: form.schema || 'PUBLIC',
+        user: form.user,
+        password: form.password,
+        token: form.token,
+        includeSamples: false,
+        sampleLimit: 5,
+      }
+    }
+    return {
+      mode: 'fixture',
+      fixturesPath: form.fixturesPath || 'fixtures/snowflake_demo.json',
+      schema: form.schema || 'PUBLIC',
+      includeSamples: false,
       sampleLimit: 5,
     }
   }
@@ -1401,6 +1439,9 @@ function ConnectionFields({
       {form.type === 'databricks' ? (
         <DatabricksFields form={form} setForm={setForm} />
       ) : null}
+      {form.type === 'snowflake' ? (
+        <SnowflakeFields form={form} setForm={setForm} />
+      ) : null}
       {form.type === 'excel' || form.type === 'csv' ? (
         <div className="space-y-md">
           <div className="rounded-xl border border-dashed border-primary/40 bg-primary-container/5 p-md">
@@ -1660,6 +1701,123 @@ function DatabricksFields({
           />
         </Field>
       </div>
+    </div>
+  )
+}
+
+function SnowflakeFields({
+  form,
+  setForm,
+}: {
+  form: FormState
+  setForm: Dispatch<SetStateAction<FormState>>
+}) {
+  return (
+    <div className="grid gap-md">
+      <Field label="Mode">
+        <select
+          value={form.dbxMode}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              dbxMode: e.target.value === 'live' ? 'live' : 'fixture',
+            }))
+          }
+          className={inputClass}
+        >
+          <option value="fixture">Fixture (local demo JSON)</option>
+          <option value="live">Live (SQL API + token/password)</option>
+        </select>
+      </Field>
+      {form.dbxMode === 'fixture' ? (
+        <Field label="Fixtures path">
+          <input
+            value={form.fixturesPath}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, fixturesPath: e.target.value }))
+            }
+            className={inputClass}
+          />
+        </Field>
+      ) : (
+        <div className="grid gap-md md:grid-cols-2">
+          <Field label="Account">
+            <input
+              value={form.account}
+              placeholder="xy12345.us-east-1"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, account: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Warehouse">
+            <input
+              value={form.warehouse}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, warehouse: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Database">
+            <input
+              value={form.database}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, database: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Schema">
+            <input
+              value={form.schema}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, schema: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="User">
+            <input
+              value={form.user}
+              onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Token (PAT preferred)">
+            <input
+              type="password"
+              value={form.token}
+              placeholder="leave blank to keep"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, token: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Password (if no token)">
+            <input
+              type="password"
+              value={form.password}
+              placeholder="leave blank to keep"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, password: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      )}
+      {form.dbxMode === 'fixture' ? (
+        <Field label="Schema">
+          <input
+            value={form.schema}
+            onChange={(e) => setForm((f) => ({ ...f, schema: e.target.value }))}
+            className={inputClass}
+          />
+        </Field>
+      ) : null}
     </div>
   )
 }

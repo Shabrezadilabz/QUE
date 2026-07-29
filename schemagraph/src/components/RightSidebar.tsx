@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
-import type { SchemaColumn, SchemaTable } from '@/types/schema'
+import type { SchemaColumn } from '@/types/schema'
 import type {
   RightSidebarStatus,
   SampleDataRow,

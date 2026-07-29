@@ -12,6 +12,9 @@ import { introspectSnowflake } from './connectors/snowflake.js'
 import { inferCrossSourceJoins } from './inferJoins.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { buildSyncDrift, capturePreSyncDrift } from './syncDrift.js'
+import { scrubIntrospectionResult } from './privacy/sampleScrub.js'
+import { assistJoinsFromDatabricksHistory } from './connectors/databricksQueryJoins.js'
+import { unsealConnectionConfig } from './connectionCrypto.js'
 
 /**
  * @param {string} workspaceId
@@ -31,7 +34,9 @@ export async function syncConnection(workspaceId, connectionId) {
   }
 
   const connection = connRows[0]
-  const config = { ...(connection.config_json ?? {}) }
+  const config = unsealConnectionConfig({
+    ...(connection.config_json ?? {}),
+  })
   const wsSettings = await getWorkspaceSettings(workspaceId)
   const prefs = wsSettings?.settings
   if (config.includeSamples == null && prefs) {
@@ -41,6 +46,24 @@ export async function syncConnection(workspaceId, connectionId) {
   let introspected
   try {
     introspected = await runIntrospect(connection.source_type, config)
+    const scrubOn =
+      prefs?.scrubSamples !== false && config.includeSamples !== false
+    if (scrubOn && config.includeSamples !== false) {
+      introspected = scrubIntrospectionResult(introspected, { enabled: true })
+    }
+    // If samples disabled entirely, ensure empty sample arrays
+    if (config.includeSamples === false) {
+      introspected = scrubIntrospectionResult(
+        {
+          ...introspected,
+          tables: (introspected.tables || []).map((t) => ({
+            ...t,
+            columns: (t.columns || []).map((c) => ({ ...c, sampleValues: [] })),
+          })),
+        },
+        { enabled: false },
+      )
+    }
   } catch (e) {
     await query(
       `UPDATE connections SET status = 'error', updated_at = now()
@@ -116,6 +139,29 @@ export async function syncConnection(workspaceId, connectionId) {
       typeof inferResult === 'number' ? inferResult : inferResult.created || 0
   }
 
+  let queryHistoryJoins = null
+  if (
+    prefs?.databricksQueryJoinAssist !== false &&
+    connection.source_type === 'databricks' &&
+    config.mode === 'live'
+  ) {
+    try {
+      queryHistoryJoins = await assistJoinsFromDatabricksHistory(
+        workspaceId,
+        connectionId,
+        config,
+      )
+      if (queryHistoryJoins?.created) {
+        suggestedJoins += queryHistoryJoins.created
+      }
+    } catch (err) {
+      queryHistoryJoins = {
+        created: 0,
+        error: String(err.message || err),
+      }
+    }
+  }
+
   const drift = await buildSyncDrift(
     workspaceId,
     connectionId,
@@ -131,6 +177,7 @@ export async function syncConnection(workspaceId, connectionId) {
     columnsSynced: applied.columnsSynced,
     relationshipsSynced: applied.relationshipsSynced,
     suggestedJoins,
+    queryHistoryJoins,
     drift,
     snapshot,
   }

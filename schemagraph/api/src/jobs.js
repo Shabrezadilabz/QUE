@@ -7,6 +7,8 @@ import { randomUUID } from 'node:crypto'
 import { query } from './db.js'
 import { buildDbtBundle, loadAcceptedJoins } from './exporters/dbtBundle.js'
 import { createGithubPullRequest } from './exporters/githubPr.js'
+import { resolveGithubToken } from './secrets.js'
+import { columnImpactBlockingExport } from './contracts/columnImpact.js'
 import {
   attestationFingerprint,
   buildSchemaOnlyAttestation,
@@ -384,6 +386,27 @@ export async function exportJob(workspaceId, jobId, format = 'json', options = {
     }
   }
 
+  if (
+    (format === 'dbt-pr' || format === 'dbt') &&
+    settings.blockPrOnColumnDrift !== false &&
+    !options.force
+  ) {
+    const impacts = await columnImpactBlockingExport(workspaceId, job)
+    if (impacts.length > 0) {
+      const err = new Error(
+        `Export blocked by column-level drift (${impacts.length}): ack drift or pass force with reason`,
+      )
+      err.status = 409
+      err.validation = {
+        blocking: true,
+        errors: impacts.map((i) => `[${i.code}] ${i.summary}`),
+        columnImpact: impacts,
+        warnings: validation.warnings || [],
+      }
+      throw err
+    }
+  }
+
   if (format === 'dbt' || format === 'dbt-pr') {
     return exportJobDbtLayer(workspaceId, job, format, options, validation)
   }
@@ -550,8 +573,9 @@ async function exportJobDbtLayer(
       .join('\n')
 
     try {
+      const ghTok = await resolveGithubToken(workspaceId)
       github = await createGithubPullRequest({
-        token: process.env.GITHUB_TOKEN,
+        token: ghTok.token,
         owner,
         repo,
         baseBranch,
@@ -560,6 +584,7 @@ async function exportJobDbtLayer(
         body: prBody,
         files: bundle.files,
       })
+      if (github) github.tokenSource = ghTok.source
     } catch (err) {
       github = {
         opened: false,

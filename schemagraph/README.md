@@ -19,9 +19,29 @@ npm install
 npm run dev
 ```
 
-Open the URL Vite prints (default `http://localhost:5173`). Primary route: `/workspace`.
+Open the URL Vite prints. Que is pinned to **`http://localhost:5174`** (avoids collision with other apps on `:5173`). Primary route: `/workspace`.
 
-Sign in first (`/login`). Demo owner: `dev@stitch.local` / `stitch-dev`. Member: `member@stitch.local` / `stitch-member`. Viewer: `viewer@stitch.local` / `stitch-viewer`.
+Sign in first (`/login`). Fields start blank. Local **dev** builds show demo account shortcuts (`dev@stitch.local` / `stitch-dev`, etc.); production builds do not.
+
+## Testing (paid POC gate)
+
+```bash
+# Automated — joins + privacy + functional + unit
+cd api && npm run test:diligence
+
+# Smoke against running API
+npm run test:smoke
+
+# Browser E2E (API on :8787 + UI on :5174)
+cd .. && npm run test:e2e
+
+# Frontend typecheck
+npx tsc --noEmit -p tsconfig.app.json
+```
+
+**Manual checklist:** [`docs/MANUAL_TEST_PLAN.md`](./docs/MANUAL_TEST_PLAN.md)  
+**Prod env template:** [`api/.env.production.example`](./api/.env.production.example)  
+**CI:** `../.github/workflows/que-diligence.yml`
 
 ## Layout regions
 
@@ -55,5 +75,5 @@ cd api && npm install && npm run seed && npm start
 UI loads from `http://localhost:8787` with Bearer auth on workspace routes (falls back to dummy data if the API is down).
 
 Auth endpoints: `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`.  
-Disable with `STITCH_AUTH_DISABLED=1` for local prototyping.
+`STITCH_AUTH_DISABLED=1` is local-only — **refused in production** (`QUE_ENV=production`).
 

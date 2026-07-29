@@ -64,6 +64,16 @@ import {
   requireMinRole,
   requireWorkspaceMember,
 } from './auth.js'
+import {
+  buildAuthorizeRedirectUrl,
+  completeOidcCallback,
+} from './oidc.js'
+import { requestLogMiddleware } from './logger.js'
+import { ingestBiLineage, listLatestBiLineage } from './exporters/biLineage.js'
+import { ingestDbtManifest } from './exporters/dbtManifestAssist.js'
+import { verifyAttestationSignature } from './exporters/attestation.js'
+import { assertProductionSecrets, corsOrigins } from './env.js'
+import { createInvite, listInvites, revokeInvite } from './invites.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -84,13 +94,31 @@ function loadEnv() {
 
 loadEnv()
 
+try {
+  assertProductionSecrets()
+} catch (err) {
+  console.error(err.message || err)
+  process.exit(1)
+}
+
 const app = express()
 const PORT = Number(process.env.PORT || 8787)
 const DEMO_WS =
   process.env.DEMO_WORKSPACE_ID || '22222222-2222-2222-2222-222222222222'
 
-app.use(cors())
-app.use(express.json())
+const allowedOrigins = corsOrigins()
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin) return cb(null, true)
+      if (allowedOrigins.includes(origin)) return cb(null, true)
+      return cb(null, false)
+    },
+    credentials: true,
+  }),
+)
+app.use(express.json({ limit: '4mb' }))
+app.use(requestLogMiddleware)
 
 app.get('/health', async (_req, res) => {
   try {
@@ -99,9 +127,19 @@ app.get('/health', async (_req, res) => {
       ok: true,
       service: 'que-api',
       authDisabled: authDisabled(),
+      sso: getSsoConfig().status,
     })
   } catch (err) {
     res.status(503).json({ ok: false, error: String(err.message || err) })
+  }
+})
+
+app.get('/openapi.json', (_req, res) => {
+  try {
+    const path = resolve(__dirname, '../openapi.json')
+    res.type('application/json').send(readFileSync(path, 'utf8'))
+  } catch (err) {
+    res.status(404).json({ error: 'openapi.json missing', detail: String(err.message || err) })
   }
 })
 
@@ -133,9 +171,39 @@ app.get('/auth/me', requireAuth, async (req, res) => {
   }
 })
 
-/** SSO readiness (OIDC env) — full IdP login flow is a follow-up. */
+/** SSO readiness */
 app.get('/auth/sso', (_req, res) => {
   res.json({ ok: true, sso: getSsoConfig() })
+})
+
+/** Start OIDC authorize (browser redirect) */
+app.get('/auth/sso/start', async (_req, res) => {
+  try {
+    const url = await buildAuthorizeRedirectUrl()
+    res.redirect(302, url)
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** OIDC callback — exchange code, set session, redirect SPA with token */
+app.get('/auth/sso/callback', async (req, res) => {
+  try {
+    const result = await completeOidcCallback({
+      code: req.query.code,
+      state: req.query.state,
+    })
+    res.redirect(302, result.redirectUrl)
+  } catch (err) {
+    res.status(err.status || 500).send(
+      `SSO failed: ${String(err.message || err)}. Close this window and retry.`,
+    )
+  }
+})
+
+app.post('/auth/attestation/verify', express.json(), (req, res) => {
+  const result = verifyAttestationSignature(req.body?.attestation || req.body)
+  res.json({ ok: result.ok, ...result })
 })
 
 app.get('/workspaces', requireAuth, async (req, res) => {
@@ -814,6 +882,13 @@ app.put(
           body.anthropicApiKey == null ? '' : String(body.anthropicApiKey),
         )
       }
+      if ('githubToken' in body) {
+        out.github = await setSecret(
+          req.params.workspaceId,
+          'github_token',
+          body.githubToken == null ? '' : String(body.githubToken),
+        )
+      }
       const status = await getSecretsStatus(req.params.workspaceId)
       res.json({ ok: true, updated: out, secrets: status })
     } catch (err) {
@@ -1062,6 +1137,85 @@ app.get(
   },
 )
 
+app.get('/workspaces/:workspaceId/invites', requireMinRole('admin'), async (req, res) => {
+  try {
+    const invites = await listInvites(req.params.workspaceId)
+    res.json({ ok: true, invites })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/invites',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const invite = await createInvite(req.params.workspaceId, {
+        email: req.body?.email,
+        role: req.body?.role,
+        invitedBy: req.user?.id,
+      })
+      res.status(201).json({ ok: true, invite })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/invites/:inviteId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const ok = await revokeInvite(req.params.workspaceId, req.params.inviteId)
+      if (!ok) {
+        res.status(404).json({ error: 'invite not found' })
+        return
+      }
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/bi-lineage', async (req, res) => {
+  try {
+    const items = await listLatestBiLineage(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/bi-lineage',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await ingestBiLineage(req.params.workspaceId, req.body || {})
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/dbt-manifest',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const manifest = req.body?.manifest || req.body
+      const result = await ingestDbtManifest(req.params.workspaceId, manifest)
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.get('/', (_req, res) => {
   res.json({
     service: 'que-api',
@@ -1073,7 +1227,13 @@ app.get('/', (_req, res) => {
       'POST /auth/logout',
       'GET /auth/me',
       'GET /auth/sso',
+      'GET /auth/sso/start',
+      'GET /auth/sso/callback',
+      'GET /openapi.json',
+      'POST /auth/attestation/verify',
       'GET /workspaces',
+      'POST /workspaces/:workspaceId/bi-lineage',
+      'POST /workspaces/:workspaceId/dbt-manifest',
       'GET /workspaces/:workspaceId/sources',
       'POST /workspaces/:workspaceId/connections',
       'POST /workspaces/:workspaceId/connections/:connectionId/upload',
@@ -1117,12 +1277,15 @@ ensureDevUserPassword()
       console.log(`demo workspace: ${DEMO_WS}`)
       console.log(
         authDisabled()
-          ? 'auth: DISABLED (STITCH_AUTH_DISABLED)'
-          : 'auth: ON — owner:dev@stitch.local/stitch-dev · viewer:viewer@stitch.local/stitch-viewer',
+          ? 'auth: DISABLED (STITCH_AUTH_DISABLED — local only)'
+          : 'auth: ON',
       )
+      if (process.env.QUE_ENV === 'production' || process.env.NODE_ENV === 'production') {
+        console.log('tls: terminate TLS at reverse proxy / load balancer (TLS 1.2+ required)')
+      }
     })
   })
   .catch((err) => {
-    console.error('Failed to ensure dev user password', err)
+    console.error('Failed to boot auth seed', err)
     process.exit(1)
   })

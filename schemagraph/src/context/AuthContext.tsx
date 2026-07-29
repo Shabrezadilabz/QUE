@@ -13,6 +13,7 @@ import {
   getStoredUser,
   loginRequest,
   logoutRequest,
+  setAuthSession,
   type AuthUser,
   type AuthWorkspace,
 } from '@/services/auth'
@@ -27,6 +28,7 @@ interface AuthContextValue {
   workspaceId: string
   ready: boolean
   login: (email: string, password: string) => Promise<void>
+  acceptToken: (token: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
   setWorkspaceId: (id: string) => void
@@ -93,6 +95,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setWorkspaceIdState(next)
   }, [])
 
+  const acceptToken = useCallback(async (token: string) => {
+    setAuthSession(token, {
+      id: 'pending',
+      email: 'sso@pending',
+    })
+    const me = await fetchMe()
+    if (!me) throw new Error('SSO token rejected')
+    setAuthSession(token, me.user)
+    setUser(me.user)
+    setWorkspaces(me.workspaces)
+    const next = pickWorkspaceId(me.workspaces)
+    setActiveWorkspaceId(next)
+    setWorkspaceIdState(next)
+  }, [])
+
   const logout = useCallback(async () => {
     await logoutRequest()
     setUser(null)
@@ -106,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaceId,
       ready,
       login,
+      acceptToken,
       logout,
       refresh,
       setWorkspaceId,
@@ -116,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaceId,
       ready,
       login,
+      acceptToken,
       logout,
       refresh,
       setWorkspaceId,

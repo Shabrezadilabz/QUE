@@ -1,9 +1,14 @@
 /**
  * Connection (data source) CRUD for the Sources page.
- * config_json may hold local demo secrets — responses redact password fields.
+ * Secret fields sealed with AES-GCM at rest (__enc blob).
  */
 import { randomUUID } from 'node:crypto'
 import { query } from './db.js'
+import {
+  publicConnectionConfig,
+  sealConnectionConfig,
+  unsealConnectionConfig,
+} from './connectionCrypto.js'
 
 const SYNCABLE = new Set([
   'postgresql',
@@ -11,20 +16,8 @@ const SYNCABLE = new Set([
   'csv',
   'mongodb',
   'databricks',
+  'snowflake',
 ])
-
-function redactConfig(config) {
-  if (!config || typeof config !== 'object') return { config: {}, hasSecrets: false }
-  const next = { ...config }
-  let hasSecrets = false
-  for (const key of ['password', 'secret', 'token', 'apiKey']) {
-    if (next[key] != null && String(next[key]).length > 0) {
-      hasSecrets = true
-      next[key] = '••••••••'
-    }
-  }
-  return { config: next, hasSecrets }
-}
 
 function mapConnection(row, { includeConfig = true } = {}) {
   const base = {
@@ -38,8 +31,35 @@ function mapConnection(row, { includeConfig = true } = {}) {
     createdAt: row.created_at,
   }
   if (!includeConfig) return base
-  const { config, hasSecrets } = redactConfig(row.config_json)
+  const { config, hasSecrets } = publicConnectionConfig(row.config_json)
   return { ...base, config, hasSecrets }
+}
+
+/**
+ * Merge config updates — keep previous sealed secrets if client sends blank / mask.
+ */
+function mergeConfig(existing, incoming) {
+  const prevRaw = existing && typeof existing === 'object' ? { ...existing } : {}
+  const prev = unsealConnectionConfig(prevRaw)
+  if (!incoming || typeof incoming !== 'object') {
+    return sealConnectionConfig(prev)
+  }
+  const next = { ...prev, ...incoming }
+  // Drop incoming mask placeholders so we keep prev secrets
+  for (const key of ['password', 'secret', 'token', 'apiKey']) {
+    if (
+      next[key] === '' ||
+      next[key] === '••••••••' ||
+      next[key] == null
+    ) {
+      if (prev[key] != null) next[key] = prev[key]
+      else delete next[key]
+    }
+  }
+  // Carry forward __enc only via seal — remove raw from merge
+  delete next.__enc
+  delete next.__encVersion
+  return sealConnectionConfig(next)
 }
 
 export async function listConnections(workspaceId) {
@@ -65,26 +85,6 @@ export async function getConnection(workspaceId, connectionId) {
   return rows[0] ? mapConnection(rows[0]) : null
 }
 
-/**
- * Merge config updates — keep previous password if client sends blank / mask.
- */
-function mergeConfig(existing, incoming) {
-  const prev = existing && typeof existing === 'object' ? { ...existing } : {}
-  if (!incoming || typeof incoming !== 'object') return prev
-  const next = { ...prev, ...incoming }
-  for (const key of ['password', 'secret', 'token', 'apiKey']) {
-    if (
-      next[key] === '' ||
-      next[key] === '••••••••' ||
-      next[key] == null
-    ) {
-      if (prev[key] != null) next[key] = prev[key]
-      else delete next[key]
-    }
-  }
-  return next
-}
-
 export async function createConnection(workspaceId, body = {}) {
   const name = String(body.name || '').trim()
   const sourceType = String(body.type || body.source_type || '').trim()
@@ -104,7 +104,9 @@ export async function createConnection(workspaceId, body = {}) {
     ? body.status
     : 'warning'
   const description = body.description ?? null
-  const config = body.config && typeof body.config === 'object' ? body.config : {}
+  const raw =
+    body.config && typeof body.config === 'object' ? body.config : {}
+  const config = sealConnectionConfig(raw)
 
   try {
     const { rows } = await query(
@@ -212,12 +214,16 @@ export async function getConnectionSecrets(workspaceId, connectionId) {
   )
   if (!rows[0]) return null
   const row = rows[0]
+  const raw =
+    row.config_json && typeof row.config_json === 'object'
+      ? row.config_json
+      : {}
   return {
     id: row.id,
     name: row.name,
     type: row.source_type,
     status: row.status,
-    config: row.config_json && typeof row.config_json === 'object' ? row.config_json : {},
+    config: unsealConnectionConfig(raw),
   }
 }
 
@@ -230,11 +236,17 @@ export async function listConnectionsRaw(workspaceId) {
      ORDER BY name`,
     [workspaceId],
   )
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    type: row.source_type,
-    status: row.status,
-    config: row.config_json && typeof row.config_json === 'object' ? row.config_json : {},
-  }))
+  return rows.map((row) => {
+    const raw =
+      row.config_json && typeof row.config_json === 'object'
+        ? row.config_json
+        : {}
+    return {
+      id: row.id,
+      name: row.name,
+      type: row.source_type,
+      status: row.status,
+      config: unsealConnectionConfig(raw),
+    }
+  })
 }

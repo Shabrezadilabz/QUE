@@ -41,8 +41,8 @@ export function LoginPage() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-full w-full items-center justify-center bg-canvas font-label text-[11px] tracking-widest text-on-surface-variant">
-        CHECKING SESSION…
+      <div className="flex min-h-full w-full items-center justify-center bg-canvas font-label text-sm tracking-widest text-on-surface-variant">
+        Checking session…
       </div>
     )
   }
@@ -80,7 +80,7 @@ export function LoginPage() {
           <span className="font-headline text-lg font-bold tracking-tight text-primary sm:text-xl">
             Que
           </span>
-          <span className="font-label text-[10px] font-bold tracking-[0.18em] text-on-surface-variant sm:text-[11px]">
+          <span className="font-label text-xs font-bold tracking-[0.14em] text-on-surface-variant sm:text-sm">
             {mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'}
           </span>
         </header>
@@ -90,12 +90,12 @@ export function LoginPage() {
           className="flex flex-1 flex-col gap-lg p-md sm:gap-lg sm:p-lg"
         >
           <div className="space-y-sm">
-            <h1 className="font-headline text-[1.75rem] leading-tight font-semibold tracking-tight text-on-surface sm:text-[2rem] md:text-[2.25rem]">
+            <h1 className="font-headline text-xl font-semibold leading-tight tracking-tight text-on-surface sm:text-2xl">
               {mode === 'login' ? 'Workspace access' : 'Get started'}
             </h1>
-            <p className="max-w-[36ch] font-body text-[13px] leading-relaxed text-on-surface-variant sm:text-sm">
+            <p className="max-w-[40ch] font-body text-[13px] leading-snug text-on-surface-variant">
               {mode === 'login'
-                ? 'Schema metadata only — membership is enforced per workspace.'
+                ? 'Schema metadata only — membership is enforced per workspace. Join suggestions always need human Promote.'
                 : 'Create an account and your first workspace. Invites are claimed automatically on login.'}
             </p>
           </div>
@@ -105,7 +105,7 @@ export function LoginPage() {
               type="button"
               onClick={() => setMode('login')}
               className={[
-                'flex-1 rounded-md py-sm font-label text-[11px] tracking-widest',
+                'flex-1 rounded-md py-sm font-label text-sm tracking-widest',
                 mode === 'login'
                   ? 'bg-primary-container text-on-primary'
                   : 'text-on-surface-variant',
@@ -117,7 +117,7 @@ export function LoginPage() {
               type="button"
               onClick={() => setMode('register')}
               className={[
-                'flex-1 rounded-md py-sm font-label text-[11px] tracking-widest',
+                'flex-1 rounded-md py-sm font-label text-sm tracking-widest',
                 mode === 'register'
                   ? 'bg-primary-container text-on-primary'
                   : 'text-on-surface-variant',
@@ -139,7 +139,7 @@ export function LoginPage() {
           <div className="space-y-md">
             {mode === 'register' ? (
               <label className="block">
-                <span className="mb-sm block font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant sm:text-[11px]">
+                <span className="mb-sm block font-label text-sm font-semibold text-on-surface-variant">
                   DISPLAY NAME
                 </span>
                 <input
@@ -147,13 +147,13 @@ export function LoginPage() {
                   autoComplete="name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[15px] text-on-surface outline-none focus:border-primary-fixed sm:min-h-12 sm:text-base"
+                  className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed sm:min-h-12 sm:text-[13px]"
                 />
               </label>
             ) : null}
 
             <label className="block">
-              <span className="mb-sm block font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant sm:text-[11px]">
+              <span className="mb-sm block font-label text-sm font-semibold text-on-surface-variant">
                 EMAIL
               </span>
               <input
@@ -162,13 +162,13 @@ export function LoginPage() {
                 inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[15px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-primary-fixed sm:min-h-12 sm:text-base"
+                className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[13px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-primary-fixed sm:min-h-12 sm:text-[13px]"
                 required
               />
             </label>
 
             <label className="block">
-              <span className="mb-sm block font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant sm:text-[11px]">
+              <span className="mb-sm block font-label text-sm font-semibold text-on-surface-variant">
                 PASSWORD
               </span>
               <input
@@ -179,7 +179,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={mode === 'register' ? 8 : undefined}
-                className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[15px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-primary-fixed sm:min-h-12 sm:text-base"
+                className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[13px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-primary-fixed sm:min-h-12 sm:text-[13px]"
                 required
               />
               {mode === 'register' ? (
@@ -191,7 +191,7 @@ export function LoginPage() {
 
             {mode === 'register' ? (
               <label className="block">
-                <span className="mb-sm block font-label text-[10px] font-bold tracking-[0.16em] text-on-surface-variant sm:text-[11px]">
+                <span className="mb-sm block font-label text-sm font-semibold text-on-surface-variant">
                   FIRST WORKSPACE NAME
                 </span>
                 <input
@@ -199,7 +199,7 @@ export function LoginPage() {
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
                   placeholder="My workspace"
-                  className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[15px] text-on-surface outline-none focus:border-primary-fixed sm:min-h-12 sm:text-base"
+                  className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed sm:min-h-12 sm:text-[13px]"
                 />
               </label>
             ) : null}

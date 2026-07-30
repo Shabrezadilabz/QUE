@@ -23,17 +23,17 @@ export function QueAppChrome({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-canvas">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-md border-b border-secondary-container/30 bg-background px-md sm:h-16 sm:px-lg lg:px-xl">
-        <div className="flex min-w-0 items-center gap-md sm:gap-lg lg:gap-xl">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-sm border-b border-secondary-container/30 bg-background px-md sm:h-12 sm:px-lg lg:px-xl">
+        <div className="flex min-w-0 items-center gap-md sm:gap-lg">
           <MobileNav showBelow="md" />
           <Link
             to="/workspace"
-            className="shrink-0 font-headline text-[1.35rem] font-bold leading-none tracking-tight text-primary sm:text-[1.65rem]"
+            className="shrink-0 font-headline text-[1.15rem] font-bold leading-none tracking-tight text-primary sm:text-[1.25rem]"
           >
             Que
           </Link>
           <nav
-            className="hidden items-center gap-5 md:flex lg:gap-7"
+            className="hidden items-center gap-4 md:flex lg:gap-5"
             aria-label="Primary"
           >
             <WorkspaceSwitcher variant="nav" />

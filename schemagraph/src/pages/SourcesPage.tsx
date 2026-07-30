@@ -6,12 +6,26 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import {
   SourceTypeIcon,
   sourceTypeLabel,
 } from '@/components/sidebar/SourceTypeIcon'
+import {
+  ConnectorCatalogGrid,
+  SourcesBranchMark,
+} from '@/components/sources/ConnectorCatalogGrid'
+import {
+  ConnectionHealthPanel,
+} from '@/components/sources/ConnectionHealthPanel'
+import {
+  CONNECTOR_CATALOG,
+  filterConnectorCatalog,
+  POC_PACK,
+  type CatalogItem,
+  type ConnectorCategoryId,
+} from '@/connectors/connectorCatalog'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -67,86 +81,14 @@ type FormState = {
   warehouse: string
 }
 
-type CatalogItem = {
-  key: string
-  title: string
-  category: string
-  blurb: string
-  type?: DataSourceType
-  creatable: boolean
+const WIZARD_STEPS = ['Choose', 'Configure'] as const
+
+type SourcesView = 'home' | 'catalog' | 'form' | 'detail'
+
+function parseSourcesView(raw: string | null): SourcesView {
+  if (raw === 'catalog' || raw === 'form' || raw === 'detail') return raw
+  return 'home'
 }
-
-const CONNECTOR_CATALOG: CatalogItem[] = [
-  {
-    key: 'postgresql',
-    title: 'PostgreSQL',
-    category: 'Relational DB',
-    blurb: 'Connect to your managed RDS or on-prem instances.',
-    type: 'postgresql',
-    creatable: true,
-  },
-  {
-    key: 'snowflake',
-    title: 'Snowflake',
-    category: 'Data Warehouse',
-    blurb: 'Fixture demo or live SQL API (account + warehouse + token).',
-    type: 'snowflake',
-    creatable: true,
-  },
-  {
-    key: 's3',
-    title: 'AWS S3',
-    category: 'Object Store',
-    blurb: 'Sync JSON, CSV, or Parquet files from buckets.',
-    creatable: false,
-  },
-  {
-    key: 'mongodb',
-    title: 'MongoDB',
-    category: 'NoSQL',
-    blurb: 'High-performance document-based database.',
-    type: 'mongodb',
-    creatable: true,
-  },
-  {
-    key: 'excel',
-    title: 'Excel',
-    category: 'Spreadsheet',
-    blurb: 'Upload workbooks — Que infers tables and columns.',
-    type: 'excel',
-    creatable: true,
-  },
-  {
-    key: 'csv',
-    title: 'CSV',
-    category: 'Flat file',
-    blurb: 'Drop CSV/TSV samples for quick schema onboarding.',
-    type: 'csv',
-    creatable: true,
-  },
-  {
-    key: 'databricks',
-    title: 'Databricks',
-    category: 'Lakehouse',
-    blurb: 'Unity Catalog fixtures or live SQL warehouse.',
-    type: 'databricks',
-    creatable: true,
-  },
-  {
-    key: 'bigquery',
-    title: 'BigQuery',
-    category: 'Data Warehouse',
-    blurb: "Google's serverless, multi-cloud data warehouse.",
-    creatable: false,
-  },
-]
-
-const WIZARD_STEPS = [
-  'Sources',
-  'Transformation',
-  'Schedule',
-  'Review',
-] as const
 
 const emptyForm = (type: DataSourceType = 'postgresql'): FormState => ({
   name: '',
@@ -340,24 +282,45 @@ function statusBadge(status: DataSourceStatus): {
 export function SourcesPage() {
   const { canWrite, canAdmin } = useWorkspaceRole()
   const { workspaceId, workspaces } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view = parseSourcesView(searchParams.get('view'))
+  const deepLinkId = searchParams.get('id')
   const workspaceName =
     workspaces.find((w) => w.id === workspaceId)?.name || 'Workspace'
   const [sources, setSources] = useState<DataSource[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [wizardStep, setWizardStep] = useState(1)
-  const [catalogKey, setCatalogKey] = useState<string | null>(null)
-  const [catalogQuery, setCatalogQuery] = useState('')
-  const [scheduleMode, setScheduleMode] = useState<'ondemand' | 'manual'>(
-    'ondemand',
+  const [selectedId, setSelectedId] = useState<string | null>(deepLinkId)
+  const [creating, setCreating] = useState(
+    () => view === 'catalog' || view === 'form',
   )
-  const [form, setForm] = useState<FormState>(emptyForm())
+  const [wizardStep, setWizardStep] = useState(view === 'form' ? 2 : 1)
+  const [catalogKey, setCatalogKey] = useState<string | null>(
+    searchParams.get('connector'),
+  )
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [catalogCategory, setCatalogCategory] =
+    useState<ConnectorCategoryId>('all')
+  const [form, setForm] = useState<FormState>(() => {
+    const key = searchParams.get('connector')
+    const item = CONNECTOR_CATALOG.find((c) => c.key === key)
+    return emptyForm(item?.type ?? 'postgresql')
+  })
   const [filter, setFilter] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [tableNameOverrides, setTableNameOverrides] = useState('')
+
+  function goView(
+    next: SourcesView,
+    opts?: { id?: string | null; connector?: string | null },
+  ) {
+    const params: Record<string, string> = {}
+    if (next !== 'home') params.view = next
+    if (opts?.id) params.id = opts.id
+    if (opts?.connector) params.connector = opts.connector
+    setSearchParams(params)
+  }
 
   async function reload(preferId?: string | null) {
     const list = await fetchWorkspaceSources()
@@ -383,11 +346,48 @@ export function SourcesPage() {
     setSelectedId(null)
     setCreating(false)
     setWizardStep(1)
+    setCatalogKey(null)
+    goView('home')
     reload().catch((err) =>
       setError(err instanceof Error ? err.message : String(err)),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId])
+
+  useEffect(() => {
+    if (view === 'catalog' || view === 'form') {
+      setCreating(true)
+      setSelectedId(null)
+      setWizardStep(view === 'form' ? 2 : 1)
+      const key = searchParams.get('connector')
+      if (key) {
+        setCatalogKey(key)
+        const item = CONNECTOR_CATALOG.find((c) => c.key === key)
+        if (item?.type) {
+          setForm((f) =>
+            f.type === item.type
+              ? f
+              : {
+                  ...emptyForm(item.type!),
+                  name: f.name,
+                  description: f.description || item.purpose,
+                },
+          )
+        }
+      }
+      return
+    }
+    if (view === 'detail' && deepLinkId) {
+      setCreating(false)
+      setSelectedId(deepLinkId)
+      return
+    }
+    if (view === 'home') {
+      setCreating(false)
+      if (!deepLinkId) setSelectedId(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, deepLinkId, searchParams])
 
   useEffect(() => {
     if (creating) return
@@ -406,16 +406,14 @@ export function SourcesPage() {
     )
   }, [sources, filter])
 
-  const catalogFiltered = useMemo(() => {
-    const q = catalogQuery.trim().toLowerCase()
-    if (!q) return CONNECTOR_CATALOG
-    return CONNECTOR_CATALOG.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.category.toLowerCase().includes(q) ||
-        c.blurb.toLowerCase().includes(q),
-    )
-  }, [catalogQuery])
+  const catalogFiltered = useMemo(
+    () =>
+      filterConnectorCatalog(CONNECTOR_CATALOG, {
+        query: catalogQuery,
+        categoryId: catalogCategory,
+      }),
+    [catalogQuery, catalogCategory],
+  )
 
   const selected = sources.find((s) => s.id === selectedId) ?? null
   const syncable = creating
@@ -427,23 +425,18 @@ export function SourcesPage() {
     selectedCatalog?.creatable && selectedCatalog.type,
   )
 
-  const healthActive = sources.filter((s) => s.status === 'active').length
-  const healthPct =
-    sources.length === 0
-      ? 100
-      : Math.round((healthActive / sources.length) * 10000) / 100
-
   function startCreate() {
     setCreating(true)
     setSelectedId(null)
     setWizardStep(1)
     setCatalogKey(null)
     setCatalogQuery('')
-    setScheduleMode('ondemand')
+    setCatalogCategory('all')
     setForm(emptyForm('postgresql'))
     setPendingFiles([])
     setTableNameOverrides('')
     setError(null)
+    goView('catalog')
   }
 
   function cancelWizard() {
@@ -451,20 +444,130 @@ export function SourcesPage() {
     setWizardStep(1)
     setCatalogKey(null)
     setError(null)
+    goView('home')
+  }
+
+  function continueToForm() {
+    const item = CONNECTOR_CATALOG.find((c) => c.key === catalogKey)
+    if (!item?.creatable || !item.type) {
+      setToast(
+        `${item?.title ?? 'Connector'} — request access, or use CSV / Excel as a bridge`,
+      )
+      return
+    }
+    setWizardStep(2)
+    goView('form', { connector: item.key })
   }
 
   function pickCatalog(item: CatalogItem) {
     setCatalogKey(item.key)
     if (!item.creatable || !item.type) {
-      setToast(`${item.title} — request access / coming soon`)
+      setToast(
+        `${item.title} — request access, or use CSV / Excel as a bridge today`,
+      )
       return
     }
-    setForm((f) => ({
-      ...emptyForm(item.type!),
-      name: f.name,
-      description: f.description,
-      type: item.type!,
-    }))
+    setForm((f) => {
+      const next = {
+        ...emptyForm(item.type!),
+        name: f.name || `${item.title} connection`,
+        description: f.description || item.purpose,
+        type: item.type!,
+      }
+      if (
+        (item.type === 'snowflake' || item.type === 'databricks') &&
+        item.preferredAuth === 'fixture'
+      ) {
+        next.dbxMode = 'fixture'
+      }
+      return next
+    })
+  }
+
+  async function installPocPack() {
+    if (!canAdmin) {
+      setToast('Admin required to install the POC pack')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const existing = await fetchWorkspaceSources()
+      const hasSf = existing.some(
+        (s) =>
+          s.type === 'snowflake' &&
+          s.name.toLowerCase().includes('poc') &&
+          s.name.toLowerCase().includes('snowflake'),
+      )
+      const hasDbx = existing.some(
+        (s) =>
+          s.type === 'databricks' &&
+          s.name.toLowerCase().includes('poc') &&
+          s.name.toLowerCase().includes('databricks'),
+      )
+      const createdIds: string[] = []
+      if (!hasSf) {
+        const sf = await createConnection({
+          name: POC_PACK.snowflake.name,
+          type: 'snowflake',
+          description: POC_PACK.snowflake.description,
+          status: 'warning',
+          config: { ...POC_PACK.snowflake.config },
+        })
+        createdIds.push(sf.id)
+      }
+      if (!hasDbx) {
+        const dbx = await createConnection({
+          name: POC_PACK.databricks.name,
+          type: 'databricks',
+          description: POC_PACK.databricks.description,
+          status: 'warning',
+          config: { ...POC_PACK.databricks.config },
+        })
+        createdIds.push(dbx.id)
+      }
+      const list = await fetchWorkspaceSources()
+      const toSync = list.filter(
+        (s) =>
+          createdIds.includes(s.id) ||
+          (s.name.toLowerCase().includes('poc') &&
+            (s.type === 'snowflake' || s.type === 'databricks')),
+      )
+      let tables = 0
+      let joins = 0
+      for (const s of toSync) {
+        if (!s.syncable) continue
+        const result = await syncConnection(s.id)
+        tables += result.tablesSynced ?? 0
+        joins += result.suggestedJoins ?? 0
+      }
+      notifySchemaChanged('sync')
+      await reload(toSync[0]?.id ?? null)
+      setToast(
+        `POC pack ready · ${tables} tables · ${joins} join suggestions. Open Workspace → Promote a join (HITL — never auto-accept).`,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function syncById(id: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await syncConnection(id)
+      setToast(
+        `Synced ${result.tablesSynced} tables · ${result.suggestedJoins ?? 0} suggestions`,
+      )
+      notifySchemaChanged('sync')
+      await reload(id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function save() {
@@ -498,6 +601,7 @@ export function SourcesPage() {
         setPendingFiles([])
         notifySchemaChanged('sync')
         await reload(result.connection.id)
+        goView('detail', { id: result.connection.id })
         return
       }
 
@@ -523,6 +627,7 @@ export function SourcesPage() {
         setWizardStep(1)
         notifySchemaChanged('connection')
         await reload(created.id)
+        goView('detail', { id: created.id })
       } else if (selected) {
         const updated = await updateConnection(selected.id, {
           name: form.name.trim(),
@@ -533,6 +638,7 @@ export function SourcesPage() {
         setToast(`Saved ${updated.name}`)
         notifySchemaChanged('connection')
         await reload(updated.id)
+        goView('detail', { id: updated.id })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -585,6 +691,7 @@ export function SourcesPage() {
       setSelectedId(null)
       notifySchemaChanged('connection')
       await reload(null)
+      goView('home')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -618,16 +725,16 @@ export function SourcesPage() {
   const banners = (
     <>
       {error ? (
-        <p className="border-b border-error/40 bg-error/10 px-md py-sm font-body text-xs text-error">
+        <p className="border-b border-error/40 bg-error/10 px-md py-sm font-body text-sm text-error">
           {error}
         </p>
       ) : null}
       {toast ? (
-        <p className="border-b border-primary/20 bg-primary-container/10 px-md py-sm font-label text-[10px] tracking-widest text-primary">
+        <p className="border-b border-primary/20 bg-primary-container/10 px-md py-sm font-body text-sm text-primary">
           {toast}
           <button
             type="button"
-            className="ml-md underline"
+            className="ml-md font-label text-sm underline"
             onClick={() => setToast(null)}
           >
             dismiss
@@ -638,166 +745,125 @@ export function SourcesPage() {
   )
 
   if (creating) {
+    const catalogItem = CONNECTOR_CATALOG.find((c) => c.key === catalogKey)
     return (
-      <QueAppChrome eyebrow="SOURCES · NEW SYNC">
+      <QueAppChrome eyebrow="SOURCES · CONNECT">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
           {banners}
           <div className="min-h-0 flex-1 overflow-y-auto px-md py-lg md:px-lg lg:px-margin-desktop">
-            <div className="mx-auto w-full max-w-5xl">
-              <div className="mb-xl">
-                <h1 className="font-headline text-3xl font-semibold tracking-tight text-on-surface">
-                  Create New Sync Job
-                </h1>
-                <p className="mt-xs font-body text-base text-on-surface-variant">
-                  Configure your data pipeline flow in four easy steps.
-                </p>
+            <div className="mx-auto w-full max-w-[64rem]">
+              <div className="mb-lg flex flex-wrap items-center justify-between gap-md">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (wizardStep === 2) {
+                      setWizardStep(1)
+                      goView('catalog', { connector: catalogKey })
+                    } else {
+                      cancelWizard()
+                    }
+                  }}
+                  className="font-label text-[12px] font-medium text-primary hover:underline"
+                >
+                  {wizardStep === 2 ? '← Back to connectors' : '← All sources'}
+                </button>
+                <div className="flex items-center gap-1 rounded-lg border border-outline-variant/25 bg-white p-0.5">
+                  {WIZARD_STEPS.map((label, i) => {
+                    const n = i + 1
+                    const active = n === wizardStep
+                    const done = n < wizardStep
+                    return (
+                      <span
+                        key={label}
+                        className={[
+                          'rounded-md px-3 py-1 font-label text-[11px]',
+                          active
+                            ? 'bg-primary text-on-primary'
+                            : done
+                              ? 'text-primary'
+                              : 'text-on-surface-variant/50',
+                        ].join(' ')}
+                      >
+                        {n}. {label}
+                      </span>
+                    )
+                  })}
+                </div>
               </div>
 
-              <WizardStepper step={wizardStep} />
+              {wizardStep === 1 ? (
+                <ConnectorCatalogGrid
+                  items={catalogFiltered}
+                  selectedKey={catalogKey}
+                  query={catalogQuery}
+                  categoryId={catalogCategory}
+                  onQueryChange={setCatalogQuery}
+                  onCategoryChange={setCatalogCategory}
+                  onPick={pickCatalog}
+                  onRequest={() =>
+                    setToast(
+                      'Connector request noted — use CSV/Excel as a bridge, or ask your Que admin.',
+                    )
+                  }
+                  onUseCsv={() => {
+                    const csv = CONNECTOR_CATALOG.find((c) => c.key === 'csv')
+                    if (csv) pickCatalog(csv)
+                    setCatalogCategory('files')
+                  }}
+                  onContinue={continueToForm}
+                  continueLabel="Continue to setup →"
+                  continueDisabled={!canAdvanceFromSources}
+                />
+              ) : null}
 
-              <div className="mt-xl grid grid-cols-1 items-start gap-lg lg:grid-cols-12">
-                <div className="space-y-lg lg:col-span-8">
-                  {wizardStep === 1 ? (
-                    <>
-                      <div
-                        className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
-                        style={{
-                          boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
-                        }}
-                      >
-                        <div className="mb-md flex flex-col justify-between gap-md sm:flex-row sm:items-center">
-                          <h2 className="font-headline text-xl font-semibold text-on-surface">
-                            Select Data Source
-                          </h2>
-                          <div className="relative">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-on-surface-variant">
-                              ⌕
-                            </span>
-                            <input
-                              type="search"
-                              value={catalogQuery}
-                              onChange={(e) => setCatalogQuery(e.target.value)}
-                              placeholder="Search sources..."
-                              className="w-full rounded-lg border-none bg-surface-container py-2 pl-9 pr-4 font-body text-sm text-on-surface outline-none ring-primary focus:ring-2 sm:w-56"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-md sm:grid-cols-2 md:grid-cols-3">
-                          {catalogFiltered.map((item) => {
-                            const selectedCard = catalogKey === item.key
-                            return (
-                              <button
-                                key={item.key}
-                                type="button"
-                                onClick={() => pickCatalog(item)}
-                                className={[
-                                  'rounded-xl border bg-white p-md text-left transition-all active:scale-[0.98]',
-                                  selectedCard
-                                    ? 'border-2 border-primary shadow-lg'
-                                    : 'border-secondary-container hover:border-primary/40',
-                                ].join(' ')}
-                              >
-                                <div className="mb-sm flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container text-primary">
-                                    {item.type ? (
-                                      <SourceTypeIcon type={item.type} />
-                                    ) : (
-                                      <span className="font-label text-lg">
-                                        +
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <h3 className="font-label text-sm font-semibold text-on-surface">
-                                      {item.title}
-                                    </h3>
-                                    <p className="font-label text-[10px] tracking-wider text-on-surface-variant uppercase">
-                                      {item.category}
-                                    </p>
-                                  </div>
-                                </div>
-                                <p className="line-clamp-2 font-body text-sm text-on-surface-variant">
-                                  {item.blurb}
-                                </p>
-                                {!item.creatable ? (
-                                  <p className="mt-sm font-label text-[10px] tracking-wider text-primary uppercase">
-                                    Request access
-                                  </p>
-                                ) : null}
-                              </button>
-                            )
-                          })}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setToast(
-                                'Send connector requests to your Que admin',
-                              )
-                            }
-                            className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-outline-variant bg-surface p-md text-center transition-all hover:bg-surface-container-high"
-                          >
-                            <span className="text-2xl text-on-surface-variant">
-                              ⊕
-                            </span>
-                            <span className="font-label text-sm text-on-surface-variant">
-                              Request Source
-                            </span>
-                          </button>
-                        </div>
+              {wizardStep === 2 ? (
+                <div className="grid grid-cols-1 items-start gap-lg lg:grid-cols-12">
+                  <aside className="lg:col-span-4">
+                    <div className="sticky top-4 rounded-2xl border border-outline-variant/20 bg-white p-lg">
+                      <div className="mb-md flex h-16 w-16 items-center justify-center rounded-xl border border-primary/30 bg-primary/5 text-primary">
+                        {form.type ? (
+                          <SourceTypeIcon type={form.type} className="h-8 w-8" />
+                        ) : null}
                       </div>
-
-                      <div
-                        className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
-                        style={{
-                          boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
-                        }}
-                      >
-                        <h2 className="mb-md font-headline text-xl font-semibold text-on-surface">
-                          Target Destination
-                        </h2>
-                        <div className="flex flex-col items-stretch gap-4 rounded-xl border border-secondary-container bg-secondary-container/30 p-md sm:flex-row sm:items-center">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-secondary-container bg-white text-primary">
-                            ⌂
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center justify-between gap-sm">
-                              <h3 className="font-label text-sm font-semibold text-on-surface">
-                                {workspaceName} · Que metadata
-                              </h3>
-                              <span className="rounded-full bg-tertiary/10 px-2 py-0.5 font-label text-[10px] font-bold text-tertiary">
-                                ACTIVE
-                              </span>
-                            </div>
-                            <p className="font-body text-sm text-on-surface-variant">
-                              Environment: Production · Type: Que Native
-                              workspace graph
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            disabled
-                            className="rounded-lg border border-secondary-container px-4 py-2 font-label text-sm text-on-secondary-container opacity-60"
-                          >
-                            Change
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
-
-                  {wizardStep === 2 ? (
-                    <div
-                      className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
-                      style={{
-                        boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
-                      }}
-                    >
-                      <h2 className="mb-xs font-headline text-xl font-semibold text-on-surface">
-                        Transformation
+                      <h2 className="font-headline text-lg font-semibold text-on-surface">
+                        {catalogItem?.title ?? sourceTypeLabel(form.type)}
                       </h2>
-                      <p className="mb-lg font-body text-sm text-on-surface-variant">
-                        Name the connection and configure{' '}
-                        {sourceTypeLabel(form.type)} credentials or uploads.
+                      <p className="mt-xs font-body text-[13px] text-on-surface-variant">
+                        {catalogItem?.purpose ?? 'Configure connection details'}
+                      </p>
+                      <p className="mt-sm font-body text-[12px] leading-snug text-on-surface-variant">
+                        {catalogItem?.blurb}
+                      </p>
+                      {catalogItem ? (
+                        <div className="mt-md flex flex-wrap gap-1.5">
+                          {catalogItem.capabilities.map((cap) => (
+                            <span
+                              key={cap}
+                              className="rounded-full bg-secondary-container/80 px-2 py-0.5 font-label text-[10px] text-on-secondary-container"
+                            >
+                              {cap}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="mt-lg rounded-xl bg-[#FBF8F4] p-md">
+                        <p className="font-label text-[11px] font-semibold text-on-surface">
+                          Destination
+                        </p>
+                        <p className="mt-1 font-body text-[12px] text-on-surface-variant">
+                          {workspaceName} · Que metadata graph (schema-only)
+                        </p>
+                      </div>
+                    </div>
+                  </aside>
+
+                  <div className="lg:col-span-8">
+                    <div className="rounded-2xl border border-outline-variant/20 bg-white p-lg shadow-sm">
+                      <h3 className="mb-xs font-headline text-base font-semibold text-on-surface">
+                        Connection setup
+                      </h3>
+                      <p className="mb-lg font-body text-[12px] text-on-surface-variant">
+                        Fill the form below. Fixtures skip live tokens for demos.
                       </p>
                       <ConnectionFields
                         form={form}
@@ -810,198 +876,33 @@ export function SourcesPage() {
                         setTableNameOverrides={setTableNameOverrides}
                         uploadMoreFiles={uploadMoreFiles}
                       />
-                    </div>
-                  ) : null}
-
-                  {wizardStep === 3 ? (
-                    <div
-                      className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
-                      style={{
-                        boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
-                      }}
-                    >
-                      <h2 className="mb-xs font-headline text-xl font-semibold text-on-surface">
-                        Schedule
-                      </h2>
-                      <p className="mb-lg font-body text-sm text-on-surface-variant">
-                        Que syncs schema on demand today. Pick how you want to
-                        refresh after create.
-                      </p>
-                      <div className="space-y-md">
-                        <ScheduleOption
-                          active={scheduleMode === 'ondemand'}
-                          title="On demand"
-                          body="Create the connection now. Sync Schema from the Sources list or workspace when ready."
-                          onClick={() => setScheduleMode('ondemand')}
-                        />
-                        <ScheduleOption
-                          active={scheduleMode === 'manual'}
-                          title="Manual after create"
-                          body="Same as on demand — use Sync Schema when credentials are verified."
-                          onClick={() => setScheduleMode('manual')}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {wizardStep === 4 ? (
-                    <div
-                      className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
-                      style={{
-                        boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
-                      }}
-                    >
-                      <h2 className="mb-lg font-headline text-xl font-semibold text-on-surface">
-                        Review
-                      </h2>
-                      <dl className="space-y-md font-body text-sm">
-                        <ReviewRow
-                          label="Name"
-                          value={form.name.trim() || '—'}
-                        />
-                        <ReviewRow
-                          label="Connector"
-                          value={sourceTypeLabel(form.type)}
-                        />
-                        <ReviewRow
-                          label="Description"
-                          value={form.description.trim() || '—'}
-                        />
-                        <ReviewRow
-                          label="Destination"
-                          value={`${workspaceName} · Que metadata`}
-                        />
-                        <ReviewRow
-                          label="Schedule"
-                          value={
-                            scheduleMode === 'ondemand'
-                              ? 'On demand'
-                              : 'Manual after create'
-                          }
-                        />
-                        {(form.type === 'excel' || form.type === 'csv') && (
-                          <ReviewRow
-                            label="Files"
-                            value={
-                              pendingFiles.length
-                                ? pendingFiles.map((f) => f.name).join(', ')
-                                : 'None selected'
-                            }
-                          />
-                        )}
-                      </dl>
-                    </div>
-                  ) : null}
-                </div>
-
-                <aside className="space-y-lg lg:sticky lg:top-24 lg:col-span-4">
-                  <div
-                    className="rounded-xl border border-outline-variant/20 bg-white p-lg shadow-md"
-                  >
-                    <h3 className="mb-md font-label text-sm tracking-widest text-on-surface-variant uppercase">
-                      Sync Overview
-                    </h3>
-                    <div className="mb-lg space-y-4">
-                      <div className="flex justify-between gap-md">
-                        <span className="font-body text-sm text-on-surface-variant">
-                          Selected Source:
-                        </span>
-                        <span className="text-right font-label text-sm font-bold text-primary">
-                          {selectedCatalog?.title ?? '—'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-md">
-                        <span className="font-body text-sm text-on-surface-variant">
-                          Destination:
-                        </span>
-                        <span className="text-right font-label text-sm font-bold text-on-surface">
-                          {workspaceName}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-md border-t border-outline-variant/20 pt-4">
-                        <span className="font-body text-sm text-on-surface-variant">
-                          Estimated Latency:
-                        </span>
-                        <span className="font-body text-sm text-on-surface">
-                          &lt; 150ms
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      {wizardStep < 4 ? (
+                      <div className="mt-xl flex flex-wrap items-center justify-between gap-md border-t border-outline-variant/20 pt-lg">
                         <button
                           type="button"
-                          disabled={
-                            (wizardStep === 1 && !canAdvanceFromSources) ||
-                            (wizardStep === 2 && !form.name.trim()) ||
-                            busy
-                          }
-                          onClick={() => setWizardStep((s) => s + 1)}
-                          className="w-full rounded-lg bg-primary-container py-3 font-label text-sm font-bold text-on-primary transition-all hover:bg-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={cancelWizard}
+                          className="rounded-lg px-md py-2 font-label text-[12px] text-on-surface-variant hover:bg-surface-container"
                         >
-                          Next Step:{' '}
-                          {WIZARD_STEPS[wizardStep] ?? 'Done'}
+                          Cancel
                         </button>
-                      ) : (
                         <button
                           type="button"
-                          disabled={
-                            busy || !form.name.trim() || !canAdmin
-                          }
+                          disabled={busy || !form.name.trim() || !canAdmin}
                           onClick={() => void save()}
-                          className="w-full rounded-lg bg-primary py-3 font-label text-sm font-bold text-on-primary transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
                         >
                           {form.type === 'excel' || form.type === 'csv'
-                            ? 'Upload & Analyze'
-                            : 'Create Connection'}
+                            ? busy
+                              ? 'Uploading…'
+                              : 'Upload & sync'
+                            : busy
+                              ? 'Creating…'
+                              : 'Create connection'}
                         </button>
-                      )}
-                      {wizardStep > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => setWizardStep((s) => s - 1)}
-                          className="w-full rounded-lg bg-transparent py-3 font-label text-sm font-bold text-on-surface-variant transition-all hover:bg-surface-container"
-                        >
-                          Back
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={cancelWizard}
-                        className="w-full rounded-lg bg-transparent py-3 font-label text-sm font-bold text-on-surface-variant transition-all hover:bg-surface-container"
-                      >
-                        Cancel Wizard
-                      </button>
-                    </div>
-                    <div className="mt-lg rounded-lg bg-secondary-container/40 p-md">
-                      <div className="flex items-start gap-2">
-                        <span className="mt-0.5 text-primary">ⓘ</span>
-                        <p className="font-body text-xs leading-relaxed text-on-secondary-container">
-                          Selecting a source will automatically scan for
-                          available schemas. You&apos;ll map tables after
-                          Sync Schema.
-                        </p>
                       </div>
                     </div>
                   </div>
-
-                  <div className="relative h-48 overflow-hidden rounded-xl bg-gradient-to-br from-primary-container/40 via-[#ffdbd2]/60 to-canvas shadow-sm">
-                    <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-primary/50 to-transparent p-md">
-                      <p className="font-headline text-lg leading-tight text-white">
-                        Need help with custom connectors?
-                      </p>
-                      <a
-                        href="https://github.com"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 font-body text-sm text-white underline"
-                      >
-                        View Documentation
-                      </a>
-                    </div>
-                  </div>
-                </aside>
-              </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1018,189 +919,175 @@ export function SourcesPage() {
           <main className="min-h-0 flex-1 overflow-y-auto px-md py-lg md:px-lg lg:px-margin-desktop">
             {!selected ? (
               <>
-                <div className="mb-xl">
-                  <div className="mb-sm flex flex-col justify-between gap-md sm:flex-row sm:items-end">
+                <div className="mb-xl flex flex-col items-start gap-md sm:flex-row sm:items-end sm:justify-between">
+                  <div className="flex items-start gap-md">
+                    <SourcesBranchMark className="mt-1 hidden h-10 w-10 shrink-0 text-primary sm:block" />
                     <div>
-                      <h1 className="font-headline text-3xl font-semibold tracking-tight text-primary">
-                        Data Sources
+                      <h1 className="font-headline text-xl font-semibold tracking-tight text-primary">
+                        Sources
                       </h1>
-                      <p className="mt-sm max-w-2xl font-body text-base text-on-surface-variant">
-                        Manage your database connections and warehouse
-                        integrations. Monitor sync health and schema integrity
-                        across your pipeline mesh.
+                      <p className="mt-xs max-w-[36rem] font-body text-[13px] text-on-surface-variant">
+                        Connected systems sync schema into Que. Add a connector
+                        from the tile catalog, then Promote joins on Workspace.
                       </p>
                     </div>
+                  </div>
+                  <div className="flex w-full flex-wrap items-center gap-sm sm:w-auto">
                     <input
                       type="search"
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
                       placeholder="Filter sources…"
-                      className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-md py-sm font-body text-sm text-on-surface outline-none focus:border-primary sm:w-56"
+                      className="min-w-0 flex-1 rounded-lg border border-outline-variant/30 bg-white px-md py-1.5 font-body text-[13px] outline-none focus:border-primary sm:w-52 sm:flex-none"
                     />
+                    {canAdmin ? (
+                      <button
+                        type="button"
+                        onClick={startCreate}
+                        className="rounded-lg bg-primary px-md py-1.5 font-label text-[12px] font-semibold text-on-primary"
+                      >
+                        + Add connector
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-lg md:grid-cols-2 xl:grid-cols-3">
+                {canAdmin ? (
+                  <div className="mb-lg flex flex-col gap-md rounded-2xl border border-primary/15 bg-white p-md sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="font-label text-[13px] font-semibold text-on-surface">
+                        {POC_PACK.title}
+                      </h2>
+                      <p className="mt-1 max-w-[36rem] font-body text-[12px] text-on-surface-variant">
+                        {POC_PACK.body}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void installPocPack()}
+                      className="shrink-0 rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+                    >
+                      Install POC pack
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="mb-md">
+                  <h2 className="font-label text-[11px] font-semibold tracking-[0.12em] text-on-surface-variant uppercase">
+                    Connected · {filtered.length}
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-2 gap-md sm:grid-cols-3 lg:grid-cols-4">
                   {filtered.map((s) => {
                     const badge = statusBadge(s.status)
                     return (
                       <button
                         key={s.id}
                         type="button"
-                        onClick={() => setSelectedId(s.id)}
-                        className="group rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg text-left transition-all hover:scale-[1.02]"
-                        style={{
-                          boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
+                        onClick={() => {
+                          setSelectedId(s.id)
+                          goView('detail', { id: s.id })
                         }}
+                        className="group flex flex-col items-center gap-sm rounded-2xl border border-outline-variant/25 bg-white p-md text-center transition-all hover:border-primary/40 hover:shadow-md"
                       >
-                        <div className="mb-lg flex items-start justify-between">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary-container text-primary">
-                            <SourceTypeIcon type={s.type} />
+                        <div className="relative">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-outline-variant/30 bg-[#FBF8F4] text-primary transition-colors group-hover:border-primary/40">
+                            <SourceTypeIcon type={s.type} className="h-7 w-7" />
                           </div>
                           <span
-                            className={`inline-flex items-center gap-xs rounded-full px-sm py-xs font-label text-[11px] ${badge.className}`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[s.status]}`}
-                            />
-                            {badge.label}
-                          </span>
+                            className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full ring-2 ring-white ${STATUS_DOT[s.status]}`}
+                            title={badge.label}
+                          />
                         </div>
-                        <h3 className="mb-xs font-headline text-xl font-semibold text-on-surface">
-                          {s.name}
-                        </h3>
-                        <p className="mb-xl line-clamp-2 font-body text-sm text-on-surface-variant">
-                          {s.description?.trim() ||
-                            `${sourceTypeLabel(s.type)} connection`}
-                        </p>
-                        <div className="flex items-center justify-between font-label text-[11px] text-on-surface-variant">
-                          <span>{relativeSyncLabel(s.updatedAt)}</span>
-                          <span className="transition-transform group-hover:translate-x-1">
-                            →
-                          </span>
+                        <div className="min-w-0 w-full">
+                          <p className="truncate font-label text-[13px] font-semibold text-on-surface">
+                            {s.name}
+                          </p>
+                          <p className="mt-0.5 truncate font-label text-[10px] text-on-surface-variant uppercase">
+                            {sourceTypeLabel(s.type)} ·{' '}
+                            {relativeSyncLabel(s.updatedAt)}
+                          </p>
                         </div>
                       </button>
                     )
                   })}
-
                   {canAdmin ? (
                     <button
                       type="button"
                       onClick={startCreate}
-                      className="group flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/40 p-lg text-center transition-all hover:border-primary/50 hover:bg-primary/5"
+                      className="flex min-h-[160px] flex-col items-center justify-center gap-sm rounded-2xl border border-dashed border-outline-variant/50 bg-transparent p-md text-center hover:border-primary/40 hover:bg-white/70"
                     >
-                      <div className="mb-md flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-low text-outline transition-colors group-hover:bg-primary-container group-hover:text-white">
-                        <span className="text-3xl leading-none">+</span>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-outline-variant/40 text-2xl text-on-surface-variant">
+                        +
                       </div>
-                      <span className="font-label text-sm font-bold text-on-surface-variant group-hover:text-primary">
-                        Add Data Source
+                      <span className="font-label text-[13px] font-semibold text-on-surface">
+                        Add connector
                       </span>
-                      <p className="mt-xs font-body text-sm text-on-surface-variant/60">
-                        S3, BigQuery, Mongo, and more
-                      </p>
                     </button>
                   ) : null}
                 </div>
 
                 {filtered.length === 0 && !canAdmin ? (
-                  <p className="mt-lg font-body text-sm text-on-surface-variant">
+                  <p className="mt-lg font-body text-[13px] text-on-surface-variant">
                     No sources yet — ask an admin to add a connection.
                   </p>
                 ) : null}
 
-                <div className="mt-xl grid grid-cols-1 gap-lg lg:grid-cols-2">
-                  <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-low p-lg">
-                    <h4 className="mb-lg font-label text-sm font-bold tracking-widest text-primary uppercase">
-                      Connection Health
-                    </h4>
-                    <div className="space-y-md">
-                      <div className="flex items-center justify-between">
-                        <span className="font-body text-base text-on-surface">
-                          Healthy sources
-                        </span>
-                        <span className="font-label text-sm font-bold text-tertiary">
-                          {sources.length
-                            ? `${healthPct}%`
-                            : '—'}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-outline-variant/20">
-                        <div
-                          className="h-full bg-tertiary"
-                          style={{
-                            width: `${sources.length ? Math.min(100, healthPct) : 0}%`,
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-body text-base text-on-surface">
-                          Connected / total
-                        </span>
-                        <span className="font-label text-sm font-bold text-primary">
-                          {healthActive} / {sources.length}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-outline-variant/20">
-                        <div
-                          className="h-full bg-primary"
-                          style={{
-                            width: `${sources.length ? Math.min(100, (healthActive / sources.length) * 100) : 0}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="relative flex items-center overflow-hidden rounded-2xl border border-primary-container/20 bg-primary-container/10 p-lg">
-                    <div className="relative z-10">
-                      <h4 className="mb-xs font-headline text-xl font-semibold text-primary">
-                        Optimization Tip
-                      </h4>
-                      <p className="mb-md font-body text-sm text-on-surface-variant">
-                        {sources.some((s) => s.status === 'warning')
-                          ? 'A connector is still warming up. Run Sync Schema after credentials verify to keep the canvas current.'
-                          : 'Enable Incremental Sync on high-churn warehouses to cut duplicate schema scans and compute cost.'}
-                      </p>
-                      <Link
-                        to="/workspace"
-                        className="inline-flex items-center gap-xs font-label text-sm font-bold text-primary hover:underline"
-                      >
-                        Open Workspace ↗
-                      </Link>
-                    </div>
-                    <span
-                      className="pointer-events-none absolute -right-4 -bottom-4 rotate-12 text-[120px] text-primary opacity-5"
-                      aria-hidden
-                    >
-                      ✦
-                    </span>
-                  </div>
+                <div className="mt-xl">
+                  <ConnectionHealthPanel
+                    sources={sources}
+                    onSelect={(id) => {
+                      setSelectedId(id)
+                      goView('detail', { id })
+                    }}
+                    onSync={canWrite ? (id) => void syncById(id) : undefined}
+                    canSync={canWrite}
+                  />
                 </div>
               </>
             ) : (
               <>
                 <button
                   type="button"
-                  onClick={() => setSelectedId(null)}
-                  className="mb-md font-label text-sm font-bold text-primary hover:underline"
+                  onClick={() => {
+                    setSelectedId(null)
+                    goView('home')
+                  }}
+                  className="mb-md font-label text-[12px] font-medium text-primary hover:underline"
                 >
-                  ← Back to Data Sources
+                  ← Back to Sources
                 </button>
-                <div className="mb-lg">
-                  <h1 className="font-headline text-3xl font-semibold tracking-tight text-on-surface">
-                    {form.name || selected.name}
-                  </h1>
-                  <p className="mt-xs font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
-                    Status {selected.status} · {sourceTypeLabel(form.type)}
-                  </p>
+                <div className="mb-lg flex flex-wrap items-start gap-md">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-primary/30 bg-primary/5 text-primary">
+                    <SourceTypeIcon type={selected.type} className="h-7 w-7" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="font-headline text-lg font-semibold tracking-tight text-on-surface">
+                      {form.name || selected.name}
+                    </h1>
+                    <p className="mt-1 font-body text-[13px] text-on-surface-variant">
+                      {CONNECTOR_CATALOG.find((c) => c.type === selected.type)
+                        ?.purpose || sourceTypeLabel(form.type)}
+                    </p>
+                    <div className="mt-sm flex flex-wrap items-center gap-sm">
+                      <span
+                        className={`inline-flex items-center gap-xs rounded-full px-sm py-1 font-label text-[11px] font-semibold ${statusBadge(selected.status).className}`}
+                      >
+                        <span
+                          className={`h-2 w-2 rounded-full ${STATUS_DOT[selected.status]}`}
+                        />
+                        {statusBadge(selected.status).label}
+                      </span>
+                      <span className="font-body text-[12px] text-on-surface-variant">
+                        {relativeSyncLabel(selected.updatedAt)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div
-                  className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
-                  style={{
-                    boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)',
-                  }}
-                >
+                <div className="rounded-2xl border border-outline-variant/20 bg-white p-lg shadow-sm">
                   <ConnectionFields
                     form={form}
                     setForm={setForm}
@@ -1221,7 +1108,7 @@ export function SourcesPage() {
                       type="button"
                       disabled={busy || !form.name.trim()}
                       onClick={() => void save()}
-                      className="rounded-lg bg-primary-container px-md py-sm font-label text-sm font-bold text-on-primary disabled:opacity-40"
+                      className="rounded-lg bg-primary px-md py-1.5 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
                     >
                       Save
                     </button>
@@ -1231,7 +1118,7 @@ export function SourcesPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => void sync()}
-                      className="rounded-lg border border-primary px-md py-sm font-label text-sm font-bold text-primary disabled:opacity-40"
+                      className="rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
                     >
                       Sync Schema
                     </button>
@@ -1241,14 +1128,14 @@ export function SourcesPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => void remove()}
-                      className="rounded-lg border border-outline-variant px-md py-sm font-label text-sm font-bold text-error disabled:opacity-40"
+                      className="rounded-lg border border-outline-variant px-md py-1.5 font-label text-[12px] font-semibold text-error disabled:opacity-40"
                     >
                       Delete
                     </button>
                   ) : null}
                   <Link
                     to="/workspace"
-                    className="ml-auto rounded-lg border border-outline-variant px-md py-sm font-label text-sm font-bold text-on-surface-variant hover:border-primary"
+                    className="ml-auto rounded-lg border border-outline-variant px-md py-1.5 font-label text-[12px] font-semibold text-on-surface-variant hover:border-primary"
                   >
                     Open Workspace
                   </Link>
@@ -1262,91 +1149,8 @@ export function SourcesPage() {
   )
 }
 
-function WizardStepper({ step }: { step: number }) {
-  return (
-    <div className="flex w-full items-center justify-between px-xs">
-      {WIZARD_STEPS.map((label, i) => {
-        const n = i + 1
-        const active = n <= step
-        const current = n === step
-        return (
-          <div key={label} className="flex flex-1 items-center last:flex-none">
-            <div className="flex flex-col items-center gap-2">
-              <div
-                className={[
-                  'flex h-10 w-10 items-center justify-center rounded-full font-label font-bold',
-                  current || active
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-secondary-container text-on-secondary-container',
-                ].join(' ')}
-              >
-                {n}
-              </div>
-              <span
-                className={[
-                  'font-label text-sm',
-                  current || active
-                    ? 'text-primary'
-                    : 'text-on-surface-variant',
-                ].join(' ')}
-              >
-                {label}
-              </span>
-            </div>
-            {i < WIZARD_STEPS.length - 1 ? (
-              <div
-                className="mx-md mt-[-1.5rem] h-0.5 flex-1"
-                style={{
-                  backgroundColor: n < step ? '#9a442d' : '#dbc1ba',
-                }}
-              />
-            ) : null}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function ScheduleOption({
-  active,
-  title,
-  body,
-  onClick,
-}: {
-  active: boolean
-  title: string
-  body: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'w-full rounded-xl border p-md text-left transition-all',
-        active
-          ? 'border-primary bg-primary/5 shadow-sm'
-          : 'border-secondary-container hover:border-primary/40',
-      ].join(' ')}
-    >
-      <p className="font-label text-sm font-bold text-on-surface">{title}</p>
-      <p className="mt-xs font-body text-sm text-on-surface-variant">{body}</p>
-    </button>
-  )
-}
-
-function ReviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-md border-b border-outline-variant/15 pb-md">
-      <dt className="text-on-surface-variant">{label}</dt>
-      <dd className="text-right font-medium text-on-surface">{value}</dd>
-    </div>
-  )
-}
-
 const inputClass =
-  'w-full rounded-lg border border-outline-variant bg-surface-container-low px-sm py-sm font-body text-xs text-on-surface outline-none focus:border-primary'
+  'w-full rounded-lg border border-outline-variant bg-surface-container-low px-sm py-1.5 font-body text-[13px] text-on-surface outline-none focus:border-primary'
 
 function Field({
   label,
@@ -1357,7 +1161,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-xs block font-label text-[10px] tracking-widest text-on-surface-variant">
+      <span className="mb-1 block font-label text-[11px] font-medium text-on-surface-variant">
         {label}
       </span>
       {children}
@@ -1617,6 +1421,53 @@ function MongoFields({
   )
 }
 
+function AuthModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: 'fixture' | 'live'
+  onChange: (m: 'fixture' | 'live') => void
+}) {
+  return (
+    <div>
+      <p className="mb-sm font-label text-sm font-medium text-on-surface-variant">
+        Connect with
+      </p>
+      <div className="flex gap-sm rounded-lg border border-outline-variant/40 p-xs">
+        <button
+          type="button"
+          onClick={() => onChange('fixture')}
+          className={[
+            'flex-1 rounded-md py-2.5 font-label text-sm font-semibold',
+            mode === 'fixture'
+              ? 'bg-primary-container text-on-primary'
+              : 'text-on-surface-variant hover:bg-surface-container',
+          ].join(' ')}
+        >
+          One-click fixture
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange('live')}
+          className={[
+            'flex-1 rounded-md py-2.5 font-label text-sm font-semibold',
+            mode === 'live'
+              ? 'bg-primary-container text-on-primary'
+              : 'text-on-surface-variant hover:bg-surface-container',
+          ].join(' ')}
+        >
+          Live credentials
+        </button>
+      </div>
+      <p className="mt-sm font-body text-sm text-on-surface-variant">
+        {mode === 'fixture'
+          ? 'Demo JSON loads instantly — no warehouse token required.'
+          : 'Enter credentials. Secrets are encrypted at rest.'}
+      </p>
+    </div>
+  )
+}
+
 function DatabricksFields({
   form,
   setForm,
@@ -1626,21 +1477,10 @@ function DatabricksFields({
 }) {
   return (
     <div className="grid gap-md">
-      <Field label="Mode">
-        <select
-          value={form.dbxMode}
-          onChange={(e) =>
-            setForm((f) => ({
-              ...f,
-              dbxMode: e.target.value === 'live' ? 'live' : 'fixture',
-            }))
-          }
-          className={inputClass}
-        >
-          <option value="fixture">Fixture (local demo JSON)</option>
-          <option value="live">Live (SQL warehouse + token)</option>
-        </select>
-      </Field>
+      <AuthModeToggle
+        mode={form.dbxMode}
+        onChange={(m) => setForm((f) => ({ ...f, dbxMode: m }))}
+      />
       {form.dbxMode === 'fixture' ? (
         <Field label="Fixtures path">
           <input
@@ -1714,21 +1554,10 @@ function SnowflakeFields({
 }) {
   return (
     <div className="grid gap-md">
-      <Field label="Mode">
-        <select
-          value={form.dbxMode}
-          onChange={(e) =>
-            setForm((f) => ({
-              ...f,
-              dbxMode: e.target.value === 'live' ? 'live' : 'fixture',
-            }))
-          }
-          className={inputClass}
-        >
-          <option value="fixture">Fixture (local demo JSON)</option>
-          <option value="live">Live (SQL API + token/password)</option>
-        </select>
-      </Field>
+      <AuthModeToggle
+        mode={form.dbxMode}
+        onChange={(m) => setForm((f) => ({ ...f, dbxMode: m }))}
+      />
       {form.dbxMode === 'fixture' ? (
         <Field label="Fixtures path">
           <input

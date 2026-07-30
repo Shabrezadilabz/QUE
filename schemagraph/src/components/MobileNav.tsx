@@ -13,8 +13,8 @@ const links = [
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   isActive
-    ? 'block rounded-lg border-l-2 border-primary bg-secondary-container px-md py-sm font-body text-[15px] font-semibold text-primary'
-    : 'block rounded-lg border-l-2 border-transparent px-md py-sm font-body text-[15px] font-normal text-on-surface-variant hover:text-primary'
+    ? 'block rounded-lg border-l-2 border-primary bg-secondary-container px-md py-sm font-body text-[13px] font-medium text-primary'
+    : 'block rounded-lg border-l-2 border-transparent px-md py-sm font-body text-[13px] font-normal text-on-surface-variant hover:text-primary'
 
 /** Hamburger + drawer for viewports where primary nav is hidden. */
 export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {

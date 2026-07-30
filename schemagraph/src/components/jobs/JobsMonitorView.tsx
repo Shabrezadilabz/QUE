@@ -96,10 +96,10 @@ export function JobsMonitorView({
           {/* Monitor hero (sunset clay) */}
           <div className="mb-lg flex flex-col justify-between gap-md md:flex-row md:items-end">
             <div>
-              <h1 className="font-headline text-3xl font-semibold tracking-tight text-primary">
+              <h1 className="font-headline text-xl font-semibold tracking-tight text-primary">
                 Sync Job Monitor
               </h1>
-              <p className="mt-xs font-body text-base text-on-surface-variant">
+              <p className="mt-xs font-body text-[13px] text-on-surface-variant">
                 {systemOk
                   ? 'Your pipelines are breathing steadily. Everything looks healthy.'
                   : `${openDrift.length} open drift event(s) need attention before export.`}
@@ -119,7 +119,7 @@ export function JobsMonitorView({
                   systemOk ? 'animate-pulse bg-tertiary' : 'bg-error',
                 ].join(' ')}
               />
-              <span className="font-label text-sm font-medium">
+              <span className="font-label text-[12px] font-medium">
                 {systemOk ? 'System Optimal' : 'Drift Risk'}
               </span>
             </div>
@@ -136,10 +136,10 @@ export function JobsMonitorView({
                     ⇄
                   </div>
                   <div>
-                    <h3 className="font-headline text-xl font-semibold text-primary">
+                    <h3 className="font-headline text-base font-semibold text-primary">
                       {hero?.title ?? 'No pipelines yet'}
                     </h3>
-                    <p className="font-label text-xs text-on-surface-variant opacity-70">
+                    <p className="font-label text-[11px] text-on-surface-variant opacity-70">
                       {hero
                         ? `Tables: ${hero.tables.slice(0, 3).join(', ') || '—'} · ${hero.status}`
                         : 'Create a job to start monitoring'}
@@ -147,7 +147,7 @@ export function JobsMonitorView({
                   </div>
                 </div>
                 {hero ? (
-                  <span className="font-label text-sm font-bold text-primary">
+                  <span className="font-label text-[12px] font-semibold text-primary">
                     {heroProgress}%
                   </span>
                 ) : null}
@@ -159,7 +159,7 @@ export function JobsMonitorView({
                     style={{ width: `${hero ? heroProgress : 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between font-label text-xs text-on-surface-variant">
+                <div className="flex justify-between font-label text-[11px] text-on-surface-variant">
                   <span>
                     {hero
                       ? `${hero.notebook?.length || 0} notebook cell(s)`
@@ -172,26 +172,26 @@ export function JobsMonitorView({
               </div>
               <div className="grid grid-cols-3 gap-md border-t border-secondary-container/20 pt-md">
                 <div className="text-center">
-                  <p className="font-label text-xs text-on-surface-variant">
+                  <p className="font-label text-[11px] text-on-surface-variant">
                     Ready / exported
                   </p>
-                  <p className="font-headline text-xl font-semibold">
+                  <p className="font-headline text-lg font-semibold">
                     {readyCount}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="font-label text-xs text-on-surface-variant">
+                  <p className="font-label text-[11px] text-on-surface-variant">
                     Drafts
                   </p>
-                  <p className="font-headline text-xl font-semibold">
+                  <p className="font-headline text-lg font-semibold">
                     {draftCount}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="font-label text-xs text-on-surface-variant">
+                  <p className="font-label text-[11px] text-on-surface-variant">
                     Drift open
                   </p>
-                  <p className="font-headline text-xl font-semibold">
+                  <p className="font-headline text-lg font-semibold">
                     {openDrift.length}
                   </p>
                 </div>
@@ -204,7 +204,7 @@ export function JobsMonitorView({
             >
               <div className="space-y-xs">
                 <span className="text-4xl text-tertiary-container">◈</span>
-                <h4 className="font-headline text-xl font-semibold">
+                <h4 className="font-headline text-base font-semibold">
                   Resource Health
                 </h4>
               </div>
@@ -231,11 +231,11 @@ export function JobsMonitorView({
                     strokeWidth="8"
                   />
                 </svg>
-                <span className="absolute font-headline text-2xl font-semibold text-tertiary">
+                <span className="absolute font-headline text-xl font-semibold text-tertiary">
                   {systemOk ? '75%' : '40%'}
                 </span>
               </div>
-              <p className="font-body text-sm text-on-surface-variant">
+              <p className="font-body text-[13px] text-on-surface-variant">
                 {systemOk
                   ? 'CPU and Memory are well within limits.'
                   : 'Resolve drift before promoting pipelines.'}
@@ -246,10 +246,10 @@ export function JobsMonitorView({
           {/* Sync Jobs list (dark sunset clay cards) */}
           <div className="mb-lg flex flex-col justify-between gap-md sm:flex-row sm:items-end">
             <div>
-              <h2 className="font-headline text-2xl font-semibold text-on-surface">
+              <h2 className="font-headline text-base font-semibold text-on-surface">
                 Sync Jobs
               </h2>
-              <p className="mt-1 font-body text-sm text-on-surface-variant">
+              <p className="mt-1 font-body text-[13px] text-on-surface-variant">
                 Real-time monitoring of your production synchronization
                 pipelines.
               </p>
@@ -260,12 +260,12 @@ export function JobsMonitorView({
                 value={filter}
                 onChange={(e) => onFilterChange(e.target.value)}
                 placeholder="Filter…"
-                className="rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-md py-2 font-body text-sm text-on-surface outline-none focus:border-primary"
+                className="rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-md py-2 font-body text-[13px] text-on-surface outline-none focus:border-primary"
               />
               <button
                 type="button"
                 onClick={onRefresh}
-                className="inline-flex items-center gap-2 rounded-lg bg-surface-container-high px-4 py-2 font-label text-sm text-on-surface transition-colors hover:opacity-80"
+                className="inline-flex items-center gap-2 rounded-lg bg-surface-container-high px-4 py-2 font-label text-[12px] text-on-surface transition-colors hover:opacity-80"
               >
                 ↻ Refresh
               </button>
@@ -273,7 +273,7 @@ export function JobsMonitorView({
                 <button
                   type="button"
                   onClick={onCreate}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-label text-sm font-bold text-on-primary"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-label text-[12px] font-semibold text-on-primary"
                 >
                   + New Job
                 </button>
@@ -284,7 +284,7 @@ export function JobsMonitorView({
           <div className="grid grid-cols-1 gap-md @2xl:grid-cols-2 xl:grid-cols-3">
             {filtered.length === 0 ? (
               <div className="col-span-full rounded-xl border border-dashed border-outline-variant/40 p-xl text-center">
-                <p className="font-body text-sm text-on-surface-variant">
+                <p className="font-body text-[13px] text-on-surface-variant">
                   No jobs yet.
                 </p>
                 <div className="mt-md flex flex-wrap justify-center gap-sm">
@@ -292,14 +292,14 @@ export function JobsMonitorView({
                     <button
                       type="button"
                       onClick={onCreate}
-                      className="rounded-lg bg-primary-container px-md py-sm font-label text-sm font-bold text-on-primary"
+                      className="rounded-lg bg-primary-container px-md py-sm font-label text-[12px] font-semibold text-on-primary"
                     >
                       Create one manually
                     </button>
                   ) : null}
                   <Link
                     to="/chat"
-                    className="rounded-lg border border-outline-variant px-md py-sm font-label text-sm text-on-surface-variant"
+                    className="rounded-lg border border-outline-variant px-md py-sm font-label text-[12px] text-on-surface-variant"
                   >
                     Draft in AI Chat
                   </Link>
@@ -338,10 +338,10 @@ export function JobsMonitorView({
                               : '↻'}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="truncate font-label text-sm font-bold text-on-surface">
+                          <h3 className="truncate font-label text-[12px] font-semibold text-on-surface">
                             {job.title}
                           </h3>
-                          <p className="truncate font-label text-xs text-on-surface-variant/60">
+                          <p className="truncate font-label text-[11px] text-on-surface-variant/60">
                             {job.sources[0] ||
                               job.tables[0] ||
                               'Que notebook'}
@@ -349,7 +349,7 @@ export function JobsMonitorView({
                         </div>
                       </div>
                       <span
-                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 font-label text-xs ${statusPill(ui.kind)}`}
+                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 font-label text-[11px] ${statusPill(ui.kind)}`}
                       >
                         {ui.kind === 'running' || ui.kind === 'done' ? (
                           <span className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -361,10 +361,10 @@ export function JobsMonitorView({
                     {progress != null ? (
                       <div>
                         <div className="mb-xs flex items-center justify-between">
-                          <span className="font-label text-xs text-on-surface-variant">
+                          <span className="font-label text-[11px] text-on-surface-variant">
                             Progress
                           </span>
-                          <span className="font-label text-xs font-bold text-on-surface">
+                          <span className="font-label text-[11px] font-bold text-on-surface">
                             {progress}%
                           </span>
                         </div>
@@ -382,20 +382,20 @@ export function JobsMonitorView({
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant/20 py-4 text-on-surface-variant/50">
-                        <p className="font-label text-xs">
+                        <p className="font-label text-[11px]">
                           Edit notebook · dry-run when ready
                         </p>
                       </div>
                     )}
 
                     <div className="mt-auto flex items-center justify-between pt-2">
-                      <div className="flex items-center gap-3 font-label text-xs text-on-surface-variant/70">
+                      <div className="flex items-center gap-3 font-label text-[11px] text-on-surface-variant/70">
                         <span>{job.notebook?.length || 0} cells</span>
                         <span>
                           {new Date(job.updatedAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <span className="font-label text-sm text-primary">→</span>
+                      <span className="font-label text-[12px] text-primary">→</span>
                     </div>
                   </button>
                 )
@@ -452,13 +452,13 @@ export function JobsMonitorView({
             style={{ boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)' }}
           >
             <div className="mb-md flex items-center justify-between">
-              <h3 className="font-headline text-xl font-semibold text-on-surface">
+              <h3 className="font-headline text-base font-semibold text-on-surface">
                 Recent Activity
               </h3>
               <button
                 type="button"
                 onClick={onRefresh}
-                className="font-label text-sm font-bold text-primary hover:underline"
+                className="font-label text-[12px] font-semibold text-primary hover:underline"
               >
                 View History
               </button>
@@ -479,7 +479,7 @@ export function JobsMonitorView({
                       : '↻'}
                   </span>
                   <div className="min-w-0 flex-1 border-b border-outline-variant/15 pb-md">
-                    <p className="font-body text-sm text-on-surface">
+                    <p className="font-body text-[13px] text-on-surface">
                       <button
                         type="button"
                         className="font-semibold text-primary hover:underline"
@@ -489,7 +489,7 @@ export function JobsMonitorView({
                       </button>{' '}
                       · status {j.status}
                     </p>
-                    <p className="font-label text-xs text-on-surface-variant">
+                    <p className="font-label text-[11px] text-on-surface-variant">
                       Updated {new Date(j.updatedAt).toLocaleString()}
                     </p>
                   </div>
@@ -501,14 +501,14 @@ export function JobsMonitorView({
                     !
                   </span>
                   <div className="min-w-0 flex-1 pb-md">
-                    <p className="font-body text-sm text-on-surface">
+                    <p className="font-body text-[13px] text-on-surface">
                       Drift [{d.code}] {d.summary}
                     </p>
                   </div>
                 </li>
               ))}
               {jobs.length === 0 && openDrift.length === 0 ? (
-                <li className="font-body text-sm text-on-surface-variant">
+                <li className="font-body text-[13px] text-on-surface-variant">
                   Activity will appear as you create and run jobs.
                 </li>
               ) : null}
@@ -520,14 +520,14 @@ export function JobsMonitorView({
       {/* Live Stream rail */}
       <aside className="hidden w-[300px] shrink-0 flex-col border-l border-outline-variant/20 bg-surface-container-low lg:flex xl:w-[320px]">
         <div className="flex items-center justify-between border-b border-outline-variant/20 px-md py-sm">
-          <h3 className="flex items-center gap-2 font-label text-sm font-bold tracking-wide text-on-surface">
+          <h3 className="flex items-center gap-2 font-label text-[12px] font-semibold tracking-wide text-on-surface">
             <span className="text-primary">▣</span> Live Stream
           </h3>
           <div className="flex gap-1">
             <button
               type="button"
               onClick={onToggleStreamPause}
-              className="rounded-lg px-2 py-1 font-label text-xs text-on-surface-variant hover:bg-surface-container-high"
+              className="rounded-lg px-2 py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-high"
               title={streamPaused ? 'Resume' : 'Pause'}
             >
               {streamPaused ? '▶' : '⏸'}
@@ -536,7 +536,7 @@ export function JobsMonitorView({
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-md font-mono text-[11px] leading-relaxed">
           {filteredLogs.length === 0 ? (
-            <p className="font-body text-xs text-on-surface-variant">
+            <p className="font-body text-[12px] text-on-surface-variant">
               {streamPaused
                 ? 'Stream paused.'
                 : 'Run a job dry-run or validate to populate logs.'}
@@ -578,7 +578,7 @@ export function JobsMonitorView({
               value={logQuery}
               onChange={(e) => onLogQueryChange(e.target.value)}
               placeholder="Search logs..."
-              className="w-full rounded-lg border-none bg-surface-container-lowest py-2 pl-9 pr-3 font-body text-sm text-on-surface outline-none ring-1 ring-outline-variant/20 focus:ring-primary"
+              className="w-full rounded-lg border-none bg-surface-container-lowest py-2 pl-9 pr-3 font-body text-[13px] text-on-surface outline-none ring-1 ring-outline-variant/20 focus:ring-primary"
             />
           </div>
         </div>
@@ -613,15 +613,15 @@ function StatCard({
 }) {
   return (
     <div className="flex flex-col gap-xs rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-md">
-      <span className="font-label text-xs tracking-wider text-on-surface-variant uppercase">
+      <span className="font-label text-[11px] tracking-wider text-on-surface-variant uppercase">
         {label}
       </span>
       <span
-        className={`font-headline text-2xl font-semibold text-on-surface ${valueClass || ''}`}
+        className={`font-headline text-lg font-semibold text-on-surface ${valueClass || ''}`}
       >
         {value}
       </span>
-      <div className={`mt-1 font-label text-xs ${hintClass}`}>{hint}</div>
+      <div className={`mt-1 font-label text-[11px] ${hintClass}`}>{hint}</div>
     </div>
   )
 }

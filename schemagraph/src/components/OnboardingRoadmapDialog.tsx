@@ -94,11 +94,11 @@ export function OnboardingRoadmapDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="que-card flex w-full max-w-lg flex-col overflow-hidden shadow-2xl"
+        className="que-card flex w-full max-w-[32rem] flex-col overflow-hidden shadow-2xl"
       >
         <header className="flex items-start justify-between gap-md border-b border-secondary-container/40 bg-surface-container-low px-md py-md sm:px-lg">
           <div>
-            <p className="font-label text-[10px] font-bold tracking-[0.18em] text-on-surface-variant">
+            <p className="font-label text-xs font-bold tracking-[0.14em] text-on-surface-variant">
               QUE ROADMAP · {step + 1} / {ROADMAP_STEPS.length}
             </p>
             <h2
@@ -111,7 +111,7 @@ export function OnboardingRoadmapDialog({
           <button
             type="button"
             onClick={() => close({ skipped: true })}
-            className="shrink-0 rounded-lg px-sm py-xs font-label text-[11px] tracking-widest text-on-surface-variant hover:bg-secondary-container/60 hover:text-primary"
+            className="shrink-0 rounded-lg px-sm py-xs font-label text-sm text-on-surface-variant hover:bg-secondary-container/60 hover:text-primary"
           >
             SKIP
           </button>
@@ -125,7 +125,7 @@ export function OnboardingRoadmapDialog({
         </div>
 
         <div className="space-y-md px-md py-lg sm:px-lg">
-          <p className="font-body text-[15px] leading-relaxed text-on-surface-variant sm:text-base">
+          <p className="font-body text-base leading-relaxed text-on-surface-variant">
             {current.body}
           </p>
           {current.href && current.ctaLabel ? (
@@ -140,7 +140,7 @@ export function OnboardingRoadmapDialog({
                 setOpen(false)
                 onCloseForce?.()
               }}
-              className="inline-flex rounded-lg border border-outline-variant/50 bg-white px-md py-sm font-label text-[12px] tracking-wide text-primary hover:border-primary hover:bg-[#ffdbd2]/40"
+              className="inline-flex rounded-lg border border-outline-variant/50 bg-white px-md py-sm font-label text-sm tracking-wide text-primary hover:border-primary hover:bg-[#ffdbd2]/40"
             >
               {current.ctaLabel} →
             </Link>
@@ -152,7 +152,7 @@ export function OnboardingRoadmapDialog({
             type="button"
             disabled={isFirst}
             onClick={() => setStep((s) => Math.max(0, s - 1))}
-            className="rounded-lg px-md py-sm font-label text-[11px] tracking-widest text-on-surface-variant disabled:opacity-30 hover:text-primary"
+            className="rounded-lg px-md py-sm font-label text-sm tracking-widest text-on-surface-variant disabled:opacity-30 hover:text-primary"
           >
             BACK
           </button>
@@ -175,7 +175,7 @@ export function OnboardingRoadmapDialog({
             <button
               type="button"
               onClick={() => close({ completed: true })}
-              className="rounded-lg bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary hover:opacity-90"
+              className="rounded-lg bg-primary-container px-md py-sm font-label text-sm font-bold tracking-widest text-on-primary hover:opacity-90"
             >
               DONE
             </button>
@@ -191,7 +191,7 @@ export function OnboardingRoadmapDialog({
                   stepIndex: next,
                 })
               }}
-              className="rounded-lg bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary hover:opacity-90"
+              className="rounded-lg bg-primary-container px-md py-sm font-label text-sm font-bold tracking-widest text-on-primary hover:opacity-90"
             >
               NEXT
             </button>

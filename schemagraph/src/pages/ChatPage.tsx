@@ -692,13 +692,13 @@ export function ChatPage() {
   return (
     <QueAppChrome eyebrow="SCHEMA-ONLY · MODEL ASSISTANT">
       <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
-        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-md md:px-lg md:py-lg">
-          <div className="mb-lg flex shrink-0 items-end justify-between gap-md">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-sm md:px-lg md:py-md">
+          <div className="mb-md flex shrink-0 items-end justify-between gap-md">
             <div>
-              <h1 className="font-headline text-2xl font-semibold text-primary sm:text-[2rem]">
+              <h1 className="font-headline text-xl font-semibold text-primary sm:text-xl">
                 Model Assistant
               </h1>
-              <p className="font-body text-sm text-on-surface-variant">
+              <p className="font-body text-xs text-on-surface-variant">
                 Intelligent schema design and query support
                 {busy ? ' · thinking…' : ''}
               </p>
@@ -706,14 +706,14 @@ export function ChatPage() {
             <div className="hidden flex-wrap items-center justify-end gap-sm sm:flex">
               <button
                 type="button"
-                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white"
+                className="flex items-center gap-xs rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white"
                 onClick={() => setShowSkills((v) => !v)}
               >
                 Skills
               </button>
               <button
                 type="button"
-                className="flex items-center gap-xs rounded-lg border border-outline-variant px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white disabled:opacity-40"
+                className="flex items-center gap-xs rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white disabled:opacity-40"
                 disabled={!canWrite || reindexing}
                 onClick={() => {
                   if (reindexing) return
@@ -726,7 +726,7 @@ export function ChatPage() {
               {busy ? (
                 <button
                   type="button"
-                  className="rounded-lg border border-error/50 px-md py-sm font-label text-[12px] text-error"
+                  className="rounded-md border border-error/50 px-sm py-1 font-label text-[11px] text-error"
                   onClick={stopAsk}
                 >
                   Stop
@@ -734,7 +734,7 @@ export function ChatPage() {
               ) : null}
               <button
                 type="button"
-                className="rounded-lg border border-outline-variant px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white"
+                className="rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white"
                 onClick={() => {
                   setMessages([])
                   setFocusTables([])
@@ -779,16 +779,16 @@ export function ChatPage() {
 
           <div className="min-h-0 flex-1 space-y-lg overflow-y-auto pr-sm">
             {messages.length === 0 ? (
-              <div className="flex max-w-4xl gap-md">
+              <div className="flex max-w-[56rem] gap-md">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container font-label text-sm font-bold text-on-primary">
                   AI
                 </div>
                 <div className="space-y-sm">
-                  <div className="rounded-xl rounded-tl-none border border-sand/30 bg-white/80 p-lg shadow-sm backdrop-blur-sm">
-                    <p className="font-body text-base leading-relaxed text-on-surface">
+                  <div className="rounded-xl rounded-tl-none border border-sand/30 bg-white/80 p-md shadow-sm backdrop-blur-sm">
+                    <p className="font-body text-[13px] leading-snug text-on-surface">
                       Hello! I am here to help you navigate your data mesh. I have
                       analyzed{' '}
-                      <span className="font-bold text-primary">{workspaceName}</span>
+                      <span className="font-semibold text-primary">{workspaceName}</span>
                       {context?.stats?.tableCount
                         ? ` — ${context.stats.tableCount} tables and ${context.stats.relationshipCount ?? 0} relationships ready for schema-only answers.`
                         : '. Sync a source or ask about tables with @mentions.'}
@@ -806,7 +806,7 @@ export function ChatPage() {
                         type="button"
                         disabled={!canWrite}
                         onClick={() => void ask(s.buildPrompt([]))}
-                        className="rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                        className="rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
                       >
                         {s.label}
                       </button>
@@ -887,7 +887,7 @@ export function ChatPage() {
                   setInput('/sql ')
                   textareaRef.current?.focus()
                 }}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
               >
                 Generate SQL
               </button>
@@ -898,7 +898,7 @@ export function ChatPage() {
                   setInput('/describe ')
                   textareaRef.current?.focus()
                 }}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
               >
                 Explain table
               </button>
@@ -906,13 +906,13 @@ export function ChatPage() {
                 type="button"
                 disabled={!canWrite}
                 onClick={() => void ask('/suggested')}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
               >
                 Visualize joins
               </button>
               <button
                 type="button"
-                className="rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white"
+                className="rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white"
                 onClick={() => setShowSkills((v) => !v)}
               >
                 ···
@@ -922,7 +922,7 @@ export function ChatPage() {
                   type="button"
                   disabled={busy}
                   onClick={regenerate}
-                  className="rounded-full border border-outline-variant bg-white/80 px-md py-sm font-label text-[12px] text-on-surface-variant hover:bg-white disabled:opacity-40"
+                  className="rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white disabled:opacity-40"
                 >
                   Regen
                 </button>
@@ -1098,7 +1098,7 @@ export function ChatPage() {
                       ? 'Ask Que anything about your pipelines…  @table  /sql'
                       : 'Read-only — viewer cannot send chat'
                   }
-                  className="max-h-40 min-h-[3rem] w-full resize-none border-none bg-transparent px-xs py-xs font-body text-base leading-relaxed text-on-surface outline-none placeholder:text-on-surface-variant/40 disabled:opacity-50"
+                  className="max-h-32 min-h-[2.5rem] w-full resize-none border-none bg-transparent px-xs py-xs font-body text-[13px] leading-snug text-on-surface outline-none placeholder:text-on-surface-variant/40 disabled:opacity-50"
                 />
 
                 <div className="mt-sm flex flex-wrap items-center gap-xs border-t border-outline-variant/20 pt-sm">
@@ -1253,7 +1253,7 @@ export function ChatPage() {
                 <span className="font-label text-[12px] text-on-surface-variant">
                   Selected model
                 </span>
-                <span className="truncate font-label text-[12px] font-bold text-primary underline">
+                <span className="truncate font-label text-[12px] font-semibold text-primary underline">
                   {modelId || aiStatus?.models?.[0]?.label || 'heuristic'}
                 </span>
               </div>
@@ -1439,13 +1439,13 @@ function ChatBubble({
 }) {
   if (message.role === 'user') {
     return (
-      <div className="ml-auto flex max-w-4xl flex-row-reverse gap-md">
+      <div className="ml-auto flex max-w-[56rem] flex-row-reverse gap-md">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary font-label text-sm font-bold text-on-secondary">
           You
         </div>
         <div className="space-y-sm text-right">
-          <div className="rounded-xl rounded-tr-none bg-primary-container p-lg text-left">
-            <p className="font-body text-base leading-relaxed whitespace-pre-wrap text-on-primary">
+          <div className="rounded-xl rounded-tr-none bg-primary-container p-md text-left">
+            <p className="font-body text-[13px] leading-snug whitespace-pre-wrap text-on-primary">
               {message.content}
             </p>
           </div>
@@ -1458,12 +1458,12 @@ function ChatBubble({
   }
 
   return (
-    <div className="flex max-w-5xl gap-md">
+    <div className="flex max-w-[64rem] gap-md">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container font-label text-sm font-bold text-on-primary">
         AI
       </div>
       <div className="w-full min-w-0 space-y-sm">
-        <div className="space-y-md rounded-xl rounded-tl-none border border-sand/30 bg-white/80 p-lg shadow-sm backdrop-blur-sm">
+        <div className="space-y-md rounded-xl rounded-tl-none border border-sand/30 bg-white/80 p-md shadow-sm backdrop-blur-sm">
           <div className="mb-xs flex flex-wrap items-center gap-sm">
             {onCopy ? (
               <button
@@ -1757,11 +1757,11 @@ function formatCell(value: unknown): string {
 function AssistantBody({ text }: { text: string }) {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
   return (
-    <p className="font-body text-base leading-relaxed text-on-surface whitespace-pre-wrap">
+    <p className="font-body text-[13px] leading-snug text-on-surface whitespace-pre-wrap">
       {parts.map((part, i) => {
         if (part.startsWith('`') && part.endsWith('`')) {
           return (
-            <code key={i} className="rounded bg-secondary-container px-1 text-sm text-primary">
+            <code key={i} className="rounded bg-secondary-container px-1 text-[12px] text-primary">
               {part.slice(1, -1)}
             </code>
           )

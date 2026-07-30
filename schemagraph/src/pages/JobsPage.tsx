@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import {
   JobsMonitorView,
   type LiveLogRow,
 } from '@/components/jobs/JobsMonitorView'
+import { JobDeployPanel } from '@/components/jobs/JobDeployPanel'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -41,6 +42,12 @@ const STATUS_STYLE: Record<JobStatus, string> = {
 }
 
 type ProcessTab = 'process' | 'output' | 'logs'
+type JobViewTab = 'notebook' | 'results' | 'deploy'
+
+function parseJobTab(raw: string | null): JobViewTab {
+  if (raw === 'results' || raw === 'deploy') return raw
+  return 'notebook'
+}
 
 function downloadText(filename: string, text: string, mime: string) {
   const blob = new Blob([text], { type: mime })
@@ -57,14 +64,14 @@ function safeSlug(title: string) {
 }
 
 /**
- * Jobs — Databricks-style notebook shell.
- * Step 4: dry-run runner + process / output / logs panel.
+ * Jobs — list (monitor) · notebook · results · deploy as separate focused views.
  */
 export function JobsPage() {
   const { canWrite } = useWorkspaceRole()
   const { workspaceId } = useAuth()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkJobId = searchParams.get('job')
+  const jobTab = parseJobTab(searchParams.get('tab'))
   const [jobs, setJobs] = useState<StitchJob[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(deepLinkJobId)
   const [activeCellId, setActiveCellId] = useState<string | null>(null)
@@ -87,7 +94,6 @@ export function JobsPage() {
   const [openDrift, setOpenDrift] = useState<DriftEvent[]>([])
   const [processTab, setProcessTab] = useState<ProcessTab>('process')
   const [processOpen, setProcessOpen] = useState(true)
-  const [railOpen, setRailOpen] = useState(true)
   const [liveLogs, setLiveLogs] = useState<LiveLogRow[]>([])
   const [logQuery, setLogQuery] = useState('')
   const [streamPaused, setStreamPaused] = useState(false)
@@ -96,6 +102,14 @@ export function JobsPage() {
     owner: string
     repo: string
   } | null>(null)
+
+  function goJobView(jobId: string, tab: JobViewTab = 'notebook') {
+    setSearchParams({ job: jobId, tab })
+  }
+
+  function goJobsList() {
+    setSearchParams({})
+  }
 
   async function reload() {
     try {
@@ -111,11 +125,11 @@ export function JobsPage() {
       setOpenDrift(drift.openHigh || [])
       setError(null)
       setSelectedId((prev) => {
-        if (prev && list.some((j) => j.id === prev)) return prev
         if (deepLinkJobId && list.some((j) => j.id === deepLinkJobId)) {
           return deepLinkJobId
         }
-        return list[0]?.id ?? null
+        if (prev && list.some((j) => j.id === prev)) return prev
+        return null
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -218,6 +232,7 @@ export function JobsPage() {
     setSelectedId(null)
     setDbtFiles(null)
     setDbtGithub(null)
+    goJobsList()
   }
 
   function openJob(jobId: string) {
@@ -232,7 +247,7 @@ export function JobsPage() {
     setSelectedId(jobId)
     setDbtFiles(null)
     setDbtGithub(null)
-    setRailOpen(true)
+    goJobView(jobId, 'notebook')
   }
 
   function openCreateDialog() {
@@ -267,6 +282,7 @@ export function JobsPage() {
       setDbtFiles(null)
       setDbtGithub(null)
       setCreateOpen(false)
+      goJobView(job.id, 'notebook')
       setToast(`Created “${job.title}”`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -468,7 +484,7 @@ export function JobsPage() {
       const github = (payload.github as DbtGithubResult | undefined) ?? null
       setDbtFiles(files)
       setDbtGithub(github)
-      setRailOpen(true)
+      goJobView(selected.id, 'deploy')
 
       downloadText(
         `${safeSlug(job.title)}-dbt-bundle.json`,
@@ -631,7 +647,7 @@ export function JobsPage() {
         {!selected ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {error ? (
-            <p className="shrink-0 border-b border-error/40 bg-error/10 px-md py-sm font-body text-xs text-error">
+            <p className="shrink-0 border-b border-error/40 bg-error/10 px-md py-sm font-body text-[12px] text-error">
               {error}
             </p>
           ) : null}
@@ -668,7 +684,7 @@ export function JobsPage() {
           <>
             <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#F2EDE4]">
           {error ? (
-            <p className="shrink-0 border-b border-error/40 bg-error/10 px-md py-sm font-body text-xs text-error">
+            <p className="shrink-0 border-b border-error/40 bg-error/10 px-md py-sm font-body text-[12px] text-error">
               {error}
             </p>
           ) : null}
@@ -689,7 +705,7 @@ export function JobsPage() {
                   <button
                     type="button"
                     onClick={closeEditor}
-                    className="shrink-0 rounded-lg px-2 py-1.5 font-label text-sm text-on-surface-variant transition-colors hover:bg-secondary-container hover:text-primary"
+                    className="shrink-0 rounded-lg px-2 py-1.5 font-label text-[12px] text-on-surface-variant transition-colors hover:bg-secondary-container hover:text-primary"
                     title="Back to Sync Jobs"
                   >
                     ←
@@ -698,7 +714,7 @@ export function JobsPage() {
                     <span className="shrink-0 text-primary" aria-hidden>
                       ⟨/⟩
                     </span>
-                    <span className="truncate font-label text-sm font-medium text-on-secondary-container">
+                    <span className="truncate font-label text-[12px] font-medium text-on-secondary-container">
                       {selected.title}
                     </span>
                   </div>
@@ -722,7 +738,30 @@ export function JobsPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-sm">
-                  {canWrite ? (
+                  <div className="mr-sm hidden items-center rounded-lg border border-outline-variant/25 bg-[#FBF8F4] p-0.5 sm:flex">
+                    {(
+                      [
+                        ['notebook', 'Notebook'],
+                        ['results', 'Results'],
+                        ['deploy', 'Deploy'],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => goJobView(selected.id, id)}
+                        className={[
+                          'rounded-md px-2.5 py-1 font-label text-[11px] font-medium transition-colors',
+                          jobTab === id
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-on-surface-variant hover:text-primary',
+                        ].join(' ')}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {canWrite && jobTab === 'notebook' ? (
                     <>
                       <select
                         value={runMode}
@@ -734,7 +773,7 @@ export function JobsPage() {
                               : 'dry_run',
                           )
                         }
-                        className="hidden rounded-lg border border-outline-variant/30 bg-white px-sm py-2 font-label text-xs text-on-surface outline-none disabled:opacity-40 md:block"
+                        className="hidden rounded-lg border border-outline-variant/30 bg-white px-sm py-1.5 font-label text-[11px] text-on-surface outline-none disabled:opacity-40 md:block"
                         title="Run mode"
                       >
                         <option value="dry_run">Dry-run · ≤10</option>
@@ -744,7 +783,7 @@ export function JobsPage() {
                         type="button"
                         disabled={!canWrite || running}
                         onClick={() => void startRun('all')}
-                        className="flex items-center gap-1.5 rounded-xl px-4 py-2 font-label text-sm text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-label text-[12px] text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
                       >
                         ▶ {running ? 'Running…' : 'Run Test'}
                       </button>
@@ -752,35 +791,155 @@ export function JobsPage() {
                         type="button"
                         disabled={!notebookDirty || savingNotebook}
                         onClick={() => void saveNotebook()}
-                        className="rounded-xl bg-primary px-4 py-2 font-label text-sm font-semibold text-on-primary shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
+                        className="rounded-lg bg-primary px-3 py-1.5 font-label text-[12px] font-semibold text-on-primary shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
                       >
-                        {savingNotebook ? 'Saving…' : 'Commit Changes'}
+                        {savingNotebook ? 'Saving…' : 'Commit'}
                       </button>
                     </>
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() => setRailOpen((v) => !v)}
-                    className="rounded-xl border border-outline-variant/30 px-3 py-2 font-label text-xs text-on-surface-variant hover:bg-white"
-                  >
-                    {railOpen ? 'Hide' : 'Deploy'}
-                  </button>
+                  {jobTab === 'notebook' ? (
+                    <button
+                      type="button"
+                      onClick={() => goJobView(selected.id, 'deploy')}
+                      className="rounded-lg border border-outline-variant/30 px-3 py-1.5 font-label text-[11px] text-on-surface-variant hover:bg-white"
+                    >
+                      Deploy →
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
-              {canWrite ? (
+              <div className="flex shrink-0 items-center gap-1 border-b border-outline-variant/15 bg-white px-lg py-1 sm:hidden">
+                {(
+                  [
+                    ['notebook', 'Notebook'],
+                    ['results', 'Results'],
+                    ['deploy', 'Deploy'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => goJobView(selected.id, id)}
+                    className={[
+                      'rounded-md px-2.5 py-1 font-label text-[11px]',
+                      jobTab === id
+                        ? 'bg-primary/10 font-semibold text-primary'
+                        : 'text-on-surface-variant',
+                    ].join(' ')}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {jobTab === 'deploy' ? (
+                <JobDeployPanel
+                  job={selected}
+                  canWrite={canWrite}
+                  busy={busy}
+                  openDrift={openDrift}
+                  githubReady={githubReady}
+                  dbtFiles={dbtFiles}
+                  dbtGithub={dbtGithub}
+                  onAcknowledgeDrift={(id) =>
+                    void acknowledgeDriftEvent(id)
+                      .then(() => reload())
+                      .catch((err) =>
+                        setError(
+                          err instanceof Error ? err.message : String(err),
+                        ),
+                      )
+                  }
+                  onRefreeze={() =>
+                    void updateJob(selected.id, { refreezeContract: true })
+                      .then((job) => {
+                        setJobs((prev) =>
+                          prev.map((j) => (j.id === job.id ? job : j)),
+                        )
+                        setToast('Contract re-frozen')
+                      })
+                      .catch((err) =>
+                        setError(
+                          err instanceof Error ? err.message : String(err),
+                        ),
+                      )
+                  }
+                  onMarkReady={() => void markReady()}
+                  onDbtPr={() => void doDbtExport('dbt-pr')}
+                  onDbtBundle={() => void doDbtExport('dbt')}
+                  onExportSql={() => void doExport('sql')}
+                  onExportJson={() => void doExport('json')}
+                  onDownloadDbtFile={downloadDbtFile}
+                  onBackToNotebook={() => goJobView(selected.id, 'notebook')}
+                />
+              ) : null}
+
+              {jobTab === 'results' ? (
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+                  <div className="shrink-0 border-b border-outline-variant/15 px-lg py-md">
+                    <h2 className="font-headline text-base font-semibold text-on-surface">
+                      Results · Preview
+                    </h2>
+                    <p className="mt-1 font-body text-[12px] text-on-surface-variant">
+                      Input samples and live output from the last Run Test.
+                    </p>
+                  </div>
+                  <div className="min-h-0 flex-1 space-y-lg overflow-y-auto p-lg">
+                    <div className="mx-auto max-w-[64rem]">
+                      <JobPreviewPanel latestRun={latestRun} />
+                    </div>
+                  </div>
+                  <div className="shrink-0 border-t border-outline-variant/20 bg-[#FBF8F4] px-lg py-sm">
+                    <div className="mx-auto flex max-w-[64rem] flex-wrap items-center gap-sm">
+                      <ExecStat
+                        label="Latency"
+                        value={
+                          latestRun?.output?.liveResults?.[0]?.durationMs !=
+                          null
+                            ? `${latestRun.output.liveResults[0].durationMs}ms`
+                            : '—'
+                        }
+                        tint="border border-outline-variant/15 bg-white"
+                      />
+                      <ExecStat
+                        label="State"
+                        value={runStateLabel}
+                        tint="border border-outline-variant/15 bg-secondary-container/50"
+                      />
+                      <ExecStat
+                        label="Mode"
+                        value={(latestRun?.mode || runMode).replace('_', ' ')}
+                        tint="border border-outline-variant/15 bg-white"
+                      />
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          disabled={running}
+                          onClick={() => void startRun('all')}
+                          className="ml-auto rounded-lg bg-primary px-md py-1.5 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                        >
+                          {running ? 'Running…' : 'Run again'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {jobTab === 'notebook' && canWrite ? (
                 <div className="flex shrink-0 flex-wrap items-center gap-xs border-b border-outline-variant/15 bg-[#F2EDE4]/80 px-lg py-1.5">
                   <button
                     type="button"
                     onClick={() => addCell('sql')}
-                    className="rounded-lg px-2.5 py-1 font-label text-xs text-primary hover:bg-white"
+                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-primary hover:bg-white"
                   >
                     + SQL
                   </button>
                   <button
                     type="button"
                     onClick={() => addCell('markdown')}
-                    className="rounded-lg px-2.5 py-1 font-label text-xs text-on-surface-variant hover:bg-white"
+                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-white"
                   >
                     + Markdown
                   </button>
@@ -788,7 +947,7 @@ export function JobsPage() {
                     type="button"
                     disabled={!activeCellId || running}
                     onClick={() => void startRun('cell')}
-                    className="rounded-lg px-2.5 py-1 font-label text-xs text-on-surface-variant hover:bg-white disabled:opacity-40"
+                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-white disabled:opacity-40"
                   >
                     Run cell
                   </button>
@@ -796,19 +955,28 @@ export function JobsPage() {
                     type="button"
                     disabled={!notebookDirty || savingNotebook}
                     onClick={() => discardNotebook()}
-                    className="rounded-lg px-2.5 py-1 font-label text-xs text-on-surface-variant hover:bg-white disabled:opacity-40"
+                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-white disabled:opacity-40"
                   >
                     Discard
                   </button>
                   <span className="ml-auto font-label text-[11px] text-on-surface-variant/70">
                     {cells.length} cell{cells.length === 1 ? '' : 's'}
                     {notebookDirty ? ' · unsaved' : ''}
+                    <button
+                      type="button"
+                      className="ml-sm text-primary underline"
+                      onClick={() => goJobView(selected.id, 'results')}
+                    >
+                      View results
+                    </button>
                   </span>
                 </div>
               ) : null}
 
+              {jobTab === 'notebook' ? (
+              <>
               <div className="flex min-h-0 flex-1 overflow-hidden">
-                <div className="flex min-w-0 flex-1 flex-col border-r border-outline-variant/15 bg-white">
+                <div className="flex min-w-0 flex-1 flex-col bg-white">
                   <div className="flex h-9 shrink-0 items-center justify-between border-b border-outline-variant/10 bg-[#FBF8F4]/80 px-4">
                     <span className="font-label text-[11px] tracking-[0.12em] text-on-surface-variant/70 uppercase">
                       Notebook
@@ -819,7 +987,7 @@ export function JobsPage() {
                     </span>
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto bg-[#F2EDE4]/55 p-lg">
-                    <div className="mx-auto max-w-3xl space-y-md">
+                    <div className="mx-auto max-w-[48rem] space-y-md">
                       {cells.map((cell, idx) => (
                         <NotebookCellEditor
                           key={cell.id}
@@ -852,14 +1020,14 @@ export function JobsPage() {
                           <button
                             type="button"
                             onClick={() => addCell('sql')}
-                            className="rounded-xl bg-primary/10 px-md py-sm font-label text-sm font-medium text-primary hover:bg-primary/15"
+                            className="rounded-xl bg-primary/10 px-md py-sm font-label text-[12px] font-medium text-primary hover:bg-primary/15"
                           >
                             + SQL cell
                           </button>
                           <button
                             type="button"
                             onClick={() => addCell('markdown')}
-                            className="rounded-xl bg-secondary-container/80 px-md py-sm font-label text-sm font-medium text-on-secondary-container hover:bg-secondary-container"
+                            className="rounded-xl bg-secondary-container/80 px-md py-sm font-label text-[12px] font-medium text-on-secondary-container hover:bg-secondary-container"
                           >
                             + Markdown
                           </button>
@@ -892,7 +1060,7 @@ export function JobsPage() {
                           setProcessTab(id)
                         }}
                         className={[
-                          'font-label text-xs',
+                          'font-label text-[11px]',
                           processTab === id && processOpen
                             ? 'font-semibold text-primary'
                             : 'text-on-surface-variant hover:text-on-surface',
@@ -1130,28 +1298,6 @@ export function JobsPage() {
                 ) : null}
               </div>
                 </div>
-
-                <div className="hidden w-[300px] shrink-0 flex-col overflow-hidden border-l border-outline-variant/15 bg-white lg:flex xl:w-[340px]">
-                  <div className="flex h-9 items-center justify-between border-b border-outline-variant/10 bg-surface-container-low/30 px-4">
-                    <span className="font-label text-[11px] tracking-[0.12em] text-on-surface-variant/70 uppercase">
-                      Real-time preview
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProcessOpen(true)
-                        setProcessTab('output')
-                      }}
-                      className="rounded-lg p-1 text-on-surface-variant hover:bg-surface-container-high"
-                      title="Focus output"
-                    >
-                      ↻
-                    </button>
-                  </div>
-                  <div className="min-h-0 flex-1 space-y-lg overflow-y-auto p-4">
-                    <JobPreviewPanel latestRun={latestRun} />
-                  </div>
-                </div>
               </div>
 
               <div className="flex shrink-0 flex-wrap items-center gap-md border-t border-outline-variant/20 bg-white/90 px-lg py-sm">
@@ -1177,7 +1323,14 @@ export function JobsPage() {
                   value={(latestRun?.mode || runMode).replace('_', ' ')}
                   tint="border border-outline-variant/15 bg-white"
                 />
-                <div className="ml-auto flex items-center gap-3 font-label text-xs text-on-surface-variant">
+                <button
+                  type="button"
+                  onClick={() => goJobView(selected.id, 'results')}
+                  className="rounded-lg px-2 py-1 font-label text-[11px] text-primary hover:underline"
+                >
+                  Open results →
+                </button>
+                <div className="ml-auto flex items-center gap-3 font-label text-[11px] text-on-surface-variant">
                   <div className="flex flex-col items-end">
                     <span className="text-[10px] tracking-wide text-on-surface-variant/55 uppercase">
                       Auto-save
@@ -1197,260 +1350,9 @@ export function JobsPage() {
                   </button>
                 </div>
               </div>
+              </>
+              ) : null}
             </main>
-            {selected && railOpen ? (
-              <aside className="flex w-[280px] shrink-0 flex-col overflow-hidden border-l border-outline-variant/15 bg-white lg:w-[300px]">
-                <div className="border-b border-outline-variant/15 px-md py-sm">
-                  <h3 className="font-label text-[11px] font-semibold tracking-[0.14em] text-primary uppercase">
-                    Deploy · Governance
-                  </h3>
-                  <p className="mt-1 font-label text-[10px] text-on-surface-variant/70">
-                    Updated {new Date(selected.updatedAt).toLocaleString()}
-                  </p>
-                </div>
-                <div className="min-h-0 flex-1 space-y-md overflow-y-auto p-md">
-                  <section>
-                    <h4 className="mb-xs font-label text-[10px] tracking-[0.12em] text-on-surface-variant/70 uppercase">
-                      Tables
-                    </h4>
-                    <div className="flex flex-wrap gap-xs">
-                      {selected.tables.length === 0 ? (
-                        <span className="font-body text-xs text-on-surface-variant">
-                          —
-                        </span>
-                      ) : (
-                        selected.tables.map((t) => (
-                          <span
-                            key={t}
-                            className="rounded-lg border border-outline-variant/30 bg-[#FBF8F4] px-2 py-0.5 font-body text-[11px] text-on-surface"
-                          >
-                            {t}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </section>
-
-                  <section>
-                    <h4 className="mb-xs font-label text-[10px] tracking-[0.12em] text-on-surface-variant/70 uppercase">
-                      Sources
-                    </h4>
-                    <p className="font-body text-[12px] text-on-surface-variant">
-                      {selected.sources.length
-                        ? selected.sources.join(' · ')
-                        : '—'}
-                    </p>
-                  </section>
-
-                  {openDrift.length > 0 ? (
-                    <section className="rounded-xl border border-error/30 bg-error/5 p-sm">
-                      <h4 className="font-label text-[10px] font-semibold tracking-wide text-error uppercase">
-                        Drift · blocks export
-                      </h4>
-                      <ul className="mt-sm space-y-sm">
-                        {openDrift.map((d) => (
-                          <li
-                            key={d.id}
-                            className="font-body text-[11px] text-on-surface"
-                          >
-                            <span>
-                              [{d.code}] {d.summary}
-                            </span>
-                            {canWrite ? (
-                              <button
-                                type="button"
-                                className="mt-xs block rounded-md border border-outline-variant/40 px-sm py-[2px] font-label text-[10px]"
-                                onClick={() =>
-                                  void acknowledgeDriftEvent(d.id)
-                                    .then(() => reload())
-                                    .catch((err) =>
-                                      setError(
-                                        err instanceof Error
-                                          ? err.message
-                                          : String(err),
-                                      ),
-                                    )
-                                }
-                              >
-                                Acknowledge
-                              </button>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null}
-
-                  {selected.contract || selected.schemaSnapshotId ? (
-                    <section className="rounded-xl border border-outline-variant/25 bg-[#FBF8F4] p-sm">
-                      <h4 className="font-label text-[10px] tracking-[0.12em] text-primary uppercase">
-                        Frozen contract
-                      </h4>
-                      <p className="mt-xs break-all font-body text-[11px] text-on-surface-variant">
-                        {selected.schemaSnapshotId?.slice(0, 8) ||
-                          selected.contract?.schemaSnapshotId?.slice(0, 8) ||
-                          '—'}
-                        …
-                        {selected.contract?.frozenAt
-                          ? ` · ${new Date(selected.contract.frozenAt).toLocaleString()}`
-                          : ''}
-                      </p>
-                      {canWrite ? (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          className="mt-sm rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 font-label text-[11px] text-on-surface disabled:opacity-40"
-                          onClick={() =>
-                            void updateJob(selected.id, {
-                              refreezeContract: true,
-                            })
-                              .then((job) => {
-                                setJobs((prev) =>
-                                  prev.map((j) => (j.id === job.id ? job : j)),
-                                )
-                                setToast('Contract re-frozen')
-                              })
-                              .catch((err) =>
-                                setError(
-                                  err instanceof Error
-                                    ? err.message
-                                    : String(err),
-                                ),
-                              )
-                          }
-                        >
-                          Re-freeze
-                        </button>
-                      ) : null}
-                    </section>
-                  ) : null}
-
-                  {selected.joinsSnapshot && selected.joinsSnapshot.length > 0 ? (
-                    <section>
-                      <h4 className="mb-xs font-label text-[10px] tracking-[0.12em] text-on-surface-variant/70 uppercase">
-                        Joins · {selected.joinsSnapshot.length}
-                      </h4>
-                      <ul className="space-y-xs">
-                        {selected.joinsSnapshot.map((j) => (
-                          <li
-                            key={j.id}
-                            className="rounded-lg bg-secondary-container/40 px-2 py-1 font-body text-[11px] text-on-surface"
-                          >
-                            {j.fromTable}.{j.fromColumn} → {j.toTable}.
-                            {j.toColumn}
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null}
-
-                  <section className="rounded-xl border border-primary/20 bg-primary/5 p-sm">
-                    <h4 className="font-label text-[10px] tracking-[0.12em] text-primary uppercase">
-                      Production path
-                    </h4>
-                    <p className="mt-xs font-body text-[11px] leading-relaxed text-on-surface-variant">
-                      Notebook is a review sandbox. Ship via promoted joins →
-                      attested dbt PR.
-                    </p>
-                    {canWrite ? (
-                      <div className="mt-sm flex flex-col gap-1.5">
-                        <button
-                          type="button"
-                          disabled={busy || selected.status === 'ready'}
-                          onClick={() => void markReady()}
-                          className="rounded-xl border border-outline-variant/40 bg-white px-sm py-2 font-label text-[12px] text-on-surface disabled:opacity-40"
-                        >
-                          Mark ready
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void doDbtExport('dbt-pr')}
-                          className="rounded-xl bg-primary px-sm py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
-                        >
-                          Open dbt PR
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void doDbtExport('dbt')}
-                          className="rounded-xl border border-primary/40 px-sm py-2 font-label text-[12px] text-primary disabled:opacity-40"
-                        >
-                          Export dbt bundle
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void doExport('sql')}
-                          className="rounded-xl border border-outline-variant/30 px-sm py-2 font-label text-[12px] text-on-surface-variant disabled:opacity-40"
-                        >
-                          Download SQL
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void doExport('json')}
-                          className="rounded-xl border border-outline-variant/30 px-sm py-2 font-label text-[12px] text-on-surface-variant disabled:opacity-40"
-                        >
-                          Download JSON
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="mt-sm font-label text-[11px] text-on-surface-variant">
-                        Read-only
-                      </p>
-                    )}
-                    {githubReady ? (
-                      <p className="mt-sm font-label text-[10px] text-on-surface-variant/70">
-                        GitHub {githubReady.token ? 'connected' : 'no token'}
-                        {githubReady.owner && githubReady.repo
-                          ? ` · ${githubReady.owner}/${githubReady.repo}`
-                          : ' · set owner/repo in Settings'}
-                      </p>
-                    ) : null}
-                    {dbtGithub?.opened && dbtGithub.prUrl ? (
-                      <a
-                        href={dbtGithub.prUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-sm block truncate font-body text-[11px] text-primary underline"
-                      >
-                        {dbtGithub.prUrl}
-                      </a>
-                    ) : null}
-                    {dbtFiles && dbtFiles.length > 0 ? (
-                      <ul className="mt-sm space-y-xs rounded-xl border border-outline-variant/25 p-xs">
-                        {dbtFiles.map((f) => (
-                          <li
-                            key={f.path}
-                            className="flex items-center justify-between gap-xs"
-                          >
-                            <code className="truncate font-body text-[10px] text-on-surface">
-                              {f.path.split('/').pop()}
-                            </code>
-                            <button
-                              type="button"
-                              onClick={() => downloadDbtFile(f)}
-                              className="shrink-0 font-label text-[10px] text-primary underline"
-                            >
-                              Download
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </section>
-                </div>
-                <div className="border-t border-outline-variant/15 p-sm">
-                  <Link
-                    to="/workspace"
-                    className="block rounded-xl bg-secondary-container/70 py-2 text-center font-label text-[12px] text-on-secondary-container hover:bg-secondary-container"
-                  >
-                    Open workspace
-                  </Link>
-                </div>
-              </aside>
-            ) : null}
           </>
         )}
       </div>
@@ -1490,7 +1392,7 @@ export function JobsPage() {
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       autoFocus
-                      className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-sm text-on-surface outline-none focus:border-primary-fixed"
+                      className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed"
                       placeholder="Untitled Que job"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') void submitCreateJob()
@@ -1508,7 +1410,7 @@ export function JobsPage() {
                       </span>
                     </div>
                     {schemaTableNames.length === 0 ? (
-                      <p className="font-body text-xs leading-relaxed text-on-surface-variant">
+                      <p className="font-body text-[12px] leading-relaxed text-on-surface-variant">
                         No synced tables yet — you can still create a blank
                         notebook and bind tables later.
                       </p>
@@ -1582,7 +1484,7 @@ function ExecStat({
         <p className="font-label text-[10px] tracking-wide text-on-surface-variant/60 uppercase">
           {label}
         </p>
-        <p className="font-label text-sm font-semibold capitalize text-on-surface">
+        <p className="font-label text-[12px] font-semibold capitalize text-on-surface">
           {value}
         </p>
       </div>
@@ -1595,7 +1497,7 @@ function JobPreviewPanel({ latestRun }: { latestRun: JobRun | null }) {
   const samples = latestRun?.output?.samplePreviews || []
   if (!latestRun) {
     return (
-      <p className="font-body text-sm text-on-surface-variant">
+      <p className="font-body text-[13px] text-on-surface-variant">
         Run Test to populate input samples and output results.
       </p>
     )
@@ -1604,7 +1506,7 @@ function JobPreviewPanel({ latestRun }: { latestRun: JobRun | null }) {
     <>
       <div className="space-y-sm">
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 font-label text-sm text-on-surface-variant">
+          <h3 className="flex items-center gap-2 font-label text-[12px] text-on-surface-variant">
             <span className="text-primary">⇩</span> Input Sample
           </h3>
           <span className="font-label text-[10px] text-on-surface-variant/50">
@@ -1627,7 +1529,7 @@ function JobPreviewPanel({ latestRun }: { latestRun: JobRun | null }) {
       </div>
       <div className="space-y-sm">
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 font-label text-sm text-on-surface-variant">
+          <h3 className="flex items-center gap-2 font-label text-[12px] text-on-surface-variant">
             <span className="text-tertiary">⇧</span> Output Result
           </h3>
           <span
@@ -1648,7 +1550,7 @@ function JobPreviewPanel({ latestRun }: { latestRun: JobRun | null }) {
           headerClass="bg-tertiary/10 text-tertiary"
           wrapClass="rounded-xl border border-tertiary/30 bg-tertiary/5"
         />
-        <p className="font-body text-xs text-on-surface-variant">
+        <p className="font-body text-[12px] text-on-surface-variant">
           {latestRun.summary}
         </p>
       </div>
@@ -1669,14 +1571,14 @@ function PreviewTable({
 }) {
   if (!columns.length) {
     return (
-      <div className={`${wrapClass} p-3 font-body text-xs text-on-surface-variant`}>
+      <div className={`${wrapClass} p-3 font-body text-[12px] text-on-surface-variant`}>
         No preview rows yet
       </div>
     )
   }
   return (
     <div className={wrapClass}>
-      <table className="w-full text-left font-label text-xs">
+      <table className="w-full text-left font-label text-[11px]">
         <thead className={`${headerClass} uppercase tracking-widest`}>
           <tr>
             {columns.slice(0, 4).map((c) => (

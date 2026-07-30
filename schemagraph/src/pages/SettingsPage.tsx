@@ -219,12 +219,12 @@ export function SettingsPage() {
           <main className="min-h-0 flex-1 overflow-y-auto px-md py-lg pb-40 md:px-lg lg:px-margin-desktop">
             <div className="mb-xl flex flex-col justify-between gap-md sm:flex-row sm:items-end">
               <div>
-                <h1 className="font-headline text-3xl font-semibold tracking-tight text-on-surface">
+                <h1 className="font-headline text-xl font-semibold tracking-tight text-on-surface">
                   Workspace Settings
                 </h1>
-                <p className="mt-xs font-body text-base text-on-surface-variant">
-                  Configure team permissions, security keys, and resource
-                  allocation.
+                <p className="mt-xs max-w-[42rem] font-body text-[13px] leading-snug text-on-surface-variant">
+                  Team permissions, encrypted secrets, and privacy gates that keep
+                  Que schema-only — AI suggestions still need human Promote.
                 </p>
               </div>
               <button
@@ -237,7 +237,7 @@ export function SettingsPage() {
                   }
                   setInviteOpen(true)
                 }}
-                className="inline-flex items-center justify-center gap-sm rounded-lg bg-primary px-lg py-sm font-label text-sm font-medium text-on-primary transition-all hover:shadow-md active:scale-95 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-sm rounded-lg bg-primary px-lg py-sm font-label text-[12px] font-medium text-on-primary transition-all hover:shadow-md active:scale-95 disabled:opacity-40"
               >
                 <span aria-hidden>+</span>
                 Invite Member
@@ -245,7 +245,7 @@ export function SettingsPage() {
             </div>
 
             {error ? (
-              <p className="mb-md rounded-xl border border-error/40 bg-error-container px-md py-sm font-body text-sm text-error">
+              <p className="mb-md rounded-xl border border-error/40 bg-error-container px-md py-sm font-body text-[13px] text-error">
                 {error}
               </p>
             ) : null}
@@ -263,7 +263,7 @@ export function SettingsPage() {
             ) : null}
 
             {!data || !draft ? (
-              <p className="font-label text-sm text-on-surface-variant">
+              <p className="font-label text-[12px] text-on-surface-variant">
                 Loading…
               </p>
             ) : (
@@ -272,7 +272,7 @@ export function SettingsPage() {
                   {/* Member Registry */}
                   <section className="col-span-12 rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm lg:col-span-8">
                     <div className="mb-md flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
-                      <h2 className="font-headline text-xl font-semibold text-on-surface-variant">
+                      <h2 className="font-headline text-base font-semibold text-on-surface-variant">
                         Member Registry
                       </h2>
                       <div className="relative">
@@ -283,7 +283,7 @@ export function SettingsPage() {
                           value={memberQuery}
                           onChange={(e) => setMemberQuery(e.target.value)}
                           placeholder="Search members…"
-                          className="rounded-lg border border-outline-variant/20 bg-canvas py-2 pr-4 pl-10 font-body text-sm outline-none focus:ring-1 focus:ring-primary"
+                          className="rounded-lg border border-outline-variant/20 bg-canvas py-2 pr-4 pl-10 font-body text-[13px] outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
                     </div>
@@ -305,7 +305,7 @@ export function SettingsPage() {
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="font-body text-sm text-on-surface">
+                        <tbody className="font-body text-[13px] text-on-surface">
                           {filteredMembers.map((m, i) => (
                             <tr
                               key={m.id}
@@ -315,7 +315,7 @@ export function SettingsPage() {
                                 <div className="flex items-center gap-md">
                                   <div
                                     className={[
-                                      'flex h-8 w-8 items-center justify-center rounded-full font-label text-xs font-bold',
+                                      'flex h-8 w-8 items-center justify-center rounded-full font-label text-[11px] font-bold',
                                       i % 3 === 0
                                         ? 'bg-[#bbeed4] text-[#1f4f3c]'
                                         : i % 3 === 1
@@ -329,7 +329,7 @@ export function SettingsPage() {
                                     <p className="font-medium">
                                       {m.name}
                                       {m.you ? (
-                                        <span className="ml-xs font-label text-[10px] text-primary">
+                                        <span className="ml-xs font-label text-[11px] text-primary">
                                           (you)
                                         </span>
                                       ) : null}
@@ -405,7 +405,7 @@ export function SettingsPage() {
                                     Remove
                                   </button>
                                 ) : (
-                                  <span className="font-label text-[10px] text-on-surface-variant">
+                                  <span className="font-label text-[11px] text-on-surface-variant">
                                     —
                                   </span>
                                 )}
@@ -415,20 +415,20 @@ export function SettingsPage() {
                         </tbody>
                       </table>
                     </div>
-                    <p className="mt-md font-body text-xs text-on-surface-variant">
+                    <p className="mt-md font-body text-[12px] text-on-surface-variant">
                       Live membership from the API. Admins invite by email;
                       users join on next login / SSO.
                     </p>
                     {canAdmin && invites.length > 0 ? (
                       <div className="mt-md border-t border-outline-variant/20 pt-md">
-                        <p className="mb-sm font-label text-[10px] tracking-widest text-on-surface-variant">
+                        <p className="mb-sm font-label text-[11px] tracking-widest text-on-surface-variant">
                           PENDING INVITES
                         </p>
                         <ul className="space-y-xs">
                           {invites.map((inv) => (
                             <li
                               key={inv.id}
-                              className="flex items-center justify-between gap-sm font-body text-xs"
+                              className="flex items-center justify-between gap-sm font-body text-[12px]"
                             >
                               <span>
                                 {inv.email}{' '}
@@ -438,7 +438,7 @@ export function SettingsPage() {
                               </span>
                               <button
                                 type="button"
-                                className="font-label text-[10px] text-error underline"
+                                className="font-label text-[11px] text-error underline"
                                 onClick={() => {
                                   void (async () => {
                                     try {
@@ -468,7 +468,7 @@ export function SettingsPage() {
                   <div className="col-span-12 flex flex-col gap-lg lg:col-span-4">
                     <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
                       <div className="mb-md flex items-center justify-between">
-                        <h3 className="font-headline text-lg font-semibold text-on-surface-variant">
+                        <h3 className="font-headline text-base font-semibold text-on-surface-variant">
                           API Keys
                         </h3>
                         <button
@@ -502,7 +502,7 @@ export function SettingsPage() {
                           type="button"
                           disabled={!canAdmin}
                           onClick={() => setShowAdvanced(true)}
-                          className="mt-sm w-full rounded-lg border border-primary py-2 font-label text-sm text-primary transition-colors hover:bg-primary/5 disabled:opacity-40"
+                          className="mt-sm w-full rounded-lg border border-primary py-2 font-label text-[12px] text-primary transition-colors hover:bg-primary/5 disabled:opacity-40"
                         >
                           Generate New Key
                         </button>
@@ -511,12 +511,12 @@ export function SettingsPage() {
 
                     <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
                       <div className="mb-md flex items-center justify-between">
-                        <h3 className="font-headline text-lg font-semibold text-on-surface-variant">
+                        <h3 className="font-headline text-base font-semibold text-on-surface-variant">
                           Environment Variables
                         </h3>
                         <button
                           type="button"
-                          className="font-label text-lg text-on-surface-variant hover:text-primary"
+                          className="font-label text-[13px] text-on-surface-variant hover:text-primary"
                           onClick={() => setShowAdvanced(true)}
                           aria-label="Edit environment"
                         >
@@ -561,7 +561,7 @@ export function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowAdvanced((v) => !v)}
-                    className="mb-md rounded-lg border border-outline-variant/40 bg-white px-md py-sm font-label text-sm text-on-surface-variant hover:border-primary hover:text-primary"
+                    className="mb-md rounded-lg border border-outline-variant/40 bg-white px-md py-sm font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary"
                   >
                     {showAdvanced
                       ? 'Hide policy & AI settings'
@@ -624,7 +624,7 @@ export function SettingsPage() {
               <div className="min-w-0 flex-1">
                 <div className="mb-xs flex items-center justify-between gap-sm">
                   <div className="flex items-center gap-sm">
-                    <span className="font-label text-sm font-bold text-on-surface">
+                    <span className="font-label text-[12px] font-semibold text-on-surface">
                       Workspace Usage
                     </span>
                   </div>
@@ -644,7 +644,7 @@ export function SettingsPage() {
               <div className="flex shrink-0 items-center gap-md">
                 <button
                   type="button"
-                  className="px-md py-2 font-label text-sm text-on-surface-variant hover:text-on-surface"
+                  className="px-md py-2 font-label text-[12px] text-on-surface-variant hover:text-on-surface"
                   onClick={() =>
                     setToast('Billing is not enabled in this Que demo build')
                   }
@@ -653,7 +653,7 @@ export function SettingsPage() {
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-primary px-lg py-2 font-label text-sm font-medium text-on-primary hover:shadow-md"
+                  className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-medium text-on-primary hover:shadow-md"
                   onClick={() =>
                     setToast('Upgrade plan — contact Que for production seats')
                   }
@@ -671,28 +671,28 @@ export function SettingsPage() {
           <div
             role="dialog"
             aria-label="Invite member"
-            className="w-full max-w-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-lg shadow-xl"
+            className="w-full max-w-[28rem] rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-lg shadow-xl"
           >
-            <h2 className="font-headline text-xl font-semibold text-on-surface">
+            <h2 className="font-headline text-base font-semibold text-on-surface">
               Invite member
             </h2>
-            <p className="mt-xs font-body text-sm text-on-surface-variant">
+            <p className="mt-xs font-body text-[13px] text-on-surface-variant">
               They join this workspace on next login or SSO with that email.
             </p>
             <label className="mt-md block">
-              <span className="mb-xs block font-label text-[10px] tracking-widest text-on-surface-variant">
+              <span className="mb-xs block font-label text-[11px] tracking-widest text-on-surface-variant">
                 EMAIL
               </span>
               <input
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                className="w-full border border-outline-variant px-md py-sm font-body text-sm outline-none focus:border-primary"
+                className="w-full border border-outline-variant px-md py-sm font-body text-[13px] outline-none focus:border-primary"
                 required
               />
             </label>
             <label className="mt-md block">
-              <span className="mb-xs block font-label text-[10px] tracking-widest text-on-surface-variant">
+              <span className="mb-xs block font-label text-[11px] tracking-widest text-on-surface-variant">
                 ROLE
               </span>
               <select
@@ -700,7 +700,7 @@ export function SettingsPage() {
                 onChange={(e) =>
                   setInviteRole(e.target.value as WorkspaceMemberRole)
                 }
-                className="w-full border border-outline-variant px-md py-sm font-body text-sm"
+                className="w-full border border-outline-variant px-md py-sm font-body text-[13px]"
               >
                 <option value="viewer">viewer</option>
                 <option value="member">member</option>
@@ -713,7 +713,7 @@ export function SettingsPage() {
             <div className="mt-lg flex justify-end gap-sm">
               <button
                 type="button"
-                className="px-md py-sm font-label text-sm text-on-surface-variant"
+                className="px-md py-sm font-label text-[12px] text-on-surface-variant"
                 onClick={() => setInviteOpen(false)}
               >
                 Cancel
@@ -721,7 +721,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 disabled={inviteBusy || !inviteEmail.trim()}
-                className="rounded-lg bg-primary px-md py-sm font-label text-sm text-on-primary disabled:opacity-40"
+                className="rounded-lg bg-primary px-md py-sm font-label text-[12px] text-on-primary disabled:opacity-40"
                 onClick={() => {
                   void (async () => {
                     setInviteBusy(true)
@@ -787,12 +787,12 @@ function KeyRow({ name, hint }: { name: string; hint: string }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-outline-variant/10 bg-canvas p-sm">
       <div>
-        <p className="font-label text-sm">{name}</p>
-        <p className="font-label text-xs text-on-surface-variant/60">{hint}</p>
+        <p className="font-label text-[12px]">{name}</p>
+        <p className="font-label text-[11px] text-on-surface-variant/60">{hint}</p>
       </div>
       <button
         type="button"
-        className="font-label text-xs text-on-surface-variant hover:text-primary"
+        className="font-label text-[11px] text-on-surface-variant hover:text-primary"
         onClick={() => void navigator.clipboard.writeText(hint)}
         title="Copy hint"
       >
@@ -874,7 +874,7 @@ function PolicyAndAiBlocks({
     <>
 <Section title="POLICY_FLAGS" meta="APPLIED ON SYNC / CHAT">
   {!canAdmin ? (
-    <p className="mb-md font-label text-[10px] tracking-widest text-on-surface-variant">
+    <p className="mb-md font-label text-[11px] tracking-widest text-on-surface-variant">
       READ-ONLY · REQUIRES ADMIN+
     </p>
   ) : null}
@@ -986,10 +986,10 @@ function PolicyAndAiBlocks({
   />
   <div className="flex flex-wrap items-center justify-between gap-sm border border-outline-variant bg-surface-container-low px-md py-sm mt-md">
     <div>
-      <p className="font-label text-[10px] tracking-widest text-on-surface">
+      <p className="font-label text-[11px] tracking-widest text-on-surface">
         JOIN INFERENCE
       </p>
-      <p className="mt-xs font-body text-xs text-on-surface-variant">
+      <p className="mt-xs font-body text-[12px] text-on-surface-variant">
         Re-score cross-source joins from metadata (no full sync). Uses
         promote/reject memory.
       </p>
@@ -1013,7 +1013,7 @@ function PolicyAndAiBlocks({
           )
           .finally(() => setInferring(false))
       }}
-      className="border border-outline-variant bg-surface-container px-md py-sm font-label text-[10px] font-bold tracking-[0.14em] text-primary-fixed uppercase transition-colors hover:border-primary-fixed disabled:opacity-40"
+      className="border border-outline-variant bg-surface-container px-md py-sm font-label text-[11px] font-bold tracking-[0.14em] text-primary-fixed uppercase transition-colors hover:border-primary-fixed disabled:opacity-40"
     >
       {inferring ? 'RUNNING…' : 'RE-RUN JOIN INFERENCE'}
     </button>
@@ -1033,7 +1033,7 @@ function PolicyAndAiBlocks({
   </div>
   <div className="grid gap-md pt-md md:grid-cols-2">
     <label className="block">
-      <span className="font-label text-[10px] tracking-widest text-on-surface-variant">
+      <span className="font-label text-[11px] tracking-widest text-on-surface-variant">
         DEFAULT MODEL
       </span>
       <select
@@ -1044,7 +1044,7 @@ function PolicyAndAiBlocks({
             d ? { ...d, aiModelId: e.target.value } : d,
           )
         }
-        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-sm text-on-surface outline-none focus:border-primary-fixed disabled:opacity-40"
+        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed disabled:opacity-40"
       >
         {(data.capabilities.ai?.models?.length
           ? data.capabilities.ai.models
@@ -1062,7 +1062,7 @@ function PolicyAndAiBlocks({
       </select>
     </label>
     <label className="block">
-      <span className="font-label text-[10px] tracking-widest text-on-surface-variant">
+      <span className="font-label text-[11px] tracking-widest text-on-surface-variant">
         RAG TOP-K
       </span>
       <input
@@ -1081,7 +1081,7 @@ function PolicyAndAiBlocks({
               : d,
           )
         }
-        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-sm text-on-surface outline-none focus:border-primary-fixed disabled:opacity-40"
+        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed disabled:opacity-40"
       />
     </label>
   </div>
@@ -1141,14 +1141,14 @@ function PolicyAndAiBlocks({
   title="BYOK_LLM_KEYS"
   meta="YOUR KEY · YOUR BILL · ENCRYPTED AT REST"
 >
-  <p className="mb-md font-body text-xs text-on-surface-variant">
+  <p className="mb-md font-body text-[12px] text-on-surface-variant">
     Bring your own OpenAI / Anthropic key for this workspace.
     Que still proxies calls server-side with schema-only prompts —
     plaintext is never returned to the browser. Env keys remain a
     demo/ops fallback when no workspace key is set.
   </p>
   {!canAdmin ? (
-    <p className="mb-md font-label text-[10px] tracking-widest text-on-surface-variant">
+    <p className="mb-md font-label text-[11px] tracking-widest text-on-surface-variant">
       READ-ONLY · REQUIRES ADMIN+
     </p>
   ) : null}
@@ -1232,7 +1232,7 @@ function PolicyAndAiBlocks({
       }`}
     />
   </div>
-  <p className="mt-md font-body text-xs text-on-surface-variant">
+  <p className="mt-md font-body text-[12px] text-on-surface-variant">
     Que implements NLP chat, RAG retrieval, generative inference
     via cloud APIs, agentic slash skills, join recommendations,
     limited memory, and a feedback loop. Computer vision and
@@ -1284,14 +1284,14 @@ function PolicyAndAiBlocks({
   title="DBT_GITHUB_EXPORT"
   meta="ADDITIVE LAYER · NO SECRETS HERE"
 >
-  <p className="mb-md font-body text-xs text-on-surface-variant">
+  <p className="mb-md font-body text-[12px] text-on-surface-variant">
     Optional defaults for Jobs → dbt / GitHub PR export. Prefer a{' '}
     <strong>workspace GitHub token</strong> (below); falls back to API env{' '}
     <code className="text-primary-fixed">GITHUB_TOKEN</code>. JSON/SQL
     exports are unchanged.
   </p>
   {!canAdmin ? (
-    <p className="mb-md font-label text-[10px] tracking-widest text-on-surface-variant">
+    <p className="mb-md font-label text-[11px] tracking-widest text-on-surface-variant">
       READ-ONLY · REQUIRES ADMIN+
     </p>
   ) : null}
@@ -1333,7 +1333,7 @@ function PolicyAndAiBlocks({
       placeholder="models/que"
     />
   </div>
-  <p className="mt-md font-body text-xs text-on-surface-variant">
+  <p className="mt-md font-body text-[12px] text-on-surface-variant">
     GitHub token:{' '}
     <Flag on={Boolean(data.capabilities.github?.tokenConfigured)} />
     {data.capabilities.github?.tokenSource
@@ -1345,11 +1345,11 @@ function PolicyAndAiBlocks({
   </p>
   {canAdmin ? (
     <div className="mt-md space-y-sm">
-      <label className="block font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
+      <label className="block font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
         Workspace GitHub token (preferred over env)
         <input
           type="password"
-          className="mt-1 w-full rounded-lg border border-outline-variant/30 bg-white px-sm py-2 font-body text-sm"
+          className="mt-1 w-full rounded-lg border border-outline-variant/30 bg-white px-sm py-2 font-body text-[13px]"
           placeholder="ghp_… leave blank to keep"
           id="que-github-token"
         />
@@ -1386,13 +1386,13 @@ function PolicyAndAiBlocks({
 
 <Section title="CAPABILITIES" meta="READ-ONLY">
   <div className="space-y-sm">
-    <p className="font-body text-xs text-on-surface-variant">
+    <p className="font-body text-[12px] text-on-surface-variant">
       Connectors:{' '}
       <span className="text-on-surface">
         {data.capabilities.connectors.join(' · ')}
       </span>
     </p>
-    <p className="font-body text-xs text-on-surface-variant">
+    <p className="font-body text-[12px] text-on-surface-variant">
       OpenAI:{' '}
       <Flag on={data.capabilities.llm.openaiConfigured} />
       {' · '}
@@ -1400,7 +1400,7 @@ function PolicyAndAiBlocks({
       <Flag on={data.capabilities.llm.anthropicConfigured} />
     </p>
     {data.latestSnapshot ? (
-      <p className="font-body text-xs text-on-surface-variant">
+      <p className="font-body text-[12px] text-on-surface-variant">
         Latest snapshot:{' '}
         <span className="text-primary-fixed">
           {data.latestSnapshot.label}
@@ -1412,7 +1412,7 @@ function PolicyAndAiBlocks({
         )
       </p>
     ) : (
-      <p className="font-body text-xs text-on-surface-variant">
+      <p className="font-body text-[12px] text-on-surface-variant">
         No schema snapshots yet — sync a source to create one.
       </p>
     )}
@@ -1420,10 +1420,10 @@ function PolicyAndAiBlocks({
 </Section>
 
 <Section title="ABOUT_QUE" meta={data.capabilities.brand}>
-  <p className="font-body text-sm text-on-surface">
+  <p className="font-body text-[13px] text-on-surface">
     {data.capabilities.wedge}
   </p>
-  <p className="mt-sm font-body text-xs text-on-surface-variant">
+  <p className="mt-sm font-body text-[12px] text-on-surface-variant">
     AI and sync paths use schema metadata only. Raw warehouse
     rows are never centralized into Que.
   </p>
@@ -1468,7 +1468,7 @@ function Section({
           {title}
         </span>
         {meta ? (
-          <span className="font-label text-[10px] tracking-wider text-on-surface-variant">
+          <span className="font-label text-[11px] tracking-wider text-on-surface-variant">
             {meta}
           </span>
         ) : null}
@@ -1481,10 +1481,10 @@ function Section({
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="font-label text-[10px] tracking-widest text-on-surface-variant">
+      <p className="font-label text-[11px] tracking-widest text-on-surface-variant">
         {label}
       </p>
-      <p className="mt-xs break-all font-body text-xs text-on-surface">{value}</p>
+      <p className="mt-xs break-all font-body text-[12px] text-on-surface">{value}</p>
     </div>
   )
 }
@@ -1492,10 +1492,10 @@ function Info({ label, value }: { label: string; value: string }) {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-white p-sm shadow-sm">
-      <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
+      <p className="font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
         {label}
       </p>
-      <p className="font-headline text-xl font-semibold text-primary">{value}</p>
+      <p className="font-headline text-base font-semibold text-primary">{value}</p>
     </div>
   )
 }
@@ -1521,8 +1521,8 @@ function Toggle({
       ].join(' ')}
     >
       <span>
-        <span className="block font-body text-sm text-on-surface">{label}</span>
-        <span className="mt-xs block font-body text-xs text-on-surface-variant">
+        <span className="block font-body text-[13px] text-on-surface">{label}</span>
+        <span className="mt-xs block font-body text-[12px] text-on-surface-variant">
           {hint}
         </span>
       </span>
@@ -1567,7 +1567,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="font-label text-[10px] tracking-widest text-on-surface-variant">
+      <span className="font-label text-[11px] tracking-widest text-on-surface-variant">
         {label}
       </span>
       <input
@@ -1576,7 +1576,7 @@ function Field({
         disabled={disabled}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-xs font-body text-xs text-on-surface outline-none focus:border-primary-fixed disabled:opacity-50"
+        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-xs font-body text-[12px] text-on-surface outline-none focus:border-primary-fixed disabled:opacity-50"
       />
     </label>
   )
@@ -1604,7 +1604,7 @@ function SecretKeyField({
   return (
     <div className="rounded-xl border border-outline-variant/30 bg-canvas p-sm">
       <div className="flex items-center justify-between gap-sm">
-        <span className="font-label text-[10px] tracking-widest text-on-surface-variant">
+        <span className="font-label text-[11px] tracking-widest text-on-surface-variant">
           {label}
         </span>
         <span className="font-label text-[9px] tracking-wider text-primary">
@@ -1632,14 +1632,14 @@ function SecretKeyField({
         disabled={disabled}
         placeholder="Paste key to replace…"
         onChange={(e) => onChange(e.target.value)}
-        className="mt-sm w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-xs font-body text-xs text-on-surface outline-none focus:border-primary disabled:opacity-50"
+        className="mt-sm w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-xs font-body text-[12px] text-on-surface outline-none focus:border-primary disabled:opacity-50"
       />
       <div className="mt-sm flex flex-wrap gap-sm">
         <button
           type="button"
           disabled={disabled || !value.trim()}
           onClick={onSave}
-          className="rounded-lg bg-primary-container px-sm py-xs font-label text-[10px] font-bold tracking-widest text-on-primary disabled:opacity-40"
+          className="rounded-lg bg-primary-container px-sm py-xs font-label text-[11px] font-bold tracking-widest text-on-primary disabled:opacity-40"
         >
           SAVE KEY
         </button>
@@ -1647,7 +1647,7 @@ function SecretKeyField({
           type="button"
           disabled={disabled || source !== 'workspace'}
           onClick={onClear}
-          className="rounded-lg border border-outline-variant px-sm py-xs font-label text-[10px] font-bold tracking-widest text-on-surface-variant disabled:opacity-40"
+          className="rounded-lg border border-outline-variant px-sm py-xs font-label text-[11px] font-bold tracking-widest text-on-surface-variant disabled:opacity-40"
         >
           CLEAR
         </button>

@@ -63,6 +63,7 @@
    * Custom spacing names (xs/sm/md/lg/xl) override Tailwind’s default scale.
    * Do NOT use max-w-md / max-w-xl etc. — they become 16px/40px.
    * Prefer max-w-[28rem] (or numeric max-w-*) for layout caps.
+   * Same trap: w-xl, min-w-md, etc. resolve to spacing tokens.
    */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -92,8 +93,8 @@
     background-color: #f2ede4;
     color: var(--color-on-background);
     font-family: var(--font-body);
-    font-size: 15px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.45;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
   }
@@ -155,4 +156,14 @@
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.04em;
+}
+
+/* Dense product UI (Databricks-like). Prefer rem so it tracks body. */
+.que-friendly {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.que-friendly .que-muted {
+  font-size: 12px;
+  color: var(--color-on-surface-variant);
 }

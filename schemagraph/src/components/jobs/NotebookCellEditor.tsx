@@ -173,7 +173,7 @@ export function NotebookCellEditor({
             onChange={(e) => onChangeTitle(e.target.value)}
             placeholder="Cell title"
             className={[
-              'min-w-0 flex-1 border border-transparent bg-transparent px-xs py-[2px] font-body text-xs outline-none disabled:opacity-40',
+              'min-w-0 flex-1 border border-transparent bg-transparent px-xs py-[2px] font-body text-[12px] outline-none disabled:opacity-40',
               dark
                 ? 'text-[#f2ede4] focus:border-white/20'
                 : 'text-on-surface focus:border-outline-variant',

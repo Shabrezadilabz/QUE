@@ -1,0 +1,6 @@
+customer_sk,customer_id,pg_customer_id,email,region_code,plan_tier
+1001,C-ADA,1,ada@example.com,NE,enterprise
+1002,C-GRACE,2,grace@example.com,W,growth
+1003,C-ALAN,3,alan@example.com,EMEA,free
+1004,C-0004,4,user4@example.com,APAC,pro
+1005,C-0005,5,user5@example.com,LATAM,enterprise

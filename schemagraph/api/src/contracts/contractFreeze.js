@@ -219,7 +219,7 @@ export async function validateContract(workspaceId, contract, opts = {}) {
  */
 export async function getOpenHighDrift(workspaceId) {
   const { rows } = await query(
-    `SELECT id, code, summary, detail_json, created_at
+    `SELECT id, code, summary, detail_json, created_at, notified_at, notify_status
      FROM workspace_drift_events
      WHERE workspace_id = $1 AND acknowledged = false AND severity = 'high'
      ORDER BY created_at DESC
@@ -232,6 +232,8 @@ export async function getOpenHighDrift(workspaceId) {
     summary: r.summary,
     detail: r.detail_json,
     createdAt: r.created_at,
+    notifiedAt: r.notified_at || null,
+    notifyStatus: r.notify_status || null,
   }))
 }
 
@@ -249,7 +251,7 @@ export async function acknowledgeDrift(workspaceId, eventId) {
 export async function listRecentDrift(workspaceId, limit = 20) {
   const { rows } = await query(
     `SELECT id, connection_id, severity, code, summary, detail_json,
-            acknowledged, created_at
+            acknowledged, created_at, notified_at, notify_status
      FROM workspace_drift_events
      WHERE workspace_id = $1
      ORDER BY created_at DESC
@@ -265,7 +267,67 @@ export async function listRecentDrift(workspaceId, limit = 20) {
     detail: r.detail_json,
     acknowledged: r.acknowledged,
     createdAt: r.created_at,
+    notifiedAt: r.notified_at || null,
+    notifyStatus: r.notify_status || null,
   }))
+}
+
+/**
+ * Wave 2.2 — contract status for Jobs Deploy UI.
+ * @returns freeze readiness + validation + unreviewed join count
+ */
+export async function getJobContractStatus(workspaceId, job) {
+  const tables = job?.tables || []
+  const unreviewedJoins = await countUnreviewedJoinsForTables(
+    workspaceId,
+    tables,
+  )
+  const acceptedJoins = await query(
+    // use loadAcceptedJoins via inline count for accepted touching tables
+    `SELECT COUNT(*)::int AS n
+     FROM relationships r
+     JOIN schema_objects fo ON fo.id = r.from_object_id
+     JOIN schema_objects too ON too.id = r.to_object_id
+     WHERE r.workspace_id = $1
+       AND r.status = 'accepted'
+       AND (
+         cardinality($2::text[]) = 0
+         OR lower(fo.name) = ANY($2::text[])
+         OR lower(too.name) = ANY($2::text[])
+       )`,
+    [workspaceId, tables.map((t) => String(t).toLowerCase())],
+  ).then((r) => r.rows[0]?.n ?? 0)
+
+  const hasContract = Boolean(job?.contract?.version)
+  const frozenJoinCount = job?.joinsSnapshot?.length || job?.contract?.joins?.length || 0
+  const validation = await validateContract(workspaceId, job?.contract || null)
+  const snap = await getLatestSnapshot(workspaceId)
+
+  let stale = false
+  if (
+    hasContract &&
+    snap?.id &&
+    job?.contract?.schemaSnapshotId &&
+    snap.id !== job.contract.schemaSnapshotId
+  ) {
+    stale = true
+  }
+
+  return {
+    hasContract,
+    frozenAt: job?.contract?.frozenAt || null,
+    schemaSnapshotId: job?.schemaSnapshotId || job?.contract?.schemaSnapshotId || null,
+    schemaSnapshotLabel: job?.contract?.schemaSnapshotLabel || null,
+    latestSchemaSnapshotId: snap?.id || null,
+    stale,
+    frozenJoinCount,
+    acceptedJoinsAvailable: acceptedJoins,
+    unreviewedJoins,
+    readyToFreeze: acceptedJoins > 0 || frozenJoinCount > 0 || tables.length > 0,
+    validation,
+    joins: job?.joinsSnapshot || job?.contract?.joins || [],
+    claim: job?.contract?.claim || null,
+  }
 }
 
 /**

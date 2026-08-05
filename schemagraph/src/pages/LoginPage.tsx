@@ -20,6 +20,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [ssoReady, setSsoReady] = useState(false)
+  const [ssoRequireInvite, setSsoRequireInvite] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -27,11 +28,17 @@ export function LoginPage() {
       try {
         const res = await fetch(`${getApiBase()}/auth/sso`)
         const body = (await res.json()) as {
-          sso?: { loginImplemented?: boolean }
+          sso?: { loginImplemented?: boolean; requireInvite?: boolean }
         }
-        if (!cancelled) setSsoReady(Boolean(body.sso?.loginImplemented))
+        if (!cancelled) {
+          setSsoReady(Boolean(body.sso?.loginImplemented))
+          setSsoRequireInvite(Boolean(body.sso?.requireInvite))
+        }
       } catch {
-        if (!cancelled) setSsoReady(false)
+        if (!cancelled) {
+          setSsoReady(false)
+          setSsoRequireInvite(false)
+        }
       }
     })()
     return () => {
@@ -220,12 +227,20 @@ export function LoginPage() {
           </button>
 
           {ssoReady && mode === 'login' ? (
-            <a
-              href={`${getApiBase()}/auth/sso/start`}
-              className="block w-full rounded-xl border border-outline-variant/40 py-3 text-center font-label text-sm text-primary hover:bg-secondary-container/50"
-            >
-              Continue with SSO
-            </a>
+            <div className="space-y-sm">
+              <a
+                href={`${getApiBase()}/auth/sso/start`}
+                className="block w-full rounded-xl border border-outline-variant/40 py-3 text-center font-label text-sm text-primary hover:bg-secondary-container/50"
+              >
+                Continue with SSO
+              </a>
+              {ssoRequireInvite ? (
+                <p className="text-center font-body text-[11px] leading-snug text-on-surface-variant">
+                  SSO requires a workspace invite for your email before first
+                  login.
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {import.meta.env.DEV && mode === 'login' ? (

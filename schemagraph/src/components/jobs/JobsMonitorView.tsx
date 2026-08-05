@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import type { DriftEvent, JobStatus, StitchJob } from '@/services/stitchApi'
+import type { DriftEvent, JobRun, StitchJob } from '@/services/stitchApi'
 
 export type LiveLogRow = {
   id: string
@@ -24,12 +24,17 @@ type JobsMonitorViewProps = {
   openDrift: DriftEvent[]
   streamPaused: boolean
   onToggleStreamPause: () => void
+  /** Wave 4.2 — real job_runs history */
+  recentRuns?: JobRun[]
 }
 
 function jobUiStatus(job: StitchJob): {
   label: string
   kind: 'running' | 'failed' | 'idle' | 'done'
 } {
+  if (job.runSchedule && job.runSchedule !== 'off') {
+    return { label: `Scheduled · ${job.runSchedule}`, kind: 'done' }
+  }
   if (job.status === 'archived') return { label: 'Idle', kind: 'idle' }
   if (job.status === 'exported') return { label: 'Completed', kind: 'done' }
   if (job.status === 'ready') return { label: 'Ready', kind: 'done' }
@@ -70,6 +75,7 @@ export function JobsMonitorView({
   openDrift,
   streamPaused,
   onToggleStreamPause,
+  recentRuns = [],
 }: JobsMonitorViewProps) {
   const readyCount = jobs.filter(
     (j) => j.status === 'ready' || j.status === 'exported',
@@ -446,72 +452,81 @@ export function JobsMonitorView({
             />
           </div>
 
-          {/* Recent activity */}
+          {/* Wave 4.2 — run history from job_runs */}
           <div
             className="mt-xl rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
             style={{ boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)' }}
           >
             <div className="mb-md flex items-center justify-between">
               <h3 className="font-headline text-base font-semibold text-on-surface">
-                Recent Activity
+                Run history
               </h3>
               <button
                 type="button"
                 onClick={onRefresh}
                 className="font-label text-[12px] font-semibold text-primary hover:underline"
               >
-                View History
+                Refresh
               </button>
             </div>
             <ul className="space-y-md">
-              {jobs.slice(0, 4).map((j) => (
-                <li key={j.id} className="flex gap-md">
-                  <span
-                    className={[
-                      'mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                      j.status === 'exported' || j.status === 'ready'
-                        ? 'bg-tertiary/15 text-tertiary'
-                        : 'bg-primary/10 text-primary',
-                    ].join(' ')}
-                  >
-                    {j.status === 'exported' || j.status === 'ready'
-                      ? '✓'
-                      : '↻'}
-                  </span>
-                  <div className="min-w-0 flex-1 border-b border-outline-variant/15 pb-md">
-                    <p className="font-body text-[13px] text-on-surface">
-                      <button
-                        type="button"
-                        className="font-semibold text-primary hover:underline"
-                        onClick={() => onOpenJob(j.id)}
+              {recentRuns.length > 0
+                ? recentRuns.slice(0, 12).map((r) => (
+                    <li key={r.id} className="flex gap-md">
+                      <span
+                        className={[
+                          'mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-label text-[10px]',
+                          r.status === 'succeeded'
+                            ? 'bg-tertiary/15 text-tertiary'
+                            : r.status === 'failed'
+                              ? 'bg-error/10 text-error'
+                              : 'bg-primary/10 text-primary',
+                        ].join(' ')}
                       >
-                        {j.title}
-                      </button>{' '}
-                      · status {j.status}
-                    </p>
-                    <p className="font-label text-[11px] text-on-surface-variant">
-                      Updated {new Date(j.updatedAt).toLocaleString()}
-                    </p>
-                  </div>
-                </li>
-              ))}
-              {openDrift.slice(0, 2).map((d) => (
-                <li key={d.id} className="flex gap-md">
-                  <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-error/10 text-error">
-                    !
-                  </span>
-                  <div className="min-w-0 flex-1 pb-md">
-                    <p className="font-body text-[13px] text-on-surface">
-                      Drift [{d.code}] {d.summary}
-                    </p>
-                  </div>
-                </li>
-              ))}
-              {jobs.length === 0 && openDrift.length === 0 ? (
-                <li className="font-body text-[13px] text-on-surface-variant">
-                  Activity will appear as you create and run jobs.
-                </li>
-              ) : null}
+                        {r.status === 'succeeded'
+                          ? '✓'
+                          : r.status === 'failed'
+                            ? '!'
+                            : '…'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => onOpenJob(r.jobId)}
+                          className="truncate text-left font-label text-[12px] font-semibold text-on-surface hover:text-primary"
+                        >
+                          {r.jobTitle || r.jobId.slice(0, 8)}
+                        </button>
+                        <p className="font-body text-[12px] text-on-surface-variant">
+                          {r.status} · {r.trigger || 'manual'} · attempt{' '}
+                          {r.attempt ?? 1} · {r.mode}
+                          {r.finishedAt
+                            ? ` · ${new Date(r.finishedAt).toLocaleString()}`
+                            : ''}
+                        </p>
+                        {r.summary ? (
+                          <p className="mt-0.5 truncate font-body text-[11px] text-on-surface-variant/70">
+                            {r.summary}
+                          </p>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))
+                : jobs.slice(0, 4).map((j) => (
+                    <li key={j.id} className="flex gap-md">
+                      <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        ◷
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-label text-[12px] font-semibold text-on-surface">
+                          {j.title}
+                        </p>
+                        <p className="font-body text-[12px] text-on-surface-variant">
+                          No runs yet — open job and Run Test
+                        </p>
+                      </div>
+                    </li>
+                  ))}
             </ul>
           </div>
         </div>
@@ -626,6 +641,3 @@ function StatCard({
   )
 }
 
-export function jobStatusLabel(status: JobStatus): string {
-  return status
-}

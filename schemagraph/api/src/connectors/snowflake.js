@@ -248,3 +248,58 @@ export async function runReadonlyQuery(config, sql, opts = {}) {
     rowCount: data.length,
   }
 }
+
+/**
+ * Wave 3.1 — DDL via Snowflake SQL API (no Que row storage).
+ * @param {object} config
+ * @param {string|string[]} sql
+ */
+export async function runWriteSql(config, sql) {
+  const account = String(config.account || '').replace(
+    /\.snowflakecomputing\.com$/i,
+    '',
+  )
+  const token = config.token || process.env.STITCH_SNOWFLAKE_TOKEN
+  const password = config.password || process.env.STITCH_SNOWFLAKE_PASSWORD
+  const username = config.username || config.user
+  if (!account) throw new Error('Snowflake account required')
+  const host = `${account}.snowflakecomputing.com`
+  const authHeader = token
+    ? `Bearer ${token}`
+    : `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+
+  const statements = (Array.isArray(sql) ? sql : [sql])
+    .map((s) => String(s || '').trim().replace(/;+\s*$/, ''))
+    .filter(Boolean)
+  if (!statements.length) throw new Error('No SQL statements to execute')
+
+  const started = Date.now()
+  for (const statement of statements) {
+    const res = await fetch(`https://${host}/api/v2/statements`, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        statement,
+        warehouse: config.warehouse,
+        database: config.database,
+        schema: config.schema || 'PUBLIC',
+        timeout: 120,
+      }),
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(
+        `Snowflake write failed: ${res.status} ${text.slice(0, 300)}`,
+      )
+    }
+  }
+  return {
+    engine: 'snowflake',
+    statements: statements.length,
+    durationMs: Date.now() - started,
+  }
+}

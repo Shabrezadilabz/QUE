@@ -61,6 +61,17 @@ function mapJob(row) {
     contract: row.contract_json && Object.keys(row.contract_json).length
       ? row.contract_json
       : null,
+    runSchedule: row.run_schedule || 'off',
+    runNextAt: row.run_next_at
+      ? new Date(row.run_next_at).toISOString()
+      : null,
+    lastScheduledRunAt: row.last_scheduled_run_at
+      ? new Date(row.last_scheduled_run_at).toISOString()
+      : null,
+    runMode: row.run_mode || 'dry_run',
+    maxRetries: row.max_retries ?? 2,
+    retryDelaySec: row.retry_delay_sec ?? 60,
+    executionTarget: row.execution_target || 'que',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -299,6 +310,76 @@ export async function updateJob(workspaceId, jobId, patch = {}) {
     contract = freeze.contract
   }
 
+  // Wave 4.2 schedule fields (optional patch)
+  let runSchedule = existing.runSchedule || 'off'
+  let runNextAt = existing.runNextAt
+  let runMode = existing.runMode || 'dry_run'
+  let maxRetries = existing.maxRetries ?? 2
+  let retryDelaySec = existing.retryDelaySec ?? 60
+  let scheduleTouched = false
+
+  if (patch.runSchedule != null || patch.run_schedule != null) {
+    const s = String(patch.runSchedule ?? patch.run_schedule)
+    if (!['off', 'hourly', 'daily'].includes(s)) {
+      const err = new Error("runSchedule must be 'off', 'hourly', or 'daily'")
+      err.status = 400
+      throw err
+    }
+    runSchedule = s
+    scheduleTouched = true
+  }
+  if (patch.runMode != null || patch.run_mode != null) {
+    const m = String(patch.runMode ?? patch.run_mode)
+    if (m !== 'dry_run' && m !== 'live') {
+      const err = new Error("runMode must be 'dry_run' or 'live'")
+      err.status = 400
+      throw err
+    }
+    runMode = m
+  }
+  if (patch.maxRetries != null || patch.max_retries != null) {
+    maxRetries = Number(patch.maxRetries ?? patch.max_retries)
+    if (!Number.isFinite(maxRetries) || maxRetries < 0 || maxRetries > 10) {
+      const err = new Error('maxRetries must be 0–10')
+      err.status = 400
+      throw err
+    }
+  }
+  if (patch.retryDelaySec != null || patch.retry_delay_sec != null) {
+    retryDelaySec = Number(patch.retryDelaySec ?? patch.retry_delay_sec)
+    if (
+      !Number.isFinite(retryDelaySec) ||
+      retryDelaySec < 5 ||
+      retryDelaySec > 3600
+    ) {
+      const err = new Error('retryDelaySec must be 5–3600')
+      err.status = 400
+      throw err
+    }
+  }
+  if (scheduleTouched) {
+    if (runSchedule === 'off') {
+      runNextAt = null
+    } else {
+      const from = new Date()
+      runNextAt = new Date(
+        from.getTime() +
+          (runSchedule === 'hourly' ? 3600000 : 86400000),
+      ).toISOString()
+    }
+  }
+
+  let executionTarget = existing.executionTarget || 'que'
+  if (patch.executionTarget != null || patch.execution_target != null) {
+    const t = String(patch.executionTarget ?? patch.execution_target)
+    if (t !== 'que' && t !== 'private_runner') {
+      const err = new Error("executionTarget must be 'que' or 'private_runner'")
+      err.status = 400
+      throw err
+    }
+    executionTarget = t
+  }
+
   const { rows } = await query(
     `UPDATE jobs SET
        title = $3,
@@ -313,6 +394,12 @@ export async function updateJob(workspaceId, jobId, patch = {}) {
        joins_snapshot = $12::jsonb,
        schema_snapshot_id = $13,
        contract_json = $14::jsonb,
+       run_schedule = $15,
+       run_next_at = $16,
+       run_mode = $17,
+       max_retries = $18,
+       retry_delay_sec = $19,
+       execution_target = COALESCE($20, execution_target),
        updated_at = now()
      WHERE workspace_id = $1 AND id = $2
      RETURNING *`,
@@ -331,6 +418,12 @@ export async function updateJob(workspaceId, jobId, patch = {}) {
       JSON.stringify(joinsSnapshot ?? []),
       schemaSnapshotId,
       JSON.stringify(contract || {}),
+      runSchedule,
+      runNextAt,
+      runMode,
+      maxRetries,
+      retryDelaySec,
+      executionTarget,
     ],
   )
   return mapJob(rows[0])

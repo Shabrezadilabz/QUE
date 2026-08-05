@@ -17,8 +17,10 @@
     "test:all": "npm run test:diligence && npm run test:smoke",
     "bootstrap:demo-source": "node src/bootstrapDemoSource.js",
     "bootstrap:demo-mongo": "node src/bootstrapDemoMongo.js",
+    "bootstrap:demo-mongo-bulk": "node scripts/applyCustomerDemoMongoBulk.js",
     "bootstrap:test-data": "node src/bootstrapTestData.js",
-    "fixtures:generate": "node scripts/generateTestFixtures.js"
+    "fixtures:generate": "node scripts/generateTestFixtures.js",
+    "fixtures:tester-excel": "node scripts/generateTesterExcelPack.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

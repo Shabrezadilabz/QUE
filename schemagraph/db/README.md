@@ -131,4 +131,5 @@ npm run test:diligence   # join golden-set + privacy red-team
 | `contract_event_outbox` | Streaming-later contract/drift events |
 | `relationship_review_events` | HITL promote/reject audit for join memory |
 | `export_audit_events` | Schema-only attestation on every job export |
+| `connections.last_sync_*` | Wave 1.3 — last sync + error kind for re-auth CTA |
 

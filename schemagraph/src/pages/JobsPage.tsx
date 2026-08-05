@@ -7,6 +7,7 @@ import {
   type LiveLogRow,
 } from '@/components/jobs/JobsMonitorView'
 import { JobDeployPanel } from '@/components/jobs/JobDeployPanel'
+import { JobScheduleControls } from '@/components/jobs/JobScheduleControls'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -21,6 +22,7 @@ import {
   fetchDrift,
   fetchJobs,
   fetchJobRuns,
+  fetchWorkspaceJobRuns,
   fetchWorkspaceSchema,
   fetchWorkspaceSettings,
   runJobNotebook,
@@ -95,6 +97,7 @@ export function JobsPage() {
   const [processTab, setProcessTab] = useState<ProcessTab>('process')
   const [processOpen, setProcessOpen] = useState(true)
   const [liveLogs, setLiveLogs] = useState<LiveLogRow[]>([])
+  const [recentRuns, setRecentRuns] = useState<JobRun[]>([])
   const [logQuery, setLogQuery] = useState('')
   const [streamPaused, setStreamPaused] = useState(false)
   const [githubReady, setGithubReady] = useState<{
@@ -113,16 +116,18 @@ export function JobsPage() {
 
   async function reload() {
     try {
-      const [list, drift] = await Promise.all([
+      const [list, drift, runs] = await Promise.all([
         fetchJobs(),
         fetchDrift().catch(() => ({
           events: [],
           openHigh: [],
           hasBlockingRisk: false,
         })),
+        fetchWorkspaceJobRuns({ limit: 40 }).catch(() => [] as JobRun[]),
       ])
       setJobs(list)
       setOpenDrift(drift.openHigh || [])
+      setRecentRuns(runs)
       setError(null)
       setSelectedId((prev) => {
         if (deepLinkJobId && list.some((j) => j.id === deepLinkJobId)) {
@@ -448,7 +453,7 @@ export function JobsPage() {
     if (!selected || !canWrite) return
     setBusy(true)
     try {
-      const { job, export: payload } = await exportJobArtifact(
+      const { job, export: payload, artifact } = await exportJobArtifact(
         selected.id,
         format,
       )
@@ -462,7 +467,18 @@ export function JobsPage() {
         text,
         format === 'sql' ? 'text/sql' : 'application/json',
       )
-      setToast(`Exported ${format.toUpperCase()}`)
+      if (artifact?.downloadUrl) {
+        try {
+          await navigator.clipboard.writeText(artifact.downloadUrl)
+          setToast(
+            `Exported ${format.toUpperCase()} · signed URL copied (${artifact.expiresAt ? 'expires ' + new Date(artifact.expiresAt).toLocaleString() : 'timed'})`,
+          )
+        } catch {
+          setToast(`Exported ${format.toUpperCase()} · signed URL minted`)
+        }
+      } else {
+        setToast(`Exported ${format.toUpperCase()}`)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -678,6 +694,7 @@ export function JobsPage() {
               openDrift={openDrift}
               streamPaused={streamPaused}
               onToggleStreamPause={() => setStreamPaused((v) => !v)}
+              recentRuns={recentRuns}
             />
           </div>
         ) : (
@@ -834,7 +851,17 @@ export function JobsPage() {
               </div>
 
               {jobTab === 'deploy' ? (
-                <JobDeployPanel
+                <div className="flex min-h-0 flex-1 flex-col gap-md overflow-y-auto p-md">
+                  <JobScheduleControls
+                    job={selected}
+                    canWrite={canWrite}
+                    onUpdated={(job) => {
+                      setJobs((prev) =>
+                        prev.map((j) => (j.id === job.id ? job : j)),
+                      )
+                    }}
+                  />
+                  <JobDeployPanel
                   job={selected}
                   canWrite={canWrite}
                   busy={busy}
@@ -851,20 +878,14 @@ export function JobsPage() {
                         ),
                       )
                   }
-                  onRefreeze={() =>
-                    void updateJob(selected.id, { refreezeContract: true })
-                      .then((job) => {
-                        setJobs((prev) =>
-                          prev.map((j) => (j.id === job.id ? job : j)),
-                        )
-                        setToast('Contract re-frozen')
-                      })
-                      .catch((err) =>
-                        setError(
-                          err instanceof Error ? err.message : String(err),
-                        ),
-                      )
-                  }
+                  onJobUpdated={(job) => {
+                    setJobs((prev) =>
+                      prev.map((j) => (j.id === job.id ? job : j)),
+                    )
+                  }}
+                  onError={(message) => setError(message)}
+                  onToast={(message) => setToast(message)}
+                  onBusy={setBusy}
                   onMarkReady={() => void markReady()}
                   onDbtPr={() => void doDbtExport('dbt-pr')}
                   onDbtBundle={() => void doDbtExport('dbt')}
@@ -873,6 +894,7 @@ export function JobsPage() {
                   onDownloadDbtFile={downloadDbtFile}
                   onBackToNotebook={() => goJobView(selected.id, 'notebook')}
                 />
+                </div>
               ) : null}
 
               {jobTab === 'results' ? (

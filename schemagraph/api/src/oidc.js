@@ -9,10 +9,10 @@
  * Env:
  *   QUE_OIDC_ISSUER, QUE_OIDC_CLIENT_ID, QUE_OIDC_CLIENT_SECRET?
  *   QUE_OIDC_REDIRECT_URI (API callback)
- *   QUE_OIDC_POST_LOGIN_REDIRECT (SPA /auth/callback)
+ *   QUE_OIDC_POST_LOGIN_REDIRECT (SPA /auth/callback) — default :5174
  *   QUE_SSO_ALLOWED_DOMAINS=acme.com,partner.io  (optional; if set, enforce)
- *   QUE_SSO_DEFAULT_WORKSPACE_ID=uuid           (optional auto-join for allowed domains)
- *   QUE_SSO_REQUIRE_INVITE=true                 (new users need workspace_invites row)
+ *   QUE_SSO_DEFAULT_WORKSPACE_ID=uuid           (optional auto-join; ignored when require-invite)
+ *   QUE_SSO_REQUIRE_INVITE=true|false           (default true in production)
  */
 import {
   createHash,
@@ -23,6 +23,7 @@ import {
   scryptSync,
 } from 'node:crypto'
 import { query } from './db.js'
+import { isProduction } from './env.js'
 import { acceptPendingInvites } from './invites.js'
 
 function hashPassword(password) {
@@ -63,7 +64,7 @@ export function oidcEnv() {
   ).trim()
   const postLogin = String(
     process.env.QUE_OIDC_POST_LOGIN_REDIRECT ||
-      'http://localhost:5173/auth/callback',
+      'http://localhost:5174/auth/callback',
   ).trim()
   return { issuer, clientId, clientSecret, apiCallback, postLogin }
 }
@@ -71,6 +72,35 @@ export function oidcEnv() {
 export function oidcReady() {
   const { issuer, clientId } = oidcEnv()
   return Boolean(issuer && clientId)
+}
+
+/** Wave 1.2 — invite-required defaults on in production. */
+export function ssoRequireInvite() {
+  const raw = String(process.env.QUE_SSO_REQUIRE_INVITE || '')
+    .trim()
+    .toLowerCase()
+  if (raw === 'false' || raw === '0' || raw === 'no') return false
+  if (raw === 'true' || raw === '1' || raw === 'yes') return true
+  return isProduction()
+}
+
+export function ssoAllowedDomains() {
+  return String(process.env.QUE_SSO_ALLOWED_DOMAINS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+/** Redirect SPA with #error=… on SSO failure (hash, not query). */
+export function buildSsoErrorRedirect(message) {
+  const { postLogin } = oidcEnv()
+  try {
+    const dest = new URL(postLogin)
+    dest.hash = `error=${encodeURIComponent(String(message || 'SSO failed'))}`
+    return dest.toString()
+  } catch {
+    return `http://localhost:5174/auth/callback#error=${encodeURIComponent(String(message || 'SSO failed'))}`
+  }
 }
 
 async function discover(issuer) {
@@ -255,13 +285,6 @@ function emailDomain(email) {
   return i >= 0 ? String(email).slice(i + 1).toLowerCase() : ''
 }
 
-function allowedDomains() {
-  return String(process.env.QUE_SSO_ALLOWED_DOMAINS || '')
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean)
-}
-
 async function ensureOidcUser({ email, displayName }) {
   const normalized = String(email || '').trim().toLowerCase()
   if (!normalized) {
@@ -270,7 +293,7 @@ async function ensureOidcUser({ email, displayName }) {
     throw err
   }
 
-  const domains = allowedDomains()
+  const domains = ssoAllowedDomains()
   if (domains.length && !domains.includes(emailDomain(normalized))) {
     const err = new Error(
       `SSO email domain not allowed (${emailDomain(normalized)})`,
@@ -278,6 +301,8 @@ async function ensureOidcUser({ email, displayName }) {
     err.status = 403
     throw err
   }
+
+  const requireInvite = ssoRequireInvite()
 
   const { rows } = await query(
     `SELECT id, email, display_name FROM users WHERE lower(email) = lower($1)`,
@@ -292,8 +317,6 @@ async function ensureOidcUser({ email, displayName }) {
       displayName: rows[0].display_name,
     }
   } else {
-    const requireInvite =
-      String(process.env.QUE_SSO_REQUIRE_INVITE || '').toLowerCase() === 'true'
     if (requireInvite) {
       const { rows: inv } = await query(
         `SELECT 1 FROM workspace_invites
@@ -303,7 +326,7 @@ async function ensureOidcUser({ email, displayName }) {
       )
       if (!inv.length) {
         const err = new Error(
-          'No workspace invite for this email — ask an admin to invite you',
+          'No workspace invite for this email — ask an admin to invite you before SSO',
         )
         err.status = 403
         throw err
@@ -326,9 +349,9 @@ async function ensureOidcUser({ email, displayName }) {
 
   await acceptPendingInvites(user.id, normalized)
 
-  // Optional default workspace join for allowed domains only
+  // Optional default workspace — never bypass invite-required policy
   const defaultWs = String(process.env.QUE_SSO_DEFAULT_WORKSPACE_ID || '').trim()
-  if (defaultWs) {
+  if (defaultWs && !requireInvite) {
     const { rows: mem } = await query(
       `SELECT 1 FROM workspace_members WHERE user_id = $1 LIMIT 1`,
       [user.id],
@@ -349,7 +372,9 @@ async function ensureOidcUser({ email, displayName }) {
   )
   if (!memberships.length) {
     const err = new Error(
-      'SSO login succeeded but you have no workspace membership. Ask an admin to invite you.',
+      requireInvite
+        ? 'SSO succeeded but you need a workspace invite. Ask an admin to invite this email, then try again.'
+        : 'SSO login succeeded but you have no workspace membership. Ask an admin to invite you.',
     )
     err.status = 403
     throw err

@@ -51,6 +51,8 @@ const CREATABLE: DataSourceType[] = [
   'mongodb',
   'databricks',
   'snowflake',
+  'bigquery',
+  'salesforce',
 ]
 
 const STATUS_DOT: Record<DataSourceStatus, string> = {
@@ -79,6 +81,12 @@ type FormState = {
   /** Snowflake account locator (without .snowflakecomputing.com) */
   account: string
   warehouse: string
+  /** BigQuery project id */
+  projectId: string
+  /** BigQuery location */
+  location: string
+  /** Salesforce instance URL */
+  instanceUrl: string
 }
 
 const WIZARD_STEPS = ['Choose', 'Configure'] as const
@@ -110,12 +118,19 @@ const emptyForm = (type: DataSourceType = 'postgresql'): FormState => ({
   fixturesPath:
     type === 'snowflake'
       ? 'fixtures/snowflake_demo.json'
-      : 'fixtures/databricks_unity_demo.json',
+      : type === 'bigquery'
+        ? 'fixtures/bigquery_demo.json'
+        : type === 'salesforce'
+          ? 'fixtures/salesforce_demo.json'
+          : 'fixtures/databricks_unity_demo.json',
   warehouseId: '',
   token: '',
   catalog: 'main',
   account: '',
   warehouse: 'COMPUTE_WH',
+  projectId: 'que-demo',
+  location: 'US',
+  instanceUrl: '',
 })
 
 function formFromSource(s: DataSource): FormState {
@@ -133,7 +148,15 @@ function formFromSource(s: DataSource): FormState {
         ? c.password
         : '',
     schema: String(
-      c.schema ?? (s.type === 'databricks' ? 'analytics' : 'public'),
+      c.schema ??
+        c.dataset ??
+        (s.type === 'databricks'
+          ? 'analytics'
+          : s.type === 'bigquery'
+            ? 'analytics'
+            : s.type === 'salesforce'
+              ? 'salesforce'
+              : 'public'),
     ),
     uri: String(c.uri ?? 'mongodb://localhost:27017'),
     filesJson: JSON.stringify(
@@ -149,7 +172,11 @@ function formFromSource(s: DataSource): FormState {
       c.fixturesPath ??
         (s.type === 'snowflake'
           ? 'fixtures/snowflake_demo.json'
-          : 'fixtures/databricks_unity_demo.json'),
+          : s.type === 'bigquery'
+            ? 'fixtures/bigquery_demo.json'
+            : s.type === 'salesforce'
+              ? 'fixtures/salesforce_demo.json'
+              : 'fixtures/databricks_unity_demo.json'),
     ),
     warehouseId: String(c.warehouseId ?? ''),
     token:
@@ -157,6 +184,9 @@ function formFromSource(s: DataSource): FormState {
     catalog: String(c.catalog ?? 'main'),
     account: String(c.account ?? ''),
     warehouse: String(c.warehouse ?? c.warehouseId ?? 'COMPUTE_WH'),
+    projectId: String(c.projectId ?? c.project ?? 'que-demo'),
+    location: String(c.location ?? 'US'),
+    instanceUrl: String(c.instanceUrl ?? c.host ?? ''),
   }
 }
 
@@ -228,6 +258,45 @@ function buildConfig(form: FormState): Record<string, unknown> {
       sampleLimit: 5,
     }
   }
+  if (form.type === 'bigquery') {
+    if (form.dbxMode === 'live') {
+      return {
+        mode: 'live',
+        projectId: form.projectId,
+        dataset: form.schema || 'analytics',
+        location: form.location || 'US',
+        token: form.token,
+        includeSamples: false,
+        sampleLimit: 5,
+      }
+    }
+    return {
+      mode: 'fixture',
+      fixturesPath: form.fixturesPath || 'fixtures/bigquery_demo.json',
+      projectId: form.projectId || 'que-demo',
+      dataset: form.schema || 'analytics',
+      includeSamples: true,
+      sampleLimit: 5,
+    }
+  }
+  if (form.type === 'salesforce') {
+    if (form.dbxMode === 'live') {
+      return {
+        mode: 'live',
+        instanceUrl: form.instanceUrl || form.host,
+        token: form.token,
+        includeSamples: false,
+        sampleLimit: 3,
+        maxObjects: 40,
+      }
+    }
+    return {
+      mode: 'fixture',
+      fixturesPath: form.fixturesPath || 'fixtures/salesforce_demo.json',
+      includeSamples: true,
+      sampleLimit: 5,
+    }
+  }
   let files: unknown[] = []
   try {
     files = JSON.parse(form.filesJson)
@@ -266,7 +335,7 @@ function statusBadge(status: DataSourceStatus): {
   }
   if (status === 'warning') {
     return {
-      label: 'Syncing',
+      label: 'Needs sync',
       className: 'bg-primary/10 text-primary',
     }
   }
@@ -475,7 +544,10 @@ export function SourcesPage() {
         type: item.type!,
       }
       if (
-        (item.type === 'snowflake' || item.type === 'databricks') &&
+        (item.type === 'snowflake' ||
+          item.type === 'databricks' ||
+          item.type === 'bigquery' ||
+          item.type === 'salesforce') &&
         item.preferredAuth === 'fixture'
       ) {
         next.dbxMode = 'fixture'
@@ -544,7 +616,7 @@ export function SourcesPage() {
       notifySchemaChanged('sync')
       await reload(toSync[0]?.id ?? null)
       setToast(
-        `POC pack ready · ${tables} tables · ${joins} join suggestions. Open Workspace → Promote a join (HITL — never auto-accept).`,
+        `POC pack ready · ${tables} tables · ${joins} join suggestions. Open Joins → Promote (HITL — never auto-accept).`,
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -1007,7 +1079,7 @@ export function SourcesPage() {
                           </p>
                           <p className="mt-0.5 truncate font-label text-[10px] text-on-surface-variant uppercase">
                             {sourceTypeLabel(s.type)} ·{' '}
-                            {relativeSyncLabel(s.updatedAt)}
+                            {relativeSyncLabel(s.lastSyncAt || s.updatedAt)}
                           </p>
                         </div>
                       </button>
@@ -1081,13 +1153,58 @@ export function SourcesPage() {
                         {statusBadge(selected.status).label}
                       </span>
                       <span className="font-body text-[12px] text-on-surface-variant">
-                        {relativeSyncLabel(selected.updatedAt)}
+                        {relativeSyncLabel(
+                          selected.lastSyncAt || selected.updatedAt,
+                        )}
                       </span>
                     </div>
+                    {selected.status === 'error' || selected.needsReauth ? (
+                      <div className="mt-md max-w-[40rem] rounded-xl border border-error/30 bg-error/5 px-md py-sm">
+                        <p className="font-label text-[11px] font-bold tracking-wider text-error uppercase">
+                          {selected.needsReauth ||
+                          selected.lastSyncErrorKind === 'auth'
+                            ? 'Re-auth required'
+                            : selected.lastSyncErrorKind === 'network'
+                              ? 'Network issue'
+                              : selected.lastSyncErrorKind === 'config'
+                                ? 'Config issue'
+                                : 'Sync failed'}
+                        </p>
+                        <p className="mt-1 font-body text-[12px] leading-snug text-on-surface">
+                          {selected.lastSyncError ||
+                            'Last schema sync failed. Update credentials if needed, then Sync Schema.'}
+                        </p>
+                        <div className="mt-sm flex flex-wrap gap-sm">
+                          {canAdmin &&
+                          (selected.needsReauth ||
+                            selected.lastSyncErrorKind === 'auth') ? (
+                            <a
+                              href="#connector-credentials"
+                              className="rounded-md bg-error/10 px-sm py-1 font-label text-[11px] font-bold text-error"
+                            >
+                              Update credentials
+                            </a>
+                          ) : null}
+                          {syncable && canWrite ? (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void sync()}
+                              className="rounded-md bg-primary/10 px-sm py-1 font-label text-[11px] font-bold text-primary disabled:opacity-40"
+                            >
+                              Retry sync
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-outline-variant/20 bg-white p-lg shadow-sm">
+                <div
+                  id="connector-credentials"
+                  className="rounded-2xl border border-outline-variant/20 bg-white p-lg shadow-sm"
+                >
                   <ConnectionFields
                     form={form}
                     setForm={setForm}
@@ -1101,6 +1218,88 @@ export function SourcesPage() {
                     selected={selected}
                   />
                 </div>
+
+                {syncable ? (
+                  <div className="mt-lg rounded-2xl border border-outline-variant/20 bg-white p-lg shadow-sm">
+                    <h3 className="font-label text-[11px] font-semibold tracking-[0.12em] text-on-surface-variant uppercase">
+                      Sync schedule
+                    </h3>
+                    <p className="mt-xs max-w-[36rem] font-body text-[12px] text-on-surface-variant">
+                      Wave 2.5 — schema introspect only (hourly or daily). Not
+                      full ETL.
+                    </p>
+                    <div className="mt-md flex flex-wrap items-end gap-md">
+                      <label className="block">
+                        <span className="font-label text-[10px] tracking-wider text-on-surface-variant uppercase">
+                          Cadence
+                        </span>
+                        <select
+                          disabled={!canAdmin || busy}
+                          value={selected.syncSchedule || 'off'}
+                          onChange={(e) => {
+                            const syncSchedule = e.target.value as
+                              | 'off'
+                              | 'hourly'
+                              | 'daily'
+                            void (async () => {
+                              setBusy(true)
+                              setError(null)
+                              try {
+                                const updated = await updateConnection(
+                                  selected.id,
+                                  { syncSchedule },
+                                )
+                                setSources((prev) =>
+                                  prev.map((s) =>
+                                    s.id === updated.id ? updated : s,
+                                  ),
+                                )
+                                setToast(
+                                  syncSchedule === 'off'
+                                    ? 'Scheduled sync off'
+                                    : `Scheduled ${syncSchedule} introspect`,
+                                )
+                              } catch (err) {
+                                setError(
+                                  err instanceof Error
+                                    ? err.message
+                                    : String(err),
+                                )
+                              } finally {
+                                setBusy(false)
+                              }
+                            })()
+                          }}
+                          className="mt-1 block rounded-lg border border-outline-variant/40 bg-[#FBF8F4] px-sm py-1.5 font-body text-[13px] text-on-surface disabled:opacity-40"
+                        >
+                          <option value="off">Off</option>
+                          <option value="hourly">Hourly</option>
+                          <option value="daily">Daily</option>
+                        </select>
+                      </label>
+                      <div className="font-body text-[12px] text-on-surface-variant">
+                        {selected.syncSchedule &&
+                        selected.syncSchedule !== 'off' ? (
+                          <>
+                            Next:{' '}
+                            {selected.syncNextAt
+                              ? new Date(selected.syncNextAt).toLocaleString()
+                              : '—'}
+                            {selected.lastScheduledSyncAt ? (
+                              <>
+                                {' '}
+                                · last scheduled{' '}
+                                {relativeSyncLabel(selected.lastScheduledSyncAt)}
+                              </>
+                            ) : null}
+                          </>
+                        ) : (
+                          'Manual Sync Schema only'
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="mt-lg flex flex-wrap gap-sm">
                   {canAdmin ? (
@@ -1245,6 +1444,12 @@ function ConnectionFields({
       ) : null}
       {form.type === 'snowflake' ? (
         <SnowflakeFields form={form} setForm={setForm} />
+      ) : null}
+      {form.type === 'bigquery' ? (
+        <BigQueryFields form={form} setForm={setForm} />
+      ) : null}
+      {form.type === 'salesforce' ? (
+        <SalesforceFields form={form} setForm={setForm} />
       ) : null}
       {form.type === 'excel' || form.type === 'csv' ? (
         <div className="space-y-md">
@@ -1647,6 +1852,156 @@ function SnowflakeFields({
           />
         </Field>
       ) : null}
+    </div>
+  )
+}
+
+function BigQueryFields({
+  form,
+  setForm,
+}: {
+  form: FormState
+  setForm: Dispatch<SetStateAction<FormState>>
+}) {
+  return (
+    <div className="grid gap-md">
+      <AuthModeToggle
+        mode={form.dbxMode}
+        onChange={(m) => setForm((f) => ({ ...f, dbxMode: m }))}
+      />
+      {form.dbxMode === 'fixture' ? (
+        <>
+          <Field label="Fixtures path">
+            <input
+              value={form.fixturesPath}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, fixturesPath: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <div className="grid gap-md md:grid-cols-2">
+            <Field label="Project id (label)">
+              <input
+                value={form.projectId}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, projectId: e.target.value }))
+                }
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Dataset">
+              <input
+                value={form.schema}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, schema: e.target.value }))
+                }
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        </>
+      ) : (
+        <div className="grid gap-md md:grid-cols-2">
+          <Field label="Project id">
+            <input
+              value={form.projectId}
+              placeholder="my-gcp-project"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, projectId: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Dataset">
+            <input
+              value={form.schema}
+              placeholder="analytics"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, schema: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Location">
+            <input
+              value={form.location}
+              placeholder="US"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, location: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="OAuth access token">
+            <input
+              type="password"
+              value={form.token}
+              placeholder="leave blank to keep"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, token: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SalesforceFields({
+  form,
+  setForm,
+}: {
+  form: FormState
+  setForm: Dispatch<SetStateAction<FormState>>
+}) {
+  return (
+    <div className="grid gap-md">
+      <AuthModeToggle
+        mode={form.dbxMode}
+        onChange={(m) => setForm((f) => ({ ...f, dbxMode: m }))}
+      />
+      {form.dbxMode === 'fixture' ? (
+        <Field label="Fixtures path">
+          <input
+            value={form.fixturesPath}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, fixturesPath: e.target.value }))
+            }
+            className={inputClass}
+          />
+        </Field>
+      ) : (
+        <div className="grid gap-md md:grid-cols-2">
+          <Field label="Instance URL">
+            <input
+              value={form.instanceUrl}
+              placeholder="https://yourorg.my.salesforce.com"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, instanceUrl: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Access token">
+            <input
+              type="password"
+              value={form.token}
+              placeholder="leave blank to keep"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, token: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      )}
+      <p className="font-body text-[11px] text-on-surface-variant">
+        Live mode uses describeGlobal + describe (schema only). Prefer a
+        Connected App access token; OAuth UI flow is still roadmap.
+      </p>
     </div>
   )
 }

@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-07-30T14:00:59.848Z",
+  "outputDir": "D:\\ADC\\prosols\\adc\\schemagraph\\docs\\tester-fixtures\\excel",
+  "fileCount": 15,
+  "totalRows": 109000,
+  "avgColumns": 8.3,
+  "joinKeys": [
+    "email",
+    "owner_email",
+    "customer_id",
+    "referrer_email",
+    "invitee_email"
+  ],
+  "files": [
+    {
+      "file": "01_campaigns.xlsx",
+      "rows": 8000,
+      "cols": 6,
+      "bytes": 2114834
+    },
+    {
+      "file": "02_leads.xlsx",
+      "rows": 10000,
+      "cols": 7,
+      "bytes": 2846219
+    },
+    {
+      "file": "03_accounts.xlsx",
+      "rows": 8000,
+      "cols": 7,
+      "bytes": 2314081
+    },
+    {
+      "file": "04_support_tickets.xlsx",
+      "rows": 12000,
+      "cols": 10,
+      "bytes": 4799522
+    },
+    {
+      "file": "05_web_events.xlsx",
+      "rows": 15000,
+      "cols": 8,
+      "bytes": 5399627
+    },
+    {
+      "file": "06_invoices.xlsx",
+      "rows": 7000,
+      "cols": 9,
+      "bytes": 2511586
+    },
+    {
+      "file": "07_products_catalog.xlsx",
+      "rows": 5000,
+      "cols": 12,
+      "bytes": 2041871
+    },
+    {
+      "file": "08_nps_responses.csv",
+      "rows": 6000,
+      "cols": 5,
+      "bytes": 241637
+    },
+    {
+      "file": "09_marketing_touch.csv",
+      "rows": 10000,
+      "cols": 6,
+      "bytes": 612525
+    },
+    {
+      "file": "10_refunds.csv",
+      "rows": 4000,
+      "cols": 8,
+      "bytes": 301131
+    },
+    {
+      "file": "11_referrals.csv",
+      "rows": 5000,
+      "cols": 4,
+      "bytes": 284993
+    },
+    {
+      "file": "12_subscriptions.xlsx",
+      "rows": 6000,
+      "cols": 11,
+      "bytes": 2549641
+    },
+    {
+      "file": "13_device_registry.csv",
+      "rows": 3000,
+      "cols": 15,
+      "bytes": 355804
+    },
+    {
+      "file": "14_geo_ip_lookup.csv",
+      "rows": 2000,
+      "cols": 3,
+      "bytes": 38762
+    },
+    {
+      "file": "15_order_shipments.xlsx",
+      "rows": 8000,
+      "cols": 14,
+      "bytes": 4195407
+    }
+  ]
+}

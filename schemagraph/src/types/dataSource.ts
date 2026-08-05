@@ -16,6 +16,8 @@ export type DataSourceType =
   | 'mongodb'
   | 'databricks'
   | 'snowflake'
+  | 'bigquery'
+  | 'salesforce'
   | 'mysql'
   | 'csv'
   | 'kafka'
@@ -37,4 +39,18 @@ export interface DataSource {
   hasSecrets?: boolean
   updatedAt?: string
   createdAt?: string
+  /** Wave 1.3 — last successful schema sync */
+  lastSyncAt?: string | null
+  /** Wave 1.3 — last failed sync message */
+  lastSyncError?: string | null
+  /** Wave 1.3 — auth | network | config | unknown */
+  lastSyncErrorKind?: 'auth' | 'network' | 'config' | 'unknown' | null
+  /** Wave 1.3 — show re-auth CTA when credentials look stale */
+  needsReauth?: boolean
+  /** Wave 2.5 — off | hourly | daily schema introspect */
+  syncSchedule?: 'off' | 'hourly' | 'daily'
+  /** Next scheduled introspect (ISO) */
+  syncNextAt?: string | null
+  /** Last scheduler-driven sync (ISO) */
+  lastScheduledSyncAt?: string | null
 }

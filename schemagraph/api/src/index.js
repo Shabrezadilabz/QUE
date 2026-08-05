@@ -15,7 +15,7 @@ import {
   listJobs,
   updateJob,
 } from './jobs.js'
-import { getJobRun, listJobRuns, runJob } from './jobRunner.js'
+import { getJobRun, listJobRuns, listWorkspaceJobRuns, runJob } from './jobRunner.js'
 import {
   createConnection,
   deleteConnection,
@@ -39,7 +39,7 @@ import {
   acknowledgeDrift,
   getOpenHighDrift,
   listRecentDrift,
-  validateContract,
+  getJobContractStatus,
 } from './contracts/contractFreeze.js'
 import { listOutbox } from './adapters/contractEvents.js'
 import { inferJoinsForWorkspace } from './inferJoins.js'
@@ -68,19 +68,77 @@ import {
 } from './auth.js'
 import {
   buildAuthorizeRedirectUrl,
+  buildSsoErrorRedirect,
   completeOidcCallback,
 } from './oidc.js'
 import { requestLogMiddleware } from './logger.js'
 import { ingestBiLineage, listLatestBiLineage } from './exporters/biLineage.js'
 import { ingestDbtManifest } from './exporters/dbtManifestAssist.js'
-import { verifyAttestationSignature } from './exporters/attestation.js'
+import {
+  attestationFingerprint,
+  verifyAttestationSignature,
+} from './exporters/attestation.js'
+import {
+  listExportAttestations,
+  getExportAttestation,
+  buildAttestationVerifyPack,
+} from './exporters/exportAudit.js'
+import {
+  mintJobArtifact,
+  listExportArtifacts,
+  revokeExportArtifact,
+  downloadExportArtifactByToken,
+  createExportArtifact,
+} from './exporters/artifacts.js'
 import { assertProductionSecrets, corsOrigins } from './env.js'
 import { createInvite, listInvites, revokeInvite } from './invites.js'
 import {
   listMembers,
+  getMembershipSummary,
   removeMember,
   updateMemberRole,
 } from './members.js'
+import { listAuditEvents, recordAuditEvent } from './auditLog.js'
+import { getWorkspaceUsage } from './usage.js'
+import { notifyDriftAlert, createDriftEventAndAlert } from './driftAlerts.js'
+import { listJoinReviews } from './joinReviews.js'
+import {
+  getWorkspaceSyncScheduleStatus,
+  runScheduledSyncTick,
+  startScheduledSyncLoop,
+} from './scheduledSync.js'
+import {
+  getWorkspaceJobScheduleStatus,
+  runScheduledJobsTick,
+  startScheduledJobsLoop,
+} from './scheduledJobs.js'
+import {
+  getOrchestratorConfig,
+  updateOrchestratorConfig,
+  triggerOrchestrator,
+  testOrchestratorPing,
+} from './orchestratorTrigger.js'
+import {
+  runMappingAssist,
+  listRenameSuggestions,
+  reviewRenameSuggestion,
+} from './mappingAssist.js'
+import {
+  getPrivateRunnerConfig,
+  updatePrivateRunnerConfig,
+  enqueuePrivateRunnerJob,
+  handleRunnerCallback,
+} from './privateRunner.js'
+import {
+  getBillingStatus,
+  createCheckoutSession,
+  createBillingPortalSession,
+} from './billing.js'
+import {
+  materializeJob,
+  listMaterializations,
+} from './materialize.js'
+import { getWorkspaceLineageLite } from './lineageLite.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -123,6 +181,29 @@ app.use(
     },
     credentials: true,
   }),
+)
+/** Stripe webhook needs raw body — register before json parser */
+app.post(
+  '/billing/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    try {
+      const { handleStripeWebhook } = await import('./billing.js')
+      const raw =
+        Buffer.isBuffer(req.body)
+          ? req.body.toString('utf8')
+          : typeof req.body === 'string'
+            ? req.body
+            : JSON.stringify(req.body || {})
+      const out = await handleStripeWebhook(
+        raw,
+        req.headers['stripe-signature'],
+      )
+      res.json(out)
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
 )
 app.use(express.json({ limit: '4mb' }))
 app.use(requestLogMiddleware)
@@ -202,24 +283,81 @@ app.get('/auth/sso/start', async (_req, res) => {
   }
 })
 
-/** OIDC callback — exchange code, set session, redirect SPA with token */
+/** OIDC callback — exchange code, set session, redirect SPA with #token= or #error= */
 app.get('/auth/sso/callback', async (req, res) => {
   try {
+    if (req.query.error) {
+      const detail = [
+        req.query.error,
+        req.query.error_description,
+      ]
+        .filter(Boolean)
+        .join(': ')
+      res.redirect(302, buildSsoErrorRedirect(detail || 'SSO denied by IdP'))
+      return
+    }
     const result = await completeOidcCallback({
       code: req.query.code,
       state: req.query.state,
     })
     res.redirect(302, result.redirectUrl)
   } catch (err) {
-    res.status(err.status || 500).send(
-      `SSO failed: ${String(err.message || err)}. Close this window and retry.`,
-    )
+    res.redirect(302, buildSsoErrorRedirect(err.message || err))
   }
 })
 
 app.post('/auth/attestation/verify', express.json(), (req, res) => {
-  const result = verifyAttestationSignature(req.body?.attestation || req.body)
-  res.json({ ok: result.ok, ...result })
+  const attestation = req.body?.attestation || req.body
+  const result = verifyAttestationSignature(attestation)
+  let fingerprint = null
+  try {
+    fingerprint = attestationFingerprint(attestation)
+  } catch {
+    fingerprint = null
+  }
+  res.json({
+    ok: result.ok,
+    reason: result.reason || null,
+    fingerprint,
+    policy: attestation?.policy || null,
+    alg: attestation?.signature?.alg || null,
+  })
+})
+
+/**
+ * Wave 3.3 — public signed artifact download (token in path; no session).
+ */
+app.get('/artifacts/download/:token', async (req, res) => {
+  try {
+    const file = await downloadExportArtifactByToken(req.params.token)
+    res.setHeader('Content-Type', file.contentType)
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${file.filename.replace(/"/g, '')}"`,
+    )
+    res.setHeader('X-Que-Content-SHA256', file.contentSha256)
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({
+      ok: true,
+      brand: 'Que',
+      policy: 'schema-only-artifact',
+      contentSha256: file.contentSha256,
+      artifact: {
+        id: file.artifact.id,
+        format: file.artifact.format,
+        filename: file.filename,
+        expiresAt: file.artifact.expiresAt,
+        jobId: file.artifact.jobId,
+        jobTitle: file.artifact.jobTitle,
+      },
+      export: file.payload,
+    })
+  } catch (err) {
+    res.status(err.status || 500).json({
+      error: String(err.message || err),
+      code: err.code || null,
+    })
+  }
 })
 
 app.get('/workspaces', requireAuth, async (req, res) => {
@@ -284,6 +422,15 @@ app.post(
       req.params.workspaceId,
       req.body ?? {},
     )
+    void recordAuditEvent({
+      workspaceId: req.params.workspaceId,
+      actorUserId: req.user?.id,
+      action: 'connection.create',
+      resourceType: 'connection',
+      resourceId: connection.id,
+      summary: `Created connection ${connection.name} (${connection.type})`,
+      meta: { type: connection.type, name: connection.name },
+    })
     res.status(201).json({ ok: true, connection })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
@@ -386,6 +533,14 @@ app.delete(
         res.status(404).json({ error: 'connection not found' })
         return
       }
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'connection.delete',
+        resourceType: 'connection',
+        resourceId: req.params.connectionId,
+        summary: 'Deleted connection',
+      })
       res.json({ ok: true })
     } catch (err) {
       res.status(500).json({ error: String(err.message || err) })
@@ -497,6 +652,22 @@ app.get('/workspaces/:workspaceId/schema', async (req, res) => {
 })
 
 /**
+ * Wave 2.1 — Join review inbox (suggested joins + evidence).
+ * Query: ?status=suggested|accepted|rejected|all&limit=
+ */
+app.get('/workspaces/:workspaceId/join-reviews', async (req, res) => {
+  try {
+    const result = await listJoinReviews(req.params.workspaceId, {
+      status: req.query.status,
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+/**
  * Promote or reject a Stitch Relation.
  * Body: { action: 'promote' | 'reject' }
  * - promote → status=accepted, relation_type=explicit
@@ -568,6 +739,20 @@ app.patch(
           auditErr.message || auditErr,
         )
       }
+
+      void recordAuditEvent({
+        workspaceId,
+        actorUserId: req.user?.id,
+        action:
+          action === 'promote' ? 'relationship.promote' : 'relationship.reject',
+        resourceType: 'relationship',
+        resourceId: relationshipId,
+        summary:
+          action === 'promote'
+            ? 'Promoted suggested join to accepted'
+            : 'Rejected suggested join',
+        meta: { previousStatus: before.status, nextStatus },
+      })
 
       void reindexWorkspace(workspaceId).catch((err) =>
         console.warn('[Que] reindex after promote/reject:', err.message || err),
@@ -704,10 +889,65 @@ app.post(
       void reindexWorkspace(workspaceId).catch((err) =>
         console.warn('[Que] reindex after sync:', err.message || err),
       )
+      void recordAuditEvent({
+        workspaceId,
+        actorUserId: req.user?.id,
+        action: 'connection.sync',
+        resourceType: 'connection',
+        resourceId: connectionId,
+        summary: `Synced connection schema`,
+        meta: {
+          tables: result?.tablesUpserted ?? result?.applied?.tables ?? null,
+        },
+      })
       res.json({ ok: true, ...result })
     } catch (err) {
       const status = err.status || 500
-      res.status(status).json({ error: String(err.message || err) })
+      void recordAuditEvent({
+        workspaceId,
+        actorUserId: req.user?.id,
+        action: 'connection.sync_failed',
+        resourceType: 'connection',
+        resourceId: connectionId,
+        summary: `Sync failed (${err.healthKind || 'unknown'})`,
+        meta: {
+          kind: err.healthKind || null,
+          error: String(err.message || err).slice(0, 500),
+        },
+      }).catch(() => {})
+      res.status(status).json({
+        error: String(err.message || err),
+        healthKind: err.healthKind || null,
+        needsReauth: err.healthKind === 'auth',
+      })
+    }
+  },
+)
+
+/** Wave 2.5 — scheduled sync status (introspect only). */
+app.get('/workspaces/:workspaceId/sync-schedule', async (req, res) => {
+  try {
+    const status = await getWorkspaceSyncScheduleStatus(req.params.workspaceId)
+    res.json({ ok: true, ...status })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/sync-schedule/run',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const result = await runScheduledSyncTick({
+        workspaceId: req.params.workspaceId,
+        force: true,
+        actorUserId: req.user?.id,
+        limit: req.body?.limit,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
     }
   },
 )
@@ -918,6 +1158,15 @@ app.put(
         )
       }
       const status = await getSecretsStatus(req.params.workspaceId)
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'secrets.llm.update',
+        resourceType: 'secrets',
+        resourceId: 'llm',
+        summary: 'Updated workspace LLM / GitHub secrets',
+        meta: { updated: Object.keys(out) },
+      })
       res.json({ ok: true, updated: out, secrets: status })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
@@ -939,6 +1188,46 @@ app.get('/workspaces/:workspaceId/jobs', async (req, res) => {
   try {
     const jobs = await listJobs(req.params.workspaceId)
     res.json({ jobs })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Wave 4.2 — must be registered before /jobs/:jobId */
+app.get('/workspaces/:workspaceId/jobs/schedule', async (req, res) => {
+  try {
+    const status = await getWorkspaceJobScheduleStatus(req.params.workspaceId)
+    res.json({ ok: true, ...status })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/jobs/schedule/run',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const result = await runScheduledJobsTick({
+        workspaceId: req.params.workspaceId,
+        force: true,
+        actorUserId: req.user?.id,
+        limit: req.body?.limit,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/job-runs', async (req, res) => {
+  try {
+    const runs = await listWorkspaceJobRuns(req.params.workspaceId, {
+      limit: req.query.limit,
+      jobId: req.query.jobId,
+    })
+    res.json({ ok: true, runs })
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) })
   }
@@ -1026,7 +1315,75 @@ app.post(
         res.status(404).json({ error: 'job not found' })
         return
       }
-      res.json({ ok: true, ...result })
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'job.export',
+        resourceType: 'job',
+        resourceId: req.params.jobId,
+        summary: `Exported job as ${format}`,
+        meta: { format },
+      })
+
+      let artifact = null
+      const wantArtifact = req.body?.createArtifact !== false
+      if (wantArtifact && result.export) {
+        try {
+          let payload = result.export
+          if (format === 'dbt' || format === 'dbt-pr') {
+            payload = {
+              format,
+              exportedAt:
+                result.export.exportedAt || new Date().toISOString(),
+              attestation: result.export.attestation,
+              attestationFingerprint: result.export.attestationFingerprint,
+              files: result.export.files || [],
+              github: result.export.github
+                ? {
+                    opened: result.export.github.opened,
+                    prUrl: result.export.github.prUrl || null,
+                  }
+                : undefined,
+              job: {
+                id: result.job?.id,
+                title: result.job?.title,
+                status: result.job?.status,
+              },
+            }
+          }
+          artifact = await createExportArtifact({
+            workspaceId: req.params.workspaceId,
+            jobId: req.params.jobId,
+            actorUserId: req.user?.id || null,
+            format,
+            payload,
+            ttlHours: req.body?.ttlHours,
+            req,
+            meta: { source: 'export' },
+          })
+        } catch (artErr) {
+          console.warn(
+            '[Que] artifact mint skipped:',
+            artErr.message || artErr,
+          )
+        }
+      }
+
+      res.json({
+        ok: true,
+        ...result,
+        artifact: artifact
+          ? {
+              id: artifact.artifact.id,
+              downloadUrl: artifact.downloadUrl,
+              downloadPath: artifact.downloadPath,
+              expiresAt: artifact.expiresAt,
+              filename: artifact.artifact.filename,
+              contentSha256: artifact.artifact.contentSha256,
+              note: artifact.note,
+            }
+          : null,
+      })
     } catch (err) {
       const status = err.status || 500
       res.status(status).json({
@@ -1037,6 +1394,132 @@ app.post(
   },
 )
 
+/** Wave 3.3 — mint / list / revoke signed artifacts (auth). */
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/artifacts',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const minted = await mintJobArtifact(
+        req.params.workspaceId,
+        req.params.jobId,
+        {
+          format: req.body?.format,
+          force: req.body?.force === true,
+          ttlHours: req.body?.ttlHours,
+          actorUserId: req.user?.id || null,
+          githubOwner: req.body?.githubOwner,
+          githubRepo: req.body?.githubRepo,
+          githubBaseBranch: req.body?.githubBaseBranch,
+          branchName: req.body?.branchName,
+        },
+        req,
+      )
+      res.status(201).json({
+        ok: true,
+        job: minted.job,
+        artifact: minted.artifact,
+        downloadUrl: minted.downloadUrl,
+        downloadPath: minted.downloadPath,
+        expiresAt: minted.expiresAt,
+        note: minted.note,
+      })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        validation: err.validation || undefined,
+      })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/artifacts', async (req, res) => {
+  try {
+    const events = await listExportArtifacts(req.params.workspaceId, {
+      jobId: req.query.jobId,
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, events })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/artifacts/:artifactId/revoke',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const revoked = await revokeExportArtifact(
+        req.params.workspaceId,
+        req.params.artifactId,
+      )
+      res.json({ ok: true, ...revoked })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/**
+ * Wave 3.1 — opt-in materialize (CTAS/VIEW) into the customer warehouse.
+ * Body: { confirm: true, connectionId?, objectName?, schema?, kind?: 'view'|'table', replace?, force? }
+ */
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/materialize',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await materializeJob(
+        req.params.workspaceId,
+        req.params.jobId,
+        {
+          confirm: req.body?.confirm === true,
+          connectionId: req.body?.connectionId,
+          objectName: req.body?.objectName,
+          schema: req.body?.schema,
+          kind: req.body?.kind,
+          replace: req.body?.replace === true,
+          force: req.body?.force === true,
+          actorUserId: req.user?.id || null,
+        },
+      )
+      res.status(201).json(result)
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+        validation: err.validation || undefined,
+      })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/materializations', async (req, res) => {
+  try {
+    const events = await listMaterializations(req.params.workspaceId, {
+      jobId: req.query.jobId,
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, events })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Wave 3.4 — lineage lite (sources → joins → job → export/table). */
+app.get('/workspaces/:workspaceId/lineage', async (req, res) => {
+  try {
+    const lineage = await getWorkspaceLineageLite(req.params.workspaceId, {
+      jobId: req.query.jobId,
+      limit: req.query.limit,
+    })
+    res.json(lineage)
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
 /**
  * Notebook dry-run — validate SQL cells + schema sample previews (no warehouse).
  * Body: { scope?: 'all'|'cell', cellId?, notebook?, mode?: 'dry_run' }
@@ -1046,18 +1529,47 @@ app.post(
   requireMinRole('member'),
   async (req, res) => {
     try {
-      const run = await runJob(
-        req.params.workspaceId,
-        req.params.jobId,
-        {
-          scope: req.body?.scope,
-          cellId: req.body?.cellId,
-          notebook: req.body?.notebook,
-          mode: req.body?.mode || 'dry_run',
-          connectionId: req.body?.connectionId,
-          maxRows: req.body?.maxRows,
-        },
-      )
+      const job = await getJob(req.params.workspaceId, req.params.jobId)
+      if (!job) {
+        res.status(404).json({ error: 'job not found' })
+        return
+      }
+      const wantPrivate =
+        req.body?.executionTarget === 'private_runner' ||
+        job.executionTarget === 'private_runner'
+      let run
+      if (wantPrivate) {
+        run = await enqueuePrivateRunnerJob(
+          req.params.workspaceId,
+          req.params.jobId,
+          {
+            mode: req.body?.mode || job.runMode || 'dry_run',
+            trigger: 'manual',
+          },
+        )
+      } else {
+        run = await runJob(
+          req.params.workspaceId,
+          req.params.jobId,
+          {
+            scope: req.body?.scope,
+            cellId: req.body?.cellId,
+            notebook: req.body?.notebook,
+            mode: req.body?.mode || 'dry_run',
+            connectionId: req.body?.connectionId,
+            maxRows: req.body?.maxRows,
+            trigger: req.body?.trigger || 'manual',
+          },
+        )
+        void triggerOrchestrator(req.params.workspaceId, {
+          jobId: job.id,
+          runId: run.id,
+          status: run.status,
+          title: job.title,
+          schemaSnapshotId: job.schemaSnapshotId,
+          sqlText: job.sqlText,
+        }).catch(() => {})
+      }
       res.status(201).json({ ok: true, run })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
@@ -1122,7 +1634,69 @@ app.post(
         res.status(404).json({ error: 'drift event not found' })
         return
       }
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'drift.acknowledge',
+        resourceType: 'drift_event',
+        resourceId: row.id,
+        summary: 'Acknowledged drift event',
+      })
       res.json({ ok: true, id: row.id })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Wave 2.3 — re-send / test drift alert for an existing event */
+app.post(
+  '/workspaces/:workspaceId/drift/:eventId/notify',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const events = await listRecentDrift(req.params.workspaceId, 100)
+      const event = events.find((e) => e.id === req.params.eventId)
+      if (!event) {
+        res.status(404).json({ error: 'drift event not found' })
+        return
+      }
+      const notify = await notifyDriftAlert({
+        workspaceId: req.params.workspaceId,
+        eventId: event.id,
+        connectionId: event.connectionId,
+        drift: {
+          severity: event.severity,
+          code: event.code,
+          summary: event.summary,
+          ...(event.detail && typeof event.detail === 'object' ? event.detail : {}),
+        },
+        force: true,
+      })
+      res.json({ ok: true, notify })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Wave 2.3 — send a synthetic high-drift test alert (admin) */
+app.post(
+  '/workspaces/:workspaceId/drift/test-alert',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const result = await createDriftEventAndAlert({
+        workspaceId: req.params.workspaceId,
+        severity: 'high',
+        code: 'manual_test',
+        summary:
+          req.body?.summary ||
+          'Test drift alert from Que Settings (no schema change)',
+        detail: { test: true, actor: req.user?.email || req.user?.id },
+        forceNotify: true,
+      })
+      res.status(201).json({ ok: true, ...result })
     } catch (err) {
       res.status(500).json({ error: String(err.message || err) })
     }
@@ -1139,6 +1713,66 @@ app.get('/workspaces/:workspaceId/events/outbox', async (req, res) => {
   }
 })
 
+/** Wave 2.2 — contract status (frozen joins + validation + unreviewed) */
+app.get(
+  '/workspaces/:workspaceId/jobs/:jobId/contract',
+  async (req, res) => {
+    try {
+      const job = await getJob(req.params.workspaceId, req.params.jobId)
+      if (!job) {
+        res.status(404).json({ error: 'job not found' })
+        return
+      }
+      const status = await getJobContractStatus(req.params.workspaceId, job)
+      res.json({
+        ok: true,
+        jobId: job.id,
+        title: job.title,
+        tables: job.tables,
+        contract: job.contract,
+        status,
+      })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Wave 2.2 — explicitly freeze / re-freeze accepted joins into the job contract */
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/contract/freeze',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const job = await updateJob(
+        req.params.workspaceId,
+        req.params.jobId,
+        { refreezeContract: true },
+      )
+      if (!job) {
+        res.status(404).json({ error: 'job not found' })
+        return
+      }
+      const status = await getJobContractStatus(req.params.workspaceId, job)
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'job.contract_freeze',
+        resourceType: 'job',
+        resourceId: job.id,
+        summary: `Froze contract · ${status.frozenJoinCount} join(s)`,
+        meta: {
+          frozenJoinCount: status.frozenJoinCount,
+          schemaSnapshotId: status.schemaSnapshotId,
+        },
+      })
+      res.json({ ok: true, job, status })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 /** Validate a job contract without exporting */
 app.get(
   '/workspaces/:workspaceId/jobs/:jobId/contract/validate',
@@ -1149,15 +1783,13 @@ app.get(
         res.status(404).json({ error: 'job not found' })
         return
       }
-      const validation = await validateContract(
-        req.params.workspaceId,
-        job.contract,
-      )
+      const status = await getJobContractStatus(req.params.workspaceId, job)
       res.json({
         ok: true,
-        validation,
+        validation: status.validation,
         schemaSnapshotId: job.schemaSnapshotId,
         contract: job.contract,
+        status,
       })
     } catch (err) {
       res.status(500).json({ error: String(err.message || err) })
@@ -1183,10 +1815,23 @@ app.post(
         email: req.body?.email,
         role: req.body?.role,
         invitedBy: req.user?.id,
+        actorRole: req.workspaceRole,
+      })
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'invite.create',
+        resourceType: 'invite',
+        resourceId: invite.id,
+        summary: `Invited ${invite.email} as ${invite.role}`,
+        meta: { email: invite.email, role: invite.role },
       })
       res.status(201).json({ ok: true, invite })
     } catch (err) {
-      res.status(err.status || 500).json({ error: String(err.message || err) })
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
     }
   },
 )
@@ -1201,6 +1846,14 @@ app.delete(
         res.status(404).json({ error: 'invite not found' })
         return
       }
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'invite.revoke',
+        resourceType: 'invite',
+        resourceId: req.params.inviteId,
+        summary: 'Revoked workspace invite',
+      })
       res.json({ ok: true })
     } catch (err) {
       res.status(500).json({ error: String(err.message || err) })
@@ -1211,11 +1864,294 @@ app.delete(
 app.get('/workspaces/:workspaceId/members', async (req, res) => {
   try {
     const members = await listMembers(req.params.workspaceId)
-    res.json({ ok: true, members })
+    res.json({
+      ok: true,
+      members,
+      summary: getMembershipSummary(members),
+    })
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) })
   }
 })
+
+/** Wave 1.1 — unified workspace audit log (all members can read). */
+app.get('/workspaces/:workspaceId/audit-events', async (req, res) => {
+  try {
+    const events = await listAuditEvents(req.params.workspaceId, {
+      limit: req.query.limit,
+      offset: req.query.offset,
+      action: req.query.action,
+    })
+    res.json({ ok: true, events })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Wave 1.5 — usage counters (billing precursor; soft limits). */
+app.get('/workspaces/:workspaceId/usage', async (req, res) => {
+  try {
+    const usage = await getWorkspaceUsage(req.params.workspaceId)
+    res.json({ ok: true, usage })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Wave 4.3 — external orchestrator webhook */
+app.get('/workspaces/:workspaceId/orchestrator', async (req, res) => {
+  try {
+    const config = await getOrchestratorConfig(req.params.workspaceId)
+    res.json({ ok: true, config })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/orchestrator',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const config = await updateOrchestratorConfig(
+        req.params.workspaceId,
+        req.body || {},
+      )
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'orchestrator.config_update',
+        resourceType: 'workspace',
+        resourceId: req.params.workspaceId,
+        summary: 'Updated orchestrator webhook config',
+      })
+      res.json({ ok: true, config })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/orchestrator/test',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const result = await testOrchestratorPing(req.params.workspaceId)
+      res.json({ ok: true, result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/orchestrator/trigger',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const job = await getJob(req.params.workspaceId, req.params.jobId)
+      if (!job) {
+        res.status(404).json({ error: 'job not found' })
+        return
+      }
+      const result = await triggerOrchestrator(req.params.workspaceId, {
+        jobId: job.id,
+        runId: req.body?.runId || 'manual-trigger',
+        status: req.body?.status || 'trigger',
+        title: job.title,
+        schemaSnapshotId: job.schemaSnapshotId,
+        sqlText: job.sqlText,
+      })
+      res.json({ ok: true, result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Wave 4.4 — mapping assist */
+app.post(
+  '/workspaces/:workspaceId/mapping-assist',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await runMappingAssist(req.params.workspaceId, {
+        refreshJoins: req.body?.refreshJoins !== false,
+        limit: req.body?.limit,
+      })
+      res.json(result)
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/mapping-assist/renames', async (req, res) => {
+  try {
+    const items = await listRenameSuggestions(
+      req.params.workspaceId,
+      req.query.status || 'suggested',
+    )
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/mapping-assist/renames/:suggestionId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await reviewRenameSuggestion(
+        req.params.workspaceId,
+        req.params.suggestionId,
+        req.body?.action,
+        req.user?.id,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Wave 4.5 — private runner */
+app.get('/workspaces/:workspaceId/private-runner', async (req, res) => {
+  try {
+    const config = await getPrivateRunnerConfig(req.params.workspaceId)
+    res.json({ ok: true, config })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/private-runner',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const config = await updatePrivateRunnerConfig(
+        req.params.workspaceId,
+        req.body || {},
+      )
+      res.json({ ok: true, config })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post('/runner/callback', async (req, res) => {
+  try {
+    const raw = JSON.stringify(req.body || {})
+    const run = await handleRunnerCallback(
+      raw,
+      req.headers['x-que-signature'],
+    )
+    res.json({ ok: true, run })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Wave 4.6 — billing */
+app.get('/workspaces/:workspaceId/billing', async (req, res) => {
+  try {
+    const billing = await getBillingStatus(req.params.workspaceId)
+    res.json({ ok: true, billing })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/billing/checkout',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const session = await createCheckoutSession(req.params.workspaceId, {
+        seats: req.body?.seats,
+      })
+      res.json({ ok: true, ...session })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/billing/portal',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const session = await createBillingPortalSession(req.params.workspaceId)
+      res.json({ ok: true, ...session })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Wave 2.4 — export attestation list / download / verify pack. */
+app.get('/workspaces/:workspaceId/export-attestations', async (req, res) => {
+  try {
+    const events = await listExportAttestations(req.params.workspaceId, {
+      jobId: req.query.jobId,
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, events })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get(
+  '/workspaces/:workspaceId/export-attestations/:eventId',
+  async (req, res) => {
+    try {
+      const event = await getExportAttestation(
+        req.params.workspaceId,
+        req.params.eventId,
+      )
+      res.json({ ok: true, event })
+    } catch (err) {
+      res
+        .status(err.status || 500)
+        .json({ error: String(err.message || err), code: err.code })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/export-attestations/:eventId/pack',
+  async (req, res) => {
+    try {
+      const pack = await buildAttestationVerifyPack(
+        req.params.workspaceId,
+        req.params.eventId,
+        {
+          apiBase: `${req.protocol}://${req.get('host')}`,
+          verifyUiUrl:
+            process.env.QUE_ATTESTATION_VERIFY_UI_URL ||
+            undefined,
+        },
+      )
+      const fname = `que-attestation-pack-${String(pack.export.fingerprint || pack.export.id).slice(0, 16)}.json`
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fname}"`,
+      )
+      res.json(pack)
+    } catch (err) {
+      res
+        .status(err.status || 500)
+        .json({ error: String(err.message || err), code: err.code })
+    }
+  },
+)
 
 app.patch(
   '/workspaces/:workspaceId/members/:userId',
@@ -1229,9 +2165,21 @@ app.patch(
         req.user.id,
         req.workspaceRole,
       )
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'member.role_change',
+        resourceType: 'member',
+        resourceId: req.params.userId,
+        summary: `Changed member role to ${req.body?.role}`,
+        meta: { role: req.body?.role, email: member?.email },
+      })
       res.json({ ok: true, member })
     } catch (err) {
-      res.status(err.status || 500).json({ error: String(err.message || err) })
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
     }
   },
 )
@@ -1245,10 +2193,22 @@ app.delete(
         req.params.workspaceId,
         req.params.userId,
         req.workspaceRole,
+        req.user.id,
       )
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'member.remove',
+        resourceType: 'member',
+        resourceId: req.params.userId,
+        summary: 'Removed workspace member',
+      })
       res.json({ ok: true })
     } catch (err) {
-      res.status(err.status || 500).json({ error: String(err.message || err) })
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
     }
   },
 )
@@ -1308,6 +2268,24 @@ app.get('/', (_req, res) => {
       'GET /workspaces',
       'POST /workspaces',
       'GET /workspaces/:workspaceId/members',
+      'GET /workspaces/:workspaceId/audit-events',
+      'GET /workspaces/:workspaceId/usage',
+      'GET /workspaces/:workspaceId/orchestrator',
+      'PATCH /workspaces/:workspaceId/orchestrator',
+      'POST /workspaces/:workspaceId/orchestrator/test',
+      'POST /workspaces/:workspaceId/mapping-assist',
+      'GET /workspaces/:workspaceId/mapping-assist/renames',
+      'PATCH /workspaces/:workspaceId/mapping-assist/renames/:suggestionId',
+      'GET /workspaces/:workspaceId/private-runner',
+      'PATCH /workspaces/:workspaceId/private-runner',
+      'POST /runner/callback',
+      'GET /workspaces/:workspaceId/billing',
+      'POST /workspaces/:workspaceId/billing/checkout',
+      'POST /workspaces/:workspaceId/billing/portal',
+      'POST /billing/stripe/webhook',
+      'GET /workspaces/:workspaceId/export-attestations',
+      'GET /workspaces/:workspaceId/export-attestations/:eventId',
+      'GET /workspaces/:workspaceId/export-attestations/:eventId/pack',
       'PATCH /workspaces/:workspaceId/members/:userId',
       'DELETE /workspaces/:workspaceId/members/:userId',
       'GET /workspaces/:workspaceId/invites',
@@ -1331,18 +2309,35 @@ app.get('/', (_req, res) => {
       'POST /workspaces/:workspaceId/jobs',
       'PATCH /workspaces/:workspaceId/jobs/:jobId',
       'POST /workspaces/:workspaceId/jobs/:jobId/export',
+      'POST /workspaces/:workspaceId/jobs/:jobId/artifacts',
+      'GET /workspaces/:workspaceId/artifacts',
+      'POST /workspaces/:workspaceId/artifacts/:artifactId/revoke',
+      'GET /artifacts/download/:token',
+      'POST /workspaces/:workspaceId/jobs/:jobId/materialize',
+      'GET /workspaces/:workspaceId/materializations',
+      'GET /workspaces/:workspaceId/lineage',
       'POST /workspaces/:workspaceId/jobs/:jobId/run',
       'GET /workspaces/:workspaceId/jobs/:jobId/runs',
       'GET /workspaces/:workspaceId/jobs/:jobId/runs/:runId',
+      'GET /workspaces/:workspaceId/jobs/:jobId/contract',
+      'POST /workspaces/:workspaceId/jobs/:jobId/contract/freeze',
       'GET /workspaces/:workspaceId/jobs/:jobId/contract/validate',
       'GET /workspaces/:workspaceId/drift',
       'POST /workspaces/:workspaceId/drift/:eventId/ack',
+      'POST /workspaces/:workspaceId/drift/:eventId/notify',
+      'POST /workspaces/:workspaceId/drift/test-alert',
       'GET /workspaces/:workspaceId/events/outbox',
       'PUT /workspaces/:workspaceId/layout',
+      'GET /workspaces/:workspaceId/join-reviews',
       'PATCH /workspaces/:workspaceId/relationships/:relationshipId',
       'POST /workspaces/:workspaceId/join-inference',
       'POST /workspaces/:workspaceId/stitch-session',
       'POST /workspaces/:workspaceId/connections/:connectionId/sync',
+      'GET /workspaces/:workspaceId/sync-schedule',
+      'POST /workspaces/:workspaceId/sync-schedule/run',
+      'GET /workspaces/:workspaceId/jobs/schedule',
+      'POST /workspaces/:workspaceId/jobs/schedule/run',
+      'GET /workspaces/:workspaceId/job-runs',
       'POST /workspaces/:workspaceId/chat',
       'POST /workspaces/:workspaceId/chat/feedback',
       'GET /workspaces/:workspaceId/ai/status',
@@ -1364,6 +2359,8 @@ ensureDevUserPassword()
       if (process.env.QUE_ENV === 'production' || process.env.NODE_ENV === 'production') {
         console.log('tls: terminate TLS at reverse proxy / load balancer (TLS 1.2+ required)')
       }
+      startScheduledSyncLoop()
+      startScheduledJobsLoop()
     })
   })
   .catch((err) => {

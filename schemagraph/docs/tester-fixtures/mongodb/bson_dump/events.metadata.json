@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"email":{"$numberInt":"1"}},"name":"email_1"},{"v":{"$numberInt":"2"},"key":{"pg_customer_id":{"$numberInt":"1"}},"name":"pg_customer_id_1"}],"uuid":"d3e8f185b3ea4ca5ba5a6d56ca166255","collectionName":"events","type":"collection"}

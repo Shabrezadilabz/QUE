@@ -1,0 +1,41 @@
+{
+  "schema": "analytics",
+  "projectId": "que-demo",
+  "dataset": "analytics",
+  "tables": [
+    {
+      "name": "dim_customer",
+      "columns": [
+        { "name": "customer_id", "dataType": "INT64", "keyKind": "pk", "samples": ["1", "2", "3"] },
+        { "name": "email", "dataType": "STRING", "keyKind": "unique", "samples": ["ada@example.com", "bob@example.com"] },
+        { "name": "full_name", "dataType": "STRING", "samples": ["Ada Lovelace", "Bob Builder"] },
+        { "name": "region", "dataType": "STRING", "samples": ["EMEA", "AMER"] }
+      ]
+    },
+    {
+      "name": "fact_orders",
+      "columns": [
+        { "name": "order_id", "dataType": "INT64", "keyKind": "pk", "samples": ["100", "101"] },
+        { "name": "customer_id", "dataType": "INT64", "keyKind": "fk", "references": "dim_customer.customer_id", "samples": ["1", "2"] },
+        { "name": "amount_usd", "dataType": "FLOAT64", "samples": ["42.5", "19.0"] },
+        { "name": "ordered_at", "dataType": "TIMESTAMP", "samples": ["2026-01-02T10:00:00Z"] }
+      ]
+    },
+    {
+      "name": "dim_product",
+      "columns": [
+        { "name": "product_id", "dataType": "INT64", "keyKind": "pk", "samples": ["9", "10"] },
+        { "name": "sku", "dataType": "STRING", "keyKind": "unique", "samples": ["SKU-9", "SKU-10"] },
+        { "name": "name", "dataType": "STRING", "samples": ["Widget", "Gadget"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    {
+      "fromTable": "fact_orders",
+      "fromColumn": "customer_id",
+      "toTable": "dim_customer",
+      "toColumn": "customer_id"
+    }
+  ]
+}

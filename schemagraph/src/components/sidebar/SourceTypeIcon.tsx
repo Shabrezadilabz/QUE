@@ -46,6 +46,19 @@ export function SourceTypeIcon({ type, className = 'h-4 w-4' }: SourceIconProps)
           <path d="M12 2v20M4.9 6.5l14.2 11M4.9 17.5l14.2-11" />
         </svg>
       )
+    case 'bigquery':
+      return (
+        <svg {...common}>
+          <rect x="4" y="5" width="16" height="14" rx="2" />
+          <path d="M8 9h8M8 12h8M8 15h5" />
+        </svg>
+      )
+    case 'salesforce':
+      return (
+        <svg {...common}>
+          <path d="M8 14a4 4 0 1 1 2-7.5A4.5 4.5 0 0 1 18 9a3.5 3.5 0 0 1-.5 7H9" />
+        </svg>
+      )
     case 'kafka':
       return (
         <svg {...common}>
@@ -83,6 +96,8 @@ export function sourceTypeLabel(type: DataSourceType): string {
     mongodb: 'MongoDB',
     databricks: 'Databricks',
     snowflake: 'Snowflake',
+    bigquery: 'BigQuery',
+    salesforce: 'Salesforce',
     mysql: 'MySQL',
     csv: 'CSV',
     kafka: 'Kafka',

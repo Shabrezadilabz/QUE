@@ -29,6 +29,11 @@ const DEFAULT_SETTINGS = {
   /** Emit contract/drift events to outbox (+ optional webhook) */
   emitContractEvents: true,
   contractWebhookUrl: '',
+  /** Wave 2.3 — Slack/webhook + email list for high drift */
+  driftAlertsEnabled: true,
+  driftAlertOnHigh: true,
+  driftAlertWebhookUrl: '',
+  driftAlertEmails: '',
   /** Additive dbt / GitHub export layer — token via workspace secret or env */
   githubOwner: '',
   githubRepo: '',
@@ -128,6 +133,8 @@ export async function getWorkspaceSettings(workspaceId) {
         'mongodb',
         'databricks',
         'snowflake',
+        'bigquery',
+        'salesforce',
       ],
       llm: {
         openaiConfigured: Boolean(keys.openai),
@@ -230,6 +237,18 @@ function pickAllowed(patch) {
   }
   if (typeof patch.contractWebhookUrl === 'string') {
     out.contractWebhookUrl = patch.contractWebhookUrl.trim().slice(0, 500)
+  }
+  if (typeof patch.driftAlertsEnabled === 'boolean') {
+    out.driftAlertsEnabled = patch.driftAlertsEnabled
+  }
+  if (typeof patch.driftAlertOnHigh === 'boolean') {
+    out.driftAlertOnHigh = patch.driftAlertOnHigh
+  }
+  if (typeof patch.driftAlertWebhookUrl === 'string') {
+    out.driftAlertWebhookUrl = patch.driftAlertWebhookUrl.trim().slice(0, 500)
+  }
+  if (typeof patch.driftAlertEmails === 'string') {
+    out.driftAlertEmails = patch.driftAlertEmails.trim().slice(0, 500)
   }
   if (typeof patch.githubOwner === 'string') {
     out.githubOwner = patch.githubOwner.trim().slice(0, 100)

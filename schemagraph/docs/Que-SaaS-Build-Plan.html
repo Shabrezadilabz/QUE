@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — SaaS Build Plan (Wave 1 + 2)</title>
+  <style>
+    @page { size: A4; margin: 14mm 12mm; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10pt; line-height: 1.4; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 18px; }
+    h1 { font-size: 18pt; margin: 0 0 6px; }
+    h2 { font-size: 12.5pt; margin: 18px 0 8px; padding-bottom: 3px; border-bottom: 2px solid #5c3a2e; color: #3d241c; }
+    h3 { font-size: 10.5pt; margin: 12px 0 6px; color: #4a3028; }
+    .cover { border: 2px solid #5c3a2e; padding: 20px; margin-bottom: 16px; background: linear-gradient(165deg, #faf6f1, #f0e4d8); }
+    .brand { font-size: 10pt; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #8b4a34; }
+    .meta { color: #555; font-size: 9pt; }
+    table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 8.5pt; }
+    th, td { border: 1px solid #c9b8a8; padding: 4px 6px; text-align: left; vertical-align: top; }
+    th { background: #efe4d8; }
+    .ok { border-left: 3px solid #4a7c59; background: #eef6f0; padding: 6px 10px; margin: 6px 0; font-size: 9pt; }
+    .warn { border-left: 3px solid #b45309; background: #fff7ed; padding: 6px 10px; margin: 6px 0; font-size: 9pt; }
+    .badge { display: inline-block; font-size: 7.5pt; font-weight: 700; background: #efe4d8; color: #5c3a2e; padding: 2px 6px; }
+    .badge-now { background: #d8efe0; color: #2d5a3d; }
+    .page-break { page-break-before: always; }
+    code { font-family: Consolas, monospace; font-size: 8pt; background: #f3ebe3; padding: 1px 3px; }
+  </style>
+</head>
+<body>
+<div class="cover">
+  <div class="brand">Que · SaaS Roadmap</div>
+  <h1>Build Plan — Wave 1 + Wave 2</h1>
+  <p class="meta">Version <strong>2.4</strong> · 5 Aug 2026 · Product decision: schema-first HITL + attested export into <em>customer</em> systems — not Que-as-warehouse.</p>
+  <div class="ok"><strong>In scope for market pitch:</strong> multi-tenant SaaS ops, join governance, drift, scheduled sync, attestation, opt-in warehouse write-back later.<br />
+  <strong>Out of scope until paid/scale:</strong> Que-hosted lakes, Airflow clone, BYOC.</div>
+</div>
+
+<h2>Product north star</h2>
+<p>Connect → sync schema → suggest joins → <strong>human Promote</strong> → freeze → attested export / optional CTAS in <em>their</em> warehouse.</p>
+
+<h2>Wave 1 — SaaS table-stakes</h2>
+<table>
+  <tr><th>#</th><th>Ticket</th><th>Status</th><th>Outcome</th></tr>
+  <tr><td>1.1</td><td><strong>Workspace audit log</strong></td><td><span class="badge badge-now">DONE</span></td><td>Who synced / promoted / exported / changed roles</td></tr>
+  <tr><td>1.2</td><td><strong>SSO polish + invite-required</strong></td><td><span class="badge badge-now">DONE</span></td><td>Prod invite-gate; SPA #error=; Settings SSO panel</td></tr>
+  <tr><td>1.3</td><td><strong>Connector health + re-auth CTA</strong></td><td><span class="badge badge-now">DONE</span></td><td>last_sync_* + Sources health panel / re-auth</td></tr>
+  <tr><td>1.4</td><td><strong>Admin UX clarity (invites / last-owner)</strong></td><td><span class="badge badge-now">DONE</span></td><td>Role badges, last-owner lock, invite guardrails</td></tr>
+  <tr><td>1.5</td><td><strong>Usage counters</strong></td><td><span class="badge badge-now">DONE</span></td><td>Connectors / syncs / exports soft limits</td></tr>
+</table>
+
+<div class="ok"><strong>Wave 1 + Wave 2 + Wave 3 + Wave 4.2–4.6 MVP complete.</strong> Thin MVPs: job schedules/retries, orchestrator webhook, mapping assist, private runner callback, Stripe seats.</div>
+
+<h2>Wave 2 — Wedge productization</h2>
+<table>
+  <tr><th>#</th><th>Ticket</th><th>Outcome</th></tr>
+  <tr><td>2.1</td><td><strong>Join review inbox</strong></td><td><span class="badge badge-now">DONE</span></td><td>Queue of suggested joins + evidence · /joins</td></tr>
+  <tr><td>2.2</td><td><strong>Contract freeze UI</strong></td><td><span class="badge badge-now">DONE</span></td><td>Jobs Deploy · freeze / validate locked joins</td></tr>
+  <tr><td>2.3</td><td><strong>Drift alerts (email/Slack)</strong></td><td><span class="badge badge-now">DONE</span></td><td>Webhook/Slack + email list · block export</td></tr>
+  <tr><td>2.4</td><td><strong>Attestation verify pack</strong></td><td><span class="badge badge-now">DONE</span></td><td>Settings download + public /verify page</td></tr>
+  <tr><td>2.5</td><td><strong>Scheduled sync only</strong></td><td><span class="badge badge-now">DONE</span></td><td>Hourly/daily introspect · not ETL</td></tr>
+</table>
+
+<div class="page-break"></div>
+<h2>Wave 3 — Later (paid expansion)</h2>
+<table>
+  <tr><th>#</th><th>Ticket</th><th>Constraint</th></tr>
+  <tr><td>3.1</td><td><strong>Opt-in materialize in customer warehouse</strong></td><td><span class="badge badge-now">DONE</span></td><td>CTAS/VIEW via customer creds · metadata only in Que</td></tr>
+  <tr><td>3.2</td><td><strong>Deploy destination picker</strong></td><td><span class="badge badge-now">DONE</span></td><td>File/PR vs customer warehouse on Deploy</td></tr>
+  <tr><td>3.3</td><td><strong>Signed artifact API</strong></td><td><span class="badge badge-now">DONE</span></td><td>Token download · list/revoke · export mints URL</td></tr>
+  <tr><td>3.4</td><td><strong>Lineage lite UI</strong></td><td><span class="badge badge-now">DONE</span></td><td>Sources → joins → job → export/table · /lineage</td></tr>
+</table>
+
+<h2>Wave 4 — Platform (thin MVPs)</h2>
+<table>
+  <tr><th>#</th><th>Ticket</th><th>Status</th><th>Constraint</th></tr>
+  <tr><td>4.1</td><td><strong>More connectors</strong></td><td><span class="badge badge-now">DONE</span></td><td>BigQuery + Salesforce (fixture + live token)</td></tr>
+  <tr><td>4.2</td><td><strong>Job schedules + retries + run history</strong></td><td><span class="badge badge-now">DONE</span></td><td>In-process ticker · not Airflow</td></tr>
+  <tr><td>4.3</td><td><strong>Airflow/Dagster trigger</strong></td><td><span class="badge badge-now">DONE</span></td><td>HMAC webhook only</td></tr>
+  <tr><td>4.4</td><td><strong>AI mapping assist</strong></td><td><span class="badge badge-now">DONE</span></td><td>HITL suggest renames/joins</td></tr>
+  <tr><td>4.5</td><td><strong>BYOC / private runner</strong></td><td><span class="badge badge-now">DONE</span></td><td>Callback MVP — not VPC agent</td></tr>
+  <tr><td>4.6</td><td><strong>Billing (Stripe seats)</strong></td><td><span class="badge badge-now">DONE</span></td><td>Checkout + soft seat limits</td></tr>
+</table>
+
+<div class="warn"><strong>Still out of scope:</strong> Que-hosted lakes, Airflow clone, AI “clean the lake,” full VPC BYOC agent, Que scratch warehouse. More ICP connectors (Redshift, etc.) as needed.</div>
+
+<h2>Map to architecture questions (summary)</h2>
+<table>
+  <tr><th>Q area</th><th>Wave</th></tr>
+  <tr><td>Roles / invites / last-owner</td><td>Built + 1.4 polish</td></tr>
+  <tr><td>Connectors CRUD + schema sync</td><td>Built + 1.3 health</td></tr>
+  <tr><td>PK/FK + HITL Promote</td><td>Built + 2.1 inbox</td></tr>
+  <tr><td>AI clean lake</td><td>Out — schema assist only</td></tr>
+  <tr><td>Materialize / CTAS</td><td>3.1 in <em>customer</em> warehouse</td></tr>
+  <tr><td>Job results storage</td><td>Export artifacts — not Que lake</td></tr>
+  <tr><td>Orchestration</td><td>2.5 sync + 4.2 job schedules; 4.3 Airflow trigger</td></tr>
+  <tr><td>Audit / lineage / drift</td><td>1.1 + 2.3 + 2.4 + 3.4</td></tr>
+</table>
+
+<h2>Execution rule</h2>
+<p>One ticket at a time. Demoable after each. Client pilot SOW = Wave 1 + Wave 2 only.</p>
+<p class="meta">Current engineering focus: harden Waves 0–4 for pilot. Done: Wave 1–3 + Wave 4.2–4.6 thin MVPs.</p>
+<p class="meta">Version <strong>2.4</strong> · 5 Aug 2026</p>
+</body>
+</html>

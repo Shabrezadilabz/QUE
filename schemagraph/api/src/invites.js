@@ -1,5 +1,6 @@
 /**
  * Workspace email invites — SSO / password users claim membership on login.
+ * Wave 1.4 — reject existing members; owner-invite gated; clearer errors.
  */
 import { query } from './db.js'
 
@@ -23,16 +24,48 @@ export async function listInvites(workspaceId) {
 
 export async function createInvite(
   workspaceId,
-  { email, role = 'member', invitedBy },
+  { email, role = 'member', invitedBy, actorRole },
 ) {
   const normalized = String(email || '').trim().toLowerCase()
   if (!normalized || !normalized.includes('@')) {
-    const err = new Error('valid email required')
+    const err = new Error('Valid email required')
     err.status = 400
+    err.code = 'BAD_EMAIL'
     throw err
   }
   const allowed = ['viewer', 'member', 'admin', 'owner']
   const r = allowed.includes(role) ? role : 'member'
+
+  if (r === 'owner' && actorRole !== 'owner') {
+    const err = new Error('Only owners can invite someone as owner')
+    err.status = 403
+    err.code = 'OWNER_ONLY'
+    throw err
+  }
+  if (r === 'admin' && actorRole !== 'owner' && actorRole !== 'admin') {
+    const err = new Error('Admin role required to invite admins')
+    err.status = 403
+    err.code = 'ADMIN_REQUIRED'
+    throw err
+  }
+
+  const { rows: existing } = await query(
+    `SELECT u.email, m.role
+     FROM workspace_members m
+     JOIN users u ON u.id = m.user_id
+     WHERE m.workspace_id = $1 AND lower(u.email) = lower($2)
+     LIMIT 1`,
+    [workspaceId, normalized],
+  )
+  if (existing.length) {
+    const err = new Error(
+      `${normalized} is already a workspace ${existing[0].role} — change their role in Member Registry instead`,
+    )
+    err.status = 409
+    err.code = 'ALREADY_MEMBER'
+    throw err
+  }
+
   const { rows } = await query(
     `INSERT INTO workspace_invites (workspace_id, email, role, invited_by)
      VALUES ($1, $2, $3, $4)

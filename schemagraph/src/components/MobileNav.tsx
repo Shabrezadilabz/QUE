@@ -7,7 +7,9 @@ const links = [
   { to: '/workspace', label: 'Workspace' },
   { to: '/chat', label: 'AI Chat' },
   { to: '/sources', label: 'Sources' },
+  { to: '/joins', label: 'Joins' },
   { to: '/jobs', label: 'Jobs' },
+  { to: '/lineage', label: 'Lineage' },
   { to: '/settings', label: 'Settings' },
 ] as const
 

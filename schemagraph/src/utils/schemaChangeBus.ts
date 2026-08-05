@@ -12,6 +12,8 @@ export type SchemaChangeReason =
   | 'reject'
   | 'connection'
   | 'manual'
+  | 'join-review'
+  | 'join-infer'
   | 'unknown'
 
 export function notifySchemaChanged(reason: SchemaChangeReason = 'unknown') {

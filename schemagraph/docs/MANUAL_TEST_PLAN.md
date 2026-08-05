@@ -1,6 +1,7 @@
 # Que — Manual Production / Paid-POC Test Plan
 
 > **How to use:** print or open side-by-side while clicking through the app. Mark **PASS / FAIL / N/A**, attach evidence (screenshot, job id, PR URL).  
+> **New-user walkthrough (account → connectors → chat → jobs):** open **`Que-Manual-Tester-Guide.pdf`** (HTML source: `Que-Manual-Tester-Guide.html`) — step-by-step with Result columns; updated as each connector step is run.  
 > **Automation first:** from `schemagraph/api` run `npm run test:diligence` (joins + privacy + functional). CI workflow: `adc/.github/workflows/que-diligence.yml`.
 
 Use this checklist for thorough manual testing before a design-partner or paid POC.

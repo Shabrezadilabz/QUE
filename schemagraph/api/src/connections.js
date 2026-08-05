@@ -9,6 +9,11 @@ import {
   sealConnectionConfig,
   unsealConnectionConfig,
 } from './connectionCrypto.js'
+import { needsReauth } from './connectionHealth.js'
+import {
+  computeNextSyncAt,
+  SYNC_SCHEDULES,
+} from './scheduledSync.js'
 
 const SYNCABLE = new Set([
   'postgresql',
@@ -17,9 +22,23 @@ const SYNCABLE = new Set([
   'mongodb',
   'databricks',
   'snowflake',
+  'bigquery',
+  'salesforce',
 ])
 
 function mapConnection(row, { includeConfig = true } = {}) {
+  const lastSyncAt = row.last_sync_at
+    ? new Date(row.last_sync_at).toISOString()
+    : null
+  const lastSyncError = row.last_sync_error || null
+  const lastSyncErrorKind = row.last_sync_error_kind || null
+  const syncSchedule = row.sync_schedule || 'off'
+  const syncNextAt = row.sync_next_at
+    ? new Date(row.sync_next_at).toISOString()
+    : null
+  const lastScheduledSyncAt = row.last_scheduled_sync_at
+    ? new Date(row.last_scheduled_sync_at).toISOString()
+    : null
   const base = {
     id: row.id,
     name: row.name,
@@ -29,11 +48,25 @@ function mapConnection(row, { includeConfig = true } = {}) {
     syncable: SYNCABLE.has(row.source_type),
     updatedAt: row.updated_at,
     createdAt: row.created_at,
+    lastSyncAt,
+    lastSyncError,
+    lastSyncErrorKind,
+    syncSchedule,
+    syncNextAt,
+    lastScheduledSyncAt,
+    needsReauth:
+      needsReauth(lastSyncErrorKind) ||
+      (row.status === 'error' && lastSyncErrorKind === 'auth'),
   }
   if (!includeConfig) return base
   const { config, hasSecrets } = publicConnectionConfig(row.config_json)
   return { ...base, config, hasSecrets }
 }
+
+const CONN_SELECT = `id, name, source_type, status, description, config_json,
+            created_at, updated_at,
+            last_sync_at, last_sync_error, last_sync_error_kind,
+            sync_schedule, sync_next_at, last_scheduled_sync_at`
 
 /**
  * Merge config updates — keep previous sealed secrets if client sends blank / mask.
@@ -64,8 +97,7 @@ function mergeConfig(existing, incoming) {
 
 export async function listConnections(workspaceId) {
   const { rows } = await query(
-    `SELECT id, name, source_type, status, description, config_json,
-            created_at, updated_at
+    `SELECT ${CONN_SELECT}
      FROM connections
      WHERE workspace_id = $1
      ORDER BY name`,
@@ -76,8 +108,7 @@ export async function listConnections(workspaceId) {
 
 export async function getConnection(workspaceId, connectionId) {
   const { rows } = await query(
-    `SELECT id, name, source_type, status, description, config_json,
-            created_at, updated_at
+    `SELECT ${CONN_SELECT}
      FROM connections
      WHERE workspace_id = $1 AND id = $2`,
     [workspaceId, connectionId],
@@ -113,8 +144,7 @@ export async function createConnection(workspaceId, body = {}) {
       `INSERT INTO connections (
          id, workspace_id, name, source_type, status, description, config_json
        ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
-       RETURNING id, name, source_type, status, description, config_json,
-                 created_at, updated_at`,
+       RETURNING ${CONN_SELECT}`,
       [
         id,
         workspaceId,
@@ -150,12 +180,40 @@ export async function updateConnection(workspaceId, connectionId, body = {}) {
     body.type != null || body.source_type != null
       ? String(body.type || body.source_type).trim()
       : existing.source_type
-  const status = ['active', 'warning', 'error'].includes(body.status)
+  let status = ['active', 'warning', 'error'].includes(body.status)
     ? body.status
     : existing.status
   const description =
     body.description !== undefined ? body.description : existing.description
   const config = mergeConfig(existing.config_json, body.config)
+
+  // Credential edits → warning until next successful sync
+  const incoming = body.config && typeof body.config === 'object' ? body.config : {}
+  const credTouched = ['password', 'token', 'secret', 'apiKey'].some(
+    (k) =>
+      incoming[k] != null &&
+      incoming[k] !== '' &&
+      incoming[k] !== '••••••••',
+  )
+  if (credTouched && body.status == null) {
+    status = existing.status === 'error' ? 'warning' : status
+  }
+
+  let syncSchedule = existing.sync_schedule || 'off'
+  let syncNextAt = existing.sync_next_at || null
+  const schedulePatch =
+    body.syncSchedule != null ? body.syncSchedule : body.sync_schedule
+  if (schedulePatch != null) {
+    const s = String(schedulePatch)
+    if (!SYNC_SCHEDULES.has(s)) {
+      const err = new Error("syncSchedule must be 'off', 'hourly', or 'daily'")
+      err.status = 400
+      err.code = 'INVALID_SYNC_SCHEDULE'
+      throw err
+    }
+    syncSchedule = s
+    syncNextAt = computeNextSyncAt(s)
+  }
 
   if (!name) {
     const err = new Error('name required')
@@ -171,10 +229,11 @@ export async function updateConnection(workspaceId, connectionId, body = {}) {
          status = $5,
          description = $6,
          config_json = $7::jsonb,
+         sync_schedule = $8,
+         sync_next_at = $9,
          updated_at = now()
        WHERE workspace_id = $1 AND id = $2
-       RETURNING id, name, source_type, status, description, config_json,
-                 created_at, updated_at`,
+       RETURNING ${CONN_SELECT}`,
       [
         workspaceId,
         connectionId,
@@ -183,6 +242,8 @@ export async function updateConnection(workspaceId, connectionId, body = {}) {
         status,
         description,
         JSON.stringify(config),
+        syncSchedule,
+        syncNextAt,
       ],
     )
     return mapConnection(rows[0])

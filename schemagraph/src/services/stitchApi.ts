@@ -193,6 +193,7 @@ export async function updateConnection(
     description?: string | null
     status?: DataSource['status']
     config?: Record<string, unknown>
+    syncSchedule?: 'off' | 'hourly' | 'daily'
   },
   workspaceId: string = getActiveWorkspaceId(),
 ): Promise<DataSource> {
@@ -257,18 +258,83 @@ export async function reviewRelationship(
   action: RelationshipReviewAction,
   workspaceId: string = getActiveWorkspaceId(),
 ): Promise<SchemaRelationship | null> {
-  try {
-    const res = await apiFetch(`/workspaces/${workspaceId}/relationships/${relationshipId}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ action }),
-      },
-    )
-    if (!res.ok) return null
-    const body = (await res.json()) as { relationship: SchemaRelationship }
-    return body.relationship
-  } catch {
-    return null
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/relationships/${relationshipId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ action }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    relationship?: SchemaRelationship
+    error?: string
+  }
+  if (!res.ok) {
+    throw new Error(body.error ?? `review ${res.status}`)
+  }
+  return body.relationship ?? null
+}
+
+export interface JoinReviewEndpoint {
+  tableId: string
+  table: string
+  columnId: string
+  column: string
+  dataType: string
+  samples: string[]
+  connection: string
+  sourceType: string
+  sourceLabel: string
+}
+
+export interface JoinReviewItem {
+  id: string
+  status: string
+  type: string
+  confidence: number
+  joinCriteria: string | null
+  label: string | null
+  aiNotes: string | null
+  evidence: {
+    summary: string | null
+    signals: { code?: string; label?: string; weight?: number }[]
+    scoredAt: string | null
+  }
+  from: JoinReviewEndpoint
+  to: JoinReviewEndpoint
+  crossSource: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface JoinReviewInbox {
+  items: JoinReviewItem[]
+  summary: {
+    pending: number
+    accepted: number
+    rejected: number
+  }
+}
+
+/** Wave 2.1 — suggested joins inbox with evidence. */
+export async function fetchJoinReviews(
+  opts: { status?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<JoinReviewInbox> {
+  const q = new URLSearchParams()
+  if (opts.status) q.set('status', opts.status)
+  if (opts.limit != null) q.set('limit', String(opts.limit))
+  const qs = q.toString()
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/join-reviews${qs ? `?${qs}` : ''}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as JoinReviewInbox & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `join-reviews ${res.status}`)
+  return {
+    items: body.items ?? [],
+    summary: body.summary ?? { pending: 0, accepted: 0, rejected: 0 },
   }
 }
 
@@ -624,6 +690,15 @@ export interface StitchJob {
     joins?: unknown[]
     claim?: string
   } | null
+  /** Wave 4.2 */
+  runSchedule?: 'off' | 'hourly' | 'daily'
+  runNextAt?: string | null
+  lastScheduledRunAt?: string | null
+  runMode?: 'dry_run' | 'live'
+  maxRetries?: number
+  retryDelaySec?: number
+  /** Wave 4.5 */
+  executionTarget?: 'que' | 'private_runner'
   createdAt: string
   updatedAt: string
 }
@@ -739,6 +814,11 @@ export async function updateJob(
     notebook: JobNotebookCell[]
     refreezeContract: boolean
     refreezeJoins: boolean
+    runSchedule: 'off' | 'hourly' | 'daily'
+    runMode: 'dry_run' | 'live'
+    maxRetries: number
+    retryDelaySec: number
+    executionTarget: 'que' | 'private_runner'
   }>,
   workspaceId: string = getActiveWorkspaceId(),
 ): Promise<StitchJob> {
@@ -756,6 +836,108 @@ export async function updateJob(
     throw new Error(body.error ?? `update job ${res.status}`)
   }
   return body.job
+}
+
+export interface JobContractValidation {
+  ok: boolean
+  blocking: boolean
+  warnings: string[]
+  errors: string[]
+}
+
+export interface JobContractStatus {
+  hasContract: boolean
+  frozenAt: string | null
+  schemaSnapshotId: string | null
+  schemaSnapshotLabel: string | null
+  latestSchemaSnapshotId: string | null
+  stale: boolean
+  frozenJoinCount: number
+  acceptedJoinsAvailable: number
+  unreviewedJoins: number
+  readyToFreeze: boolean
+  validation: JobContractValidation
+  joins: StitchJob['joinsSnapshot']
+  claim: string | null
+}
+
+export async function fetchJobContract(
+  jobId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  jobId: string
+  title: string
+  tables: string[]
+  contract: StitchJob['contract']
+  status: JobContractStatus
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/contract`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    jobId?: string
+    title?: string
+    tables?: string[]
+    contract?: StitchJob['contract']
+    status?: JobContractStatus
+    error?: string
+  }
+  if (!res.ok || !body.status) {
+    throw new Error(body.error ?? `job contract ${res.status}`)
+  }
+  return {
+    jobId: body.jobId || jobId,
+    title: body.title || '',
+    tables: body.tables || [],
+    contract: body.contract || null,
+    status: body.status,
+  }
+}
+
+export async function freezeJobContract(
+  jobId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ job: StitchJob; status: JobContractStatus }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/contract/freeze`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    job?: StitchJob
+    status?: JobContractStatus
+    error?: string
+  }
+  if (!res.ok || !body.job || !body.status) {
+    throw new Error(body.error ?? `freeze contract ${res.status}`)
+  }
+  return { job: body.job, status: body.status }
+}
+
+export async function validateJobContract(
+  jobId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  validation: JobContractValidation
+  status: JobContractStatus
+  contract: StitchJob['contract']
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/contract/validate`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    validation?: JobContractValidation
+    status?: JobContractStatus
+    contract?: StitchJob['contract']
+    error?: string
+  }
+  if (!res.ok || !body.validation || !body.status) {
+    throw new Error(body.error ?? `validate contract ${res.status}`)
+  }
+  return {
+    validation: body.validation,
+    status: body.status,
+    contract: body.contract || null,
+  }
 }
 
 export type JobRunStatus =
@@ -827,6 +1009,10 @@ export interface JobRun {
     contractSnapshotId?: string | null
     error?: string
   }
+  trigger?: 'manual' | 'schedule' | 'retry' | 'webhook'
+  attempt?: number
+  parentRunId?: string | null
+  jobTitle?: string | null
   startedAt: string | null
   finishedAt: string | null
   createdAt: string
@@ -880,9 +1066,23 @@ export async function exportJobArtifact(
     githubBaseBranch?: string
     branchName?: string
     force?: boolean
+    createArtifact?: boolean
+    ttlHours?: number
   } = {},
   workspaceId: string = getActiveWorkspaceId(),
-): Promise<{ job: StitchJob; export: Record<string, unknown> }> {
+): Promise<{
+  job: StitchJob
+  export: Record<string, unknown>
+  artifact?: {
+    id: string
+    downloadUrl: string
+    downloadPath: string
+    expiresAt: string
+    filename: string
+    contentSha256: string
+    note?: string
+  } | null
+}> {
   const res = await apiFetch(`/workspaces/${workspaceId}/jobs/${jobId}/export`, {
     method: 'POST',
     body: JSON.stringify({ format, ...options }),
@@ -890,6 +1090,15 @@ export async function exportJobArtifact(
   const body = (await res.json().catch(() => ({}))) as {
     job?: StitchJob
     export?: Record<string, unknown>
+    artifact?: {
+      id: string
+      downloadUrl: string
+      downloadPath: string
+      expiresAt: string
+      filename: string
+      contentSha256: string
+      note?: string
+    } | null
     error?: string
     validation?: { errors?: string[]; warnings?: string[] }
   }
@@ -899,18 +1108,263 @@ export async function exportJobArtifact(
       : ''
     throw new Error((body.error ?? `export job ${res.status}`) + detail)
   }
-  return { job: body.job, export: body.export }
+  return { job: body.job, export: body.export, artifact: body.artifact }
+}
+
+export interface JobMaterializationResult {
+  ok: boolean
+  note?: string
+  materialization: {
+    id: string
+    runId: string
+    kind: 'table' | 'view'
+    schema: string | null
+    objectName: string
+    qualifiedName: string
+    connectionId: string
+    connectionName: string
+    engine: string
+    sqlHash: string
+    durationMs: number
+    createdAt: string
+  }
+  attestation?: Record<string, unknown>
+}
+
+/** Wave 3.1 — CTAS/VIEW in customer warehouse (confirm required). */
+export async function materializeJob(
+  jobId: string,
+  options: {
+    confirm: true
+    connectionId?: string
+    objectName?: string
+    schema?: string
+    kind?: 'table' | 'view'
+    replace?: boolean
+    force?: boolean
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<JobMaterializationResult> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/materialize`,
+    {
+      method: 'POST',
+      body: JSON.stringify(options),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as JobMaterializationResult & {
+    error?: string
+    validation?: { errors?: string[] }
+  }
+  if (!res.ok || !body.materialization) {
+    const detail = body.validation?.errors?.length
+      ? ` — ${body.validation.errors.slice(0, 3).join('; ')}`
+      : ''
+    throw new Error((body.error ?? `materialize ${res.status}`) + detail)
+  }
+  return body
+}
+
+/** Wave 3.3 — signed / tokenized export artifact */
+export interface SignedArtifactSummary {
+  id: string
+  workspaceId: string
+  jobId: string | null
+  jobTitle: string | null
+  format: string
+  filename: string
+  contentType: string
+  contentSha256: string
+  expiresAt: string | null
+  revokedAt: string | null
+  downloadCount: number
+  lastDownloadedAt: string | null
+  createdAt: string | null
+  active: boolean
+  actor: {
+    id: string
+    email: string | null
+    displayName: string | null
+  } | null
+}
+
+export interface MintedArtifact {
+  artifact: SignedArtifactSummary
+  downloadUrl: string
+  downloadPath: string
+  expiresAt: string
+  note?: string
+  job?: StitchJob
+}
+
+export async function mintJobArtifactLink(
+  jobId: string,
+  options: {
+    format?: 'json' | 'sql' | 'dbt' | 'dbt-pr'
+    ttlHours?: number
+    force?: boolean
+  } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<MintedArtifact> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/artifacts`,
+    {
+      method: 'POST',
+      body: JSON.stringify(options),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as MintedArtifact & {
+    error?: string
+    validation?: { errors?: string[] }
+  }
+  if (!res.ok || !body.artifact || !body.downloadUrl) {
+    const detail = body.validation?.errors?.length
+      ? ` — ${body.validation.errors.slice(0, 3).join('; ')}`
+      : ''
+    throw new Error((body.error ?? `mint artifact ${res.status}`) + detail)
+  }
+  return body
+}
+
+export async function fetchWorkspaceArtifacts(
+  opts: { jobId?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<SignedArtifactSummary[]> {
+  const q = new URLSearchParams()
+  if (opts.jobId) q.set('jobId', opts.jobId)
+  if (opts.limit != null) q.set('limit', String(opts.limit))
+  const qs = q.toString()
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/artifacts${qs ? `?${qs}` : ''}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    events?: SignedArtifactSummary[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `artifacts ${res.status}`)
+  return body.events ?? []
+}
+
+export async function revokeWorkspaceArtifact(
+  artifactId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/artifacts/${artifactId}/revoke`,
+    { method: 'POST', body: '{}' },
+  )
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `revoke artifact ${res.status}`)
+  }
+}
+
+/** Wave 3.4 — lineage lite */
+export interface LineageStage {
+  key: string
+  label: string
+  count: number
+  ready: boolean
+}
+
+export interface LineagePath {
+  job: {
+    id: string
+    title: string
+    status: string
+    updatedAt: string | null
+  }
+  stages: LineageStage[]
+  sources: {
+    id: string | null
+    name: string
+    type: string | null
+    status: string | null
+  }[]
+  joins: {
+    id: string | null
+    label: string
+    fromTable: string | null
+    toTable: string | null
+    frozen: boolean
+  }[]
+  tables: string[]
+  export: {
+    id: string
+    format: string
+    fingerprint: string | null
+    githubPrUrl: string | null
+    createdAt: string
+  } | null
+  materializations: {
+    id: string
+    kind: string
+    qualifiedName: string
+    connectionId: string | null
+    createdAt: string
+  }[]
+  artifacts: {
+    id: string
+    format: string
+    filename: string
+    active: boolean
+    downloadCount: number
+    expiresAt: string | null
+    createdAt: string
+  }[]
+  complete: boolean
+}
+
+export interface WorkspaceLineage {
+  ok: boolean
+  note: string
+  summary: {
+    sources: number
+    acceptedJoins: number
+    jobs: number
+    exported: number
+    materialized: number
+    completePaths: number
+  }
+  paths: LineagePath[]
+  unusedSources: {
+    id: string
+    name: string
+    type: string
+    status: string
+  }[]
+  joins: unknown[]
+}
+
+export async function fetchWorkspaceLineage(
+  opts: { jobId?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceLineage> {
+  const q = new URLSearchParams()
+  if (opts.jobId) q.set('jobId', opts.jobId)
+  if (opts.limit != null) q.set('limit', String(opts.limit))
+  const qs = q.toString()
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/lineage${qs ? `?${qs}` : ''}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as WorkspaceLineage & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `lineage ${res.status}`)
+  return body
 }
 
 export interface DriftEvent {
   id: string
-  connectionId?: string
+  connectionId?: string | null
   severity: 'info' | 'warn' | 'high' | string
   code: string
   summary: string
   detail?: unknown
   acknowledged?: boolean
   createdAt: string
+  notifiedAt?: string | null
+  notifyStatus?: string | null
 }
 
 export async function fetchDrift(
@@ -937,6 +1391,47 @@ export async function acknowledgeDriftEvent(
     const body = (await res.json().catch(() => ({}))) as { error?: string }
     throw new Error(body.error ?? `ack drift ${res.status}`)
   }
+}
+
+/** Wave 2.3 — re-notify Slack/webhook/email for a drift event */
+export async function notifyDriftEvent(
+  eventId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  notify: { delivered?: boolean; status?: string; channels?: string[] }
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/drift/${eventId}/notify`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    notify?: { delivered?: boolean; status?: string; channels?: string[] }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `notify drift ${res.status}`)
+  return { notify: body.notify || {} }
+}
+
+/** Wave 2.3 — create synthetic high-drift test alert */
+export async function sendDriftTestAlert(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  event: { id: string; summary: string }
+  notify: { delivered?: boolean; status?: string }
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/drift/test-alert`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    event?: { id: string; summary: string }
+    notify?: { delivered?: boolean; status?: string }
+    error?: string
+  }
+  if (!res.ok || !body.event) {
+    throw new Error(body.error ?? `test alert ${res.status}`)
+  }
+  return { event: body.event, notify: body.notify || {} }
 }
 
 export async function fetchContractOutbox(
@@ -978,6 +1473,10 @@ export interface WorkspaceSettingsFlags {
   databricksQueryJoinAssist?: boolean
   emitContractEvents: boolean
   contractWebhookUrl: string
+  driftAlertsEnabled?: boolean
+  driftAlertOnHigh?: boolean
+  driftAlertWebhookUrl?: string
+  driftAlertEmails?: string
   githubOwner: string
   githubRepo: string
   githubBaseBranch: string
@@ -1105,6 +1604,15 @@ export interface WorkspaceMember {
   displayName: string | null
   role: WorkspaceMemberRole
   joinedAt?: string
+  /** Wave 1.4 — true when this user is the sole owner */
+  isLastOwner?: boolean
+}
+
+export interface WorkspaceMembershipSummary {
+  memberCount: number
+  ownerCount: number
+  hasSingleOwner: boolean
+  lastOwnerId: string | null
 }
 
 export interface WorkspaceInvite {
@@ -1118,11 +1626,20 @@ export interface WorkspaceInvite {
 
 export async function fetchWorkspaceMembers(
   workspaceId: string = getActiveWorkspaceId(),
-): Promise<WorkspaceMember[]> {
+): Promise<{
+  members: WorkspaceMember[]
+  summary: WorkspaceMembershipSummary | null
+}> {
   const res = await apiFetch(`/workspaces/${workspaceId}/members`)
   if (!res.ok) throw new Error(`members ${res.status}`)
-  const body = (await res.json()) as { members: WorkspaceMember[] }
-  return body.members ?? []
+  const body = (await res.json()) as {
+    members: WorkspaceMember[]
+    summary?: WorkspaceMembershipSummary
+  }
+  return {
+    members: body.members ?? [],
+    summary: body.summary ?? null,
+  }
 }
 
 export async function updateWorkspaceMemberRole(
@@ -1193,6 +1710,593 @@ export async function revokeWorkspaceInvite(
   )
   const body = (await res.json().catch(() => ({}))) as { error?: string }
   if (!res.ok) throw new Error(body.error ?? `revoke invite ${res.status}`)
+}
+
+export interface WorkspaceAuditEvent {
+  id: string
+  action: string
+  resourceType: string | null
+  resourceId: string | null
+  summary: string | null
+  meta: Record<string, unknown>
+  createdAt: string
+  actor: {
+    id: string
+    email: string | null
+    displayName: string | null
+  } | null
+}
+
+export async function fetchWorkspaceAuditEvents(
+  opts: { limit?: number; offset?: number; action?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceAuditEvent[]> {
+  const q = new URLSearchParams()
+  if (opts.limit != null) q.set('limit', String(opts.limit))
+  if (opts.offset != null) q.set('offset', String(opts.offset))
+  if (opts.action) q.set('action', opts.action)
+  const qs = q.toString()
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/audit-events${qs ? `?${qs}` : ''}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    ok?: boolean
+    events?: WorkspaceAuditEvent[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `audit-events ${res.status}`)
+  return body.events ?? []
+}
+
+export type UsageLimitKey = 'connections' | 'members' | 'syncs' | 'exports'
+
+export interface WorkspaceUsage {
+  plan: {
+    name: string
+    softLimits: boolean
+    note: string
+  }
+  inventory: {
+    connections: number
+    connectionsError: number
+    connectionsSynced: number
+    tables: number
+    relationships: number
+    jobs: number
+    members: number
+  }
+  period: {
+    days: number
+    since: string
+    syncs: number
+    syncFailures: number
+    exports: number
+    joinPromotes: number
+  }
+  againstLimits: Record<
+    UsageLimitKey,
+    { used: number; max: number; pct: number }
+  >
+  usagePct: number
+  nearLimit: UsageLimitKey[]
+}
+
+export async function fetchWorkspaceUsage(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceUsage> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/usage`)
+  const body = (await res.json().catch(() => ({}))) as {
+    usage?: WorkspaceUsage
+    error?: string
+  }
+  if (!res.ok || !body.usage) {
+    throw new Error(body.error ?? `usage ${res.status}`)
+  }
+  return body.usage
+}
+
+/** Wave 2.4 — export attestation diligence pack */
+export interface ExportAttestationSummary {
+  id: string
+  workspaceId: string
+  jobId: string | null
+  jobTitle: string | null
+  format: string
+  fingerprint: string | null
+  githubOpened: boolean
+  githubPrUrl: string | null
+  meta: Record<string, unknown>
+  createdAt: string
+  actor: {
+    id: string
+    email: string | null
+    displayName: string | null
+  } | null
+  policy: string | null
+  signed: boolean
+  attestation?: Record<string, unknown>
+}
+
+export interface AttestationVerifyResult {
+  ok: boolean
+  reason?: string | null
+  fingerprint?: string | null
+  policy?: string | null
+  alg?: string | null
+}
+
+export async function fetchExportAttestations(
+  opts: { jobId?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ExportAttestationSummary[]> {
+  const q = new URLSearchParams()
+  if (opts.jobId) q.set('jobId', opts.jobId)
+  if (opts.limit != null) q.set('limit', String(opts.limit))
+  const qs = q.toString()
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/export-attestations${qs ? `?${qs}` : ''}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    events?: ExportAttestationSummary[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `export-attestations ${res.status}`)
+  return body.events ?? []
+}
+
+export async function fetchExportAttestation(
+  eventId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ExportAttestationSummary> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/export-attestations/${eventId}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    event?: ExportAttestationSummary
+    error?: string
+  }
+  if (!res.ok || !body.event) {
+    throw new Error(body.error ?? `export-attestation ${res.status}`)
+  }
+  return body.event
+}
+
+export async function downloadAttestationVerifyPack(
+  eventId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ filename: string; pack: Record<string, unknown> }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/export-attestations/${eventId}/pack`,
+  )
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
+    error?: string
+  }
+  if (!res.ok) {
+    throw new Error(body.error ?? `attestation pack ${res.status}`)
+  }
+  const cd = res.headers.get('Content-Disposition') || ''
+  const m = /filename="([^"]+)"/.exec(cd)
+  return {
+    filename: m?.[1] || `que-attestation-pack-${eventId.slice(0, 8)}.json`,
+    pack: body,
+  }
+}
+
+/** Public — no auth. Paste export.attestation JSON. */
+export async function verifyAttestationPublic(
+  attestation: unknown,
+): Promise<AttestationVerifyResult> {
+  const res = await fetch(`${getApiBase()}/auth/attestation/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ attestation }),
+  })
+  const body = (await res.json().catch(() => ({}))) as AttestationVerifyResult & {
+    error?: string
+  }
+  if (!res.ok) {
+    throw new Error(body.error ?? `verify ${res.status}`)
+  }
+  return body
+}
+
+/** Wave 2.5 — scheduled schema sync (introspect only) */
+export interface SyncScheduleStatus {
+  enabled: boolean
+  tickMs: number
+  note: string
+  summary: {
+    total: number
+    scheduled: number
+    due: number
+    hourly: number
+    daily: number
+  }
+  connections: {
+    id: string
+    name: string
+    type: string
+    status: string
+    syncSchedule: 'off' | 'hourly' | 'daily'
+    syncNextAt: string | null
+    lastScheduledSyncAt: string | null
+    lastSyncAt: string | null
+    lastSyncErrorKind: string | null
+    syncable: boolean
+  }[]
+}
+
+export async function fetchSyncScheduleStatus(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<SyncScheduleStatus> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/sync-schedule`)
+  const body = (await res.json().catch(() => ({}))) as SyncScheduleStatus & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `sync-schedule ${res.status}`)
+  return body
+}
+
+export async function runWorkspaceScheduledSync(
+  opts: { limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  due: number
+  ran: number
+  results: { connectionId: string; name: string; ok: boolean; error?: string }[]
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/sync-schedule/run`, {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    due?: number
+    ran?: number
+    results?: {
+      connectionId: string
+      name: string
+      ok: boolean
+      error?: string
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `sync-schedule/run ${res.status}`)
+  return {
+    due: body.due ?? 0,
+    ran: body.ran ?? 0,
+    results: body.results ?? [],
+  }
+}
+
+/** Wave 4.2 — scheduled job runs */
+export interface JobScheduleStatus {
+  enabled: boolean
+  tickMs: number
+  note: string
+  summary: {
+    total: number
+    scheduled: number
+    due: number
+    hourly: number
+    daily: number
+  }
+  jobs: {
+    id: string
+    title: string
+    status: string
+    runSchedule: 'off' | 'hourly' | 'daily'
+    runNextAt: string | null
+    lastScheduledRunAt: string | null
+    runMode: 'dry_run' | 'live'
+    maxRetries: number
+    retryDelaySec: number
+  }[]
+}
+
+export async function fetchJobScheduleStatus(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<JobScheduleStatus> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/jobs/schedule`)
+  const body = (await res.json().catch(() => ({}))) as JobScheduleStatus & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `jobs/schedule ${res.status}`)
+  return body
+}
+
+export async function runWorkspaceScheduledJobs(
+  opts: { limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  due: number
+  ran: number
+  results: {
+    jobId: string
+    title: string
+    ok: boolean
+    error?: string
+    status?: string
+    attempts?: number
+  }[]
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/jobs/schedule/run`, {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    due?: number
+    ran?: number
+    results?: {
+      jobId: string
+      title: string
+      ok: boolean
+      error?: string
+      status?: string
+      attempts?: number
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `jobs/schedule/run ${res.status}`)
+  return {
+    due: body.due ?? 0,
+    ran: body.ran ?? 0,
+    results: body.results ?? [],
+  }
+}
+
+export async function fetchWorkspaceJobRuns(
+  opts: { limit?: number; jobId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<JobRun[]> {
+  const q = new URLSearchParams()
+  if (opts.limit) q.set('limit', String(opts.limit))
+  if (opts.jobId) q.set('jobId', opts.jobId)
+  const qs = q.toString()
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/job-runs${qs ? `?${qs}` : ''}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    runs?: JobRun[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `job-runs ${res.status}`)
+  return body.runs ?? []
+}
+
+/** Wave 4.3 */
+export interface OrchestratorConfig {
+  enabled: boolean
+  kind: 'generic' | 'airflow' | 'dagster'
+  webhookUrl: string
+  secretConfigured: boolean
+  webhookSecret?: string | null
+}
+
+export async function fetchOrchestratorConfig(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<OrchestratorConfig> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/orchestrator`)
+  const body = (await res.json().catch(() => ({}))) as {
+    config?: OrchestratorConfig
+    error?: string
+  }
+  if (!res.ok || !body.config) {
+    throw new Error(body.error ?? `orchestrator ${res.status}`)
+  }
+  return body.config
+}
+
+export async function updateOrchestratorConfig(
+  patch: Record<string, unknown>,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<OrchestratorConfig> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/orchestrator`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    config?: OrchestratorConfig
+    error?: string
+  }
+  if (!res.ok || !body.config) {
+    throw new Error(body.error ?? `orchestrator patch ${res.status}`)
+  }
+  return body.config
+}
+
+export async function testOrchestrator(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  ok?: boolean
+  skipped?: boolean
+  reason?: string
+  status?: number
+  error?: string
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/orchestrator/test`, {
+    method: 'POST',
+    body: '{}',
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    result?: {
+      ok?: boolean
+      skipped?: boolean
+      reason?: string
+      status?: number
+      error?: string
+    }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `orchestrator test ${res.status}`)
+  return body.result ?? {}
+}
+
+/** Wave 4.4 */
+export interface RenameSuggestion {
+  id: string | null
+  status: string
+  suggestedAlias: string
+  score: number
+  reason: string
+  from: { column: string; table: string; connection?: string }
+  to: { column: string; table: string; connection?: string }
+}
+
+export async function runMappingAssistApi(
+  opts: { refreshJoins?: boolean; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  joins: unknown[]
+  renames: RenameSuggestion[]
+  note?: string
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/mapping-assist`, {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    joins?: unknown[]
+    renames?: RenameSuggestion[]
+    note?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `mapping-assist ${res.status}`)
+  return {
+    joins: body.joins ?? [],
+    renames: body.renames ?? [],
+    note: body.note,
+  }
+}
+
+export async function reviewRenameSuggestionApi(
+  suggestionId: string,
+  action: 'accept' | 'reject' | 'dismiss',
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ id: string; status: string }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/mapping-assist/renames/${suggestionId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ action }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: { id: string; status: string }
+    error?: string
+  }
+  if (!res.ok || !body.item) {
+    throw new Error(body.error ?? `rename review ${res.status}`)
+  }
+  return body.item
+}
+
+/** Wave 4.5 */
+export interface PrivateRunnerConfig {
+  enabled: boolean
+  runnerUrl: string
+  secretConfigured: boolean
+  runnerSecret?: string | null
+}
+
+export async function fetchPrivateRunnerConfig(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PrivateRunnerConfig> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/private-runner`)
+  const body = (await res.json().catch(() => ({}))) as {
+    config?: PrivateRunnerConfig
+    error?: string
+  }
+  if (!res.ok || !body.config) {
+    throw new Error(body.error ?? `private-runner ${res.status}`)
+  }
+  return body.config
+}
+
+export async function updatePrivateRunnerConfig(
+  patch: Record<string, unknown>,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PrivateRunnerConfig> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/private-runner`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    config?: PrivateRunnerConfig
+    error?: string
+  }
+  if (!res.ok || !body.config) {
+    throw new Error(body.error ?? `private-runner patch ${res.status}`)
+  }
+  return body.config
+}
+
+/** Wave 4.6 */
+export interface BillingStatus {
+  configured: boolean
+  workspaceName?: string
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+  seatCount: number
+  billingStatus: string
+  members: number
+  effectiveMaxMembers: number
+  overSeatSoft: boolean
+  note?: string
+}
+
+export async function fetchBillingStatus(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BillingStatus> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/billing`)
+  const body = (await res.json().catch(() => ({}))) as {
+    billing?: BillingStatus
+    error?: string
+  }
+  if (!res.ok || !body.billing) {
+    throw new Error(body.error ?? `billing ${res.status}`)
+  }
+  return body.billing
+}
+
+export async function createBillingCheckout(
+  opts: { seats?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ url: string; sessionId: string; seats: number }> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/billing/checkout`, {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    url?: string
+    sessionId?: string
+    seats?: number
+    error?: string
+  }
+  if (!res.ok || !body.url) {
+    throw new Error(body.error ?? `checkout ${res.status}`)
+  }
+  return {
+    url: body.url,
+    sessionId: body.sessionId || '',
+    seats: body.seats ?? opts.seats ?? 0,
+  }
+}
+
+export async function createBillingPortal(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ url: string }> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/billing/portal`, {
+    method: 'POST',
+    body: '{}',
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    url?: string
+    error?: string
+  }
+  if (!res.ok || !body.url) {
+    throw new Error(body.error ?? `portal ${res.status}`)
+  }
+  return { url: body.url }
 }
 
 /** Load workspace graph. Auth errors never silently become dummy data. */

@@ -4,11 +4,14 @@ import { ToastProvider } from '@/context/ToastContext'
 import { RequireAuth } from '@/components/RequireAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
+import { AttestationVerifyPage } from '@/pages/AttestationVerifyPage'
 import { WorkspacePage } from '@/pages/WorkspacePage'
 import { ChatPage } from '@/pages/ChatPage'
 import { JobsPage } from '@/pages/JobsPage'
 import { SourcesPage } from '@/pages/SourcesPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { JoinReviewPage } from '@/pages/JoinReviewPage'
+import { LineagePage } from '@/pages/LineagePage'
 
 /**
  * App root — routing for Que desktop workspace.
@@ -21,6 +24,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
+            <Route path="/verify" element={<AttestationVerifyPage />} />
             <Route
               path="/"
               element={
@@ -50,6 +54,22 @@ export default function App() {
               element={
                 <RequireAuth>
                   <SourcesPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/joins"
+              element={
+                <RequireAuth>
+                  <JoinReviewPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/lineage"
+              element={
+                <RequireAuth>
+                  <LineagePage />
                 </RequireAuth>
               }
             />

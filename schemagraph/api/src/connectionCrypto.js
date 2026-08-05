@@ -4,7 +4,16 @@
  */
 import { encryptBlob, decryptBlob } from './secrets.js'
 
-const SECRET_FIELD_KEYS = ['password', 'secret', 'token', 'apiKey']
+const SECRET_FIELD_KEYS = [
+  'password',
+  'secret',
+  'token',
+  'apiKey',
+  'accessToken',
+  'refreshToken',
+  'clientSecret',
+  'privateKey',
+]
 
 /**
  * @param {Record<string, unknown>} config

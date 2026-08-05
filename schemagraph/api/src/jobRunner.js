@@ -33,6 +33,9 @@ function mapRun(row) {
       row.output_json && typeof row.output_json === 'object'
         ? row.output_json
         : {},
+    trigger: row.trigger || 'manual',
+    attempt: row.attempt ?? 1,
+    parentRunId: row.parent_run_id ?? null,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
@@ -130,7 +133,7 @@ async function persistRun(runId, fields) {
 /**
  * @param {string} workspaceId
  * @param {string} jobId
- * @param {{ scope?: 'all'|'cell', cellId?: string|null, notebook?: unknown, mode?: 'dry_run'|'live', connectionId?: string, maxRows?: number }} opts
+ * @param {{ scope?: 'all'|'cell', cellId?: string|null, notebook?: unknown, mode?: 'dry_run'|'live', connectionId?: string, maxRows?: number, trigger?: string, attempt?: number, parentRunId?: string|null }} opts
  */
 export async function runJob(workspaceId, jobId, opts = {}) {
   const job = await getJob(workspaceId, jobId)
@@ -190,8 +193,19 @@ export async function runJob(workspaceId, jobId, opts = {}) {
   }
 
   const runId = randomUUID()
+  const trigger = ['manual', 'schedule', 'retry', 'webhook'].includes(
+    String(opts.trigger || ''),
+  )
+    ? String(opts.trigger)
+    : 'manual'
+  const attempt = Math.max(1, Number(opts.attempt) || 1)
+  const parentRunId = opts.parentRunId || null
   const logs = []
-  pushLog(logs, 'info', `Run queued · mode=${mode} · scope=${scope}`)
+  pushLog(
+    logs,
+    'info',
+    `Run queued · mode=${mode} · scope=${scope} · trigger=${trigger} · attempt=${attempt}`,
+  )
   if (mode === 'live') {
     pushLog(
       logs,
@@ -208,8 +222,9 @@ export async function runJob(workspaceId, jobId, opts = {}) {
 
   const { rows: inserted } = await query(
     `INSERT INTO job_runs (
-       id, workspace_id, job_id, status, scope, cell_id, mode, logs_json, started_at
-     ) VALUES ($1,$2,$3,'running',$4,$5,$6,$7::jsonb, now())
+       id, workspace_id, job_id, status, scope, cell_id, mode, logs_json,
+       started_at, trigger, attempt, parent_run_id
+     ) VALUES ($1,$2,$3,'running',$4,$5,$6,$7::jsonb, now(), $8, $9, $10)
      RETURNING *`,
     [
       runId,
@@ -219,6 +234,9 @@ export async function runJob(workspaceId, jobId, opts = {}) {
       scope === 'cell' ? opts.cellId || null : null,
       mode,
       JSON.stringify(logs),
+      trigger,
+      attempt,
+      parentRunId,
     ],
   )
   let run = mapRun(inserted[0])
@@ -441,6 +459,36 @@ export async function listJobRuns(workspaceId, jobId, limit = 20) {
     [workspaceId, jobId, Math.min(50, Math.max(1, limit))],
   )
   return rows.map(mapRun)
+}
+
+/**
+ * Workspace-wide run history for Jobs monitor (Wave 4.2).
+ * @param {string} workspaceId
+ * @param {{ limit?: number, jobId?: string }} [opts]
+ */
+export async function listWorkspaceJobRuns(workspaceId, opts = {}) {
+  const limit = Math.min(Math.max(Number(opts.limit) || 40, 1), 100)
+  const params = [workspaceId]
+  let jobSql = ''
+  if (opts.jobId) {
+    params.push(opts.jobId)
+    jobSql = ` AND r.job_id = $${params.length}`
+  }
+  params.push(limit)
+  const { rows } = await query(
+    `SELECT r.*, j.title AS job_title
+     FROM job_runs r
+     JOIN jobs j ON j.id = r.job_id
+     WHERE r.workspace_id = $1
+       ${jobSql}
+     ORDER BY r.created_at DESC
+     LIMIT $${params.length}`,
+    params,
+  )
+  return rows.map((row) => ({
+    ...mapRun(row),
+    jobTitle: row.job_title || null,
+  }))
 }
 
 export async function getJobRun(workspaceId, jobId, runId) {

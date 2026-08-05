@@ -359,6 +359,38 @@ export async function runReadonlyQuery(config = {}, sql, opts = {}) {
   }
 }
 
+/**
+ * Wave 3.1 — DDL in customer Databricks SQL warehouse (no Que row storage).
+ * @param {object} config
+ * @param {string|string[]} sql
+ */
+export async function runWriteSql(config = {}, sql) {
+  const host = String(config.host || '').replace(/^https?:\/\//, '')
+  const warehouseId = config.warehouseId
+  const token = config.token
+  if (!host || !warehouseId || !token) {
+    throw new Error(
+      'Databricks materialize requires host, warehouseId, and token',
+    )
+  }
+  const statements = (Array.isArray(sql) ? sql : [sql])
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+  if (!statements.length) throw new Error('No SQL statements to execute')
+  const started = Date.now()
+  for (const statement of statements) {
+    await runSql(host, warehouseId, token, statement, {
+      ...config,
+      timeoutMs: Math.min(Number(config.timeoutMs ?? 120_000), 180_000),
+    })
+  }
+  return {
+    engine: 'databricks',
+    statements: statements.length,
+    durationMs: Date.now() - started,
+  }
+}
+
 function parseInlineResult(body) {
   const cols = body.manifest?.schema?.columns || []
   const names = cols.map((c) => c.name)

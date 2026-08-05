@@ -1,14 +1,27 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { ExportAttestationsPanel } from '@/components/settings/ExportAttestationsPanel'
+import { SignedArtifactsPanel } from '@/components/settings/SignedArtifactsPanel'
+import { ScheduledSyncPanel } from '@/components/settings/ScheduledSyncPanel'
+import { ScheduledJobsPanel } from '@/components/settings/ScheduledJobsPanel'
+import { OrchestratorPanel } from '@/components/settings/OrchestratorPanel'
+import { PrivateRunnerPanel } from '@/components/settings/PrivateRunnerPanel'
+import { BillingPanel } from '@/components/settings/BillingPanel'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import { getApiBase } from '@/services/stitchApi'
 import {
   createWorkspaceInvite,
+  fetchWorkspaceAuditEvents,
   fetchWorkspaceInvites,
   fetchWorkspaceMembers,
   fetchWorkspaceSettings,
+  fetchWorkspaceUsage,
+  fetchDrift,
+  acknowledgeDriftEvent,
+  notifyDriftEvent,
+  sendDriftTestAlert,
   reindexAi,
   removeWorkspaceMember,
   revokeWorkspaceInvite,
@@ -16,12 +29,15 @@ import {
   updateWorkspaceLlmSecrets,
   updateWorkspaceMemberRole,
   updateWorkspaceSettings,
+  type WorkspaceAuditEvent,
   type WorkspaceInvite,
   type WorkspaceMember,
   type WorkspaceMemberRole,
   type WorkspaceSecretSlot,
   type WorkspaceSettingsFlags,
   type WorkspaceSettingsPayload,
+  type WorkspaceUsage,
+  type DriftEvent,
 } from '@/services/stitchApi'
 
 type MemberRow = {
@@ -29,8 +45,9 @@ type MemberRow = {
   name: string
   email: string
   role: WorkspaceMemberRole
-  lastActive: string
+  joinedLabel: string
   you?: boolean
+  isLastOwner?: boolean
 }
 
 /**
@@ -52,11 +69,16 @@ export function SettingsPage() {
   const [memberQuery, setMemberQuery] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [membersApi, setMembersApi] = useState<WorkspaceMember[]>([])
+  const [memberSummary, setMemberSummary] = useState<{
+    ownerCount: number
+    hasSingleOwner: boolean
+  } | null>(null)
   const [invites, setInvites] = useState<WorkspaceInvite[]>([])
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<WorkspaceMemberRole>('member')
   const [inviteBusy, setInviteBusy] = useState(false)
+  const [usage, setUsage] = useState<WorkspaceUsage | null>(null)
 
   useEffect(() => {
     setData(null)
@@ -81,6 +103,10 @@ export function SettingsPage() {
             payload.settings.databricksQueryJoinAssist !== false,
           emitContractEvents: payload.settings.emitContractEvents !== false,
           contractWebhookUrl: payload.settings.contractWebhookUrl ?? '',
+          driftAlertsEnabled: payload.settings.driftAlertsEnabled !== false,
+          driftAlertOnHigh: payload.settings.driftAlertOnHigh !== false,
+          driftAlertWebhookUrl: payload.settings.driftAlertWebhookUrl ?? '',
+          driftAlertEmails: payload.settings.driftAlertEmails ?? '',
           githubOwner: payload.settings.githubOwner ?? '',
           githubRepo: payload.settings.githubRepo ?? '',
           githubBaseBranch: payload.settings.githubBaseBranch ?? 'main',
@@ -94,8 +120,16 @@ export function SettingsPage() {
 
   async function reloadMembers() {
     try {
-      const rows = await fetchWorkspaceMembers()
+      const { members: rows, summary } = await fetchWorkspaceMembers()
       setMembersApi(rows)
+      setMemberSummary(
+        summary
+          ? {
+              ownerCount: summary.ownerCount,
+              hasSingleOwner: summary.hasSingleOwner,
+            }
+          : null,
+      )
       if (canAdmin) {
         const inv = await fetchWorkspaceInvites()
         setInvites(inv.filter((i) => !i.acceptedAt))
@@ -112,16 +146,32 @@ export function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, canAdmin])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const u = await fetchWorkspaceUsage()
+        if (!cancelled) setUsage(u)
+      } catch {
+        if (!cancelled) setUsage(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [workspaceId])
+
   const members = useMemo((): MemberRow[] => {
     return membersApi.map((m) => ({
       id: m.id,
       name: m.displayName || m.email.split('@')[0] || m.email,
       email: m.email,
       role: m.role,
-      lastActive: m.joinedAt
+      joinedLabel: m.joinedAt
         ? new Date(m.joinedAt).toLocaleDateString()
         : '—',
       you: user?.id === m.id,
+      isLastOwner: Boolean(m.isLastOwner),
     }))
   }, [membersApi, user?.id])
 
@@ -155,6 +205,11 @@ export function SettingsPage() {
         (data.settings.databricksQueryJoinAssist !== false) ||
       draft.emitContractEvents !== (data.settings.emitContractEvents !== false) ||
       draft.contractWebhookUrl !== (data.settings.contractWebhookUrl ?? '') ||
+      draft.driftAlertsEnabled !== (data.settings.driftAlertsEnabled !== false) ||
+      draft.driftAlertOnHigh !== (data.settings.driftAlertOnHigh !== false) ||
+      draft.driftAlertWebhookUrl !==
+        (data.settings.driftAlertWebhookUrl ?? '') ||
+      draft.driftAlertEmails !== (data.settings.driftAlertEmails ?? '') ||
       draft.githubOwner !== data.settings.githubOwner ||
       draft.githubRepo !== data.settings.githubRepo ||
       draft.githubBaseBranch !== data.settings.githubBaseBranch ||
@@ -201,16 +256,18 @@ export function SettingsPage() {
     }
   }
 
-  const usagePct = data
-    ? Math.min(
-        100,
-        Math.round(
-          ((data.stats.tables + data.stats.connections * 10) /
-            Math.max(data.stats.tables + 40, 80)) *
-            100,
-        ),
-      )
-    : 62
+  const usagePct = usage
+    ? Math.min(100, usage.usagePct)
+    : data
+      ? Math.min(
+          100,
+          Math.round(
+            ((data.stats.tables + data.stats.connections * 10) /
+              Math.max(data.stats.tables + 40, 80)) *
+              100,
+          ),
+        )
+      : 0
 
   return (
     <QueAppChrome eyebrow="SETTINGS · WORKSPACE POLICY">
@@ -272,9 +329,20 @@ export function SettingsPage() {
                   {/* Member Registry */}
                   <section className="col-span-12 rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm lg:col-span-8">
                     <div className="mb-md flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
-                      <h2 className="font-headline text-base font-semibold text-on-surface-variant">
-                        Member Registry
-                      </h2>
+                      <div>
+                        <h2 className="font-headline text-base font-semibold text-on-surface-variant">
+                          Member Registry
+                        </h2>
+                        <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+                          Roles: viewer (read) → member (write) → admin
+                          (connectors/invites) → owner.
+                          {memberSummary?.hasSingleOwner
+                            ? ' This workspace has a single owner — they cannot be removed or demoted until another owner is promoted.'
+                            : memberSummary
+                              ? ` ${memberSummary.ownerCount} owners.`
+                              : ''}
+                        </p>
+                      </div>
                       <div className="relative">
                         <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant/50">
                           ⌕
@@ -298,7 +366,7 @@ export function SettingsPage() {
                               Role
                             </th>
                             <th className="px-sm py-md font-label text-[11px] tracking-wider text-on-surface-variant/60 uppercase">
-                              Last Active
+                              Joined
                             </th>
                             <th className="px-sm py-md text-right font-label text-[11px] tracking-wider text-on-surface-variant/60 uppercase">
                               Action
@@ -306,7 +374,10 @@ export function SettingsPage() {
                           </tr>
                         </thead>
                         <tbody className="font-body text-[13px] text-on-surface">
-                          {filteredMembers.map((m, i) => (
+                          {filteredMembers.map((m, i) => {
+                            const lockLastOwner = Boolean(m.isLastOwner)
+                            const canEditRow = canAdmin && !m.you && !lockLastOwner
+                            return (
                             <tr
                               key={m.id}
                               className="border-b border-outline-variant/5 transition-colors hover:bg-surface-container-low"
@@ -333,6 +404,11 @@ export function SettingsPage() {
                                           (you)
                                         </span>
                                       ) : null}
+                                      {lockLastOwner ? (
+                                        <span className="ml-xs font-label text-[10px] tracking-wider text-on-surface-variant uppercase">
+                                          last owner
+                                        </span>
+                                      ) : null}
                                     </p>
                                     <p className="text-xs text-on-surface-variant/70">
                                       {m.email}
@@ -341,13 +417,23 @@ export function SettingsPage() {
                                 </div>
                               </td>
                               <td className="px-sm py-md">
-                                {canAdmin && !m.you ? (
+                                {canEditRow ? (
                                   <select
                                     value={m.role}
                                     aria-label={`Role for ${m.email}`}
                                     onChange={(e) => {
                                       const next = e.target
                                         .value as WorkspaceMemberRole
+                                      if (
+                                        m.role === 'owner' &&
+                                        next !== 'owner' &&
+                                        !window.confirm(
+                                          `Demote ${m.email} from owner? Workspace must keep at least one owner.`,
+                                        )
+                                      ) {
+                                        e.target.value = m.role
+                                        return
+                                      }
                                       void (async () => {
                                         try {
                                           await updateWorkspaceMemberRole(
@@ -362,6 +448,7 @@ export function SettingsPage() {
                                               ? err.message
                                               : String(err),
                                           )
+                                          await reloadMembers()
                                         }
                                       })()
                                     }}
@@ -375,18 +462,32 @@ export function SettingsPage() {
                                     ) : null}
                                   </select>
                                 ) : (
-                                  <RoleBadge role={m.role} />
+                                  <div className="space-y-xs">
+                                    <RoleBadge role={m.role} />
+                                    {lockLastOwner && m.you ? (
+                                      <p className="font-body text-[11px] text-on-surface-variant">
+                                        Promote another owner before leaving.
+                                      </p>
+                                    ) : null}
+                                  </div>
                                 )}
                               </td>
                               <td className="px-sm py-md text-on-surface-variant">
-                                {m.lastActive}
+                                {m.joinedLabel}
                               </td>
                               <td className="px-sm py-md text-right">
-                                {canAdmin && !m.you ? (
+                                {canAdmin && !m.you && !lockLastOwner ? (
                                   <button
                                     type="button"
                                     className="rounded-lg px-sm py-xs font-label text-[11px] text-error hover:bg-error/10"
                                     onClick={() => {
+                                      if (
+                                        !window.confirm(
+                                          `Remove ${m.email} from this workspace?`,
+                                        )
+                                      ) {
+                                        return
+                                      }
                                       void (async () => {
                                         try {
                                           await removeWorkspaceMember(m.id)
@@ -404,6 +505,13 @@ export function SettingsPage() {
                                   >
                                     Remove
                                   </button>
+                                ) : lockLastOwner ? (
+                                  <span
+                                    className="font-label text-[11px] text-on-surface-variant"
+                                    title="Promote another owner first"
+                                  >
+                                    Protected
+                                  </span>
                                 ) : (
                                   <span className="font-label text-[11px] text-on-surface-variant">
                                     —
@@ -411,55 +519,73 @@ export function SettingsPage() {
                                 )}
                               </td>
                             </tr>
-                          ))}
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
                     <p className="mt-md font-body text-[12px] text-on-surface-variant">
-                      Live membership from the API. Admins invite by email;
-                      users join on next login / SSO.
+                      Invite by email — they join on next password login or SSO
+                      with that address. Existing members cannot be re-invited;
+                      change their role here instead.
                     </p>
-                    {canAdmin && invites.length > 0 ? (
+                    {canAdmin ? (
                       <div className="mt-md border-t border-outline-variant/20 pt-md">
                         <p className="mb-sm font-label text-[11px] tracking-widest text-on-surface-variant">
-                          PENDING INVITES
+                          PENDING INVITES · {invites.length}
                         </p>
-                        <ul className="space-y-xs">
-                          {invites.map((inv) => (
-                            <li
-                              key={inv.id}
-                              className="flex items-center justify-between gap-sm font-body text-[12px]"
-                            >
-                              <span>
-                                {inv.email}{' '}
-                                <span className="text-on-surface-variant">
-                                  · {inv.role}
-                                </span>
-                              </span>
-                              <button
-                                type="button"
-                                className="font-label text-[11px] text-error underline"
-                                onClick={() => {
-                                  void (async () => {
-                                    try {
-                                      await revokeWorkspaceInvite(inv.id)
-                                      await reloadMembers()
-                                      setToast('Invite revoked')
-                                    } catch (err) {
-                                      setError(
-                                        err instanceof Error
-                                          ? err.message
-                                          : String(err),
-                                      )
-                                    }
-                                  })()
-                                }}
+                        {invites.length === 0 ? (
+                          <p className="font-body text-[12px] text-on-surface-variant">
+                            No pending invites. Use Invite Member to add someone
+                            who is not in this workspace yet.
+                          </p>
+                        ) : (
+                          <ul className="space-y-xs">
+                            {invites.map((inv) => (
+                              <li
+                                key={inv.id}
+                                className="flex items-center justify-between gap-sm font-body text-[12px]"
                               >
-                                Revoke
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
+                                <span>
+                                  {inv.email}{' '}
+                                  <span className="text-on-surface-variant">
+                                    · {inv.role}
+                                  </span>
+                                  {inv.createdAt ? (
+                                    <span className="text-on-surface-variant">
+                                      {' '}
+                                      · sent{' '}
+                                      {new Date(
+                                        inv.createdAt,
+                                      ).toLocaleDateString()}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="font-label text-[11px] text-error hover:underline"
+                                  onClick={() => {
+                                    void (async () => {
+                                      try {
+                                        await revokeWorkspaceInvite(inv.id)
+                                        await reloadMembers()
+                                        setToast('Invite revoked')
+                                      } catch (err) {
+                                        setError(
+                                          err instanceof Error
+                                            ? err.message
+                                            : String(err),
+                                        )
+                                      }
+                                    })()
+                                  }}
+                                >
+                                  Revoke
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     ) : null}
                   </section>
@@ -557,6 +683,33 @@ export function SettingsPage() {
                   <Stat label="Jobs" value={data.stats.jobs} />
                 </div>
 
+                <SsoStatusPanel />
+                <UsageCountersPanel usage={usage} />
+                <DriftAlertsPanel canAdmin={canAdmin} />
+                <ScheduledSyncPanel
+                  workspaceId={workspaceId}
+                  canAdmin={canAdmin}
+                />
+                <ScheduledJobsPanel
+                  workspaceId={workspaceId}
+                  canAdmin={canAdmin}
+                />
+                <OrchestratorPanel
+                  workspaceId={workspaceId}
+                  canAdmin={canAdmin}
+                />
+                <PrivateRunnerPanel
+                  workspaceId={workspaceId}
+                  canAdmin={canAdmin}
+                />
+                <BillingPanel workspaceId={workspaceId} canAdmin={canAdmin} />
+                <ExportAttestationsPanel workspaceId={workspaceId} />
+                <SignedArtifactsPanel
+                  workspaceId={workspaceId}
+                  canAdmin={canAdmin}
+                />
+                <AuditLogPanel workspaceId={workspaceId} />
+
                 <div className="mt-lg">
                   <button
                     type="button"
@@ -629,9 +782,11 @@ export function SettingsPage() {
                     </span>
                   </div>
                   <span className="font-label text-[12px] text-on-surface-variant">
-                    {data
-                      ? `${data.stats.tables} tables · ${data.stats.connections} sources`
-                      : '—'}
+                    {usage
+                      ? `${usage.inventory.connections}/${usage.againstLimits.connections.max} sources · ${usage.period.syncs} syncs · ${usage.period.exports} exports (${usage.period.days}d) · plan ${usage.plan.name}`
+                      : data
+                        ? `${data.stats.tables} tables · ${data.stats.connections} sources`
+                        : '—'}
                   </span>
                 </div>
                 <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary-container">
@@ -678,6 +833,8 @@ export function SettingsPage() {
             </h2>
             <p className="mt-xs font-body text-[13px] text-on-surface-variant">
               They join this workspace on next login or SSO with that email.
+              Do not invite someone who is already a member — change their role
+              in the registry instead.
             </p>
             <label className="mt-md block">
               <span className="mb-xs block font-label text-[11px] tracking-widest text-on-surface-variant">
@@ -702,11 +859,11 @@ export function SettingsPage() {
                 }
                 className="w-full border border-outline-variant px-md py-sm font-body text-[13px]"
               >
-                <option value="viewer">viewer</option>
-                <option value="member">member</option>
-                <option value="admin">admin</option>
+                <option value="viewer">viewer — read only</option>
+                <option value="member">member — sync, joins, jobs</option>
+                <option value="admin">admin — connectors + invites</option>
                 {role === 'owner' ? (
-                  <option value="owner">owner</option>
+                  <option value="owner">owner — full control</option>
                 ) : null}
               </select>
             </label>
@@ -761,18 +918,511 @@ function initials(name: string) {
   return name.slice(0, 2).toUpperCase()
 }
 
+type SsoPublicConfig = {
+  configured?: boolean
+  status?: string
+  issuer?: string | null
+  requireInvite?: boolean
+  allowedDomains?: string[]
+  note?: string
+  authorizePath?: string
+}
+
+function SsoStatusPanel() {
+  const [sso, setSso] = useState<SsoPublicConfig | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/auth/sso`)
+        const body = (await res.json()) as { sso?: SsoPublicConfig }
+        if (!cancelled) setSso(body.sso || null)
+      } catch (e) {
+        if (!cancelled) {
+          setErr(e instanceof Error ? e.message : String(e))
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return (
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+      <div className="mb-md">
+        <h2 className="font-headline text-base font-semibold text-on-surface-variant">
+          SSO
+        </h2>
+        <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+          Wave 1.2 — OIDC + PKCE. Production defaults to invite-required.
+        </p>
+      </div>
+      {err ? (
+        <p className="font-body text-[12px] text-error">{err}</p>
+      ) : !sso ? (
+        <p className="font-body text-[13px] text-on-surface-variant">
+          Loading SSO status…
+        </p>
+      ) : (
+        <div className="grid gap-sm sm:grid-cols-2">
+          <Info
+            label="Status"
+            value={sso.configured ? sso.status || 'ready' : 'not_configured'}
+          />
+          <Info
+            label="Invite required"
+            value={sso.requireInvite ? 'Yes' : 'No'}
+          />
+          <Info label="Issuer" value={sso.issuer || '—'} />
+          <Info
+            label="Allowed domains"
+            value={
+              sso.allowedDomains?.length
+                ? sso.allowedDomains.join(', ')
+                : 'Any (no allowlist)'
+            }
+          />
+          {sso.note ? (
+            <p className="sm:col-span-2 font-body text-[12px] text-on-surface-variant">
+              {sso.note}
+            </p>
+          ) : null}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function UsageCountersPanel({ usage }: { usage: WorkspaceUsage | null }) {
+  if (!usage) {
+    return (
+      <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+        <h2 className="font-headline text-base font-semibold text-on-surface-variant">
+          Usage
+        </h2>
+        <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+          Loading usage counters…
+        </p>
+      </section>
+    )
+  }
+
+  const rows: { key: string; label: string; used: number; max: number; pct: number; hint: string }[] =
+    [
+      {
+        key: 'connections',
+        label: 'Connectors',
+        used: usage.againstLimits.connections.used,
+        max: usage.againstLimits.connections.max,
+        pct: usage.againstLimits.connections.pct,
+        hint: 'Active data sources in this workspace',
+      },
+      {
+        key: 'members',
+        label: 'Members',
+        used: usage.againstLimits.members.used,
+        max: usage.againstLimits.members.max,
+        pct: usage.againstLimits.members.pct,
+        hint: 'Seats including owners',
+      },
+      {
+        key: 'syncs',
+        label: `Syncs (${usage.period.days}d)`,
+        used: usage.againstLimits.syncs.used,
+        max: usage.againstLimits.syncs.max,
+        pct: usage.againstLimits.syncs.pct,
+        hint: `${usage.period.syncFailures} failed in period`,
+      },
+      {
+        key: 'exports',
+        label: `Exports (${usage.period.days}d)`,
+        used: usage.againstLimits.exports.used,
+        max: usage.againstLimits.exports.max,
+        pct: usage.againstLimits.exports.pct,
+        hint: 'Attested job exports',
+      },
+    ]
+
+  return (
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+      <div className="mb-md flex flex-wrap items-start justify-between gap-sm">
+        <div>
+          <h2 className="font-headline text-base font-semibold text-on-surface-variant">
+            Usage
+          </h2>
+          <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+            Wave 1.5 — billing precursor. Plan{' '}
+            <span className="font-label text-primary">{usage.plan.name}</span>{' '}
+            uses soft limits (not enforced yet).
+          </p>
+        </div>
+        <span className="rounded-full bg-secondary-container/60 px-sm py-1 font-label text-[11px] text-on-secondary-container">
+          {usage.usagePct}% of soft cap
+        </span>
+      </div>
+      <div className="mb-md grid gap-sm sm:grid-cols-4">
+        <Stat label="Tables" value={usage.inventory.tables} />
+        <Stat label="Relations" value={usage.inventory.relationships} />
+        <Stat label="Jobs" value={usage.inventory.jobs} />
+        <Stat label="Promotes" value={usage.period.joinPromotes} />
+      </div>
+      <ul className="space-y-md">
+        {rows.map((r) => (
+          <li key={r.key}>
+            <div className="mb-1 flex items-center justify-between gap-sm">
+              <span className="font-label text-[12px] text-on-surface">
+                {r.label}
+              </span>
+              <span className="font-body text-[12px] text-on-surface-variant">
+                {r.used} / {r.max}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-outline-variant/20">
+              <div
+                className={[
+                  'h-full rounded-full transition-all',
+                  r.pct >= 90
+                    ? 'bg-error'
+                    : r.pct >= 80
+                      ? 'bg-[#c47a2c]'
+                      : 'bg-tertiary',
+                ].join(' ')}
+                style={{ width: `${Math.min(100, r.pct)}%` }}
+              />
+            </div>
+            <p className="mt-1 font-body text-[11px] text-on-surface-variant">
+              {r.hint}
+            </p>
+          </li>
+        ))}
+      </ul>
+      {usage.nearLimit.length ? (
+        <p className="mt-md border border-primary/20 bg-primary/5 px-md py-sm font-body text-[12px] text-on-surface">
+          Near soft limit: {usage.nearLimit.join(', ')}. Contact Que before
+          enforcing hard caps in production billing.
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+function DriftAlertsPanel({ canAdmin }: { canAdmin: boolean }) {
+  const [events, setEvents] = useState<DriftEvent[]>([])
+  const [openHigh, setOpenHigh] = useState<DriftEvent[]>([])
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  async function load() {
+    setLoading(true)
+    setErr(null)
+    try {
+      const data = await fetchDrift()
+      setEvents(data.events || [])
+      setOpenHigh(data.openHigh || [])
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [])
+
+  return (
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+      <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
+        <div>
+          <h2 className="font-headline text-base font-semibold text-on-surface-variant">
+            Drift alerts
+          </h2>
+          <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+            Wave 2.3 — high drift blocks export until acknowledged; Slack/webhook
+            notify on sync.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-sm">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary disabled:opacity-40"
+          >
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+          {canAdmin ? (
+            <button
+              type="button"
+              disabled={busyId === 'test'}
+              onClick={() => {
+                void (async () => {
+                  setBusyId('test')
+                  setErr(null)
+                  try {
+                    const result = await sendDriftTestAlert()
+                    setToast(
+                      `Test alert ${result.notify.delivered ? 'delivered' : 'queued'} · ${result.notify.status || 'ok'}`,
+                    )
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusyId(null)
+                  }
+                })()
+              }}
+              className="rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+            >
+              Send test alert
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {err ? (
+        <p className="mb-sm font-body text-[12px] text-error">{err}</p>
+      ) : null}
+      {toast ? (
+        <p className="mb-sm font-body text-[12px] text-primary">
+          {toast}{' '}
+          <button type="button" className="underline" onClick={() => setToast(null)}>
+            dismiss
+          </button>
+        </p>
+      ) : null}
+      {openHigh.length > 0 ? (
+        <p className="mb-md rounded-lg border border-error/30 bg-error/5 px-md py-sm font-body text-[12px] text-error">
+          {openHigh.length} open high-severity event(s) — exports blocked until
+          acknowledged.
+        </p>
+      ) : (
+        <p className="mb-md font-body text-[12px] text-on-surface-variant">
+          No open high-severity drift.
+        </p>
+      )}
+      {events.length === 0 && !loading ? (
+        <p className="font-body text-[13px] text-on-surface-variant">
+          No drift events yet. Sync a source after schema change to populate.
+        </p>
+      ) : (
+        <ul className="max-h-72 space-y-sm overflow-y-auto">
+          {events.slice(0, 12).map((e) => (
+            <li
+              key={e.id}
+              className="rounded-lg border border-outline-variant/20 bg-[#FBF8F4] px-md py-sm"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-sm">
+                <div className="min-w-0">
+                  <p className="font-label text-[11px] tracking-wider uppercase">
+                    <span
+                      className={
+                        e.severity === 'high'
+                          ? 'text-error'
+                          : e.severity === 'warn'
+                            ? 'text-[#8a5a00]'
+                            : 'text-on-surface-variant'
+                      }
+                    >
+                      {e.severity}
+                    </span>
+                    <span className="text-on-surface-variant"> · {e.code}</span>
+                    {e.acknowledged ? (
+                      <span className="text-tertiary"> · acked</span>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 font-body text-[12px] text-on-surface">
+                    {e.summary}
+                  </p>
+                  <p className="mt-1 font-body text-[11px] text-on-surface-variant">
+                    {new Date(e.createdAt).toLocaleString()}
+                    {e.notifyStatus ? ` · notify ${e.notifyStatus}` : ''}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-xs">
+                  {!e.acknowledged && e.severity === 'high' ? (
+                    <button
+                      type="button"
+                      disabled={busyId === e.id}
+                      className="rounded-md border border-outline-variant/40 px-sm py-1 font-label text-[11px]"
+                      onClick={() => {
+                        void (async () => {
+                          setBusyId(e.id)
+                          try {
+                            await acknowledgeDriftEvent(e.id)
+                            await load()
+                          } catch (err) {
+                            setErr(
+                              err instanceof Error ? err.message : String(err),
+                            )
+                          } finally {
+                            setBusyId(null)
+                          }
+                        })()
+                      }}
+                    >
+                      Ack
+                    </button>
+                  ) : null}
+                  {canAdmin ? (
+                    <button
+                      type="button"
+                      disabled={busyId === `n-${e.id}`}
+                      className="rounded-md border border-primary/40 px-sm py-1 font-label text-[11px] text-primary"
+                      onClick={() => {
+                        void (async () => {
+                          setBusyId(`n-${e.id}`)
+                          try {
+                            const r = await notifyDriftEvent(e.id)
+                            setToast(
+                              r.notify.delivered
+                                ? `Alert delivered (${(r.notify.channels || []).join('+') || 'ok'})`
+                                : `Alert ${r.notify.status || 'skipped'}`,
+                            )
+                            await load()
+                          } catch (err) {
+                            setErr(
+                              err instanceof Error ? err.message : String(err),
+                            )
+                          } finally {
+                            setBusyId(null)
+                          }
+                        })()
+                      }}
+                    >
+                      Re-notify
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function AuditLogPanel({ workspaceId }: { workspaceId: string | null }) {
+  const [events, setEvents] = useState<WorkspaceAuditEvent[]>([])
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function load() {
+    if (!workspaceId) return
+    setLoading(true)
+    setErr(null)
+    try {
+      const list = await fetchWorkspaceAuditEvents({ limit: 40 }, workspaceId)
+      setEvents(list)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId])
+
+  return (
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+      <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
+        <div>
+          <h2 className="font-headline text-base font-semibold text-on-surface-variant">
+            Audit log
+          </h2>
+          <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+            Wave 1.1 — sync, join promote/reject, exports, invites, roles, secrets.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void load()}
+          disabled={loading}
+          className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
+        >
+          {loading ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
+      {err ? (
+        <p className="mb-sm font-body text-[12px] text-error">{err}</p>
+      ) : null}
+      {events.length === 0 && !loading ? (
+        <p className="font-body text-[13px] text-on-surface-variant">
+          No audit events yet. Sync a source, promote a join, or invite a member
+          to populate this log.
+        </p>
+      ) : (
+        <div className="max-h-80 overflow-y-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-outline-variant/15">
+                <th className="px-sm py-sm font-label text-[11px] tracking-wider text-on-surface-variant/60 uppercase">
+                  When
+                </th>
+                <th className="px-sm py-sm font-label text-[11px] tracking-wider text-on-surface-variant/60 uppercase">
+                  Action
+                </th>
+                <th className="px-sm py-sm font-label text-[11px] tracking-wider text-on-surface-variant/60 uppercase">
+                  Actor
+                </th>
+                <th className="px-sm py-sm font-label text-[11px] tracking-wider text-on-surface-variant/60 uppercase">
+                  Summary
+                </th>
+              </tr>
+            </thead>
+            <tbody className="font-body text-[12px] text-on-surface">
+              {events.map((e) => (
+                <tr
+                  key={e.id}
+                  className="border-b border-outline-variant/5 hover:bg-surface-container-low"
+                >
+                  <td className="whitespace-nowrap px-sm py-sm text-on-surface-variant">
+                    {new Date(e.createdAt).toLocaleString()}
+                  </td>
+                  <td className="px-sm py-sm font-label text-[11px] text-primary">
+                    {e.action}
+                  </td>
+                  <td className="px-sm py-sm text-on-surface-variant">
+                    {e.actor?.displayName || e.actor?.email || '—'}
+                  </td>
+                  <td className="px-sm py-sm">{e.summary || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function RoleBadge({ role }: { role: MemberRow['role'] }) {
-  if (role === 'owner' || role === 'admin') {
+  if (role === 'owner') {
+    return (
+      <span className="rounded-full bg-primary-container/15 px-2 py-0.5 font-label text-[12px] text-primary">
+        Owner
+      </span>
+    )
+  }
+  if (role === 'admin') {
     return (
       <span className="rounded-full bg-primary-container/10 px-2 py-0.5 font-label text-[12px] text-primary">
-        {role === 'owner' ? 'Admin' : 'Admin'}
+        Admin
       </span>
     )
   }
   if (role === 'viewer') {
     return (
       <span className="rounded-full bg-surface-container-highest px-2 py-0.5 font-label text-[12px] text-on-surface-variant">
-        Read-only
+        Viewer
       </span>
     )
   }
@@ -1031,6 +1681,52 @@ function PolicyAndAiBlocks({
       placeholder="https://hooks.example.com/que-contracts"
     />
   </div>
+  <div className="space-y-md border-t border-outline-variant/20 pt-md">
+    <p className="font-label text-[11px] tracking-widest text-on-surface-variant">
+      DRIFT ALERTS (WAVE 2.3)
+    </p>
+    <Toggle
+      label="Enable drift alerts"
+      hint="Slack/webhook + email list when sync detects risk"
+      checked={draft.driftAlertsEnabled !== false}
+      disabled={!canAdmin}
+      onChange={(v) =>
+        setDraft((d) => (d ? { ...d, driftAlertsEnabled: v } : d))
+      }
+    />
+    <Toggle
+      label="High severity only"
+      hint="Skip info/warn — alert on broken joins / removed tables"
+      checked={draft.driftAlertOnHigh !== false}
+      disabled={!canAdmin}
+      onChange={(v) =>
+        setDraft((d) => (d ? { ...d, driftAlertOnHigh: v } : d))
+      }
+    />
+    <Field
+      label="Drift alert webhook (Slack or generic)"
+      value={draft.driftAlertWebhookUrl ?? ''}
+      disabled={!canAdmin}
+      onChange={(v) =>
+        setDraft((d) => (d ? { ...d, driftAlertWebhookUrl: v } : d))
+      }
+      placeholder="https://hooks.slack.com/services/…"
+    />
+    <Field
+      label="Alert emails (comma-separated)"
+      value={draft.driftAlertEmails ?? ''}
+      disabled={!canAdmin}
+      onChange={(v) =>
+        setDraft((d) => (d ? { ...d, driftAlertEmails: v } : d))
+      }
+      placeholder="ops@acme.com, data@acme.com"
+    />
+    <p className="font-body text-[11px] text-on-surface-variant">
+      Emails need <code className="font-label">QUE_DRIFT_EMAIL_WEBHOOK</code>{' '}
+      (Zapier/Make/SMTP bridge). Without it, addresses are logged + included on
+      webhook payloads.
+    </p>
+  </div>
   <div className="grid gap-md pt-md md:grid-cols-2">
     <label className="block">
       <span className="font-label text-[11px] tracking-widest text-on-surface-variant">
@@ -1113,6 +1809,12 @@ function PolicyAndAiBlocks({
               data.settings.emitContractEvents !== false,
             contractWebhookUrl:
               data.settings.contractWebhookUrl ?? '',
+            driftAlertsEnabled:
+              data.settings.driftAlertsEnabled !== false,
+            driftAlertOnHigh: data.settings.driftAlertOnHigh !== false,
+            driftAlertWebhookUrl:
+              data.settings.driftAlertWebhookUrl ?? '',
+            driftAlertEmails: data.settings.driftAlertEmails ?? '',
             githubOwner: data.settings.githubOwner ?? '',
             githubRepo: data.settings.githubRepo ?? '',
             githubBaseBranch:

@@ -108,6 +108,9 @@ export function DataSourceSidebar({
     'csv',
     'mongodb',
     'databricks',
+    'snowflake',
+    'bigquery',
+    'salesforce',
   ])
   const canSync =
     Boolean(onSyncSource) &&

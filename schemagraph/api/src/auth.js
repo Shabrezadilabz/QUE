@@ -7,7 +7,12 @@ import {
 } from 'node:crypto'
 import { query } from './db.js'
 import { isProduction } from './env.js'
-import { oidcReady, oidcEnv } from './oidc.js'
+import {
+  oidcReady,
+  oidcEnv,
+  ssoRequireInvite,
+  ssoAllowedDomains,
+} from './oidc.js'
 import { acceptPendingInvites } from './invites.js'
 
 const SESSION_DAYS = Number(process.env.STITCH_SESSION_DAYS || 14)
@@ -29,6 +34,11 @@ export function getSsoConfig() {
   const env = oidcEnv()
   const ready = oidcReady()
   const hasSecret = Boolean(env.clientSecret)
+  const requireInvite = ssoRequireInvite()
+  const domains = ssoAllowedDomains()
+  const defaultWs = Boolean(
+    String(process.env.QUE_SSO_DEFAULT_WORKSPACE_ID || '').trim(),
+  )
   return {
     provider: 'oidc',
     configured: ready,
@@ -40,8 +50,11 @@ export function getSsoConfig() {
     status: ready ? 'ready' : 'not_configured',
     loginImplemented: ready,
     authorizePath: '/auth/sso/start',
+    requireInvite,
+    allowedDomains: domains,
+    defaultWorkspaceConfigured: defaultWs && !requireInvite,
     note: ready
-      ? 'OIDC authorize + PKCE callback implemented. Configure IdP redirect to API /auth/sso/callback.'
+      ? `OIDC + PKCE ready. Invite-required: ${requireInvite ? 'ON' : 'OFF'}. IdP redirect → API /auth/sso/callback.`
       : 'Set QUE_OIDC_ISSUER + QUE_OIDC_CLIENT_ID to enable SSO.',
   }
 }

@@ -13,6 +13,7 @@ export type ConnectorCategoryId =
   | 'databases'
   | 'warehouses'
   | 'files'
+  | 'crm'
   | 'custom'
 
 export type ConnectorAuthMode = 'fixture' | 'credentials' | 'upload' | 'request'
@@ -40,6 +41,7 @@ export const CONNECTOR_CATEGORIES: {
   { id: 'databases', label: 'Databases' },
   { id: 'warehouses', label: 'Warehouses' },
   { id: 'files', label: 'Files' },
+  { id: 'crm', label: 'CRM' },
   { id: 'custom', label: 'Custom' },
 ]
 
@@ -121,11 +123,24 @@ export const CONNECTOR_CATALOG: CatalogItem[] = [
     title: 'BigQuery',
     categoryId: 'warehouses',
     categoryLabel: 'Cloud warehouse',
-    blurb: 'Google serverless warehouse — request access for your workspace.',
-    purpose: 'GCP warehouse schemas (roadmap)',
-    creatable: false,
-    capabilities: ['Schema sync'],
-    preferredAuth: 'request',
+    blurb: 'Fixture POC or live project + dataset + OAuth access token.',
+    purpose: 'GCP warehouse schemas for HITL stitch',
+    type: 'bigquery',
+    creatable: true,
+    capabilities: ['Schema sync', 'Join assist', 'Fixture POC'],
+    preferredAuth: 'fixture',
+  },
+  {
+    key: 'salesforce',
+    title: 'Salesforce',
+    categoryId: 'crm',
+    categoryLabel: 'CRM',
+    blurb: 'Fixture CRM objects or live describe via instance URL + token.',
+    purpose: 'CRM schema for Account/Contact/Opportunity joins',
+    type: 'salesforce',
+    creatable: true,
+    capabilities: ['Schema sync', 'Join assist', 'Fixture POC'],
+    preferredAuth: 'fixture',
   },
   {
     key: 's3',

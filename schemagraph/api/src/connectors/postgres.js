@@ -241,3 +241,37 @@ export async function runReadonlyQuery(config, sql, opts = {}) {
   })
 }
 
+/**
+ * Wave 3.1 — run DDL/DML in the customer Postgres (no result rows returned).
+ * @param {PgConnectionConfig} config
+ * @param {string|string[]} sql
+ * @param {{ timeoutMs?: number }} [opts]
+ */
+export async function runWriteSql(config, sql, opts = {}) {
+  const statements = (Array.isArray(sql) ? sql : [sql])
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+  if (statements.length === 0) {
+    throw new Error('No SQL statements to execute')
+  }
+  const timeoutMs = Math.min(Number(opts.timeoutMs ?? 120_000), 300_000)
+  return withSourceClient(config, async (client) => {
+    await client.query(`SET statement_timeout = ${Math.round(timeoutMs)}`)
+    const started = Date.now()
+    const results = []
+    for (const statement of statements) {
+      const r = await client.query(statement)
+      results.push({
+        command: r.command || null,
+        rowCount: typeof r.rowCount === 'number' ? r.rowCount : null,
+      })
+    }
+    return {
+      engine: 'postgresql',
+      statements: results.length,
+      results,
+      durationMs: Date.now() - started,
+    }
+  })
+}
+

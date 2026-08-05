@@ -46,8 +46,14 @@ export function QueAppChrome({
             <NavLink to="/sources" className={primaryNavLinkClass}>
               Sources
             </NavLink>
+            <NavLink to="/joins" className={primaryNavLinkClass}>
+              Joins
+            </NavLink>
             <NavLink to="/jobs" className={primaryNavLinkClass}>
               Jobs
+            </NavLink>
+            <NavLink to="/lineage" className={primaryNavLinkClass}>
+              Lineage
             </NavLink>
             <NavLink to="/settings" className={primaryNavLinkClass}>
               Settings

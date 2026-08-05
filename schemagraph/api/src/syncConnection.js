@@ -9,12 +9,15 @@ import { introspectSpreadsheet } from './connectors/spreadsheet.js'
 import { introspectMongo } from './connectors/mongo.js'
 import { introspectDatabricks } from './connectors/databricks.js'
 import { introspectSnowflake } from './connectors/snowflake.js'
+import { introspectBigQuery } from './connectors/bigquery.js'
+import { introspectSalesforce } from './connectors/salesforce.js'
 import { inferCrossSourceJoins } from './inferJoins.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { buildSyncDrift, capturePreSyncDrift } from './syncDrift.js'
 import { scrubIntrospectionResult } from './privacy/sampleScrub.js'
 import { assistJoinsFromDatabricksHistory } from './connectors/databricksQueryJoins.js'
 import { unsealConnectionConfig } from './connectionCrypto.js'
+import { classifySyncError } from './connectionHealth.js'
 
 /**
  * @param {string} workspaceId
@@ -65,13 +68,20 @@ export async function syncConnection(workspaceId, connectionId) {
       )
     }
   } catch (e) {
+    const kind = classifySyncError(e)
+    const message = String(e.message || e).slice(0, 2000)
     await query(
-      `UPDATE connections SET status = 'error', updated_at = now()
+      `UPDATE connections
+       SET status = 'error',
+           last_sync_error = $2,
+           last_sync_error_kind = $3,
+           updated_at = now()
        WHERE id = $1`,
-      [connectionId],
+      [connectionId, message, kind],
     )
-    const err = new Error(`introspect failed: ${e.message || e}`)
+    const err = new Error(`introspect failed: ${message}`)
     err.status = e.status || 502
+    err.healthKind = kind
     throw err
   }
 
@@ -87,7 +97,12 @@ export async function syncConnection(workspaceId, connectionId) {
   })
 
   await query(
-    `UPDATE connections SET status = 'active', updated_at = now()
+    `UPDATE connections
+     SET status = 'active',
+         last_sync_at = now(),
+         last_sync_error = NULL,
+         last_sync_error_kind = NULL,
+         updated_at = now()
      WHERE id = $1`,
     [connectionId],
   )
@@ -218,6 +233,14 @@ async function runIntrospect(sourceType, config) {
 
   if (sourceType === 'snowflake') {
     return introspectSnowflake(config)
+  }
+
+  if (sourceType === 'bigquery') {
+    return introspectBigQuery(config)
+  }
+
+  if (sourceType === 'salesforce') {
+    return introspectSalesforce(config)
   }
 
   const err = new Error(

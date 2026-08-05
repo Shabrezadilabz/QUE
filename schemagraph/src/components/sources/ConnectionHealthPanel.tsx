@@ -8,7 +8,7 @@ const STATUS_DOT: Record<DataSource['status'], string> = {
   error: 'bg-error',
 }
 
-function relativeSyncLabel(iso?: string): string {
+function relativeSyncLabel(iso?: string | null): string {
   if (!iso) return 'Never synced'
   const t = Date.parse(iso)
   if (Number.isNaN(t)) return 'Unknown'
@@ -20,6 +20,14 @@ function relativeSyncLabel(iso?: string): string {
   return `Synced ${Math.round(hrs / 24)}d ago`
 }
 
+function kindLabel(kind?: DataSource['lastSyncErrorKind']): string {
+  if (kind === 'auth') return 'Auth'
+  if (kind === 'network') return 'Network'
+  if (kind === 'config') return 'Config'
+  if (kind === 'unknown') return 'Error'
+  return 'Attention'
+}
+
 type Props = {
   sources: DataSource[]
   onSelect: (id: string) => void
@@ -28,7 +36,7 @@ type Props = {
 }
 
 /**
- * First-class connection health — last sync, auth risk, re-auth / sync CTAs.
+ * Wave 1.3 — connection health strip + re-auth / sync CTAs.
  */
 export function ConnectionHealthPanel({
   sources,
@@ -44,16 +52,18 @@ export function ConnectionHealthPanel({
       ? 100
       : Math.round((active / sources.length) * 10000) / 100
 
-  const needsAttention = sources.filter((s) => s.status !== 'active')
+  const needsAttention = sources.filter(
+    (s) => s.status !== 'active' || s.needsReauth,
+  )
 
   return (
     <div className="grid grid-cols-1 gap-lg lg:grid-cols-2">
       <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-low p-lg">
-        <h4 className="mb-xs font-headline text-lg font-semibold text-on-surface">
+        <h4 className="mb-xs font-headline text-base font-semibold text-on-surface">
           Connection health
         </h4>
         <p className="mb-lg font-body text-[13px] text-on-surface-variant">
-          Live status for every connector — sync early when auth looks stale.
+          Day-2 ops — last sync outcome and auth risk per connector.
         </p>
         <div className="space-y-md">
           <div className="flex items-center justify-between">
@@ -82,19 +92,24 @@ export function ConnectionHealthPanel({
             <span>
               <strong className="text-error">{error}</strong> attention
             </span>
+            <span>
+              <strong className="text-primary">
+                {sources.filter((s) => s.syncSchedule && s.syncSchedule !== 'off')
+                  .length}
+              </strong>{' '}
+              scheduled
+            </span>
           </div>
         </div>
       </div>
 
       <div className="rounded-2xl border border-primary-container/20 bg-primary-container/10 p-lg">
-        <h4 className="mb-xs font-headline text-lg font-semibold text-primary">
-          {needsAttention.length
-            ? 'Needs attention'
-            : 'Demo path'}
+        <h4 className="mb-xs font-headline text-base font-semibold text-primary">
+          {needsAttention.length ? 'Needs attention' : 'All clear'}
         </h4>
         {needsAttention.length ? (
           <ul className="mb-md space-y-sm">
-            {needsAttention.slice(0, 4).map((s) => (
+            {needsAttention.slice(0, 5).map((s) => (
               <li
                 key={s.id}
                 className="flex flex-wrap items-center justify-between gap-sm rounded-lg bg-white/70 px-md py-sm"
@@ -102,26 +117,40 @@ export function ConnectionHealthPanel({
                 <button
                   type="button"
                   onClick={() => onSelect(s.id)}
-                  className="flex min-w-0 items-center gap-sm text-left"
+                  className="flex min-w-0 flex-1 items-center gap-sm text-left"
                 >
                   <span
                     className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[s.status]}`}
                   />
-                  <span className="truncate font-label text-sm font-semibold text-on-surface">
-                    {s.name}
-                  </span>
-                  <span className="font-body text-sm text-on-surface-variant">
-                    {sourceTypeLabel(s.type)} · {relativeSyncLabel(s.updatedAt)}
+                  <span className="min-w-0">
+                    <span className="block truncate font-label text-sm font-semibold text-on-surface">
+                      {s.name}
+                    </span>
+                    <span className="block truncate font-body text-[11px] text-on-surface-variant">
+                      {sourceTypeLabel(s.type)} ·{' '}
+                      {relativeSyncLabel(s.lastSyncAt || s.updatedAt)}
+                      {s.lastSyncErrorKind
+                        ? ` · ${kindLabel(s.lastSyncErrorKind)}`
+                        : ''}
+                    </span>
                   </span>
                 </button>
                 <div className="flex gap-sm">
-                  {s.status === 'error' ? (
+                  {s.needsReauth || s.lastSyncErrorKind === 'auth' ? (
                     <button
                       type="button"
                       onClick={() => onSelect(s.id)}
                       className="rounded-md bg-error/10 px-sm py-1 font-label text-xs font-bold text-error"
                     >
                       Re-auth
+                    </button>
+                  ) : s.status === 'error' ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelect(s.id)}
+                      className="rounded-md bg-error/10 px-sm py-1 font-label text-xs font-bold text-error"
+                    >
+                      Fix
                     </button>
                   ) : null}
                   {canSync && s.syncable && onSync ? (
@@ -139,13 +168,17 @@ export function ConnectionHealthPanel({
           </ul>
         ) : (
           <p className="mb-md font-body text-[13px] text-on-surface-variant">
-            All connectors look healthy. Next: open Workspace, Promote a suggested
-            join, then save a job — never auto-accept AI joins.
+            All connectors look healthy. Next: open{' '}
+            <Link to="/joins" className="font-semibold text-primary hover:underline">
+              Join Review
+            </Link>
+            , Promote a suggested join, then save a job — never auto-accept AI
+            joins.
           </p>
         )}
         <Link
           to="/workspace"
-          className="inline-flex items-center gap-xs font-label text-base font-bold text-primary hover:underline"
+          className="inline-flex items-center gap-xs font-label text-sm font-bold text-primary hover:underline"
         >
           Open Workspace ↗
         </Link>

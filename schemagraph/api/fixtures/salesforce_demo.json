@@ -1,0 +1,50 @@
+{
+  "schema": "salesforce",
+  "instanceUrl": "https://example.my.salesforce.com",
+  "tables": [
+    {
+      "name": "Account",
+      "entityKind": "TABLE",
+      "columns": [
+        { "name": "Id", "dataType": "id", "keyKind": "pk", "samples": ["001xx000003DGb0AAG"] },
+        { "name": "Name", "dataType": "string", "samples": ["Acme Corp", "Globex"] },
+        { "name": "Industry", "dataType": "picklist", "samples": ["Technology", "Manufacturing"] },
+        { "name": "BillingEmail__c", "dataType": "email", "keyKind": "unique", "samples": ["billing@acme.example"] }
+      ]
+    },
+    {
+      "name": "Contact",
+      "columns": [
+        { "name": "Id", "dataType": "id", "keyKind": "pk", "samples": ["003xx000004TmiQAAS"] },
+        { "name": "AccountId", "dataType": "reference", "keyKind": "fk", "references": "Account.Id", "samples": ["001xx000003DGb0AAG"] },
+        { "name": "Email", "dataType": "email", "keyKind": "unique", "samples": ["ada@acme.example"] },
+        { "name": "FirstName", "dataType": "string", "samples": ["Ada"] },
+        { "name": "LastName", "dataType": "string", "samples": ["Lovelace"] }
+      ]
+    },
+    {
+      "name": "Opportunity",
+      "columns": [
+        { "name": "Id", "dataType": "id", "keyKind": "pk", "samples": ["006xx000001abcAAA"] },
+        { "name": "AccountId", "dataType": "reference", "keyKind": "fk", "references": "Account.Id", "samples": ["001xx000003DGb0AAG"] },
+        { "name": "Name", "dataType": "string", "samples": ["Q1 Expansion"] },
+        { "name": "Amount", "dataType": "currency", "samples": ["50000"] },
+        { "name": "StageName", "dataType": "picklist", "samples": ["Prospecting", "Closed Won"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    {
+      "fromTable": "Contact",
+      "fromColumn": "AccountId",
+      "toTable": "Account",
+      "toColumn": "Id"
+    },
+    {
+      "fromTable": "Opportunity",
+      "fromColumn": "AccountId",
+      "toTable": "Account",
+      "toColumn": "Id"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import { emitContractEvent } from './adapters/contractEvents.js'
 import { openGithubDriftIssue } from './exporters/githubPr.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { resolveGithubToken } from './secrets.js'
+import { notifyDriftAlert } from './driftAlerts.js'
 
 /**
  * Snapshot connection tables + columns + accepted joins (before sync mutates).
@@ -241,10 +242,11 @@ export async function buildSyncDrift(
                 ? 'columns_removed'
                 : 'schema_changed'
 
-      await query(
+      const { rows: inserted } = await query(
         `INSERT INTO workspace_drift_events (
            workspace_id, connection_id, severity, code, summary, detail_json
-         ) VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+         ) VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+         RETURNING id`,
         [
           workspaceId,
           connectionId,
@@ -254,11 +256,24 @@ export async function buildSyncDrift(
           JSON.stringify(drift),
         ],
       )
+      const eventId = inserted[0]?.id
 
       void emitContractEvent(workspaceId, 'drift.detected', {
         connectionId,
         drift,
+        eventId,
       })
+
+      if (eventId && (drift.severity === 'high' || drift.severity === 'warn')) {
+        void notifyDriftAlert({
+          workspaceId,
+          eventId,
+          connectionId,
+          drift: { ...drift, code },
+        }).catch((err) =>
+          console.warn('[Que drift] alert skipped:', err.message || err),
+        )
+      }
 
       // Notify engineers where they ship (GitHub issue) when accepted joins break
       if (joinsBroken.length > 0) {

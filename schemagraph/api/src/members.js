@@ -1,5 +1,6 @@
 /**
  * Workspace members — list / role change / remove.
+ * Wave 1.4 — last-owner protection + clearer error codes for Settings UI.
  */
 import { query } from './db.js'
 
@@ -12,7 +13,15 @@ const ROLE_RANK = {
 
 const ROLES = ['viewer', 'member', 'admin', 'owner']
 
+function httpError(message, status, code) {
+  const err = new Error(message)
+  err.status = status
+  if (code) err.code = code
+  return err
+}
+
 export async function listMembers(workspaceId) {
+  const ownerCount = await countOwners(workspaceId)
   const { rows } = await query(
     `SELECT u.id, u.email, u.display_name, m.role, m.created_at
      FROM workspace_members m
@@ -34,7 +43,19 @@ export async function listMembers(workspaceId) {
     displayName: r.display_name,
     role: r.role,
     joinedAt: r.created_at,
+    isLastOwner: r.role === 'owner' && ownerCount <= 1,
   }))
+}
+
+export function getMembershipSummary(members) {
+  const list = Array.isArray(members) ? members : []
+  const owners = list.filter((m) => m.role === 'owner')
+  return {
+    memberCount: list.length,
+    ownerCount: owners.length,
+    hasSingleOwner: owners.length === 1,
+    lastOwnerId: owners.length === 1 ? owners[0].id : null,
+  }
 }
 
 async function countOwners(workspaceId) {
@@ -54,9 +75,14 @@ export async function updateMemberRole(
   actorRole,
 ) {
   if (!ROLES.includes(nextRole)) {
-    const err = new Error('role must be viewer|member|admin|owner')
-    err.status = 400
-    throw err
+    throw httpError('role must be viewer|member|admin|owner', 400, 'BAD_ROLE')
+  }
+  if (String(targetUserId) === String(actorUserId)) {
+    throw httpError(
+      'You cannot change your own role — ask another owner',
+      403,
+      'SELF_ROLE',
+    )
   }
   const { rows } = await query(
     `SELECT role FROM workspace_members
@@ -64,16 +90,12 @@ export async function updateMemberRole(
     [workspaceId, targetUserId],
   )
   if (!rows.length) {
-    const err = new Error('member not found')
-    err.status = 404
-    throw err
+    throw httpError('member not found', 404, 'NOT_FOUND')
   }
   const prev = rows[0].role
   // Only owners can grant/revoke owner; admins can set up to admin
   if (nextRole === 'owner' && actorRole !== 'owner') {
-    const err = new Error('only owners can grant owner role')
-    err.status = 403
-    throw err
+    throw httpError('Only owners can grant the owner role', 403, 'OWNER_ONLY')
   }
   if (
     actorRole === 'admin' &&
@@ -81,17 +103,21 @@ export async function updateMemberRole(
   ) {
     // admin may set viewer/member; may not change other admins/owners
     if (ROLE_RANK[prev] >= ROLE_RANK.admin || ROLE_RANK[nextRole] > ROLE_RANK.member) {
-      const err = new Error('admins cannot change admin/owner membership')
-      err.status = 403
-      throw err
+      throw httpError(
+        'Admins cannot change admin or owner membership',
+        403,
+        'ADMIN_LIMIT',
+      )
     }
   }
   if (prev === 'owner' && nextRole !== 'owner') {
     const n = await countOwners(workspaceId)
     if (n <= 1) {
-      const err = new Error('cannot demote the last owner')
-      err.status = 409
-      throw err
+      throw httpError(
+        'Cannot demote the last owner — promote another owner first',
+        409,
+        'LAST_OWNER',
+      )
     }
   }
   await query(
@@ -104,29 +130,39 @@ export async function updateMemberRole(
   )
 }
 
-export async function removeMember(workspaceId, targetUserId, actorRole) {
+export async function removeMember(
+  workspaceId,
+  targetUserId,
+  actorRole,
+  actorUserId,
+) {
+  if (String(targetUserId) === String(actorUserId)) {
+    throw httpError(
+      'You cannot remove yourself — ask another owner',
+      403,
+      'SELF_REMOVE',
+    )
+  }
   const { rows } = await query(
     `SELECT role FROM workspace_members
      WHERE workspace_id = $1 AND user_id = $2`,
     [workspaceId, targetUserId],
   )
   if (!rows.length) {
-    const err = new Error('member not found')
-    err.status = 404
-    throw err
+    throw httpError('member not found', 404, 'NOT_FOUND')
   }
   const prev = rows[0].role
   if (ROLE_RANK[prev] >= ROLE_RANK.admin && actorRole !== 'owner') {
-    const err = new Error('only owners can remove admin/owner')
-    err.status = 403
-    throw err
+    throw httpError('Only owners can remove admin or owner', 403, 'OWNER_ONLY')
   }
   if (prev === 'owner') {
     const n = await countOwners(workspaceId)
     if (n <= 1) {
-      const err = new Error('cannot remove the last owner')
-      err.status = 409
-      throw err
+      throw httpError(
+        'Cannot remove the last owner — promote another owner first',
+        409,
+        'LAST_OWNER',
+      )
     }
   }
   await query(

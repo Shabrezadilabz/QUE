@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Manual Tester Walkthrough</title>
+  <style>
+    @page { size: A4; margin: 14mm 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+      color: #1a1a1a;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+    h1 { font-size: 18pt; margin: 0 0 6px; letter-spacing: -0.02em; }
+    h2 {
+      font-size: 12.5pt;
+      margin: 20px 0 8px;
+      padding-bottom: 3px;
+      border-bottom: 2px solid #5c3a2e;
+      page-break-after: avoid;
+      color: #3d241c;
+    }
+    h3 { font-size: 10.5pt; margin: 12px 0 6px; page-break-after: avoid; color: #4a3028; }
+    p, li { margin: 0 0 5px; }
+    ul, ol { margin: 0 0 8px; padding-left: 1.25em; }
+    .meta { color: #555; font-size: 9pt; margin-bottom: 12px; }
+    .cover {
+      border: 2px solid #5c3a2e;
+      padding: 22px 18px;
+      margin-bottom: 16px;
+      background: linear-gradient(165deg, #faf6f1 0%, #f0e4d8 100%);
+    }
+    .cover .brand {
+      font-size: 10pt;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8b4a34;
+    }
+    .toc { page-break-after: always; }
+    .toc a { color: #1a1a1a; text-decoration: none; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0 12px;
+      font-size: 8.5pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #c9b8a8;
+      padding: 4px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #efe4d8; font-weight: 600; }
+    code, pre {
+      font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+      font-size: 7.8pt;
+    }
+    code { background: #f3ebe3; padding: 1px 3px; }
+    pre {
+      background: #2a211c;
+      color: #f0e6dc;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      page-break-inside: avoid;
+      margin: 6px 0 10px;
+    }
+    .step {
+      border: 1px solid #d9c9b8;
+      padding: 10px 12px;
+      margin: 10px 0 14px;
+      background: #fffefb;
+      page-break-inside: avoid;
+    }
+    .step h3 { margin-top: 0; }
+    .ok {
+      border-left: 3px solid #4a7c59;
+      background: #eef6f0;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .warn {
+      border-left: 3px solid #b45309;
+      background: #fff7ed;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .fail {
+      border-left: 3px solid #a33;
+      background: #faf0f0;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .note {
+      border-left: 3px solid #c4a574;
+      background: #f8f4ec;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 9pt;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: #efe4d8;
+      color: #5c3a2e;
+      padding: 2px 6px;
+      margin-right: 4px;
+    }
+    .badge-done { background: #d8efe0; color: #2d5a3d; }
+    .badge-next { background: #ffe8c8; color: #8a4b00; }
+    .badge-todo { background: #eee; color: #555; }
+    .page-break { page-break-before: always; }
+    .check { width: 1.4em; text-align: center; }
+    .footer-note { margin-top: 20px; font-size: 8pt; color: #666; }
+    .two-col { display: flex; gap: 12px; }
+    .two-col > div { flex: 1; }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que · Manual QA</div>
+  <h1>Hands-on Tester Walkthrough</h1>
+  <p class="meta">
+    Product: <strong>Que</strong> (SchemaGraph) · Path: <code>adc/schemagraph</code><br />
+    Companion to: <code>Que-Local-Setup-Guide.pdf</code> (stack) + <code>MANUAL_TEST_PLAN.md</code> (checklist)<br />
+    Document version: <strong>0.8</strong> · Updated: 30 Jul 2026<br />
+    Goal: walk a new tester from empty account → 4 connectors → workspace → AI chat → jobs
+  </p>
+  <p>
+    Use this PDF <strong>side-by-side</strong> with the running app.
+    Mark PASS / FAIL in the Result column. Do steps <strong>one at a time</strong> —
+    seed data and cloud accounts are built as you go, not all at once.
+  </p>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s0">How to use this guide</a></li>
+    <li><a href="#s1">Pre-flight — stack must be up</a></li>
+    <li><a href="#s2">Test journey map</a></li>
+    <li><a href="#s3">Step 1 — Create Que account (admin / owner)</a></li>
+    <li><a href="#s4">Step 2 — PostgreSQL (create account, SQL, commands, Que connect)</a></li>
+    <li><a href="#s5">Step 3 — MongoDB (Docker, seed, dump, Que connect)</a></li>
+    <li><a href="#s6">Step 4 — Databricks (fixture + optional live)</a></li>
+    <li><a href="#s7">Step 5 — Excel + CSV pack (~1 lakh rows)</a></li>
+    <li><a href="#s8">Step 6 — Workspace alignment &amp; joins (HITL)</a></li>
+    <li><a href="#s9">Step 7 — OpenAI BYOK</a></li>
+    <li><a href="#s10">Step 8 — AI Chat → Jobs → Deploy</a></li>
+    <li><a href="#s11">Sign-off</a></li>
+  </ol>
+</nav>
+
+<!-- 0 -->
+<h2 id="s0">0. How to use this guide</h2>
+<table>
+  <tr><th>Role</th><th>What you do</th></tr>
+  <tr>
+    <td>Tester</td>
+    <td>Follow each step in the browser / cloud console. Tick Result. Capture screenshots on FAIL.</td>
+  </tr>
+  <tr>
+    <td>Helper (eng / Cursor)</td>
+    <td>Builds seed scripts, Docker DBs, and Excel files <em>one step ahead</em> when you say “next”.</td>
+  </tr>
+</table>
+
+<div class="warn">
+  <strong>Connector reality:</strong> Que does <em>not</em> ship a native SQL Server connector.
+  Supported creatable types: <strong>PostgreSQL · MongoDB · Databricks · Snowflake · Excel · CSV</strong>.
+  For a 4-connector POC use PG + Mongo + Databricks + Excel (Snowflake optional via fixture).
+</div>
+
+<div class="note">
+  Que is <strong>schema-first</strong>. Large row counts make demos feel real, but Que mainly syncs
+  tables/columns/keys — not a full warehouse dump. Prefer shared keys like
+  <code>customer_id</code> / <code>order_id</code> across sources so joins are obvious.
+</div>
+
+<table>
+  <tr><th>Field</th><th>Fill in</th></tr>
+  <tr><td>Environment</td><td>Local · UI <code>http://localhost:5174</code> · API <code>http://localhost:8787</code></td></tr>
+  <tr><td>Build / commit</td><td>_______________________________</td></tr>
+  <tr><td>Tester</td><td>_______________________________</td></tr>
+  <tr><td>Date</td><td>_______________________________</td></tr>
+  <tr><td>Workspace name</td><td>_______________________________</td></tr>
+</table>
+
+<!-- 1 -->
+<div class="page-break"></div>
+<h2 id="s1">1. Pre-flight — stack must be up</h2>
+<p>If the stack is not running, follow <code>docs/Que-Local-Setup-Guide.pdf</code> first, then return here.</p>
+
+<table>
+  <tr><th class="check">#</th><th>Check</th><th>Expected</th><th>Result</th></tr>
+  <tr>
+    <td>1.1</td>
+    <td><code>GET http://localhost:8787/health</code></td>
+    <td><code>{"ok":true,...}</code>, <code>authDisabled: false</code></td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>1.2</td>
+    <td>Open <code>http://localhost:5174</code></td>
+    <td>Que login / create-account page</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>1.3</td>
+    <td><code>docker ps</code> shows <code>stitch-pg</code></td>
+    <td>Status Up (port 5432)</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>1.4</td>
+    <td>Optional: <code>stitch-mongo</code></td>
+    <td>Up (needed for Step 3)</td>
+    <td>☐ PASS ☐ FAIL ☐ N/A</td>
+  </tr>
+</table>
+
+<pre># PowerShell smoke
+Invoke-RestMethod http://localhost:8787/health | ConvertTo-Json
+docker ps --filter name=stitch --format "{{.Names}} {{.Status}}"</pre>
+
+<!-- 2 -->
+<h2 id="s2">2. Test journey map</h2>
+<table>
+  <tr><th>Step</th><th>What</th><th>Status in this PDF</th></tr>
+  <tr>
+    <td><span class="badge badge-done">1</span></td>
+    <td>Create Que account → owner (admin) of first workspace</td>
+    <td><span class="badge badge-done">Ready</span> detailed below</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-done">2</span></td>
+    <td>PostgreSQL <code>customer_demo</code> DB + seed + connect in Sources</td>
+    <td><span class="badge badge-done">Ready</span> seed applied; UI steps below</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-done">3</span></td>
+    <td>MongoDB <code>customer_demo</code> + seed + connect</td>
+    <td><span class="badge badge-done">Ready</span> seed + dumps; UI steps below</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-done">4</span></td>
+    <td>Databricks Unity fixture (+ optional live account)</td>
+    <td><span class="badge badge-done">Ready</span> fixture + dumps; UI steps below</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-done">5</span></td>
+    <td>Excel + CSV: 15 files · 109k rows</td>
+    <td><span class="badge badge-done">Ready</span> pack on disk; upload in UI</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-done">6</span></td>
+    <td>Workspace graph — alignment / promote joins</td>
+    <td><span class="badge badge-done">Ready</span> detailed steps below</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-done">7</span></td>
+    <td>Settings → OpenAI BYOK</td>
+    <td><span class="badge badge-done">Ready</span> detailed steps below</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-done">8</span></td>
+    <td>Chat → draft job → notebook / validate / deploy</td>
+    <td><span class="badge badge-done">Ready</span> detailed steps below</td>
+  </tr>
+</table>
+
+<!-- 3 -->
+<div class="page-break"></div>
+<h2 id="s3">3. Step 1 — Create Que account (admin / owner)</h2>
+
+<div class="ok">
+  Creating a workspace makes you <strong>owner</strong>. That is full admin for connectors,
+  invites, secrets, and exports. You do <em>not</em> need a separate “assign admin” click.
+</div>
+
+<div class="step">
+  <h3>3.1 Open the app</h3>
+  <ol>
+    <li>Browser → <code>http://localhost:5174</code></li>
+    <li>If you see Sign In, click <strong>CREATE ACCOUNT</strong></li>
+  </ol>
+</div>
+
+<div class="step">
+  <h3>3.2 Fill the form</h3>
+  <table>
+    <tr><th>Field</th><th>Guidance</th><th>Your value</th></tr>
+    <tr><td>Display name</td><td>Your name</td><td>_______________</td></tr>
+    <tr><td>Email</td><td>Any unused email shape (must include <code>@</code>)</td><td>_______________</td></tr>
+    <tr><td>Password</td><td>At least 8 characters</td><td>(do not write in shared PDF)</td></tr>
+    <tr><td>First workspace name</td><td>e.g. <code>Que Test Lab</code></td><td>_______________</td></tr>
+  </table>
+  <p>Click <strong>CREATE ACCOUNT</strong>.</p>
+</div>
+
+<div class="step">
+  <h3>3.3 Verify owner access</h3>
+  <table>
+    <tr><th class="check">#</th><th>Step</th><th>Expected</th><th>Result</th></tr>
+    <tr>
+      <td>3.3.1</td>
+      <td>After create, you land in the product (Workspace or primary nav)</td>
+      <td>Logged in; no login loop</td>
+      <td>☐ PASS ☐ FAIL</td>
+    </tr>
+    <tr>
+      <td>3.3.2</td>
+      <td>Open <strong>Settings</strong></td>
+      <td>Team / invite controls visible (owner)</td>
+      <td>☐ PASS ☐ FAIL</td>
+    </tr>
+    <tr>
+      <td>3.3.3</td>
+      <td>Open <strong>Sources</strong></td>
+      <td>Empty or catalog; you can start Add connector</td>
+      <td>☐ PASS ☐ FAIL</td>
+    </tr>
+    <tr>
+      <td>3.3.4</td>
+      <td>Confirm workspace name in chrome / settings</td>
+      <td>Matches what you typed</td>
+      <td>☐ PASS ☐ FAIL</td>
+    </tr>
+  </table>
+</div>
+
+<div class="fail">
+  <strong>If create fails:</strong>
+  <ul>
+    <li><code>email already registered</code> → use another email or Sign In</li>
+    <li>Network / CORS → API not on <code>:8787</code> or UI API base wrong</li>
+    <li>Blank page → check Vite terminal for compile errors</li>
+  </ul>
+</div>
+
+<div class="note">
+  Demo owner <code>dev@stitch.local</code> may still exist from seed. Prefer your <strong>own</strong>
+  account for this walkthrough so the workspace starts clean.
+</div>
+
+<!-- 4 -->
+<div class="page-break"></div>
+<h2 id="s4">4. Step 2 — PostgreSQL: how we created it, SQL dump, commands, Que connector</h2>
+<p><span class="badge badge-done">Helper seed ready</span> · <span class="badge badge-next">You connect in UI</span></p>
+
+<div class="ok">
+  Shareable SQL + README live outside the PDF at:<br />
+  <code>adc/schemagraph/docs/tester-fixtures/postgres/</code><br />
+  Prefer <code>customer_demo_rebuild.sql</code> (small) · full INSERT dump:
+  <code>customer_demo_data.sql</code> (~1.8&nbsp;MB) + <code>customer_demo_schema.sql</code>.
+</div>
+
+<div class="step">
+  <h3>4.0 What “Postgres account” means here</h3>
+  <p>
+    We did <strong>not</strong> open a cloud Postgres (RDS / Neon / Supabase) account for this local test.
+    Credentials come from the <strong>Docker container</strong> that already runs Que’s metadata DB.
+  </p>
+  <table>
+    <tr><th>Thing</th><th>Value</th><th>Where you get it</th></tr>
+    <tr>
+      <td>Container</td>
+      <td><code>stitch-pg</code></td>
+      <td><code>docker ps --filter name=stitch-pg</code></td>
+    </tr>
+    <tr>
+      <td>Image (first create)</td>
+      <td><code>pgvector/pgvector:pg16</code></td>
+      <td>Local Setup Guide / command below</td>
+    </tr>
+    <tr>
+      <td>User</td>
+      <td><code>stitch</code></td>
+      <td>Docker env <code>POSTGRES_USER</code></td>
+    </tr>
+    <tr>
+      <td>Password</td>
+      <td><code>stitch</code></td>
+      <td>Docker env <code>POSTGRES_PASSWORD</code></td>
+    </tr>
+    <tr>
+      <td>Metadata DB (Que internal)</td>
+      <td><code>stitch</code></td>
+      <td>Docker env <code>POSTGRES_DB</code> — <strong>do not</strong> use as a Source</td>
+    </tr>
+    <tr>
+      <td>Source DB (connector target)</td>
+      <td><code>customer_demo</code></td>
+      <td>Created by bootstrap script (separate database on same server)</td>
+    </tr>
+    <tr>
+      <td>Host / port from Que’s view</td>
+      <td><code>localhost:5432</code></td>
+      <td>Docker publish <code>-p 5432:5432</code></td>
+    </tr>
+  </table>
+</div>
+
+<div class="step">
+  <h3>4.1 Commands — create Postgres “account” (Docker) if missing</h3>
+<pre># Check
+docker ps -a --filter name=stitch-pg
+
+# Start existing
+docker start stitch-pg
+
+# FIRST TIME ONLY — creates user stitch / password stitch / db stitch
+docker run -d --name stitch-pg `
+  -e POSTGRES_USER=stitch `
+  -e POSTGRES_PASSWORD=stitch `
+  -e POSTGRES_DB=stitch `
+  -p 5432:5432 `
+  pgvector/pgvector:pg16
+
+# Wait until ready
+docker exec stitch-pg pg_isready -U stitch -d stitch</pre>
+  <div class="note">
+    That single Docker user is both the Que metadata login (<code>DATABASE_URL</code>) and the
+    customer-source login. Only the <strong>database name</strong> differs (<code>stitch</code> vs <code>customer_demo</code>).
+  </div>
+</div>
+
+<div class="step">
+  <h3>4.2 Commands — create source DB + load SQL (what we ran)</h3>
+<pre># From api folder
+cd D:\ADC\prosols\adc\schemagraph\api
+
+# Creates database customer_demo (if needed) + applies db/002_customer_demo.sql
+npm run bootstrap:demo-source
+
+# Replaces tiny seed with ~11k rows (db/002b_customer_demo_bulk.sql)
+node scripts/applyCustomerDemoBulk.js
+
+# Verify
+docker exec -i stitch-pg psql -U stitch -d customer_demo -c "
+  SELECT 'customers' t, COUNT(*) FROM customers
+  UNION ALL SELECT 'products', COUNT(*) FROM products
+  UNION ALL SELECT 'orders', COUNT(*) FROM orders
+  UNION ALL SELECT 'order_items', COUNT(*) FROM order_items;
+"</pre>
+  <p><strong>Alternate one-file apply</strong> (shareable rebuild SQL):</p>
+<pre># Create empty DB if needed
+docker exec -i stitch-pg psql -U stitch -d postgres -c "CREATE DATABASE customer_demo;"
+
+# Apply shareable pack
+Get-Content D:\ADC\prosols\adc\schemagraph\docs\tester-fixtures\postgres\customer_demo_rebuild.sql -Raw |
+  docker exec -i stitch-pg psql -U stitch -d customer_demo</pre>
+</div>
+
+<div class="page-break"></div>
+
+<div class="step">
+  <h3>4.3 Shareable dump files (outside PDF)</h3>
+  <p>Folder: <code>docs/tester-fixtures/postgres/</code></p>
+  <table>
+    <tr><th>File</th><th>What</th><th>When to use</th></tr>
+    <tr>
+      <td><code>README.md</code></td>
+      <td>Same story as this section</td>
+      <td>Hand to another tester</td>
+    </tr>
+    <tr>
+      <td><code>customer_demo_rebuild.sql</code></td>
+      <td>DDL + <code>generate_series</code> seed (~11k)</td>
+      <td><strong>Best to share</strong> — small, rebuilds cleanly</td>
+    </tr>
+    <tr>
+      <td><code>002_customer_demo.sql</code></td>
+      <td>Schema + 3 demo customers</td>
+      <td>Matches repo <code>db/</code></td>
+    </tr>
+    <tr>
+      <td><code>002b_customer_demo_bulk.sql</code></td>
+      <td>Bulk truncate + 11k insert</td>
+      <td>Apply after 002</td>
+    </tr>
+    <tr>
+      <td><code>customer_demo_schema.sql</code></td>
+      <td><code>pg_dump --schema-only</code></td>
+      <td>Exact live DDL</td>
+    </tr>
+    <tr>
+      <td><code>customer_demo_data.sql</code></td>
+      <td><code>pg_dump --data-only --inserts</code> (~1.8&nbsp;MB)</td>
+      <td>Exact row dump if you need INSERT statements</td>
+    </tr>
+  </table>
+<pre># Re-export dumps yourself later
+docker exec stitch-pg pg_dump -U stitch -d customer_demo --schema-only --no-owner --no-privileges
+docker exec stitch-pg pg_dump -U stitch -d customer_demo --data-only --inserts --no-owner --no-privileges</pre>
+</div>
+
+<div class="step">
+  <h3>4.4 SQL we added (compact — full text in rebuild file)</h3>
+  <p>Tables &amp; FKs:</p>
+<pre>customers (id PK, email UNIQUE, full_name, created_at)
+products  (id PK, sku UNIQUE, name, unit_price)
+orders    (id PK, customer_id → customers, status, ordered_at)
+order_items (id PK, order_id → orders, product_id → products, quantity)</pre>
+  <p>Bulk row recipe (see <code>customer_demo_rebuild.sql</code> for complete script):</p>
+<pre>-- 2,500 customers  (ada/grace/alan + user{N}@example.com)
+-- 500 products     (SKU-0001 …)
+-- 3,500 orders     (FK customer_id)
+-- 4,500 order_items (FK order_id, product_id)
+-- TOTAL ≈ 11,000 rows</pre>
+</div>
+
+<div class="step">
+  <h3>4.5 Que connector details — where each field comes from</h3>
+  <table>
+    <tr><th>Que Sources field</th><th>Value to type</th><th>Source of truth</th></tr>
+    <tr><td>Display name</td><td><code>postgres_customer_demo</code></td><td>Your choice (UI only)</td></tr>
+    <tr><td>Type</td><td>PostgreSQL</td><td>Connector catalog</td></tr>
+    <tr><td>Host</td><td><code>localhost</code></td><td>Docker published on your machine</td></tr>
+    <tr><td>Port</td><td><code>5432</code></td><td><code>docker port stitch-pg</code> / <code>-p 5432:5432</code></td></tr>
+    <tr><td>Database</td><td><code>customer_demo</code></td><td>Bootstrap created this DB</td></tr>
+    <tr><td>Schema</td><td><code>public</code></td><td>Default Postgres schema</td></tr>
+    <tr><td>User</td><td><code>stitch</code></td><td><code>POSTGRES_USER</code></td></tr>
+    <tr><td>Password</td><td><code>stitch</code></td><td><code>POSTGRES_PASSWORD</code></td></tr>
+    <tr>
+      <td>URL (optional reference)</td>
+      <td colspan="2"><code>postgresql://stitch:stitch@localhost:5432/customer_demo</code></td>
+    </tr>
+  </table>
+  <div class="warn">
+    Never point the connector at database <code>stitch</code> — that is Que’s own metadata
+    (users, jobs, encrypted secrets). Always <code>customer_demo</code> for this test.
+  </div>
+</div>
+
+<div class="step">
+  <h3>4.6 UI clicks (tester)</h3>
+  <ol>
+    <li>Open <code>http://localhost:5174</code> · signed in as your owner account</li>
+    <li>Nav → <strong>Sources</strong></li>
+    <li>Add connector / catalog → <strong>PostgreSQL</strong></li>
+    <li>Fill §4.5 · Create / Save</li>
+    <li>Open connection → <strong>Sync</strong></li>
+    <li>Nav → <strong>Workspace</strong> → four tables on canvas</li>
+  </ol>
+</div>
+
+<table>
+  <tr><th class="check">#</th><th>Step</th><th>Expected</th><th>Result</th></tr>
+  <tr>
+    <td>4.1</td>
+    <td><code>stitch-pg</code> Up; seed counts = 11,000</td>
+    <td>Docker + SQL OK</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>4.2</td>
+    <td>Create PostgreSQL connection (§4.5)</td>
+    <td>Saved; password masked</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>4.3</td>
+    <td>Sync</td>
+    <td>customers, products, orders, order_items</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>4.4</td>
+    <td>Workspace</td>
+    <td>Four tables; FK edges may show</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+</table>
+
+<div class="fail">
+  <strong>If sync fails:</strong> wrong password → <code>stitch</code>/<code>stitch</code> · missing DB →
+  <code>npm run bootstrap:demo-source</code> · empty tables →
+  <code>node scripts/applyCustomerDemoBulk.js</code> · Docker down →
+  <code>docker start stitch-pg</code>
+</div>
+
+<!-- 5 -->
+<div class="page-break"></div>
+<h2 id="s5">5. Step 3 — MongoDB: how we created it, dump, commands, Que connector</h2>
+<p><span class="badge badge-done">Helper seed ready</span> · <span class="badge badge-next">You connect in UI</span></p>
+
+<div class="ok">
+  Shareable pack outside the PDF:<br />
+  <code>adc/schemagraph/docs/tester-fixtures/mongodb/</code><br />
+  Prefer <code>seed_rebuild.mjs</code> (regenerates) · JSON dumps in <code>json/</code> · BSON in <code>bson_dump/</code>.
+</div>
+
+<div class="step">
+  <h3>5.0 What “Mongo account” means here</h3>
+  <p>
+    Local Docker Mongo (<code>mongo:7</code>) with <strong>no auth</strong> by default —
+    not Atlas / cloud. URI is enough for Que.
+  </p>
+  <table>
+    <tr><th>Thing</th><th>Value</th><th>Where you get it</th></tr>
+    <tr><td>Container</td><td><code>stitch-mongo</code></td><td><code>docker ps --filter name=stitch-mongo</code></td></tr>
+    <tr><td>Image</td><td><code>mongo:7</code></td><td>First-time <code>docker run</code></td></tr>
+    <tr><td>Host / port</td><td><code>localhost:27017</code></td><td><code>-p 27017:27017</code></td></tr>
+    <tr><td>Auth</td><td>None (local)</td><td>Default official image</td></tr>
+    <tr><td>URI</td><td><code>mongodb://localhost:27017</code></td><td>Host + port</td></tr>
+    <tr><td>Database</td><td><code>customer_demo</code></td><td>Created/filled by seed script</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <h3>5.1 Commands — create Mongo container if missing</h3>
+<pre># Check / start
+docker ps -a --filter name=stitch-mongo
+docker start stitch-mongo
+
+# FIRST TIME ONLY
+docker run -d --name stitch-mongo -p 27017:27017 mongo:7
+
+# Ping
+docker exec stitch-mongo mongosh --quiet --eval "db.runCommand({ ping: 1 }).ok"</pre>
+</div>
+
+<div class="step">
+  <h3>5.2 Commands — seed data (what we ran)</h3>
+<pre>cd D:\ADC\prosols\adc\schemagraph\api
+npm run bootstrap:demo-mongo-bulk
+# same as: node scripts/applyCustomerDemoMongoBulk.js
+
+# Verify
+docker exec stitch-mongo mongosh --quiet customer_demo --eval "
+  print('profiles', db.profiles.countDocuments());
+  print('events', db.events.countDocuments());
+  print('sessions', db.sessions.countDocuments());
+"</pre>
+  <table>
+    <tr><th>Collection</th><th>Docs</th><th>Join keys vs Postgres</th></tr>
+    <tr><td><code>profiles</code></td><td>2,500</td><td><code>email</code>, <code>pg_customer_id</code> (= PG <code>customers.id</code>)</td></tr>
+    <tr><td><code>events</code></td><td>8,000</td><td><code>email</code>, <code>pg_customer_id</code></td></tr>
+    <tr><td><code>sessions</code></td><td>3,000</td><td><code>email</code>, <code>pg_customer_id</code></td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>13,500</strong></td><td>Same <code>user{N}@example.com</code> pattern as PG</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <h3>5.3 Shareable dump files (outside PDF)</h3>
+  <p>Folder: <code>docs/tester-fixtures/mongodb/</code></p>
+  <table>
+    <tr><th>File / folder</th><th>What</th><th>When to use</th></tr>
+    <tr><td><code>README.md</code></td><td>Same story</td><td>Hand to another tester</td></tr>
+    <tr><td><code>seed_rebuild.mjs</code></td><td>Regenerates all docs</td><td><strong>Best small share</strong></td></tr>
+    <tr><td><code>json/*.json</code></td><td><code>mongoexport --jsonArray</code></td><td>Readable / import</td></tr>
+    <tr><td><code>bson_dump/</code></td><td><code>mongodump</code></td><td>Fast restore via <code>mongorestore</code></td></tr>
+  </table>
+<pre># Re-export later
+docker exec stitch-mongo mongodump --db=customer_demo --out=/tmp/que_mongo_dump
+docker exec stitch-mongo mongoexport --db=customer_demo --collection=events --jsonArray --out=/tmp/events.json
+
+# Restore BSON
+docker cp docs\tester-fixtures\mongodb\bson_dump stitch-mongo:/tmp/customer_demo_restore
+docker exec stitch-mongo mongorestore --drop --db=customer_demo /tmp/customer_demo_restore</pre>
+</div>
+
+<div class="step">
+  <h3>5.4 Document shape (schema Que will infer)</h3>
+<pre>profiles:  _id, customer_key, email, full_name, tier, pg_customer_id,
+           prefs.marketing, prefs.locale, created_at
+events:    _id, user_id, email, pg_customer_id, event_type, severity,
+           meta.browser, meta.ip, payload.sku?, payload.amount?, status_hint, created_at
+sessions:  _id, user_id, email, pg_customer_id, session_token,
+           device.os, device.app_version, started_at, duration_sec</pre>
+  <div class="note">
+    Que probes sample docs and flattens nested fields (dot paths). It does <strong>not</strong>
+    import all 13.5k documents into the graph — schema + capped samples only.
+  </div>
+</div>
+
+<div class="step">
+  <h3>5.5 Que connector details — where each field comes from</h3>
+  <table>
+    <tr><th>Que Sources field</th><th>Value</th><th>Source of truth</th></tr>
+    <tr><td>Display name</td><td><code>mongo_customer_demo</code></td><td>Your choice</td></tr>
+    <tr><td>Type</td><td>MongoDB</td><td>Connector catalog</td></tr>
+    <tr><td>URI</td><td><code>mongodb://localhost:27017</code></td><td>Docker host + port (no auth)</td></tr>
+    <tr><td>Database</td><td><code>customer_demo</code></td><td>Seed script DB name</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <h3>5.6 UI clicks (tester)</h3>
+  <ol>
+    <li>Nav → <strong>Sources</strong> → Add → <strong>MongoDB</strong></li>
+    <li>URI <code>mongodb://localhost:27017</code> · Database <code>customer_demo</code></li>
+    <li>Create / Save → <strong>Sync</strong></li>
+    <li>Workspace → expect <code>profiles</code>, <code>events</code>, <code>sessions</code> (with PG tables still there)</li>
+  </ol>
+</div>
+
+<table>
+  <tr><th class="check">#</th><th>Step</th><th>Expected</th><th>Result</th></tr>
+  <tr>
+    <td>5.1</td>
+    <td><code>stitch-mongo</code> Up; counts 2500 / 8000 / 3000</td>
+    <td>Docker + seed OK</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>5.2</td>
+    <td>Create MongoDB connection (§5.5)</td>
+    <td>Saved</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>5.3</td>
+    <td>Sync</td>
+    <td>Three collections as tables; nested fields flattened</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>5.4</td>
+    <td>Workspace</td>
+    <td>Mongo + Postgres tables visible together</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+</table>
+
+<div class="fail">
+  <strong>If sync fails:</strong> Docker down → <code>docker start stitch-mongo</code> ·
+  empty DB → <code>npm run bootstrap:demo-mongo-bulk</code> · wrong database name → must be
+  <code>customer_demo</code> · connection refused → confirm port <code>27017</code>.
+</div>
+
+<!-- 6 -->
+<div class="page-break"></div>
+<h2 id="s6">6. Step 4 — Databricks: fixture account path, dump, commands, Que connector</h2>
+<p><span class="badge badge-done">Fixture ready</span> · <span class="badge badge-next">You connect in UI</span></p>
+
+<div class="ok">
+  Shareable pack: <code>adc/schemagraph/docs/tester-fixtures/databricks/</code><br />
+  Runtime fixture (API): <code>api/fixtures/databricks_unity_demo.json</code><br />
+  <strong>No cloud account required</strong> for fixture mode — optional live steps below.
+</div>
+
+<div class="step">
+  <h3>6.0 What “Databricks account” means here</h3>
+  <table>
+    <tr><th>Mode</th><th>Account?</th><th>What you provide</th></tr>
+    <tr>
+      <td><strong>Fixture</strong> (this POC)</td>
+      <td>None</td>
+      <td>Path to JSON under <code>api/fixtures/</code></td>
+    </tr>
+    <tr>
+      <td><strong>Live</strong> (optional later)</td>
+      <td>Databricks workspace + SQL warehouse + PAT</td>
+      <td>Host, Warehouse ID, Token — see <code>WHERE_TO_GET_LIVE_CREDS.md</code></td>
+    </tr>
+  </table>
+  <p>
+    Fixture is schema + sample values only (like a Unity Catalog snapshot). Que does not
+    spin up a lakehouse or load lakhs of rows for this connector.
+  </p>
+</div>
+
+<div class="step">
+  <h3>6.1 Commands — verify / refresh fixture</h3>
+<pre># Confirm fixture loads
+cd D:\ADC\prosols\adc\schemagraph\api
+node --input-type=module -e "import { readFileSync } from 'fs'; const j=JSON.parse(readFileSync('fixtures/databricks_unity_demo.json','utf8')); console.log(j.catalog+'.'+j.schema); console.log(j.tables.map(t=>t.name+' ('+t.entityKind+')').join('\n'))"
+
+# Re-copy into share folder after edits
+Copy-Item fixtures\databricks_unity_demo.json ..\docs\tester-fixtures\databricks\ -Force</pre>
+  <table>
+    <tr><th>Object</th><th>Kind</th><th>Cross-source keys</th></tr>
+    <tr><td><code>dim_customer</code></td><td>TABLE</td><td><code>email</code>, <code>pg_customer_id</code></td></tr>
+    <tr><td><code>fact_orders</code></td><td>TABLE</td><td>FK <code>customer_sk</code> → dim_customer</td></tr>
+    <tr><td><code>gold_campaign_attribution</code></td><td>VIEW</td><td><code>email</code></td></tr>
+  </table>
+  <p>Catalog / schema in fixture: <code>main.analytics</code></p>
+</div>
+
+<div class="step">
+  <h3>6.2 Shareable dump files (outside PDF)</h3>
+  <table>
+    <tr><th>File</th><th>What</th></tr>
+    <tr><td><code>README.md</code></td><td>Full recreate + Que fields</td></tr>
+    <tr><td><code>databricks_unity_demo.json</code></td><td><strong>Primary dump</strong> — schema + samples + FKs</td></tr>
+    <tr><td><code>sample_rows_dim_customer.csv</code></td><td>Human-readable sample rows</td></tr>
+    <tr><td><code>sample_rows_fact_orders.csv</code></td><td>Human-readable sample rows</td></tr>
+    <tr><td><code>WHERE_TO_GET_LIVE_CREDS.md</code></td><td>Host / warehouse / PAT from Databricks UI</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <h3>6.3 Que connector — fixture (do this now)</h3>
+  <table>
+    <tr><th>Que field</th><th>Value</th><th>Where from</th></tr>
+    <tr><td>Display name</td><td><code>databricks_lakehouse_demo</code></td><td>Your choice</td></tr>
+    <tr><td>Type</td><td>Databricks</td><td>Catalog</td></tr>
+    <tr><td>Auth mode</td><td><strong>One-click fixture</strong></td><td>Toggle on form</td></tr>
+    <tr><td>Fixtures path</td><td><code>fixtures/databricks_unity_demo.json</code></td><td>Relative to <code>api/</code> (default)</td></tr>
+    <tr><td>Catalog</td><td><code>main</code></td><td>Matches JSON (default)</td></tr>
+    <tr><td>Schema</td><td><code>analytics</code></td><td>Matches JSON (default)</td></tr>
+  </table>
+  <ol>
+    <li>Sources → Add → <strong>Databricks</strong></li>
+    <li>Leave mode on <strong>One-click fixture</strong></li>
+    <li>Keep default fixtures path · Catalog <code>main</code> · Schema <code>analytics</code></li>
+    <li>Create → <strong>Sync</strong></li>
+    <li>Workspace → three lakehouse objects appear with PG + Mongo</li>
+  </ol>
+</div>
+
+<div class="step">
+  <h3>6.4 Optional — live Databricks (skip unless you have a workspace)</h3>
+  <table>
+    <tr><th>Field</th><th>Where to get it</th></tr>
+    <tr><td>Host</td><td>Workspace URL hostname (no https) — e.g. <code>adb-….azuredatabricks.net</code></td></tr>
+    <tr><td>Warehouse ID</td><td>SQL → SQL Warehouses → open warehouse → ID</td></tr>
+    <tr><td>Token</td><td>User Settings → Developer → Access tokens → Generate (<code>dapi…</code>)</td></tr>
+    <tr><td>Catalog / Schema</td><td>Unity Catalog objects that hold your tables</td></tr>
+  </table>
+  <p>Details: <code>docs/tester-fixtures/databricks/WHERE_TO_GET_LIVE_CREDS.md</code></p>
+</div>
+
+<table>
+  <tr><th class="check">#</th><th>Step</th><th>Expected</th><th>Result</th></tr>
+  <tr>
+    <td>6.1</td>
+    <td>Fixture file present under <code>api/fixtures/</code></td>
+    <td>JSON parses; 3 tables listed</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>6.2</td>
+    <td>Create Databricks fixture connection + Sync</td>
+    <td>dim_customer, fact_orders, gold_campaign_attribution</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>6.3</td>
+    <td>Workspace shows DBX + PG + Mongo</td>
+    <td>Multi-source canvas</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>6.4</td>
+    <td>Optional live sync</td>
+    <td>Live schema or N/A</td>
+    <td>☐ PASS ☐ FAIL ☐ N/A</td>
+  </tr>
+</table>
+
+<div class="fail">
+  <strong>If sync fails:</strong> path typo → must be <code>fixtures/databricks_unity_demo.json</code>
+  relative to API cwd · API not running · wrong mode (live without token) → switch back to fixture ·
+  catalog/schema mismatch → use <code>main</code> / <code>analytics</code>.
+</div>
+
+<!-- 7 -->
+<div class="page-break"></div>
+<h2 id="s7">7. Step 5 — Excel + CSV pack (~1 lakh rows)</h2>
+<p><span class="badge badge-done">Pack generated</span> · <span class="badge badge-next">You upload in UI</span></p>
+
+<div class="ok">
+  Shareable folder: <code>adc/schemagraph/docs/tester-fixtures/excel/</code><br />
+  <strong>15 files · 109,000 rows</strong> (9 Excel + 6 CSV) · inventory in <code>MANIFEST.json</code> + <code>README.md</code>.
+</div>
+
+<div class="step">
+  <h3>7.0 What “Excel/CSV account” means</h3>
+  <p>
+    There is <strong>no</strong> cloud account. Files are generated on disk; you
+    <strong>upload</strong> them into Que Sources (Excel and/or CSV connectors).
+  </p>
+</div>
+
+<div class="step">
+  <h3>7.1 Commands — how we generated the pack</h3>
+<pre>cd D:\ADC\prosols\adc\schemagraph\api
+npm run fixtures:tester-excel
+# same as: node scripts/generateTesterExcelPack.js
+
+# Output
+# D:\ADC\prosols\adc\schemagraph\docs\tester-fixtures\excel\</pre>
+  <p>Optional zip to share:</p>
+<pre>Compress-Archive -Path D:\ADC\prosols\adc\schemagraph\docs\tester-fixtures\excel\* `
+  -DestinationPath D:\ADC\prosols\adc\schemagraph\docs\tester-fixtures\excel_pack_109k.zip -Force</pre>
+</div>
+
+<div class="step">
+  <h3>7.2 File inventory (dump outside PDF)</h3>
+  <table>
+    <tr><th>#</th><th>File</th><th>Rows</th><th>Cols</th><th>Type</th></tr>
+    <tr><td>1</td><td><code>01_campaigns.xlsx</code></td><td>8,000</td><td>6</td><td>Excel</td></tr>
+    <tr><td>2</td><td><code>02_leads.xlsx</code></td><td>10,000</td><td>7</td><td>Excel</td></tr>
+    <tr><td>3</td><td><code>03_accounts.xlsx</code></td><td>8,000</td><td>7</td><td>Excel</td></tr>
+    <tr><td>4</td><td><code>04_support_tickets.xlsx</code></td><td>12,000</td><td>10</td><td>Excel</td></tr>
+    <tr><td>5</td><td><code>05_web_events.xlsx</code></td><td>15,000</td><td>8</td><td>Excel</td></tr>
+    <tr><td>6</td><td><code>06_invoices.xlsx</code></td><td>7,000</td><td>9</td><td>Excel</td></tr>
+    <tr><td>7</td><td><code>07_products_catalog.xlsx</code></td><td>5,000</td><td>12</td><td>Excel</td></tr>
+    <tr><td>8</td><td><code>08_nps_responses.csv</code></td><td>6,000</td><td>5</td><td>CSV</td></tr>
+    <tr><td>9</td><td><code>09_marketing_touch.csv</code></td><td>10,000</td><td>6</td><td>CSV</td></tr>
+    <tr><td>10</td><td><code>10_refunds.csv</code></td><td>4,000</td><td>8</td><td>CSV</td></tr>
+    <tr><td>11</td><td><code>11_referrals.csv</code></td><td>5,000</td><td>4</td><td>CSV</td></tr>
+    <tr><td>12</td><td><code>12_subscriptions.xlsx</code></td><td>6,000</td><td>11</td><td>Excel</td></tr>
+    <tr><td>13</td><td><code>13_device_registry.csv</code></td><td>3,000</td><td>15</td><td>CSV</td></tr>
+    <tr><td>14</td><td><code>14_geo_ip_lookup.csv</code></td><td>2,000</td><td>3</td><td>CSV</td></tr>
+    <tr><td>15</td><td><code>15_order_shipments.xlsx</code></td><td>8,000</td><td>14</td><td>Excel</td></tr>
+    <tr><td colspan="2"><strong>TOTAL</strong></td><td><strong>109,000</strong></td><td>3–15</td><td>15 files</td></tr>
+  </table>
+  <p>Join keys: <code>email</code>, <code>owner_email</code>, <code>customer_id</code> (same domain as PG / Mongo).</p>
+</div>
+
+<div class="step">
+  <h3>7.3 Que connector — upload steps</h3>
+  <ol>
+    <li>Open folder <code>docs/tester-fixtures/excel/</code> in Explorer</li>
+    <li><strong>Excel batch:</strong> Sources → Add → <strong>Excel</strong> → name <code>excel_tester_pack</code>
+      → upload <code>01_*.xlsx</code> … <code>07_*.xlsx</code>, <code>12_*.xlsx</code>, <code>15_*.xlsx</code> → Save → Sync</li>
+    <li><strong>CSV batch:</strong> Sources → Add → <strong>CSV</strong> → name <code>csv_tester_pack</code>
+      → upload <code>08</code>–<code>11</code>, <code>13</code>, <code>14</code> → Save → Sync</li>
+    <li>Workspace → spreadsheet tables appear alongside PG / Mongo / Databricks</li>
+  </ol>
+  <div class="note">
+    Que stores uploads under <code>api/uploads/{workspaceId}/…</code> and introspects schema + capped samples —
+    it does not keep all 109k rows in the graph.
+  </div>
+</div>
+
+<table>
+  <tr><th class="check">#</th><th>Step</th><th>Expected</th><th>Result</th></tr>
+  <tr>
+    <td>7.1</td>
+    <td>Pack on disk (15 files / 109k rows)</td>
+    <td><code>MANIFEST.json</code> matches table above</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>7.2</td>
+    <td>Upload Excel pack + Sync</td>
+    <td>Sheets become tables</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>7.3</td>
+    <td>Upload CSV pack + Sync</td>
+    <td>CSV tables appear</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>7.4</td>
+    <td>Workspace shows file sources with DBs</td>
+    <td>Multi-source canvas</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+</table>
+
+<div class="fail">
+  <strong>If upload fails:</strong> API down · file too large for browser timeout (upload fewer files per batch) ·
+  wrong type (put CSV on CSV connector, XLSX on Excel) · disk full under <code>api/uploads</code>.
+</div>
+
+<!-- 8 -->
+<div class="page-break"></div>
+<h2 id="s8">8. Step 6 — Workspace alignment &amp; joins (HITL)</h2>
+<p><span class="badge badge-done">Do this after all connectors sync</span></p>
+
+<div class="ok">
+  Goal: see tables from <strong>Postgres + Mongo + Databricks + Excel/CSV</strong> on one canvas,
+  review suggested joins on shared keys (<code>email</code>, <code>customer_id</code> / <code>pg_customer_id</code>),
+  then <strong>Promote</strong> good joins and <strong>Reject</strong> noise. Que never auto-accepts joins.
+</div>
+
+<div class="step">
+  <h3>8.1 Preconditions</h3>
+  <ul>
+    <li>All Step 2–5 connectors created and <strong>Synced</strong></li>
+    <li>You are signed in as workspace <strong>owner</strong></li>
+    <li>UI <code>http://localhost:5174</code> · API <code>:8787</code> healthy</li>
+  </ul>
+</div>
+
+<div class="step">
+  <h3>8.2 Open Workspace &amp; check alignment</h3>
+  <ol>
+    <li>Nav → <strong>Workspace</strong></li>
+    <li>Confirm table nodes from multiple sources (PG <code>customers</code>/<code>orders</code>, Mongo <code>events</code>/<code>profiles</code>,
+      DBX <code>dim_customer</code>/<code>fact_orders</code>, Excel/CSV sheets)</li>
+    <li>Drag tables to arrange; reload page — layout should persist</li>
+    <li>Optional: run stitch / join-inference from UI if a “Suggest joins” / Stitch session control is shown</li>
+  </ol>
+  <div class="note">
+    Expected join signals: same emails (<code>ada@example.com</code>, <code>user{N}@example.com</code>) and
+    <code>customer_id</code> / <code>pg_customer_id</code> across PG ↔ Mongo ↔ Excel ↔ Databricks samples.
+  </div>
+</div>
+
+<div class="step">
+  <h3>8.3 HITL — Promote &amp; Reject</h3>
+  <ol>
+    <li>Click a <strong>suggested</strong> relationship edge (dashed / “suggested” styling)</li>
+    <li>Read the evidence (column names, samples)</li>
+    <li>Click <strong>Promote</strong> on at least one good cross-source join (e.g. PG <code>customers.email</code> ↔ Mongo <code>profiles.email</code>)</li>
+    <li>Click <strong>Reject</strong> on at least one weak/noise suggestion</li>
+    <li>Confirm promoted edges look “accepted / explicit”; rejected ones no longer drive export</li>
+  </ol>
+</div>
+
+<table>
+  <tr><th class="check">#</th><th>Step</th><th>Expected</th><th>Result</th></tr>
+  <tr>
+    <td>8.1</td>
+    <td>Workspace shows multi-source tables</td>
+    <td>PG + Mongo + DBX + files visible</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>8.2</td>
+    <td>Suggested joins appear on shared keys</td>
+    <td>At least some suggested edges</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>8.3</td>
+    <td>Promote ≥1 join</td>
+    <td>Status accepted; evidence retained</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>8.4</td>
+    <td>Reject ≥1 join</td>
+    <td>Rejected; not used for export</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>8.5</td>
+    <td>Reload Workspace</td>
+    <td>Layout + review decisions persist</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+</table>
+
+<div class="fail">
+  <strong>If no suggestions:</strong> re-Sync sources · confirm shared emails exist · try Stitch session
+  selecting two sources · check Settings that join inference is enabled.
+</div>
+
+<!-- 9 -->
+<div class="page-break"></div>
+<h2 id="s9">9. Step 7 — OpenAI key (BYOK)</h2>
+<p><span class="badge badge-done">After Workspace joins</span></p>
+
+<div class="ok">
+  Bring Your Own Key — paste an OpenAI API key into <strong>Settings</strong>. Que stores it encrypted
+  as a workspace secret (UI shows masked). Never commit keys to git.
+</div>
+
+<div class="step">
+  <h3>9.1 Where to get the key</h3>
+  <ol>
+    <li>Open <a href="https://platform.openai.com/api-keys">https://platform.openai.com/api-keys</a></li>
+    <li>Create a secret key · copy once (starts with <code>sk-</code>)</li>
+  </ol>
+</div>
+
+<div class="step">
+  <h3>9.2 Save in Que</h3>
+  <ol>
+    <li>Nav → <strong>Settings</strong></li>
+    <li>Expand policy / BYOK / AI section if collapsed (“Show policy, BYOK &amp; AI settings”)</li>
+    <li>Find <strong>BYOK_LLM_KEYS</strong> / OpenAI API key field</li>
+    <li>Paste key → Save / Update</li>
+    <li>Confirm status shows OpenAI configured (workspace BYOK) — value masked as dots</li>
+    <li>Optional: enable <strong>Prefer LLM chat</strong> if shown</li>
+  </ol>
+</div>
+
+<div class="step">
+  <h3>9.3 Verify</h3>
+<pre># Optional API check (with your session cookie / token)
+# GET http://localhost:8787/workspaces/{workspaceId}/ai/status
+# Expect openai configured / not heuristic-only</pre>
+  <p>Or open <strong>Chat</strong> — composer / status should indicate LLM available (not only offline skills).</p>
+</div>
+
+<table>
+  <tr><th class="check">#</th><th>Step</th><th>Expected</th><th>Result</th></tr>
+  <tr>
+    <td>9.1</td>
+    <td>Paste OpenAI key in Settings → save</td>
+    <td>Saved; masked; toast success</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>9.2</td>
+    <td>AI / Chat acknowledges LLM</td>
+    <td>Not “heuristic only”</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>9.3</td>
+    <td>Key not visible in plaintext in UI after save</td>
+    <td>Dots / hint only</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+</table>
+
+<div class="warn">
+  Do not paste keys into the PDF, screenshots, or git. If a key leaks, revoke it in OpenAI and create a new one.
+</div>
+
+<!-- 10 -->
+<div class="page-break"></div>
+<h2 id="s10">10. Step 8 — AI Chat → Jobs → Deploy</h2>
+<p><span class="badge badge-done">Final product path</span></p>
+
+<div class="ok">
+  Wedge path: Chat (schema-only) → draft job → notebook → Run Test / Validate → Mark Ready → Deploy / attested export.
+  Joins you <strong>Promoted</strong> in Step 6 should be preferred; AI still does not auto-accept joins.
+</div>
+
+<div class="step">
+  <h3>10.1 Chat smoke</h3>
+  <ol>
+    <li>Nav → <strong>Chat</strong></li>
+    <li>Try: <code>list tables</code></li>
+    <li>Try: <code>describe customers</code> (or <code>@customers</code> mention)</li>
+    <li>Try: ask how to join Postgres customers to Mongo events / Excel leads on email</li>
+    <li>Confirm answers cite schema — not full warehouse dumps</li>
+  </ol>
+</div>
+
+<div class="step">
+  <h3>10.2 Draft a job from Chat</h3>
+  <ol>
+    <li>Ask Chat to <strong>draft a job</strong> stitching two sources (e.g. PG customers → Mongo events or Excel leads)</li>
+    <li>Save / open the draft when offered</li>
+    <li>Nav → <strong>Jobs</strong> · confirm the job appears in the list</li>
+  </ol>
+</div>
+
+<div class="step">
+  <h3>10.3 Jobs notebook · Results · Deploy</h3>
+  <ol>
+    <li>Open the job → tab <strong>Notebook</strong></li>
+    <li>Edit SQL / markdown cells if needed · Commit / save changes</li>
+    <li>Click <strong>Run Test</strong> (dry-run) — Process/Output populate; no warehouse write</li>
+    <li>Optional: run mode <strong>Validate · ≤20</strong> against live PG (capped rows only)</li>
+    <li>Open tab <strong>Results</strong> — preview samples from last run</li>
+    <li>Mark job <strong>Ready</strong> when satisfied</li>
+    <li>Open tab <strong>Deploy</strong> — review governance · export JSON / SQL / dbt (or dbt PR if GitHub configured)</li>
+    <li>Confirm attestation / signature present on export, or a clear block reason (e.g. unreviewed joins, drift)</li>
+  </ol>
+  <div class="note">
+    Job URL shape: <code>/jobs?job={id}&amp;tab=notebook|results|deploy</code>
+  </div>
+</div>
+
+<table>
+  <tr><th class="check">#</th><th>Step</th><th>Expected</th><th>Result</th></tr>
+  <tr>
+    <td>10.1</td>
+    <td>Chat list / describe tables</td>
+    <td>Schema-only answer + citations</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>10.2</td>
+    <td>Draft cross-source job from Chat</td>
+    <td>Job opens in Jobs list</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>10.3</td>
+    <td>Run Test (dry-run)</td>
+    <td>Preview/output; no write</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+  <tr>
+    <td>10.4</td>
+    <td>Validate ≤20 (optional)</td>
+    <td>Capped live rows only</td>
+    <td>☐ PASS ☐ FAIL ☐ SKIP</td>
+  </tr>
+  <tr>
+    <td>10.5</td>
+    <td>Mark Ready → Deploy / export</td>
+    <td>Attested artifact or clear block</td>
+    <td>☐ PASS ☐ FAIL</td>
+  </tr>
+</table>
+
+<div class="fail">
+  <strong>Common blocks:</strong> export blocked until joins Promoted · open column drift · viewer role lacks write ·
+  LLM key missing (Chat falls back to heuristics) · live Validate needs PG/DBX credentials.
+</div>
+
+<!-- 11 -->
+<div class="page-break"></div>
+<h2 id="s11">11. Sign-off</h2>
+<table>
+  <tr><th>Role</th><th>Name</th><th>Sign</th><th>Date</th></tr>
+  <tr><td>Tester</td><td></td><td></td><td></td></tr>
+  <tr><td>Eng helper</td><td></td><td></td><td></td></tr>
+  <tr><td>Ready for deeper POC? (Y/N)</td><td colspan="3"></td></tr>
+</table>
+
+<p><strong>Issues found</strong></p>
+<ol>
+  <li>_______________________________________________</li>
+  <li>_______________________________________________</li>
+  <li>_______________________________________________</li>
+</ol>
+
+<p class="footer-note">
+  Related docs: <code>Que-Local-Setup-Guide.pdf</code> · <code>MANUAL_TEST_PLAN.md</code> ·
+  <code>Que-Feature-Guide.pdf</code>. This walkthrough is versioned as HTML + PDF under
+  <code>adc/schemagraph/docs/</code> and updated as each connector step is executed.
+</p>
+
+</body>
+</html>

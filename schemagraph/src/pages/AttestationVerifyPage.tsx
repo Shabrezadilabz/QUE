@@ -73,7 +73,7 @@ export function AttestationVerifyPage() {
 
         <form
           onSubmit={(e) => void onVerify(e)}
-          className="rounded-xl border border-[#c9b8a8]/60 bg-white/90 p-md shadow-sm sm:p-lg"
+          className="rounded-xl border border-[#c9b8a8]/60 bg-surface-container-low/90 p-md sm:p-lg"
         >
           <label className="block">
             <span className="font-label text-[11px] font-semibold tracking-[0.12em] text-on-surface-variant uppercase">
@@ -85,14 +85,14 @@ export function AttestationVerifyPage() {
               rows={14}
               spellCheck={false}
               placeholder='{ "version": 2, "policy": "schema-only", "signature": { ... }, ... }'
-              className="mt-sm w-full resize-y rounded-lg border border-outline-variant/40 bg-[#FBF8F4] px-sm py-sm font-mono text-[12px] text-on-surface outline-none focus:border-primary"
+              className="mt-sm w-full resize-y rounded-lg border border-outline-variant/40 bg-surface-container px-sm py-sm font-mono text-[12px] text-on-surface outline-none focus:border-secondary"
             />
           </label>
           <div className="mt-md flex flex-wrap items-center gap-sm">
             <button
               type="submit"
               disabled={busy}
-              className="rounded-lg bg-primary px-md py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+              className="rounded bg-secondary px-md py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
             >
               {busy ? 'Verifying…' : 'Verify signature'}
             </button>
@@ -103,7 +103,7 @@ export function AttestationVerifyPage() {
                 setResult(null)
                 setError(null)
               }}
-              className="rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-primary"
+              className="rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-secondary"
             >
               Clear
             </button>
@@ -174,11 +174,11 @@ export function AttestationVerifyPage() {
 
         <p className="mt-lg font-body text-[12px] text-on-surface-variant">
           Workspace members can download verify packs from{' '}
-          <Link to="/settings" className="text-primary underline">
+          <Link to="/settings" className="text-secondary underline">
             Settings
           </Link>{' '}
           after an attested export. Need an account?{' '}
-          <Link to="/login" className="text-primary underline">
+          <Link to="/login" className="text-secondary underline">
             Sign in
           </Link>
           .

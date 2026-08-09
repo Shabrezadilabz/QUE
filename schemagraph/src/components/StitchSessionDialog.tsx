@@ -221,7 +221,7 @@ export function StitchSessionDialog({
             type="button"
             disabled={busy || !connA || !connB}
             onClick={() => void runInfer()}
-            className="bg-primary-container px-md py-sm font-label text-[10px] font-bold tracking-widest text-on-primary-fixed disabled:opacity-40"
+            className="rounded bg-secondary px-md py-sm font-label text-[10px] font-bold tracking-widest text-on-secondary disabled:opacity-40"
           >
             {busy && !result ? 'RUNNING…' : '1 · INFER JOINS'}
           </button>
@@ -319,7 +319,7 @@ export function StitchSessionDialog({
               type="button"
               disabled={busy || result.acceptedBetween === 0}
               onClick={() => void shipDbtPr()}
-              className="w-full bg-primary-container px-md py-sm font-label text-[10px] font-bold tracking-widest text-on-primary-fixed disabled:opacity-40"
+              className="w-full rounded bg-secondary px-md py-sm font-label text-[10px] font-bold tracking-widest text-on-secondary disabled:opacity-40"
               title={
                 result.acceptedBetween === 0
                   ? 'Promote at least one join first'

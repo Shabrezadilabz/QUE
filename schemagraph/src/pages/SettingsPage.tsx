@@ -376,7 +376,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                   }
                   setInviteOpen(true)
                 }}
-                className="inline-flex items-center justify-center gap-sm rounded-lg bg-primary px-lg py-sm font-label text-[12px] font-medium text-on-primary transition-all hover:shadow-md active:scale-95 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-sm rounded bg-secondary px-lg py-sm font-label text-[12px] font-medium text-on-secondary transition-all hover:shadow-md active:scale-95 disabled:opacity-40"
               >
                 <span aria-hidden>+</span>
                 Invite Member
@@ -390,7 +390,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
               </p>
             ) : null}
             {toast ? (
-              <p className="mb-md rounded-xl border border-primary/20 bg-[#ffdbd2]/50 px-md py-sm font-label text-[12px] text-primary">
+              <p className="mb-md rounded-xl border border-secondary/25 bg-secondary/15 px-md py-sm font-label text-[12px] text-secondary">
                 {toast}
                 <button
                   type="button"
@@ -411,7 +411,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                 {section === 'members' ? (
                 <div className="grid grid-cols-12 gap-lg">
                   {/* Member Registry */}
-                  <section className="col-span-12 rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+                  <section className="col-span-12 rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
                     <div className="mb-md flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h2 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -484,7 +484,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                                     <p className="font-medium">
                                       {m.name}
                                       {m.you ? (
-                                        <span className="ml-xs font-label text-[11px] text-primary">
+                                        <span className="ml-xs font-label text-[11px] text-secondary">
                                           (you)
                                         </span>
                                       ) : null}
@@ -682,14 +682,14 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                     <SessionsSecurityPanel />
                   </div>
                   <div className="col-span-12 flex flex-col gap-lg lg:col-span-6">
-                    <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+                    <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
                       <div className="mb-md flex items-center justify-between">
                         <h3 className="font-headline text-base font-semibold text-on-surface-variant">
                           API Keys
                         </h3>
                         <button
                           type="button"
-                          className="font-label text-[12px] text-primary hover:underline"
+                          className="font-label text-[12px] text-secondary hover:underline"
                           onClick={() => navigate('/settings/ai-policy')}
                         >
                           Manage in AI & Policy
@@ -718,7 +718,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                           type="button"
                           disabled={!canAdmin}
                           onClick={() => navigate('/settings/ai-policy')}
-                          className="mt-sm w-full rounded-lg border border-primary py-2 font-label text-[12px] text-primary transition-colors hover:bg-primary/5 disabled:opacity-40"
+                          className="mt-sm w-full rounded-lg border border-secondary py-2 font-label text-[12px] text-secondary transition-colors hover:bg-secondary/5 disabled:opacity-40"
                         >
                           Configure BYOK keys
                         </button>
@@ -726,14 +726,14 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                     </section>
                   </div>
                   <div className="col-span-12 flex flex-col gap-lg lg:col-span-6">
-                    <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+                    <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
                       <div className="mb-md flex items-center justify-between">
                         <h3 className="font-headline text-base font-semibold text-on-surface-variant">
                           Environment Variables
                         </h3>
                         <button
                           type="button"
-                          className="font-label text-[13px] text-on-surface-variant hover:text-primary"
+                          className="font-label text-[13px] text-on-surface-variant hover:text-secondary"
                           onClick={() => navigate('/settings/ai-policy')}
                           aria-label="Edit environment"
                         >
@@ -845,7 +845,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                               : d,
                           )
                         }
-                        className="w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-2 font-body text-[13px]"
+                        className="w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-2 font-body text-[13px]"
                       >
                         <option value="member">member+</option>
                         <option value="admin">admin+</option>
@@ -870,7 +870,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                               : d,
                           )
                         }
-                        className="w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-2 font-body text-[13px]"
+                        className="w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-2 font-body text-[13px]"
                       >
                         <option value="member">member+</option>
                         <option value="admin">admin+</option>
@@ -882,7 +882,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                         type="button"
                         disabled={!dirty || busy}
                         onClick={() => void save()}
-                        className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                        className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
                       >
                         Save role gates
                       </button>
@@ -951,7 +951,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                           type="button"
                           disabled={!dirty || busy}
                           onClick={() => void save()}
-                          className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                          className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
                         >
                           Save notify settings
                         </button>
@@ -998,7 +998,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                   </Section>
                   <p className="font-body text-[12px] text-on-surface-variant">
                     Domains live at{' '}
-                    <Link to="/domains" className="text-primary hover:underline">
+                    <Link to="/domains" className="text-secondary hover:underline">
                       /domains
                     </Link>
                     . Job templates are on the Jobs page.
@@ -1055,7 +1055,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
           </main>
 
           {(section === 'billing' || section === 'members') && isDev ? (
-          <div className="absolute right-0 bottom-0 left-0 z-40 border-t border-outline-variant/20 bg-background/95 p-lg shadow-lg backdrop-blur-md md:px-lg lg:px-margin-desktop">
+          <div className="absolute right-0 bottom-0 left-0 z-40 border-t border-outline-variant/20 bg-background/95 p-lg md:px-lg lg:px-margin-desktop">
             <div className="flex flex-col justify-between gap-lg md:flex-row md:items-center">
               <div className="min-w-0 flex-1">
                 <div className="mb-xs flex items-center justify-between gap-sm">
@@ -1077,7 +1077,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                 </div>
                 <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary-container">
                   <div
-                    className="h-full rounded-full bg-primary-container transition-all duration-1000 ease-out"
+                    className="h-full rounded-full bg-secondary transition-all duration-1000 ease-out"
                     style={{ width: `${usagePct}%` }}
                   />
                 </div>
@@ -1118,7 +1118,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                className="w-full border border-outline-variant px-md py-sm font-body text-[13px] outline-none focus:border-primary"
+                className="w-full border border-outline-variant px-md py-sm font-body text-[13px] outline-none focus:border-secondary"
                 required
               />
             </label>
@@ -1152,7 +1152,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
               <button
                 type="button"
                 disabled={inviteBusy || !inviteEmail.trim()}
-                className="rounded-lg bg-primary px-md py-sm font-label text-[12px] text-on-primary disabled:opacity-40"
+                className="rounded bg-secondary px-md py-sm font-label text-[12px] text-on-secondary disabled:opacity-40"
                 onClick={() => {
                   void (async () => {
                     setInviteBusy(true)
@@ -1213,7 +1213,7 @@ function SessionsSecurityPanel() {
   }, [])
 
   return (
-    <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
         <div>
           <h3 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -1239,7 +1239,7 @@ function SessionsSecurityPanel() {
               }
             })()
           }}
-          className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] hover:border-primary"
+          className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] hover:border-secondary"
         >
           Revoke other sessions
         </button>
@@ -1256,7 +1256,7 @@ function SessionsSecurityPanel() {
             <span>
               {new Date(s.createdAt).toLocaleString()}
               {s.current ? (
-                <span className="ml-sm font-label text-[10px] text-primary uppercase">
+                <span className="ml-sm font-label text-[10px] text-secondary uppercase">
                   current
                 </span>
               ) : null}
@@ -1321,7 +1321,7 @@ function SsoStatusPanel() {
   }, [])
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <div className="mb-md">
         <h2 className="font-headline text-base font-semibold text-on-surface-variant">
           SSO
@@ -1369,7 +1369,7 @@ function SsoStatusPanel() {
 function UsageCountersPanel({ usage }: { usage: WorkspaceUsage | null }) {
   if (!usage) {
     return (
-      <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+      <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
         <h2 className="font-headline text-base font-semibold text-on-surface-variant">
           Usage
         </h2>
@@ -1417,7 +1417,7 @@ function UsageCountersPanel({ usage }: { usage: WorkspaceUsage | null }) {
     ]
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <div className="mb-md flex flex-wrap items-start justify-between gap-sm">
         <div>
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -1425,7 +1425,7 @@ function UsageCountersPanel({ usage }: { usage: WorkspaceUsage | null }) {
           </h2>
           <p className="mt-xs font-body text-[12px] text-on-surface-variant">
             Wave 1.5 — billing precursor. Plan{' '}
-            <span className="font-label text-primary">{usage.plan.name}</span>{' '}
+            <span className="font-label text-secondary">{usage.plan.name}</span>{' '}
             uses soft limits (not enforced yet).
           </p>
         </div>
@@ -1470,7 +1470,7 @@ function UsageCountersPanel({ usage }: { usage: WorkspaceUsage | null }) {
         ))}
       </ul>
       {usage.nearLimit.length ? (
-        <p className="mt-md border border-primary/20 bg-primary/5 px-md py-sm font-body text-[12px] text-on-surface">
+        <p className="mt-md border border-secondary/25 bg-secondary/5 px-md py-sm font-body text-[12px] text-on-surface">
           Near soft limit: {usage.nearLimit.join(', ')}. Contact Que before
           enforcing hard caps in production billing.
         </p>
@@ -1506,7 +1506,7 @@ function DriftAlertsPanel({ canAdmin }: { canAdmin: boolean }) {
   }, [])
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
         <div>
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -1522,7 +1522,7 @@ function DriftAlertsPanel({ canAdmin }: { canAdmin: boolean }) {
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary disabled:opacity-40"
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary disabled:opacity-40"
           >
             {loading ? 'Refreshing…' : 'Refresh'}
           </button>
@@ -1547,7 +1547,7 @@ function DriftAlertsPanel({ canAdmin }: { canAdmin: boolean }) {
                   }
                 })()
               }}
-              className="rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+              className="rounded-lg border border-secondary px-md py-1.5 font-label text-[12px] font-semibold text-secondary disabled:opacity-40"
             >
               Send test alert
             </button>
@@ -1558,7 +1558,7 @@ function DriftAlertsPanel({ canAdmin }: { canAdmin: boolean }) {
         <p className="mb-sm font-body text-[12px] text-error">{err}</p>
       ) : null}
       {toast ? (
-        <p className="mb-sm font-body text-[12px] text-primary">
+        <p className="mb-sm font-body text-[12px] text-secondary">
           {toast}{' '}
           <button type="button" className="underline" onClick={() => setToast(null)}>
             dismiss
@@ -1584,7 +1584,7 @@ function DriftAlertsPanel({ canAdmin }: { canAdmin: boolean }) {
           {events.slice(0, 12).map((e) => (
             <li
               key={e.id}
-              className="rounded-lg border border-outline-variant/20 bg-[#FBF8F4] px-md py-sm"
+              className="rounded-lg border border-outline-variant/20 bg-surface-container px-md py-sm"
             >
               <div className="flex flex-wrap items-start justify-between gap-sm">
                 <div className="min-w-0">
@@ -1642,7 +1642,7 @@ function DriftAlertsPanel({ canAdmin }: { canAdmin: boolean }) {
                     <button
                       type="button"
                       disabled={busyId === `n-${e.id}`}
-                      className="rounded-md border border-primary/40 px-sm py-1 font-label text-[11px] text-primary"
+                      className="rounded-md border border-secondary/40 px-sm py-1 font-label text-[11px] text-secondary"
                       onClick={() => {
                         void (async () => {
                           setBusyId(`n-${e.id}`)
@@ -1702,7 +1702,7 @@ function AuditLogPanel({ workspaceId }: { workspaceId: string | null }) {
   }, [workspaceId])
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
         <div>
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -1730,7 +1730,7 @@ function AuditLogPanel({ workspaceId }: { workspaceId: string | null }) {
                 }
               })()
             }}
-            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary"
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary hover:text-secondary"
           >
             Export CSV
           </button>
@@ -1738,7 +1738,7 @@ function AuditLogPanel({ workspaceId }: { workspaceId: string | null }) {
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary hover:text-secondary disabled:opacity-40"
           >
             {loading ? 'Refreshing…' : 'Refresh'}
           </button>
@@ -1780,7 +1780,7 @@ function AuditLogPanel({ workspaceId }: { workspaceId: string | null }) {
                   <td className="whitespace-nowrap px-sm py-sm text-on-surface-variant">
                     {new Date(e.createdAt).toLocaleString()}
                   </td>
-                  <td className="px-sm py-sm font-label text-[11px] text-primary">
+                  <td className="px-sm py-sm font-label text-[11px] text-secondary">
                     {e.action}
                   </td>
                   <td className="px-sm py-sm text-on-surface-variant">
@@ -1800,14 +1800,14 @@ function AuditLogPanel({ workspaceId }: { workspaceId: string | null }) {
 function RoleBadge({ role }: { role: MemberRow['role'] }) {
   if (role === 'owner') {
     return (
-      <span className="rounded-full bg-primary-container/15 px-2 py-0.5 font-label text-[12px] text-primary">
+      <span className="rounded-full bg-secondary/15 px-2 py-0.5 font-label text-[12px] text-secondary">
         Owner
       </span>
     )
   }
   if (role === 'admin') {
     return (
-      <span className="rounded-full bg-primary-container/10 px-2 py-0.5 font-label text-[12px] text-primary">
+      <span className="rounded-full bg-secondary/10 px-2 py-0.5 font-label text-[12px] text-secondary">
         Admin
       </span>
     )
@@ -1835,7 +1835,7 @@ function KeyRow({ name, hint }: { name: string; hint: string }) {
       </div>
       <button
         type="button"
-        className="font-label text-[11px] text-on-surface-variant hover:text-primary"
+        className="font-label text-[11px] text-on-surface-variant hover:text-secondary"
         onClick={() => void navigator.clipboard.writeText(hint)}
         title="Copy hint"
       >
@@ -1848,7 +1848,7 @@ function KeyRow({ name, hint }: { name: string; hint: string }) {
 function EnvRow({ keyName, value }: { keyName: string; value: string }) {
   return (
     <div className="flex items-center justify-between border-b border-outline-variant/5 py-xs last:border-0">
-      <span className="rounded bg-primary-container/10 px-xs font-label text-[12px] text-primary">
+      <span className="rounded bg-secondary/10 px-xs font-label text-[12px] text-secondary">
         {keyName}
       </span>
       <span className="max-w-[55%] truncate text-xs text-on-surface-variant">
@@ -2267,7 +2267,7 @@ function PolicyAndAiBlocks({
           )
           .finally(() => setInferring(false))
       }}
-      className="border border-outline-variant bg-surface-container px-md py-sm font-label text-[11px] font-bold tracking-[0.14em] text-primary-fixed uppercase transition-colors hover:border-primary-fixed disabled:opacity-40"
+      className="border border-outline-variant bg-surface-container px-md py-sm font-label text-[11px] font-bold tracking-[0.14em] text-secondary uppercase transition-colors hover:border-secondary-fixed disabled:opacity-40"
     >
       {inferring ? 'RUNNING…' : 'RE-RUN JOIN INFERENCE'}
     </button>
@@ -2344,7 +2344,7 @@ function PolicyAndAiBlocks({
             d ? { ...d, aiModelId: e.target.value } : d,
           )
         }
-        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed disabled:opacity-40"
+        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-secondary disabled:opacity-40"
       >
         {(data.capabilities.ai?.models?.length
           ? data.capabilities.ai.models
@@ -2381,7 +2381,7 @@ function PolicyAndAiBlocks({
               : d,
           )
         }
-        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed disabled:opacity-40"
+        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-secondary disabled:opacity-40"
       />
     </label>
   </div>
@@ -2435,7 +2435,7 @@ function PolicyAndAiBlocks({
         type="button"
         disabled={!dirty || busy}
         onClick={() => void save()}
-        className="bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary-fixed disabled:opacity-40"
+        className="bg-secondary px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-secondary-fixed disabled:opacity-40"
       >
         SAVE
       </button>
@@ -2551,7 +2551,7 @@ function PolicyAndAiBlocks({
           key={k}
           className={`border px-sm py-xs font-label text-[9px] tracking-wider ${
             v
-              ? 'border-primary-fixed/40 text-primary-fixed'
+              ? 'border-secondary/40 text-secondary'
               : 'border-outline-variant text-on-surface-variant/50'
           }`}
         >
@@ -2579,7 +2579,7 @@ function PolicyAndAiBlocks({
             )
             .finally(() => setReindexing(false))
         }}
-        className="bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary-fixed disabled:opacity-40"
+        className="bg-secondary px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-secondary-fixed disabled:opacity-40"
       >
         {reindexing ? 'REINDEXING…' : 'REINDEX SCHEMA + DOCS'}
       </button>
@@ -2593,7 +2593,7 @@ function PolicyAndAiBlocks({
   <p className="mb-md font-body text-[12px] text-on-surface-variant">
     Optional defaults for Jobs → dbt / GitHub PR export. Prefer a{' '}
     <strong>workspace GitHub token</strong> (below); falls back to API env{' '}
-    <code className="text-primary-fixed">GITHUB_TOKEN</code>. JSON/SQL
+    <code className="text-secondary">GITHUB_TOKEN</code>. JSON/SQL
     exports are unchanged.
   </p>
   {!canAdmin ? (
@@ -2668,7 +2668,7 @@ function PolicyAndAiBlocks({
             : d,
         )
       }
-      className="w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-2 font-body text-[13px]"
+      className="w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-2 font-body text-[13px]"
     >
       <option value="member">member+</option>
       <option value="admin">admin+</option>
@@ -2691,7 +2691,7 @@ function PolicyAndAiBlocks({
         Workspace GitHub token (preferred over env)
         <input
           type="password"
-          className="mt-1 w-full rounded-lg border border-outline-variant/30 bg-white px-sm py-2 font-body text-[13px]"
+          className="mt-1 w-full rounded-lg border border-outline-variant/30 bg-surface-container-low px-sm py-2 font-body text-[13px]"
           placeholder="ghp_… leave blank to keep"
           id="que-github-token"
         />
@@ -2718,7 +2718,7 @@ function PolicyAndAiBlocks({
         type="button"
         disabled={!dirty || busy}
         onClick={() => void save()}
-        className="bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary-fixed disabled:opacity-40"
+        className="bg-secondary px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-secondary-fixed disabled:opacity-40"
       >
         SAVE
       </button>
@@ -2744,7 +2744,7 @@ function PolicyAndAiBlocks({
     {data.latestSnapshot ? (
       <p className="font-body text-[12px] text-on-surface-variant">
         Latest snapshot:{' '}
-        <span className="text-primary-fixed">
+        <span className="text-secondary">
           {data.latestSnapshot.label}
         </span>{' '}
         (
@@ -2772,19 +2772,19 @@ function PolicyAndAiBlocks({
   <div className="mt-md flex flex-wrap gap-sm">
     <Link
       to="/workspace"
-      className="border border-primary-fixed px-md py-sm font-label text-[11px] font-bold tracking-widest text-primary-fixed"
+      className="border border-secondary px-md py-sm font-label text-[11px] font-bold tracking-widest text-secondary"
     >
       WORKSPACE
     </Link>
     <Link
       to="/sources"
-      className="border border-outline-variant px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-surface-variant hover:border-primary-fixed"
+      className="border border-outline-variant px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-surface-variant hover:border-secondary-fixed"
     >
       SOURCES
     </Link>
     <Link
       to="/chat"
-      className="border border-outline-variant px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-surface-variant hover:border-primary-fixed"
+      className="border border-outline-variant px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-surface-variant hover:border-secondary-fixed"
     >
       AI CHAT
     </Link>
@@ -2804,9 +2804,9 @@ function Section({
   children: ReactNode
 }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-outline-variant/30 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container-low">
       <div className="flex items-center justify-between border-b border-outline-variant/20 bg-surface-container-low px-md py-sm">
-        <span className="font-label text-[11px] font-bold tracking-widest text-primary uppercase">
+        <span className="font-label text-[11px] font-bold tracking-widest text-secondary uppercase">
           {title}
         </span>
         {meta ? (
@@ -2833,11 +2833,11 @@ function Info({ label, value }: { label: string; value: string }) {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-outline-variant/30 bg-white p-sm shadow-sm">
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-sm">
       <p className="font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
         {label}
       </p>
-      <p className="font-headline text-base font-semibold text-primary">{value}</p>
+      <p className="font-headline text-base font-semibold text-secondary">{value}</p>
     </div>
   )
 }
@@ -2877,7 +2877,7 @@ function Toggle({
         className={[
           'mt-1 h-6 w-11 shrink-0 rounded-full border transition-colors disabled:opacity-50',
           checked
-            ? 'border-primary bg-primary-container'
+            ? 'border-secondary bg-secondary'
             : 'border-outline-variant bg-surface-container',
         ].join(' ')}
       >
@@ -2885,7 +2885,7 @@ function Toggle({
           className={[
             'mt-0.5 block h-4 w-4 rounded-full transition-transform',
             checked
-              ? 'translate-x-6 bg-white'
+              ? 'translate-x-6 bg-surface-container-low'
               : 'translate-x-0.5 bg-on-surface-variant',
           ].join(' ')}
         />
@@ -2918,7 +2918,7 @@ function Field({
         disabled={disabled}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-xs font-body text-[12px] text-on-surface outline-none focus:border-primary-fixed disabled:opacity-50"
+        className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-xs font-body text-[12px] text-on-surface outline-none focus:border-secondary disabled:opacity-50"
       />
     </label>
   )
@@ -2949,7 +2949,7 @@ function SecretKeyField({
         <span className="font-label text-[11px] tracking-widest text-on-surface-variant">
           {label}
         </span>
-        <span className="font-label text-[9px] tracking-wider text-primary">
+        <span className="font-label text-[9px] tracking-wider text-secondary">
           {source === 'workspace'
             ? 'WORKSPACE'
             : source === 'env'
@@ -2974,14 +2974,14 @@ function SecretKeyField({
         disabled={disabled}
         placeholder="Paste key to replace…"
         onChange={(e) => onChange(e.target.value)}
-        className="mt-sm w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-xs font-body text-[12px] text-on-surface outline-none focus:border-primary disabled:opacity-50"
+        className="mt-sm w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-xs font-body text-[12px] text-on-surface outline-none focus:border-secondary disabled:opacity-50"
       />
       <div className="mt-sm flex flex-wrap gap-sm">
         <button
           type="button"
           disabled={disabled || !value.trim()}
           onClick={onSave}
-          className="rounded-lg bg-primary-container px-sm py-xs font-label text-[11px] font-bold tracking-widest text-on-primary disabled:opacity-40"
+          className="rounded-lg bg-secondary px-sm py-xs font-label text-[11px] font-bold tracking-widest text-on-secondary disabled:opacity-40"
         >
           SAVE KEY
         </button>
@@ -3000,7 +3000,7 @@ function SecretKeyField({
 
 function Flag({ on }: { on: boolean }) {
   return (
-    <span className={on ? 'text-primary-fixed' : 'text-on-surface-variant'}>
+    <span className={on ? 'text-secondary' : 'text-on-surface-variant'}>
       {on ? 'configured' : 'not set'}
     </span>
   )

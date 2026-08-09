@@ -697,7 +697,7 @@ export function ChatPage() {
           <WarehouseRunsStrip />
           <div className="mb-md flex shrink-0 items-end justify-between gap-md">
             <div>
-              <h1 className="font-headline text-xl font-semibold text-primary sm:text-xl">
+              <h1 className="font-headline text-xl font-semibold text-secondary sm:text-xl">
                 Model Assistant
               </h1>
               <p className="font-body text-xs text-on-surface-variant">
@@ -708,14 +708,14 @@ export function ChatPage() {
             <div className="hidden flex-wrap items-center justify-end gap-sm sm:flex">
               <button
                 type="button"
-                className="flex items-center gap-xs rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white"
+                className="flex items-center gap-xs rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
                 onClick={() => setShowSkills((v) => !v)}
               >
                 Skills
               </button>
               <button
                 type="button"
-                className="flex items-center gap-xs rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white disabled:opacity-40"
+                className="flex items-center gap-xs rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest disabled:opacity-40"
                 disabled={!canWrite || reindexing}
                 onClick={() => {
                   if (reindexing) return
@@ -736,7 +736,7 @@ export function ChatPage() {
               ) : null}
               <button
                 type="button"
-                className="rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white"
+                className="rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
                 onClick={() => {
                   setMessages([])
                   setFocusTables([])
@@ -749,7 +749,7 @@ export function ChatPage() {
           </div>
 
           {showSkills ? (
-            <div className="mb-md shrink-0 rounded-xl border border-outline-variant/30 bg-white/70 p-md">
+            <div className="mb-md shrink-0 rounded-xl border border-outline-variant/30 bg-surface-container-low/70 p-md">
               <p className="mb-sm font-label text-[11px] text-on-surface-variant">
                 Slash skills · type / or click · use @ for tables
               </p>
@@ -765,9 +765,9 @@ export function ChatPage() {
                       setShowSkills(false)
                       textareaRef.current?.focus()
                     }}
-                    className="rounded-full border border-outline-variant bg-white px-md py-sm text-left hover:bg-[#ffdbd2] disabled:opacity-40"
+                    className="rounded-full border border-outline-variant bg-surface-container-low px-md py-sm text-left hover:bg-secondary/15 disabled:opacity-40"
                   >
-                    <span className="font-label text-[12px] text-primary">
+                    <span className="font-label text-[12px] text-secondary">
                       {s.slash}
                     </span>
                     <span className="ml-sm font-body text-[12px] text-on-surface-variant">
@@ -782,15 +782,15 @@ export function ChatPage() {
           <div className="min-h-0 flex-1 space-y-lg overflow-y-auto pr-sm">
             {messages.length === 0 ? (
               <div className="flex max-w-[56rem] gap-md">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container font-label text-sm font-bold text-on-primary">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-secondary/15 font-label text-sm font-bold text-secondary">
                   AI
                 </div>
                 <div className="space-y-sm">
-                  <div className="rounded-xl rounded-tl-none border border-sand/30 bg-white/80 p-md shadow-sm backdrop-blur-sm">
+                  <div className="rounded-lg rounded-tl-none border border-outline-variant bg-surface-container-low/80 p-md">
                     <p className="font-body text-[13px] leading-snug text-on-surface">
                       Hello! I am here to help you navigate your data mesh. I have
                       analyzed{' '}
-                      <span className="font-semibold text-primary">{workspaceName}</span>
+                      <span className="font-semibold text-secondary">{workspaceName}</span>
                       {context?.stats?.tableCount
                         ? ` — ${context.stats.tableCount} tables and ${context.stats.relationshipCount ?? 0} relationships ready for schema-only answers.`
                         : '. Sync a source or ask about tables with @mentions.'}
@@ -808,7 +808,7 @@ export function ChatPage() {
                         type="button"
                         disabled={!canWrite}
                         onClick={() => void ask(s.buildPrompt([]))}
-                        className="rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                        className="rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
                       >
                         {s.label}
                       </button>
@@ -850,10 +850,10 @@ export function ChatPage() {
             )}
             {busy ? (
               <div className="flex gap-md">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container/60 font-label text-sm text-on-primary">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-secondary/15 font-label text-sm text-secondary">
                   …
                 </div>
-                <p className="rounded-xl rounded-tl-none border border-sand/30 bg-white/70 px-md py-sm font-label text-[12px] text-on-surface-variant">
+                <p className="rounded-lg rounded-tl-none border border-outline-variant bg-surface-container-low/70 px-md py-sm font-label text-[12px] text-on-surface-variant">
                   Reading schema pack…
                 </p>
               </div>
@@ -868,7 +868,7 @@ export function ChatPage() {
                   <button
                     key={name}
                     type="button"
-                    className="rounded-full border border-primary/30 bg-[#ffdbd2] px-sm py-xs font-label text-[11px] text-primary"
+                    className="rounded-full border border-secondary/40 bg-secondary/15 px-sm py-xs font-label text-[11px] text-secondary"
                     onClick={() =>
                       setActiveMentions((prev) =>
                         prev.filter((n) => n !== name),
@@ -889,7 +889,7 @@ export function ChatPage() {
                   setInput('/sql ')
                   textareaRef.current?.focus()
                 }}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
               >
                 Generate SQL
               </button>
@@ -900,7 +900,7 @@ export function ChatPage() {
                   setInput('/describe ')
                   textareaRef.current?.focus()
                 }}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
               >
                 Explain table
               </button>
@@ -908,13 +908,13 @@ export function ChatPage() {
                 type="button"
                 disabled={!canWrite}
                 onClick={() => void ask('/suggested')}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                className="flex items-center gap-xs rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
               >
                 Visualize joins
               </button>
               <button
                 type="button"
-                className="rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white"
+                className="rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
                 onClick={() => setShowSkills((v) => !v)}
               >
                 ···
@@ -924,7 +924,7 @@ export function ChatPage() {
                   type="button"
                   disabled={busy}
                   onClick={regenerate}
-                  className="rounded-full border border-outline-variant bg-white/80 px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-white disabled:opacity-40"
+                  className="rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest disabled:opacity-40"
                 >
                   Regen
                 </button>
@@ -933,7 +933,7 @@ export function ChatPage() {
 
             <div className="relative">
               {suggestOpen && suggestions.length > 0 ? (
-                <div className="absolute bottom-full left-0 right-0 z-20 mb-xs max-h-56 overflow-y-auto rounded-xl border border-outline-variant/40 bg-white shadow-lg">
+                <div className="absolute bottom-full left-0 right-0 z-20 mb-xs max-h-56 overflow-y-auto rounded-xl border border-outline-variant/40 bg-surface-container-low">
                   {suggestions.map((s, i) => {
                     const active = i === suggestIndex
                     if (s.kind === 'mention') {
@@ -943,7 +943,7 @@ export function ChatPage() {
                           type="button"
                           className={`flex w-full items-center justify-between px-md py-sm text-left font-body text-xs ${
                             active
-                              ? 'bg-[#ffdbd2]/50 text-on-surface'
+                              ? 'bg-secondary/15 text-on-surface'
                               : 'text-on-surface-variant hover:bg-surface-container-low'
                           }`}
                           onMouseDown={(e) => {
@@ -952,7 +952,7 @@ export function ChatPage() {
                           }}
                         >
                           <span>
-                            <span className="font-label text-[10px] text-primary uppercase">
+                            <span className="font-label text-[10px] text-secondary uppercase">
                               {s.item.kind}
                             </span>{' '}
                             {s.item.label}
@@ -969,7 +969,7 @@ export function ChatPage() {
                         type="button"
                         className={`flex w-full items-center justify-between px-md py-sm text-left font-body text-xs ${
                           active
-                            ? 'bg-[#ffdbd2]/50 text-on-surface'
+                            ? 'bg-secondary/15 text-on-surface'
                             : 'text-on-surface-variant hover:bg-surface-container-low'
                         }`}
                         onMouseDown={(e) => {
@@ -978,7 +978,7 @@ export function ChatPage() {
                         }}
                       >
                         <span>
-                          <span className="text-primary">{s.item.slash}</span>{' '}
+                          <span className="text-secondary">{s.item.slash}</span>{' '}
                           {s.item.label}
                         </span>
                         <span className="max-w-[50%] truncate font-label text-[10px] text-on-surface-variant">
@@ -992,9 +992,9 @@ export function ChatPage() {
 
               <div
                 className={[
-                  'relative rounded-2xl border bg-white p-md shadow-sm transition-colors focus-within:border-primary focus-within:shadow-md',
+                  'relative rounded-lg border bg-surface-container-low p-md transition-colors focus-within:border-secondary',
                   composerDragOver
-                    ? 'border-primary border-dashed bg-primary/5'
+                    ? 'border-secondary border-dashed bg-secondary/5'
                     : 'border-outline-variant/60',
                 ].join(' ')}
                 onDragOver={onComposerDragOver}
@@ -1002,7 +1002,7 @@ export function ChatPage() {
                 onDrop={onComposerDrop}
               >
                 {composerDragOver ? (
-                  <p className="pointer-events-none absolute inset-x-0 top-2 z-10 text-center font-label text-[10px] font-bold tracking-wide text-primary">
+                  <p className="pointer-events-none absolute inset-x-0 top-2 z-10 text-center font-label text-[10px] font-bold tracking-wide text-secondary">
                     Drop to mention @table or @table.column
                   </p>
                 ) : null}
@@ -1219,7 +1219,7 @@ export function ChatPage() {
                           (!input.trim() && attachments.length === 0)
                         }
                         onClick={() => void ask(input)}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary font-label text-sm font-bold text-on-primary transition-transform hover:bg-primary-container active:scale-90 disabled:opacity-40"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary font-label text-sm font-bold text-on-secondary transition-transform hover:bg-secondary-fixed-dim active:scale-90 disabled:opacity-40"
                         aria-label="Send"
                       >
                         →
@@ -1237,7 +1237,7 @@ export function ChatPage() {
         </main>
 
         <aside className="hidden w-80 shrink-0 flex-col gap-lg overflow-y-auto py-lg pr-lg pl-md xl:flex">
-          <div className="space-y-md rounded-xl border border-sand/30 bg-white/80 p-lg shadow-sm backdrop-blur-sm">
+          <div className="space-y-md rounded-xl border border-outline-variant bg-surface-container-low/80 p-lg">
             <div className="flex items-center justify-between">
               <h3 className="font-label text-sm font-bold tracking-widest text-on-surface uppercase">
                 Active Context
@@ -1245,7 +1245,7 @@ export function ChatPage() {
               <button
                 type="button"
                 onClick={() => void reloadContext()}
-                className="font-label text-[10px] tracking-wide text-on-surface-variant hover:text-primary"
+                className="font-label text-[10px] tracking-wide text-on-surface-variant hover:text-secondary"
               >
                 {contextRefreshing ? '…' : 'Refresh'}
               </button>
@@ -1255,13 +1255,13 @@ export function ChatPage() {
                 <span className="font-label text-[12px] text-on-surface-variant">
                   Selected model
                 </span>
-                <span className="truncate font-label text-[12px] font-semibold text-primary underline">
+                <span className="truncate font-label text-[12px] font-semibold text-secondary underline">
                   {modelId || aiStatus?.models?.[0]?.label || 'heuristic'}
                 </span>
               </div>
               <div className="h-1 w-full overflow-hidden rounded-full bg-secondary-container">
                 <div
-                  className="h-full rounded-full bg-primary transition-all"
+                  className="h-full rounded-full bg-secondary transition-all"
                   style={{
                     width: aiStatus?.vectorReady ? '75%' : '40%',
                   }}
@@ -1276,7 +1276,7 @@ export function ChatPage() {
                 value={sidebarQuery}
                 onChange={(e) => setSidebarQuery(e.target.value)}
                 placeholder="Filter tables…"
-                className="mb-sm w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-xs font-body text-xs outline-none focus:border-primary"
+                className="mb-sm w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-xs font-body text-xs outline-none focus:border-secondary"
               />
               <ul className="max-h-64 space-y-xs overflow-y-auto">
                 {sidebarTables.slice(0, 24).map((t) => {
@@ -1301,7 +1301,7 @@ export function ChatPage() {
                               : `Expand columns for ${t.name}`
                           }
                           onClick={() => toggleTableExpand(key)}
-                          className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-on-surface-variant hover:bg-secondary-container hover:text-primary"
+                          className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-on-surface-variant hover:bg-secondary-container hover:text-secondary"
                         >
                           <span
                             className={`inline-block text-[10px] transition-transform ${open ? 'rotate-90' : ''}`}
@@ -1323,7 +1323,7 @@ export function ChatPage() {
                               ? `Click or drag @${t.name} into chat`
                               : t.name
                           }
-                          className="flex min-w-0 flex-1 items-center gap-sm rounded-lg px-xs py-xs text-left text-[13px] text-on-surface-variant hover:text-primary disabled:cursor-default disabled:opacity-40"
+                          className="flex min-w-0 flex-1 items-center gap-sm rounded-lg px-xs py-xs text-left text-[13px] text-on-surface-variant hover:text-secondary disabled:cursor-default disabled:opacity-40"
                         >
                           <span className="text-tertiary" aria-hidden>
                             ▤
@@ -1361,10 +1361,10 @@ export function ChatPage() {
                                       ? `Click or drag @${t.name}.${c.name}`
                                       : c.name
                                   }
-                                  className="flex w-full items-center gap-sm rounded-md px-xs py-1 text-left font-body text-[12px] text-on-surface-variant hover:bg-white hover:text-primary disabled:opacity-40"
+                                  className="flex w-full items-center gap-sm rounded-md px-xs py-1 text-left font-body text-[12px] text-on-surface-variant hover:bg-surface-container-highest hover:text-secondary disabled:opacity-40"
                                 >
                                   <span
-                                    className="font-mono text-[10px] text-primary/70"
+                                    className="font-mono text-[10px] text-secondary/70"
                                     aria-hidden
                                   >
                                     ·
@@ -1394,14 +1394,14 @@ export function ChatPage() {
             <div className="pt-md">
               <Link
                 to="/workspace"
-                className="block w-full rounded-lg border border-primary/20 py-sm text-center font-label text-[12px] text-primary transition-all hover:bg-[#ffdbd2]"
+                className="block w-full rounded-lg border border-secondary/25 py-sm text-center font-label text-[12px] text-secondary transition-all hover:bg-secondary/15"
               >
                 View Graph Representation
               </Link>
             </div>
           </div>
 
-          <div className="rounded-xl border border-tertiary/10 bg-[#bbeed4]/30 p-lg">
+          <div className="rounded-xl border border-tertiary/10 bg-tertiary/15 p-lg">
             <div className="mb-sm flex items-center gap-sm text-tertiary">
               <span
                 className="flex h-5 w-5 items-center justify-center rounded-full bg-tertiary text-[10px] font-bold text-on-tertiary"
@@ -1446,8 +1446,8 @@ function ChatBubble({
           You
         </div>
         <div className="space-y-sm text-right">
-          <div className="rounded-xl rounded-tr-none bg-primary-container p-md text-left">
-            <p className="font-body text-[13px] leading-snug whitespace-pre-wrap text-on-primary">
+          <div className="rounded-xl rounded-tr-none bg-secondary p-md text-left">
+            <p className="font-body text-[13px] leading-snug whitespace-pre-wrap text-on-secondary">
               {message.content}
             </p>
           </div>
@@ -1461,17 +1461,17 @@ function ChatBubble({
 
   return (
     <div className="flex max-w-[64rem] gap-md">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container font-label text-sm font-bold text-on-primary">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-secondary/15 font-label text-sm font-bold text-secondary">
         AI
       </div>
       <div className="w-full min-w-0 space-y-sm">
-        <div className="space-y-md rounded-xl rounded-tl-none border border-sand/30 bg-white/80 p-md shadow-sm backdrop-blur-sm">
+        <div className="space-y-md rounded-lg rounded-tl-none border border-outline-variant bg-surface-container-low/80 p-md">
           <div className="mb-xs flex flex-wrap items-center gap-sm">
             {onCopy ? (
               <button
                 type="button"
                 onClick={onCopy}
-                className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-primary"
+                className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-secondary"
               >
                 Copy
               </button>
@@ -1482,7 +1482,7 @@ function ChatBubble({
                   type="button"
                   disabled={message.feedback === 1}
                   onClick={() => onFeedback(1)}
-                  className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-primary disabled:border-primary disabled:text-primary"
+                  className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-secondary disabled:border-secondary disabled:text-secondary"
                 >
                   +1
                 </button>
@@ -1499,12 +1499,12 @@ function ChatBubble({
           </div>
           <AssistantBody text={message.content} />
           {message.referencedTables && message.referencedTables.length > 0 ? (
-            <div className="my-md flex flex-col items-stretch gap-lg rounded-lg border border-sand/30 bg-white/50 p-md md:flex-row md:items-center">
+            <div className="my-md flex flex-col items-stretch gap-lg rounded-lg border border-outline-variant bg-surface-container-low/50 p-md md:flex-row md:items-center">
               <div className="flex w-full flex-col items-center gap-sm md:w-1/3">
                 {message.referencedTables.slice(0, 2).map((t, i) => (
                   <div key={`${t.connection}-${t.name}`} className="w-full">
                     {i > 0 ? (
-                      <p className="mb-sm text-center font-label text-primary">
+                      <p className="mb-sm text-center font-label text-secondary">
                         ⟷
                       </p>
                     ) : null}
@@ -1522,7 +1522,7 @@ function ChatBubble({
                     <div key={c.name} className="flex items-center gap-sm">
                       <span
                         className={`h-2 w-2 rounded-full ${
-                          c.keyKind === 'pk' ? 'bg-primary' : 'bg-tertiary'
+                          c.keyKind === 'pk' ? 'bg-secondary' : 'bg-tertiary'
                         }`}
                       />
                       <p className="font-label text-[12px]">
@@ -1538,7 +1538,7 @@ function ChatBubble({
                       type="button"
                       disabled={!onInsertMention}
                       onClick={() => onInsertMention?.(`@${t.name}`)}
-                      className="rounded-full border border-outline-variant px-sm py-xs font-label text-[11px] text-primary hover:bg-[#ffdbd2] disabled:opacity-40"
+                      className="rounded-full border border-outline-variant px-sm py-xs font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
                     >
                       @{t.name}
                     </button>
@@ -1569,16 +1569,16 @@ function ChatBubble({
             </div>
           ) : null}
           {message.sql ? (
-            <div className="relative overflow-hidden rounded-lg border border-sand/40 bg-surface-container-lowest p-md">
-              <span className="absolute top-0 right-0 rounded-bl-lg bg-secondary-container px-sm py-xs font-label text-[10px] tracking-widest text-primary">
+            <div className="relative overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
+              <span className="absolute top-0 right-0 rounded-bl-lg bg-secondary-container px-sm py-xs font-label text-[10px] tracking-widest text-secondary">
                 SQL
               </span>
-              <pre className="overflow-x-auto font-label text-xs whitespace-pre-wrap text-primary">
+              <pre className="overflow-x-auto font-label text-xs whitespace-pre-wrap text-secondary">
                 {message.sql}
               </pre>
               <button
                 type="button"
-                className="mt-sm rounded-lg bg-secondary-container px-sm py-xs font-label text-[11px] text-on-secondary-container hover:bg-primary-container hover:text-on-primary"
+                className="mt-sm rounded-lg bg-secondary-container px-sm py-xs font-label text-[11px] text-on-secondary-container hover:bg-secondary-fixed-dim hover:text-on-secondary"
                 onClick={() => void navigator.clipboard.writeText(message.sql!)}
               >
                 Copy SQL
@@ -1586,8 +1586,8 @@ function ChatBubble({
             </div>
           ) : null}
           {message.jobDraft ? (
-            <div className="rounded-xl border border-primary/20 bg-surface-container-low p-md">
-              <p className="font-label text-[11px] tracking-widest text-primary">
+            <div className="rounded-xl border border-secondary/25 bg-surface-container-low p-md">
+              <p className="font-label text-[11px] tracking-widest text-secondary">
                 Job draft · {message.jobDraft.status}
               </p>
               <p className="mt-xs font-body text-sm font-bold text-on-surface">
@@ -1613,7 +1613,7 @@ function ChatBubble({
                   <button
                     type="button"
                     onClick={onSaveJob}
-                    className="rounded-lg bg-primary-container px-sm py-xs font-label text-[11px] text-on-primary"
+                    className="rounded-lg bg-secondary px-sm py-xs font-label text-[11px] text-on-secondary"
                   >
                     Save to Jobs
                   </button>
@@ -1763,7 +1763,7 @@ function AssistantBody({ text }: { text: string }) {
       {parts.map((part, i) => {
         if (part.startsWith('`') && part.endsWith('`')) {
           return (
-            <code key={i} className="rounded bg-secondary-container px-1 text-[12px] text-primary">
+            <code key={i} className="rounded bg-secondary-container px-1 text-[12px] text-secondary">
               {part.slice(1, -1)}
             </code>
           )

@@ -4,115 +4,155 @@ import { AuthSessionControls } from '@/components/AuthSessionControls'
 import { MobileNav } from '@/components/MobileNav'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
 import { PresenceBar } from '@/components/PresenceBar'
-import { primaryNavLinkClass } from '@/components/primaryNavStyles'
+import {
+  primaryNavLinkClass,
+  sideNavLinkClass,
+} from '@/components/primaryNavStyles'
 import {
   OnboardingRoadmapDialog,
   OnboardingRoadmapTrigger,
 } from '@/components/OnboardingRoadmapDialog'
+import { IdeStatusBar } from '@/components/IdeStatusBar'
 
 interface QueAppChromeProps {
   children: ReactNode
   eyebrow?: string
 }
 
-/** Shared top chrome — Sunset Clay (cream / terracotta). */
+const PRIMARY_LINKS = [
+  { to: '/workspace', label: 'Workspace' },
+  { to: '/chat', label: 'Chat' },
+  { to: '/sources', label: 'Sources' },
+  { to: '/joins', label: 'Joins' },
+  { to: '/jobs', label: 'Jobs' },
+] as const
+
+const SIDE_LINKS = [
+  { to: '/proposals', label: 'Proposals' },
+  { to: '/transforms', label: 'Transforms' },
+  { to: '/rules', label: 'Rules' },
+  { to: '/metrics', label: 'Metrics' },
+  { to: '/bi', label: 'Certified BI' },
+  { to: '/managed', label: 'Managed' },
+  { to: '/marketplace', label: 'Marketplace' },
+  { to: '/eval', label: 'Eval' },
+  { to: '/lineage', label: 'Lineage' },
+  { to: '/validation', label: 'Validation' },
+  { to: '/drift-agent', label: 'Drift' },
+  { to: '/domains', label: 'Domains' },
+  { to: '/catalog', label: 'Catalog' },
+  { to: '/glossary', label: 'Glossary' },
+  { to: '/steward', label: 'Steward' },
+  { to: '/agent', label: 'Agent' },
+  { to: '/compliance', label: 'Compliance' },
+  { to: '/product', label: 'Product' },
+] as const
+
+/**
+ * Shared chrome — dark IDE shell: slim top nav + collapsible left tools.
+ * All routes preserved; IA matches training-manual structure.
+ */
 export function QueAppChrome({
   children,
   eyebrow = 'SCHEMA-ONLY · NO RAW DATA',
 }: QueAppChromeProps) {
   const [roadmapForce, setRoadmapForce] = useState(false)
+  const [sideOpen, setSideOpen] = useState(true)
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-canvas">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-sm border-b border-secondary-container/30 bg-background px-md sm:h-12 sm:px-lg lg:px-xl">
-        <div className="flex min-w-0 items-center gap-md sm:gap-lg">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background text-on-surface">
+      <header className="z-50 flex h-14 shrink-0 items-center justify-between gap-sm border-b border-outline-variant bg-surface-container-low px-md">
+        <div className="flex min-w-0 items-center gap-md">
           <MobileNav showBelow="md" />
+          <button
+            type="button"
+            className="hidden rounded border border-outline-variant px-sm py-xs font-label text-[10px] font-bold tracking-widest text-on-surface-variant uppercase hover:border-secondary hover:text-secondary md:inline-flex"
+            onClick={() => setSideOpen((v) => !v)}
+            aria-label={sideOpen ? 'Collapse tools sidebar' : 'Expand tools sidebar'}
+            title="Toggle tools"
+          >
+            {sideOpen ? '« Tools' : 'Tools »'}
+          </button>
           <Link
             to="/workspace"
-            className="shrink-0 font-headline text-[1.15rem] font-bold leading-none tracking-tight text-primary sm:text-[1.25rem]"
+            className="shrink-0 font-headline text-[1.1rem] font-bold tracking-tight text-on-surface"
           >
             Que
           </Link>
           <nav
-            className="hidden items-center gap-4 md:flex lg:gap-5"
+            className="hidden h-14 items-stretch md:flex"
             aria-label="Primary"
           >
-            <WorkspaceSwitcher variant="nav" />
-            <NavLink to="/workspace" className={primaryNavLinkClass} end={false}>
-              Workspace
-            </NavLink>
-            <NavLink to="/chat" className={primaryNavLinkClass}>
-              AI Chat
-            </NavLink>
-            <NavLink to="/sources" className={primaryNavLinkClass}>
-              Sources
-            </NavLink>
-            <NavLink to="/joins" className={primaryNavLinkClass}>
-              Joins
-            </NavLink>
-            <NavLink to="/proposals" className={primaryNavLinkClass}>
-              Proposals
-            </NavLink>
-            <NavLink to="/transforms" className={primaryNavLinkClass}>
-              Transforms
-            </NavLink>
-            <NavLink to="/rules" className={primaryNavLinkClass}>
-              Rules
-            </NavLink>
-            <NavLink to="/metrics" className={primaryNavLinkClass}>
-              Metrics
-            </NavLink>
-            <NavLink to="/eval" className={primaryNavLinkClass}>
-              Eval
-            </NavLink>
-            <NavLink to="/marketplace" className={primaryNavLinkClass}>
-              Marketplace
-            </NavLink>
-            <NavLink to="/domains" className={primaryNavLinkClass}>
-              Domains
-            </NavLink>
-            <NavLink to="/catalog" className={primaryNavLinkClass}>
-              Catalog
-            </NavLink>
-            <NavLink to="/jobs" className={primaryNavLinkClass}>
-              Jobs
-            </NavLink>
-            <NavLink to="/managed" className={primaryNavLinkClass}>
-              Managed
-            </NavLink>
-            <NavLink to="/bi" className={primaryNavLinkClass}>
-              BI
-            </NavLink>
-            <NavLink to="/compliance" className={primaryNavLinkClass}>
-              Compliance
-            </NavLink>
-            <NavLink to="/product" className={primaryNavLinkClass}>
-              Product
-            </NavLink>
-            <NavLink to="/lineage" className={primaryNavLinkClass}>
-              Lineage
-            </NavLink>
-            <NavLink to="/steward" className={primaryNavLinkClass}>
-              Steward
-            </NavLink>
-            <NavLink to="/agent" className={primaryNavLinkClass}>
-              Agent
-            </NavLink>
-            <NavLink to="/settings" className={primaryNavLinkClass}>
-              Settings
-            </NavLink>
+            <div className="mr-md flex items-center">
+              <WorkspaceSwitcher variant="nav" />
+            </div>
+            {PRIMARY_LINKS.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={primaryNavLinkClass}
+                end={l.to === '/workspace' ? false : undefined}
+              >
+                {l.label}
+              </NavLink>
+            ))}
           </nav>
         </div>
-        <div className="flex shrink-0 items-center gap-sm sm:gap-md">
+        <div className="flex shrink-0 items-center gap-sm">
           <PresenceBar />
-          <p className="hidden font-label text-[10px] tracking-[0.14em] text-on-surface-variant/70 xl:block">
+          <p className="hidden font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant/70 uppercase xl:block">
             {eyebrow}
           </p>
           <OnboardingRoadmapTrigger onOpen={() => setRoadmapForce(true)} />
           <AuthSessionControls />
         </div>
       </header>
-      {children}
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {sideOpen ? (
+          <aside className="hidden w-[260px] shrink-0 flex-col border-r border-outline-variant bg-surface-container md:flex">
+            <div className="border-b border-outline-variant px-md py-md">
+              <p className="font-body text-[13px] font-semibold text-on-surface">
+                Workspace tools
+              </p>
+              <p className="mt-0.5 font-label text-[10px] font-bold tracking-[0.05em] text-on-surface-variant uppercase">
+                Schema · HITL · Ship
+              </p>
+              <Link
+                to="/jobs"
+                className="mt-md flex w-full items-center justify-center gap-2 rounded bg-secondary px-md py-1.5 font-body text-[13px] font-medium text-on-secondary hover:bg-secondary-fixed-dim"
+              >
+                + New job
+              </Link>
+            </div>
+            <nav
+              className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto py-sm"
+              aria-label="Secondary"
+            >
+              {SIDE_LINKS.map((l) => (
+                <NavLink key={l.to} to={l.to} className={sideNavLinkClass}>
+                  {l.label}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="shrink-0 space-y-0.5 border-t border-outline-variant py-sm">
+              <NavLink to="/settings" className={sideNavLinkClass}>
+                Settings
+              </NavLink>
+              <NavLink to="/status" className={sideNavLinkClass}>
+                API status
+              </NavLink>
+            </div>
+          </aside>
+        ) : null}
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {children}
+        </div>
+      </div>
+
+      <IdeStatusBar extra={eyebrow} />
+
       <OnboardingRoadmapDialog
         forceOpen={roadmapForce}
         onCloseForce={() => setRoadmapForce(false)}

@@ -82,7 +82,7 @@ export function ManagedDatasetsPage() {
             preview rows; AI never receives managed row payloads.
           </p>
           {!enabled ? (
-            <p className="mt-md font-body text-[13px] text-primary">
+            <p className="mt-md font-body text-[13px] text-secondary">
               Enable in{' '}
               <Link to="/settings/ai-policy" className="underline">
                 Settings → AI &amp; Policy
@@ -104,7 +104,7 @@ export function ManagedDatasetsPage() {
           </p>
         ) : null}
         {toast ? (
-          <p className="border-b border-primary/20 bg-primary/5 px-md py-sm text-[12px] text-primary">
+          <p className="border-b border-secondary/25 bg-secondary/5 px-md py-sm text-[12px] text-secondary">
             {toast}
           </p>
         ) : null}
@@ -124,7 +124,7 @@ export function ManagedDatasetsPage() {
                       className={[
                         'w-full px-md py-md text-left',
                         selectedId === item.id
-                          ? 'bg-primary/5'
+                          ? 'bg-secondary/5'
                           : 'hover:bg-surface-container-low',
                       ].join(' ')}
                     >
@@ -162,7 +162,7 @@ export function ManagedDatasetsPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => void certify()}
-                      className="rounded-lg bg-primary px-md py-1.5 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                      className="rounded bg-secondary px-md py-1.5 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
                     >
                       Certify for BI
                     </button>

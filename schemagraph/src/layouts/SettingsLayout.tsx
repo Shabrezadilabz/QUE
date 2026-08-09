@@ -47,7 +47,7 @@ export function SettingsLayout() {
                     [
                       'rounded-lg px-md py-sm transition-colors',
                       isActive
-                        ? 'bg-primary/10 text-primary'
+                        ? 'bg-secondary/15 text-secondary'
                         : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
                     ].join(' ')
                   }
@@ -77,7 +77,7 @@ export function SettingsLayout() {
                     [
                       'shrink-0 rounded-full px-md py-xs font-label text-[11px] tracking-wide',
                       isActive
-                        ? 'bg-primary text-on-primary'
+                        ? 'bg-secondary text-on-secondary'
                         : 'bg-surface-container-low text-on-surface-variant',
                     ].join(' ')
                   }

@@ -55,8 +55,8 @@ export function JobDeployPanel({
   onBackToNotebook,
 }: Props) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#F2EDE4]">
-      <div className="shrink-0 border-b border-outline-variant/20 bg-white px-lg py-md">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
+      <div className="shrink-0 border-b border-outline-variant/20 bg-surface-container-low px-lg py-md">
         <div className="flex flex-wrap items-start justify-between gap-md">
           <div>
             <h2 className="font-headline text-base font-semibold text-on-surface">
@@ -78,7 +78,7 @@ export function JobDeployPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-lg">
         <div className="mx-auto grid max-w-[56rem] gap-md lg:grid-cols-2">
-          <section className="rounded-xl border border-outline-variant/20 bg-white p-md">
+          <section className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-md">
             <h3 className="mb-sm font-label text-[11px] font-semibold tracking-[0.12em] text-on-surface-variant uppercase">
               Tables
             </h3>
@@ -91,7 +91,7 @@ export function JobDeployPanel({
                 job.tables.map((t) => (
                   <span
                     key={t}
-                    className="rounded-md border border-outline-variant/30 bg-[#FBF8F4] px-2 py-0.5 font-body text-[11px] text-on-surface"
+                    className="rounded-md border border-outline-variant/30 bg-surface-container px-2 py-0.5 font-body text-[11px] text-on-surface"
                   >
                     {t}
                   </span>
@@ -178,19 +178,19 @@ export function JobDeployPanel({
             </Link>
             <Link
               to="/verify"
-              className="inline-flex rounded-lg border border-primary/30 bg-primary/5 px-md py-2 font-label text-[12px] text-primary hover:bg-primary/10"
+              className="inline-flex rounded-lg border border-secondary/40 bg-secondary/5 px-md py-2 font-label text-[12px] text-secondary hover:bg-secondary/10"
             >
               Verify attestation
             </Link>
             <Link
               to="/lineage"
-              className="inline-flex rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-primary"
+              className="inline-flex rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-secondary"
             >
               Open lineage
             </Link>
             <Link
               to="/workspace"
-              className="inline-flex rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-primary"
+              className="inline-flex rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-secondary"
             >
               Open workspace canvas
             </Link>

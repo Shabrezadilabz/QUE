@@ -35,7 +35,7 @@ export interface DataSourceSidebarProps {
   className?: string
 }
 
-/** Status LED colors — Sunset Clay (sage = healthy) */
+/** Status LED colors — emerald / amber / error */
 const STATUS_DOT: Record<
   DataSourceStatus,
   { className: string; label: string }
@@ -45,7 +45,7 @@ const STATUS_DOT: Record<
     label: 'Active',
   },
   warning: {
-    className: 'bg-sand',
+    className: 'bg-amber-400',
     label: 'Warning',
   },
   error: {
@@ -143,8 +143,8 @@ export function DataSourceSidebar({
         <label className="sr-only" htmlFor="source-filter">
           Filter data sources
         </label>
-        <div className="flex items-center gap-sm rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-xs focus-within:border-primary-fixed">
-          <span className="text-xs text-on-surface-variant" aria-hidden>
+        <div className="flex items-center gap-sm rounded border border-outline-variant bg-surface-container px-sm py-xs focus-within:border-secondary focus-within:ring-1 focus-within:ring-secondary">
+          <span className="font-mono text-[11px] text-on-surface-variant" aria-hidden>
             ⌕
           </span>
           <input
@@ -152,8 +152,8 @@ export function DataSourceSidebar({
             type="search"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter name / type…"
-            className="min-w-0 flex-1 border-none bg-transparent font-body text-xs text-on-surface outline-none placeholder:text-on-surface-variant/60"
+            placeholder="Filter sources…"
+            className="min-w-0 flex-1 border-none bg-transparent font-mono text-[12px] text-on-surface outline-none placeholder:text-on-surface-variant/50"
             autoComplete="off"
           />
         </div>
@@ -168,7 +168,7 @@ export function DataSourceSidebar({
           <button
             type="button"
             onClick={onAddSource}
-            className="font-label text-sm leading-none text-primary-fixed transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-40"
+            className="font-label text-sm leading-none text-secondary transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-40"
             aria-label="Add data source"
             disabled={!onAddSource}
             title={onAddSource ? 'Add source' : 'Add source (wire later)'}
@@ -183,7 +183,7 @@ export function DataSourceSidebar({
           aria-label="Connected data sources"
         >
           {filteredSources.length === 0 ? (
-            <li className="rounded-xl border border-dashed border-sand/50 px-sm py-md text-center">
+            <li className="rounded-xl border border-dashed border-outline-variant px-sm py-md text-center">
               <p className="font-body text-xs text-on-surface-variant">
                 No sources match “{filter.trim()}”
               </p>
@@ -209,7 +209,7 @@ export function DataSourceSidebar({
           onClick={() => {
             if (activeId && onSyncSource) void onSyncSource(activeId)
           }}
-          className="flex w-full items-center justify-center gap-sm rounded-lg bg-primary-container py-md font-label text-[11px] font-bold tracking-widest text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-sm rounded bg-secondary py-md font-label text-[11px] font-bold tracking-widest text-on-secondary transition-colors hover:bg-secondary-fixed-dim disabled:cursor-not-allowed disabled:opacity-40"
           title={
             readOnlySync
               ? 'Read-only — sync requires member+'
@@ -235,7 +235,7 @@ interface DataSourceRowProps {
 
 /**
  * Single connection row: status LED, type icon, name, type caption.
- * Selected = terracotta border + soft cream fill (Sunset Clay).
+ * Selected = cyber-blue border + tonal fill.
  */
 function DataSourceRow({ source, selected, onSelect }: DataSourceRowProps) {
   const status = STATUS_DOT[source.status]
@@ -246,10 +246,10 @@ function DataSourceRow({ source, selected, onSelect }: DataSourceRowProps) {
         type="button"
         onClick={() => onSelect(source.id)}
         className={[
-          'group flex w-full items-start gap-sm rounded-xl border p-sm text-left transition-colors',
+          'group flex w-full items-start gap-sm rounded border p-sm text-left transition-colors',
           selected
-            ? 'border-primary bg-secondary-container border-l-4'
-            : 'border-sand/40 bg-surface-container-lowest hover:border-primary-fixed',
+            ? 'border-secondary border-l-4 bg-secondary/10'
+            : 'border-outline-variant bg-surface-container-lowest hover:border-secondary/50',
           source.status === 'error' && !selected ? 'opacity-60' : '',
         ]
           .filter(Boolean)
@@ -263,16 +263,14 @@ function DataSourceRow({ source, selected, onSelect }: DataSourceRowProps) {
         />
 
         {/* Type icon */}
-        <span className="mt-0.5 shrink-0 text-on-surface-variant group-hover:text-primary-fixed">
+        <span className="mt-0.5 shrink-0 text-on-surface-variant group-hover:text-secondary-fixed">
           <SourceTypeIcon type={source.type} />
         </span>
 
         {/* Name + type */}
         <span className="min-w-0 flex-1">
           <span
-            className={`block truncate font-body text-xs ${
-              selected ? 'text-primary-fixed' : 'text-on-surface'
-            }`}
+            className={`block truncate font-body text-xs ${ selected ? 'text-secondary' : 'text-on-surface' }`}
           >
             {source.name}
           </span>

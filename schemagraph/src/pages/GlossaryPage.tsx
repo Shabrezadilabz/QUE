@@ -93,7 +93,7 @@ export function GlossaryPage() {
                 steward-readable catalog coverage.
               </p>
             </div>
-            <Link to="/catalog" className="font-label text-[12px] text-primary hover:underline">
+            <Link to="/catalog" className="font-label text-[12px] text-secondary hover:underline">
               Catalog assets
             </Link>
           </div>
@@ -104,13 +104,13 @@ export function GlossaryPage() {
             </p>
           ) : null}
           {toast ? (
-            <p className="mb-md rounded-xl border border-primary/20 bg-primary/5 px-md py-sm font-label text-[12px] text-primary">
+            <p className="mb-md rounded-xl border border-secondary/25 bg-secondary/5 px-md py-sm font-label text-[12px] text-secondary">
               {toast}
             </p>
           ) : null}
 
           <div className="grid gap-lg lg:grid-cols-12">
-            <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm lg:col-span-5">
+            <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg lg:col-span-5">
               <h2 className="font-headline text-base font-semibold text-on-surface-variant">
                 New term
               </h2>
@@ -141,7 +141,7 @@ export function GlossaryPage() {
                 type="button"
                 disabled={!canWrite || busy || !name.trim()}
                 onClick={() => void create()}
-                className="mt-md rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                className="mt-md rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
               >
                 Create term
               </button>
@@ -154,7 +154,7 @@ export function GlossaryPage() {
                       className={[
                         'w-full rounded-lg border px-md py-sm text-left font-body text-[12px]',
                         activeId === t.id
-                          ? 'border-primary bg-primary/5 text-primary'
+                          ? 'border-secondary bg-secondary/5 text-secondary'
                           : 'border-outline-variant/30 text-on-surface',
                       ].join(' ')}
                     >
@@ -168,7 +168,7 @@ export function GlossaryPage() {
               </ul>
             </section>
 
-            <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm lg:col-span-7">
+            <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg lg:col-span-7">
               {!active ? (
                 <p className="font-body text-[13px] text-on-surface-variant">
                   Select or create a term.
@@ -208,7 +208,7 @@ export function GlossaryPage() {
                       type="button"
                       disabled={!canWrite || busy || !linkTable.trim()}
                       onClick={() => void link()}
-                      className="mt-sm rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary disabled:opacity-40"
+                      className="mt-sm rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
                     >
                       Link
                     </button>

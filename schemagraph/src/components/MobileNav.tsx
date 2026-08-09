@@ -2,35 +2,38 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
+import { sideNavLinkClass } from '@/components/primaryNavStyles'
 
-const links = [
+const primaryLinks = [
   { to: '/workspace', label: 'Workspace' },
-  { to: '/chat', label: 'AI Chat' },
+  { to: '/chat', label: 'Chat' },
   { to: '/sources', label: 'Sources' },
   { to: '/joins', label: 'Joins' },
+  { to: '/jobs', label: 'Jobs' },
+] as const
+
+const toolLinks = [
   { to: '/proposals', label: 'Proposals' },
   { to: '/transforms', label: 'Transforms' },
   { to: '/rules', label: 'Rules' },
   { to: '/metrics', label: 'Metrics' },
-  { to: '/eval', label: 'Eval' },
+  { to: '/bi', label: 'Certified BI' },
+  { to: '/managed', label: 'Managed' },
   { to: '/marketplace', label: 'Marketplace' },
+  { to: '/eval', label: 'Eval' },
+  { to: '/lineage', label: 'Lineage' },
+  { to: '/validation', label: 'Validation' },
+  { to: '/drift-agent', label: 'Drift' },
   { to: '/domains', label: 'Domains' },
   { to: '/catalog', label: 'Catalog' },
-  { to: '/jobs', label: 'Jobs' },
-  { to: '/managed', label: 'Managed' },
-  { to: '/bi', label: 'BI' },
-  { to: '/compliance', label: 'Compliance' },
-  { to: '/product', label: 'Product' },
-  { to: '/lineage', label: 'Lineage' },
+  { to: '/glossary', label: 'Glossary' },
   { to: '/steward', label: 'Steward' },
   { to: '/agent', label: 'Agent' },
+  { to: '/compliance', label: 'Compliance' },
+  { to: '/product', label: 'Product' },
   { to: '/settings', label: 'Settings' },
+  { to: '/status', label: 'API status' },
 ] as const
-
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  isActive
-    ? 'block rounded-lg border-l-2 border-primary bg-secondary-container px-md py-sm font-body text-[13px] font-medium text-primary'
-    : 'block rounded-lg border-l-2 border-transparent px-md py-sm font-body text-[13px] font-normal text-on-surface-variant hover:text-primary'
 
 /** Hamburger + drawer for viewports where primary nav is hidden. */
 export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
@@ -64,7 +67,7 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
         aria-expanded={open}
         aria-controls="stitch-mobile-nav"
         onClick={() => setOpen((o) => !o)}
-        className="rounded-lg border border-outline-variant/50 px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-primary-fixed hover:text-primary-fixed"
+        className="rounded border border-outline-variant px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-secondary hover:text-secondary"
       >
         {open ? 'Close' : 'Menu'}
       </button>
@@ -73,12 +76,12 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
           <button
             type="button"
             aria-label="Dismiss menu"
-            className="fixed inset-0 z-[90] bg-[#161a32]/40"
+            className="fixed inset-0 z-[90] bg-black/50"
             onClick={() => setOpen(false)}
           />
           <nav
             id="stitch-mobile-nav"
-            className="absolute top-full left-0 z-[100] mt-sm w-64 rounded-xl border border-sand/40 bg-surface-container-lowest py-sm shadow-lg"
+            className="absolute top-full left-0 z-[100] mt-sm max-h-[80vh] w-64 overflow-y-auto rounded border border-outline-variant bg-surface-container-low py-sm shadow-lg"
             aria-label="Primary mobile"
           >
             <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
@@ -92,26 +95,36 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
                 className={[
                   'block w-full border-l-2 px-md py-sm text-left font-label text-[11px] font-bold tracking-[0.12em] uppercase',
                   w.id === workspaceId
-                    ? 'border-primary-fixed bg-secondary-container text-primary-fixed'
-                    : 'border-transparent text-on-surface-variant hover:text-primary-fixed',
+                    ? 'border-secondary bg-surface-container-highest text-secondary'
+                    : 'border-transparent text-on-surface-variant hover:text-secondary',
                 ].join(' ')}
               >
                 {w.name}
               </button>
             ))}
             <div className="my-sm border-t border-outline-variant" />
-            <NavLink
-              to="/workspace"
-              className={linkClass}
-              onClick={() => setOpen(false)}
-            >
-              Canvas
-            </NavLink>
-            {links.map((l) => (
+            <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
+              PRIMARY
+            </p>
+            {primaryLinks.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
-                className={linkClass}
+                className={sideNavLinkClass}
+                onClick={() => setOpen(false)}
+              >
+                {l.label}
+              </NavLink>
+            ))}
+            <div className="my-sm border-t border-outline-variant" />
+            <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
+              TOOLS
+            </p>
+            {toolLinks.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={sideNavLinkClass}
                 onClick={() => setOpen(false)}
               >
                 {l.label}

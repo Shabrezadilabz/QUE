@@ -519,9 +519,9 @@ export function MainCanvas({
         emitAction({ type: 'background-click' })
       }}
     >
-      {/* ── Toolbar (floating glass pill — Sunset Clay) ─────────────────── */}
+      {/* ── Toolbar (floating IDE pill) ─────────────────────────────────── */}
       <div
-        className="absolute left-md top-md z-30 flex items-center gap-sm rounded-xl border border-outline-variant/30 bg-white/80 p-sm shadow-sm backdrop-blur-md"
+        className="absolute left-md top-md z-30 flex items-center gap-sm rounded border border-outline-variant bg-surface-container-low/90 p-sm backdrop-blur-md"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
@@ -593,7 +593,7 @@ export function MainCanvas({
           <button
             type="button"
             onClick={onOpenStitchSession}
-            className="rounded-xl border border-primary/30 bg-white/90 px-md py-sm font-label text-[10px] font-bold tracking-[0.14em] text-primary shadow-sm uppercase backdrop-blur-md hover:bg-primary-container hover:text-on-primary"
+            className="rounded border border-secondary/40 bg-secondary/10 px-md py-sm font-label text-[10px] font-bold tracking-[0.14em] text-secondary uppercase backdrop-blur-md hover:bg-secondary hover:text-on-secondary"
           >
             {stitchSessionLabel}
           </button>
@@ -602,7 +602,7 @@ export function MainCanvas({
 
       {/* Stats widget — bottom left */}
       <div
-        className="absolute bottom-md left-md z-30 flex gap-lg rounded-xl border border-outline-variant/30 bg-white/60 p-md shadow-sm backdrop-blur-md"
+        className="absolute bottom-md left-md z-30 flex gap-lg rounded border border-outline-variant bg-surface-container-low/90 p-md backdrop-blur-md"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
@@ -610,7 +610,7 @@ export function MainCanvas({
           <span className="text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
             Total Nodes
           </span>
-          <span className="font-headline text-2xl font-semibold text-primary">
+          <span className="font-headline text-2xl font-semibold text-secondary">
             {String(visibleTables.length).padStart(2, '0')}
           </span>
         </div>
@@ -702,19 +702,19 @@ function ToolbarButton({
       onClick={onClick}
       className={
         wide
-          ? `rounded-lg px-sm py-sm font-label text-[11px] font-medium tracking-wide transition-colors ${
+          ? `rounded px-sm py-sm font-label text-[11px] font-medium tracking-wide transition-colors ${
               active
-                ? 'bg-secondary-container text-primary'
-                : 'text-on-surface-variant hover:bg-secondary-container/70'
+                ? 'bg-secondary/20 text-secondary'
+                : 'text-on-surface-variant hover:bg-surface-container-highest'
             }`
           : chip
-            ? `flex h-9 min-w-9 items-center justify-center rounded-lg bg-secondary-container/55 px-sm font-label text-sm font-semibold text-on-surface-variant transition-colors hover:bg-secondary-container ${
-                active ? 'text-primary' : ''
+            ? `flex h-9 min-w-9 items-center justify-center rounded bg-surface-container-highest px-sm font-label text-sm font-semibold text-on-surface-variant transition-colors hover:text-secondary ${
+                active ? 'text-secondary' : ''
               }`
-            : `flex h-9 min-w-9 items-center justify-center rounded-lg px-sm font-label text-[11px] font-medium transition-colors ${
+            : `flex h-9 min-w-9 items-center justify-center rounded px-sm font-label text-[11px] font-medium transition-colors ${
                 active
-                  ? 'bg-secondary-container text-primary'
-                  : 'text-on-surface-variant hover:bg-secondary-container/70'
+                  ? 'bg-secondary/20 text-secondary'
+                  : 'text-on-surface-variant hover:bg-surface-container-highest'
               }`
       }
     >

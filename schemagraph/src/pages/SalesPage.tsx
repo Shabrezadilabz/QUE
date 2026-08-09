@@ -10,7 +10,7 @@ export function SalesPage() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 90% 55% at 15% -10%, #ffdbd2 0%, transparent 55%), radial-gradient(ellipse 70% 45% at 95% 10%, #bbeed4 0%, transparent 50%), linear-gradient(180deg, #faf8f5 0%, #f3f0eb 100%)',
+            'radial-gradient(ellipse 90% 55% at 15% -10%, rgba(123,208,255,0.18) 0%, transparent 55%), radial-gradient(ellipse 70% 45% at 95% 10%, rgba(78,222,163,0.14) 0%, transparent 50%), linear-gradient(180deg, #031427 0%, #0b1c30 100%)',
         }}
       />
       <div className="relative mx-auto max-w-3xl px-md py-xl md:px-lg">
@@ -29,7 +29,7 @@ export function SalesPage() {
         <div className="mt-xl flex flex-wrap gap-sm">
           <Link
             to="/login"
-            className="rounded-lg bg-primary px-lg py-2.5 font-label text-[13px] font-semibold text-on-primary"
+            className="rounded bg-secondary px-lg py-2.5 font-label text-[13px] font-semibold text-on-secondary"
           >
             Start workspace
           </Link>
@@ -66,7 +66,7 @@ export function SalesPage() {
 
         <p className="mt-xl text-[12px] text-on-surface-variant">
           Already a customer?{' '}
-          <Link to="/login" className="text-primary underline">
+          <Link to="/login" className="text-secondary underline">
             Sign in
           </Link>
           {' · '}
@@ -87,7 +87,7 @@ function Offer({
   body: string
 }) {
   return (
-    <div className="rounded-2xl border border-outline-variant/25 bg-white/75 p-lg backdrop-blur">
+    <div className="rounded-lg border border-outline-variant bg-surface-container-low/90 p-lg">
       <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
         {kicker}
       </p>

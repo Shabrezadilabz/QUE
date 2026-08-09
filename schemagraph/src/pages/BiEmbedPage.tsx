@@ -52,13 +52,13 @@ export function BiEmbedPage() {
           <p className="mt-md text-[13px] text-error">{error}</p>
         ) : null}
         {data && !error ? (
-          <div className="mt-lg rounded-2xl border border-outline-variant/30 bg-white p-lg">
+          <div className="mt-lg rounded-lg border border-outline-variant/30 bg-surface-container-low p-lg">
             <div className="mb-md flex flex-wrap items-center gap-sm text-[11px] text-on-surface-variant">
               <span className="rounded-full bg-secondary-container px-md py-0.5 font-label uppercase">
                 {chart?.chartType || 'chart'}
               </span>
               {chart?.certified ? (
-                <span className="rounded-full bg-primary/10 px-md py-0.5 font-label text-primary uppercase">
+                <span className="rounded-full bg-secondary/10 px-md py-0.5 font-label text-secondary uppercase">
                   certified
                 </span>
               ) : null}

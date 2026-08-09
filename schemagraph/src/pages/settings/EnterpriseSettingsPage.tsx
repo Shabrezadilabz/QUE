@@ -112,17 +112,17 @@ export function EnterpriseSettingsPage() {
         </p>
       ) : null}
       {toast ? (
-        <p className="mb-md rounded-xl border border-primary/20 bg-primary/5 px-md py-sm font-label text-[12px] text-primary">
+        <p className="mb-md rounded-xl border border-secondary/25 bg-secondary/5 px-md py-sm font-label text-[12px] text-secondary">
           {toast}
         </p>
       ) : null}
       {secretOnce ? (
-        <p className="mb-md rounded-xl border border-primary/30 bg-primary/5 px-md py-sm font-mono text-[11px] text-primary break-all">
+        <p className="mb-md rounded-xl border border-secondary/40 bg-secondary/5 px-md py-sm font-mono text-[11px] text-secondary break-all">
           Copy now: {secretOnce}
         </p>
       ) : null}
 
-      <section className="mb-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+      <section className="mb-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
         <h2 className="font-headline text-base font-semibold text-on-surface-variant">
           Identity &amp; residency
         </h2>
@@ -170,14 +170,14 @@ export function EnterpriseSettingsPage() {
           type="button"
           disabled={!canAdmin || busy}
           onClick={() => void saveFlags()}
-          className="mt-md rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+          className="mt-md rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
         >
           Save
         </button>
       </section>
 
       <div className="grid gap-lg lg:grid-cols-2">
-        <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+        <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
             API keys
           </h2>
@@ -197,7 +197,7 @@ export function EnterpriseSettingsPage() {
                 )
                 .finally(() => setBusy(false))
             }}
-            className="mt-md rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary disabled:opacity-40"
+            className="mt-md rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
           >
             Create scoped key
           </button>
@@ -234,7 +234,7 @@ export function EnterpriseSettingsPage() {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+        <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
             SCIM 2.0
           </h2>
@@ -258,7 +258,7 @@ export function EnterpriseSettingsPage() {
                 )
                 .finally(() => setBusy(false))
             }}
-            className="mt-md rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary disabled:opacity-40"
+            className="mt-md rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
           >
             Mint SCIM bearer
           </button>
@@ -275,7 +275,7 @@ export function EnterpriseSettingsPage() {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+        <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
             CMK
           </h2>
@@ -298,7 +298,7 @@ export function EnterpriseSettingsPage() {
                     setError(err instanceof Error ? err.message : String(err)),
                   )
               }
-              className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+              className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
             >
               Enable CMK
             </button>
@@ -319,7 +319,7 @@ export function EnterpriseSettingsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+        <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
             Break-glass
           </h2>
@@ -370,7 +370,7 @@ export function EnterpriseSettingsPage() {
                           ),
                         )
                     }
-                    className="text-primary"
+                    className="text-secondary"
                   >
                     Close
                   </button>
@@ -380,7 +380,7 @@ export function EnterpriseSettingsPage() {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+        <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
             SIEM export
           </h2>
@@ -405,7 +405,7 @@ export function EnterpriseSettingsPage() {
                     setError(err instanceof Error ? err.message : String(err)),
                   )
               }
-              className="rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary disabled:opacity-40"
+              className="rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
             >
               Save &amp; enable
             </button>
@@ -419,14 +419,14 @@ export function EnterpriseSettingsPage() {
                     setError(err instanceof Error ? err.message : String(err)),
                   )
               }
-              className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+              className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
             >
               Push now
             </button>
           </div>
         </section>
 
-        <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+        <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
             Evidence &amp; isolation
           </h2>
@@ -444,7 +444,7 @@ export function EnterpriseSettingsPage() {
                     setError(err instanceof Error ? err.message : String(err)),
                   )
               }
-              className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+              className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
             >
               Generate SOC 2 evidence pack
             </button>
@@ -458,7 +458,7 @@ export function EnterpriseSettingsPage() {
                     setError(err instanceof Error ? err.message : String(err)),
                   )
               }
-              className="rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary disabled:opacity-40"
+              className="rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
             >
               Run isolation tests
             </button>

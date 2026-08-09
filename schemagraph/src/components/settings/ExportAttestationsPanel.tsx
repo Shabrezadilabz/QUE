@@ -84,7 +84,7 @@ export function ExportAttestationsPanel({
   }
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
         <div>
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -98,7 +98,7 @@ export function ExportAttestationsPanel({
         <div className="flex flex-wrap gap-sm">
           <Link
             to="/verify"
-            className="rounded-lg border border-primary/30 bg-primary/5 px-md py-1.5 font-label text-[12px] text-primary hover:bg-primary/10"
+            className="rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] text-secondary hover:bg-secondary/10"
           >
             Open verify page
           </Link>
@@ -106,7 +106,7 @@ export function ExportAttestationsPanel({
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary hover:text-secondary disabled:opacity-40"
           >
             {loading ? 'Refreshing…' : 'Refresh'}
           </button>
@@ -154,7 +154,7 @@ export function ExportAttestationsPanel({
                   <td className="max-w-[10rem] truncate px-sm py-sm">
                     {e.jobTitle || e.jobId?.slice(0, 8) || '—'}
                   </td>
-                  <td className="px-sm py-sm font-label text-[11px] text-primary">
+                  <td className="px-sm py-sm font-label text-[11px] text-secondary">
                     {e.format}
                     {e.signed ? '' : ' · unsigned'}
                   </td>
@@ -166,7 +166,7 @@ export function ExportAttestationsPanel({
                       type="button"
                       disabled={busyId === e.id}
                       onClick={() => void onDownloadAttestation(e.id)}
-                      className="mr-sm font-label text-[11px] text-primary underline disabled:opacity-40"
+                      className="mr-sm font-label text-[11px] text-secondary underline disabled:opacity-40"
                     >
                       Attestation
                     </button>
@@ -174,7 +174,7 @@ export function ExportAttestationsPanel({
                       type="button"
                       disabled={busyId === e.id}
                       onClick={() => void onDownloadPack(e.id)}
-                      className="font-label text-[11px] text-primary underline disabled:opacity-40"
+                      className="font-label text-[11px] text-secondary underline disabled:opacity-40"
                     >
                       Verify pack
                     </button>

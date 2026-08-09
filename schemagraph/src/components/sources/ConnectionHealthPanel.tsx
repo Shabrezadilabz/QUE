@@ -58,7 +58,7 @@ export function ConnectionHealthPanel({
 
   return (
     <div className="grid grid-cols-1 gap-lg lg:grid-cols-2">
-      <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-low p-lg">
+      <div className="rounded-lg border border-outline-variant/10 bg-surface-container-low p-lg">
         <h4 className="mb-xs font-headline text-base font-semibold text-on-surface">
           Connection health
         </h4>
@@ -103,8 +103,8 @@ export function ConnectionHealthPanel({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-primary-container/20 bg-primary-container/10 p-lg">
-        <h4 className="mb-xs font-headline text-base font-semibold text-primary">
+      <div className="rounded-lg border border-primary-container/20 bg-secondary/10 p-lg">
+        <h4 className="mb-xs font-headline text-base font-semibold text-secondary">
           {needsAttention.length ? 'Needs attention' : 'All clear'}
         </h4>
         {needsAttention.length ? (
@@ -112,7 +112,7 @@ export function ConnectionHealthPanel({
             {needsAttention.slice(0, 5).map((s) => (
               <li
                 key={s.id}
-                className="flex flex-wrap items-center justify-between gap-sm rounded-lg bg-white/70 px-md py-sm"
+                className="flex flex-wrap items-center justify-between gap-sm rounded-lg bg-surface-container-low/70 px-md py-sm"
               >
                 <button
                   type="button"
@@ -157,7 +157,7 @@ export function ConnectionHealthPanel({
                     <button
                       type="button"
                       onClick={() => onSync(s.id)}
-                      className="rounded-md bg-primary/10 px-sm py-1 font-label text-xs font-bold text-primary"
+                      className="rounded-md bg-secondary/10 px-sm py-1 font-label text-xs font-bold text-secondary"
                     >
                       Sync now
                     </button>
@@ -169,7 +169,7 @@ export function ConnectionHealthPanel({
         ) : (
           <p className="mb-md font-body text-[13px] text-on-surface-variant">
             All connectors look healthy. Next: open{' '}
-            <Link to="/joins" className="font-semibold text-primary hover:underline">
+            <Link to="/joins" className="font-semibold text-secondary hover:underline">
               Join Review
             </Link>
             , Promote a suggested join, then save a job — never auto-accept AI
@@ -178,7 +178,7 @@ export function ConnectionHealthPanel({
         )}
         <Link
           to="/workspace"
-          className="inline-flex items-center gap-xs font-label text-sm font-bold text-primary hover:underline"
+          className="inline-flex items-center gap-xs font-label text-sm font-bold text-secondary hover:underline"
         >
           Open Workspace ↗
         </Link>

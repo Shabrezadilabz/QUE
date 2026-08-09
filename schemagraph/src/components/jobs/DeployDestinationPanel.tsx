@@ -72,8 +72,8 @@ export function DeployDestinationPanel({
   }
 
   return (
-    <section className="rounded-xl border border-primary/20 bg-white p-md lg:col-span-2">
-      <h3 className="font-label text-[11px] tracking-[0.12em] text-primary uppercase">
+    <section className="rounded-xl border border-secondary/25 bg-surface-container-low p-md lg:col-span-2">
+      <h3 className="font-label text-[11px] tracking-[0.12em] text-secondary uppercase">
         Deploy destination
       </h3>
       <p className="mt-xs max-w-[42rem] font-body text-[12px] leading-relaxed text-on-surface-variant">
@@ -153,23 +153,15 @@ function DestinationCard({
       role="radio"
       aria-checked={selected}
       onClick={onClick}
-      className={`rounded-xl border px-md py-md text-left transition-colors ${
-        selected
-          ? 'border-primary bg-primary/5 shadow-sm'
-          : 'border-outline-variant/30 bg-[#FBF8F4] hover:border-primary/40'
-      }`}
+      className={`rounded-xl border px-md py-md text-left transition-colors ${ selected ? 'border-secondary bg-secondary/5' : 'border-outline-variant/30 bg-surface-container hover:border-secondary/40' }`}
     >
       <span className="flex items-center gap-sm">
         <span
-          className={`flex h-4 w-4 items-center justify-center rounded-full border ${
-            selected
-              ? 'border-primary bg-primary'
-              : 'border-outline-variant/50 bg-white'
-          }`}
+          className={`flex h-4 w-4 items-center justify-center rounded-full border ${ selected ? 'border-secondary bg-secondary' : 'border-outline-variant/50 bg-surface-container-low' }`}
           aria-hidden
         >
           {selected ? (
-            <span className="h-1.5 w-1.5 rounded-full bg-on-primary" />
+            <span className="h-1.5 w-1.5 rounded-full bg-on-secondary" />
           ) : null}
         </span>
         <span className="font-label text-[12px] font-semibold text-on-surface">
@@ -254,7 +246,7 @@ function FileDestinationBody({
             type="button"
             disabled={busy || job.status === 'ready'}
             onClick={onMarkReady}
-            className="rounded-lg border border-outline-variant/40 bg-white px-md py-2 font-label text-[12px] text-on-surface disabled:opacity-40"
+            className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-md py-2 font-label text-[12px] text-on-surface disabled:opacity-40"
           >
             Mark ready
           </button>
@@ -262,7 +254,7 @@ function FileDestinationBody({
             type="button"
             disabled={busy}
             onClick={onDbtPr}
-            className="rounded-lg bg-primary px-md py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+            className="rounded bg-secondary px-md py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
           >
             Open dbt PR
           </button>
@@ -270,7 +262,7 @@ function FileDestinationBody({
             type="button"
             disabled={busy}
             onClick={onDbtBundle}
-            className="rounded-lg border border-primary/40 px-md py-2 font-label text-[12px] text-primary disabled:opacity-40"
+            className="rounded-lg border border-secondary/40 px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
           >
             Export dbt bundle
           </button>
@@ -327,13 +319,13 @@ function FileDestinationBody({
           href={dbtGithub.prUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-sm block truncate font-body text-[12px] text-primary underline"
+          className="mt-sm block truncate font-body text-[12px] text-secondary underline"
         >
           {dbtGithub.prUrl}
         </a>
       ) : null}
       {dbtFiles && dbtFiles.length > 0 ? (
-        <ul className="mt-sm space-y-xs rounded-lg border border-outline-variant/25 bg-[#FBF8F4] p-sm">
+        <ul className="mt-sm space-y-xs rounded-lg border border-outline-variant/25 bg-surface-container p-sm">
           {dbtFiles.map((f) => (
             <li
               key={f.path}
@@ -345,7 +337,7 @@ function FileDestinationBody({
               <button
                 type="button"
                 onClick={() => onDownloadDbtFile(f)}
-                className="shrink-0 font-label text-[11px] text-primary underline"
+                className="shrink-0 font-label text-[11px] text-secondary underline"
               >
                 Download
               </button>

@@ -7,67 +7,67 @@ import type { JobNotebookCell } from '@/services/stitchApi'
 const lightTheme = EditorView.theme(
   {
     '&': {
-      backgroundColor: '#ffffff',
-      color: '#161a32',
+      backgroundColor: '#0b1c30',
+      color: '#d3e4fe',
       fontSize: '12px',
       minHeight: '120px',
     },
     '.cm-content': {
-      fontFamily: 'Geist, ui-monospace, Consolas, monospace',
+      fontFamily: '"JetBrains Mono", ui-monospace, Consolas, monospace',
       padding: '12px 0',
     },
     '.cm-gutters': {
-      backgroundColor: '#FBF8F4',
-      color: 'rgba(85,66,62,0.55)',
+      backgroundColor: '#000f21',
+      color: 'rgba(198,198,205,0.55)',
       border: 'none',
     },
     '.cm-activeLineGutter': {
-      backgroundColor: 'rgba(224,122,95,0.1)',
+      backgroundColor: 'rgba(123,208,255,0.1)',
     },
     '.cm-activeLine': {
-      backgroundColor: 'rgba(224,122,95,0.06)',
+      backgroundColor: 'rgba(123,208,255,0.06)',
     },
     '&.cm-focused .cm-cursor': {
-      borderLeftColor: '#e07a5f',
+      borderLeftColor: '#7bd0ff',
     },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-      backgroundColor: 'rgba(224,122,95,0.18)',
+      backgroundColor: 'rgba(123,208,255,0.18)',
     },
     '.cm-scroller': {
       overflow: 'auto',
     },
   },
-  { dark: false },
+  { dark: true },
 )
 
 const darkTheme = EditorView.theme(
   {
     '&': {
-      backgroundColor: '#1a1512',
-      color: '#f2ede4',
+      backgroundColor: '#000f21',
+      color: '#d3e4fe',
       fontSize: '12px',
       minHeight: '140px',
     },
     '.cm-content': {
-      fontFamily: 'Geist, ui-monospace, Consolas, monospace',
+      fontFamily: '"JetBrains Mono", ui-monospace, Consolas, monospace',
       padding: '12px 0',
     },
     '.cm-gutters': {
-      backgroundColor: '#14110f',
-      color: 'rgba(242,237,228,0.35)',
+      backgroundColor: '#031427',
+      color: 'rgba(198,198,205,0.4)',
       border: 'none',
     },
     '.cm-activeLineGutter': {
-      backgroundColor: 'rgba(224,122,95,0.15)',
+      backgroundColor: 'rgba(123,208,255,0.15)',
     },
     '.cm-activeLine': {
-      backgroundColor: 'rgba(224,122,95,0.08)',
+      backgroundColor: 'rgba(123,208,255,0.08)',
     },
     '&.cm-focused .cm-cursor': {
-      borderLeftColor: '#e07a5f',
+      borderLeftColor: '#7bd0ff',
     },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-      backgroundColor: 'rgba(224,122,95,0.28)',
+      backgroundColor: 'rgba(123,208,255,0.28)',
     },
     '.cm-scroller': {
       overflow: 'auto',
@@ -81,7 +81,7 @@ interface NotebookCellEditorProps {
   index: number
   active: boolean
   disabled?: boolean
-  /** Dark code-editor look (Sunset Clay job editor) */
+  /** Dark code-editor look (jobs notebook) */
   dark?: boolean
   onFocus: () => void
   onChangeContent: (content: string) => void
@@ -122,14 +122,14 @@ export function NotebookCellEditor({
   return (
     <article
       className={[
-        'overflow-hidden rounded-2xl border transition-colors',
+        'overflow-hidden rounded border transition-colors',
         dark
           ? active
-            ? 'border-primary bg-[#1a1512] shadow-md'
-            : 'border-outline-variant/20 bg-[#1a1512]'
+            ? 'border-secondary bg-surface-container-lowest shadow-[0_0_0_1px_rgba(123,208,255,0.2)]'
+            : 'border-outline-variant bg-surface-container-lowest'
           : active
-            ? 'border-primary/40 bg-white shadow-sm'
-            : 'border-outline-variant/25 bg-white',
+            ? 'border-secondary/50 bg-surface-container-low'
+            : 'border-outline-variant bg-surface-container-low',
       ].join(' ')}
       onFocusCapture={onFocus}
     >
@@ -137,17 +137,12 @@ export function NotebookCellEditor({
         className={[
           'flex flex-wrap items-center justify-between gap-sm border-b px-sm py-xs',
           dark
-            ? 'border-white/10 bg-[#14110f]'
-            : 'border-outline-variant/20 bg-[#FBF8F4]',
+            ? 'border-outline-variant bg-surface-dim'
+            : 'border-outline-variant bg-surface-container',
         ].join(' ')}
       >
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-sm">
-          <span
-            className={[
-              'font-label text-[10px]',
-              dark ? 'text-white/40' : 'text-on-surface-variant',
-            ].join(' ')}
-          >
+          <span className="font-label text-[10px] text-on-surface-variant">
             [{String(index + 1).padStart(2, '0')}]
           </span>
           <select
@@ -156,12 +151,7 @@ export function NotebookCellEditor({
             onChange={(e) =>
               onChangeKind(e.target.value === 'sql' ? 'sql' : 'markdown')
             }
-            className={[
-              'rounded-md border px-xs py-[2px] font-label text-[9px] tracking-widest uppercase outline-none disabled:opacity-40',
-              dark
-                ? 'border-white/15 bg-transparent text-primary-fixed'
-                : 'border-outline-variant/30 bg-white text-primary',
-            ].join(' ')}
+            className="rounded border border-outline-variant bg-transparent px-xs py-[2px] font-label text-[9px] tracking-widest text-secondary uppercase outline-none disabled:opacity-40"
           >
             <option value="sql">SQL</option>
             <option value="markdown">MD</option>
@@ -172,12 +162,7 @@ export function NotebookCellEditor({
             disabled={disabled}
             onChange={(e) => onChangeTitle(e.target.value)}
             placeholder="Cell title"
-            className={[
-              'min-w-0 flex-1 border border-transparent bg-transparent px-xs py-[2px] font-body text-[12px] outline-none disabled:opacity-40',
-              dark
-                ? 'text-[#f2ede4] focus:border-white/20'
-                : 'text-on-surface focus:border-outline-variant',
-            ].join(' ')}
+            className="min-w-0 flex-1 border border-transparent bg-transparent px-xs py-[2px] font-body text-[12px] text-on-surface outline-none focus:border-outline-variant disabled:opacity-40"
           />
         </div>
         <div className="flex shrink-0 items-center gap-xs">
@@ -185,7 +170,7 @@ export function NotebookCellEditor({
             type="button"
             disabled={disabled || !canMoveUp}
             onClick={() => onMove(-1)}
-            className="px-xs font-label text-[9px] tracking-widest text-on-surface-variant hover:text-primary-fixed disabled:opacity-30"
+            className="px-xs font-label text-[9px] tracking-widest text-on-surface-variant hover:text-secondary disabled:opacity-30"
             title="Move up"
           >
             ↑
@@ -194,7 +179,7 @@ export function NotebookCellEditor({
             type="button"
             disabled={disabled || !canMoveDown}
             onClick={() => onMove(1)}
-            className="px-xs font-label text-[9px] tracking-widest text-on-surface-variant hover:text-primary-fixed disabled:opacity-30"
+            className="px-xs font-label text-[9px] tracking-widest text-on-surface-variant hover:text-secondary disabled:opacity-30"
             title="Move down"
           >
             ↓
@@ -204,7 +189,7 @@ export function NotebookCellEditor({
             disabled={disabled}
             title="Schema-only dry-run"
             onClick={onRunStub}
-            className="rounded-md px-1.5 py-0.5 font-label text-[10px] text-on-surface-variant hover:bg-white hover:text-primary disabled:opacity-40"
+            className="rounded px-1.5 py-0.5 font-label text-[10px] text-on-surface-variant hover:bg-secondary/15 hover:text-secondary disabled:opacity-40"
           >
             ▶ Run
           </button>
@@ -212,7 +197,7 @@ export function NotebookCellEditor({
             type="button"
             disabled={disabled || !canDelete}
             onClick={onDelete}
-            className="rounded-md px-1.5 py-0.5 font-label text-[10px] text-error/70 hover:bg-error/5 hover:text-error disabled:opacity-30"
+            className="rounded px-1.5 py-0.5 font-label text-[10px] text-error/70 hover:bg-error/5 hover:text-error disabled:opacity-30"
             title="Delete cell"
           >
             Delete
@@ -226,9 +211,9 @@ export function NotebookCellEditor({
             className={[
               'overflow-x-auto p-md font-mono text-[12px] leading-relaxed whitespace-pre-wrap',
               dark
-                ? 'text-[#f2ede4]/90'
+                ? 'text-on-surface/90'
                 : cell.kind === 'sql'
-                  ? 'text-primary-fixed'
+                  ? 'text-secondary'
                   : 'text-on-surface',
             ].join(' ')}
           >
@@ -251,20 +236,14 @@ export function NotebookCellEditor({
             extensions={extensions}
             onChange={onChangeContent}
             onFocus={onFocus}
+            editable={!disabled}
           />
         )}
       </div>
 
-      <p
-        className={[
-          'border-t px-sm py-xs font-label text-[10px]',
-          dark
-            ? 'border-white/10 tracking-widest text-white/40'
-            : 'border-outline-variant/20 text-on-surface-variant/55',
-        ].join(' ')}
-      >
-        {cell.kind === 'sql' ? 'SQL · editable' : 'Markdown · editable'}
-        {disabled ? ' · read-only' : ''}
+      <p className="border-t border-outline-variant px-sm py-xs font-label text-[8px] tracking-widest text-on-surface-variant/70">
+        {cell.kind === 'sql' ? 'SQL · EDITABLE' : 'MARKDOWN · EDITABLE'}
+        {disabled ? ' · READ-ONLY' : ''}
       </p>
     </article>
   )

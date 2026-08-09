@@ -56,7 +56,7 @@ export function ProposalsPage() {
               onClick={() => setView('unified')}
               className={
                 view === 'unified'
-                  ? 'rounded-lg bg-primary px-md py-1 text-on-primary'
+                  ? 'rounded bg-secondary px-md py-1 text-on-secondary'
                   : 'rounded-lg border border-outline-variant px-md py-1'
               }
             >
@@ -67,7 +67,7 @@ export function ProposalsPage() {
               onClick={() => setView('side')}
               className={
                 view === 'side'
-                  ? 'rounded-lg bg-primary px-md py-1 text-on-primary'
+                  ? 'rounded bg-secondary px-md py-1 text-on-secondary'
                   : 'rounded-lg border border-outline-variant px-md py-1'
               }
             >
@@ -90,7 +90,7 @@ export function ProposalsPage() {
           {items.map((p) => (
             <li
               key={p.id}
-              className="rounded-xl border border-outline-variant/30 bg-white p-md"
+              className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-md"
             >
               <p className="font-label text-[13px] font-semibold">
                 [{p.kind}] {p.title}
@@ -125,7 +125,7 @@ export function ProposalsPage() {
                     BEFORE{'\n'}
                     {JSON.stringify(p.before, null, 2)}
                   </pre>
-                  <pre className="overflow-x-auto rounded-lg bg-primary/5 p-md font-mono text-[10px]">
+                  <pre className="overflow-x-auto rounded-lg bg-secondary/5 p-md font-mono text-[10px]">
                     AFTER{'\n'}
                     {JSON.stringify(p.after, null, 2)}
                   </pre>
@@ -136,7 +136,7 @@ export function ProposalsPage() {
                   <button
                     type="button"
                     onClick={() => void act(p.id, 'approve')}
-                    className="rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary"
+                    className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary"
                   >
                     Approve
                   </button>

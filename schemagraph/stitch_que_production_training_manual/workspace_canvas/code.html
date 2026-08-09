@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Workspace - Schema Canvas | Que</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#009365",
+                        "on-tertiary-fixed": "#002113",
+                        "on-error": "#690005",
+                        "on-primary": "#283044",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "primary-fixed": "#dae2fd",
+                        "primary": "#bec6e0",
+                        "on-tertiary": "#003824",
+                        "on-secondary-container": "#00374d",
+                        "surface-variant": "#26364a",
+                        "secondary-container": "#00a6e0",
+                        "on-background": "#d3e4fe",
+                        "surface": "#031427",
+                        "on-secondary": "#00354a",
+                        "inverse-on-surface": "#213145",
+                        "primary-container": "#0f172a",
+                        "surface-container-highest": "#26364a",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-primary-container": "#798098",
+                        "surface-bright": "#2a3a4f",
+                        "on-surface-variant": "#c6c6cd",
+                        "surface-tint": "#bec6e0",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "surface-container-lowest": "#000f21",
+                        "outline-variant": "#45464d",
+                        "on-surface": "#d3e4fe",
+                        "surface-container-high": "#1b2b3f",
+                        "secondary-fixed": "#c4e7ff",
+                        "on-primary-fixed": "#131b2e",
+                        "error": "#ffb4ab",
+                        "background": "#031427",
+                        "secondary": "#7bd0ff",
+                        "tertiary-container": "#001c10",
+                        "on-secondary-fixed": "#001e2c",
+                        "inverse-primary": "#565e74",
+                        "on-secondary-fixed-variant": "#004c69",
+                        "tertiary": "#4edea3",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "inverse-surface": "#d3e4fe",
+                        "error-container": "#93000a",
+                        "tertiary-fixed": "#6ffbbe",
+                        "surface-container-low": "#0b1c30",
+                        "surface-container": "#102034",
+                        "secondary-fixed-dim": "#7bd0ff",
+                        "surface-dim": "#031427",
+                        "outline": "#909097",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "cell-padding": "0.25rem 0.5rem",
+                        "panel-margin": "1rem",
+                        "layout-sidebar": "260px",
+                        "gutter-dense": "0.5rem",
+                        "layout-inspector": "320px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "code-md": ["JetBrains Mono"],
+                        "code-sm": ["JetBrains Mono"],
+                        "title-sm": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "code-md": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "title-sm": ["16px", { "lineHeight": "24px", "fontWeight": "500" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        /* Custom scrollbar for data dense panels */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #45464d; /* outline-variant */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #909097; /* outline */
+        }
+
+        /* SVG edge glow effects */
+        .edge-glow {
+            filter: drop-shadow(0 0 4px rgba(123, 208, 255, 0.4));
+        }
+        .edge-active {
+            stroke: #7bd0ff; /* secondary */
+            stroke-width: 2px;
+            filter: drop-shadow(0 0 6px rgba(123, 208, 255, 0.6));
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen overflow-hidden flex flex-col font-body-md text-body-md">
+<!-- TopNavBar -->
+<nav class="flex justify-between items-center w-full px-layout-sidebar h-14 z-50 bg-surface dark:bg-surface border-b border-outline-variant absolute top-0 left-0 right-0">
+<div class="flex items-center space-x-6">
+<span class="text-title-sm font-title-sm font-black tracking-tight text-on-surface dark:text-on-surface">Que</span>
+<!-- Search / Filter (on_left) -->
+<div class="relative ml-4">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="bg-surface-container border border-outline-variant rounded pl-8 pr-3 py-1 text-code-sm font-code-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary w-64 outline-none transition-all" placeholder="Filter sources..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<div class="flex space-x-1">
+<button class="text-on-surface-variant hover:text-on-surface px-3 py-4 text-label-caps font-label-caps text-secondary dark:text-secondary-fixed font-bold border-b-2 border-secondary opacity-80 scale-[0.99] transition-all">Workspace</button>
+<button class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 px-3 py-4 text-label-caps font-label-caps">Chat</button>
+<button class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 px-3 py-4 text-label-caps font-label-caps">Sources</button>
+<button class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 px-3 py-4 text-label-caps font-label-caps">Joins</button>
+<button class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 px-3 py-4 text-label-caps font-label-caps">Onboarding</button>
+</div>
+<!-- Presence Chips -->
+<div class="flex items-center -space-x-2 mr-4">
+<div class="w-7 h-7 rounded-full bg-tertiary-container border-2 border-surface flex items-center justify-center relative z-20">
+<span class="text-[10px] font-bold text-tertiary-fixed">JS</span>
+<div class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-secondary-fixed"></div>
+</div>
+<div class="w-7 h-7 rounded-full bg-surface-bright border-2 border-surface flex items-center justify-center relative z-10">
+<span class="text-[10px] font-bold text-on-surface">AL</span>
+<div class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-surface-variant border border-outline"></div>
+</div>
+</div>
+<div class="flex items-center space-x-2 text-on-surface-variant">
+<button class="p-1 hover:text-on-surface transition-colors rounded"><span class="material-symbols-outlined" data-icon="group">group</span></button>
+<button class="p-1 hover:text-on-surface transition-colors rounded"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<button class="p-1 hover:text-on-surface transition-colors rounded"><span class="material-symbols-outlined" data-icon="help">help</span></button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant ml-2">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A close up, high contrast macro shot of a sleek, dark metallic server racking system with glowing cyan status lights, representing a highly technical and precise user profile aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCz8zYNsyf5o3n0Ie60kDD0jmlIGt4KbisZE-4oLGGic_3rcPxA59loKIMCQ4npylcpReCJQOuOUuikmMXIzv1-ET6VPHPXNEa7tXYXAFTeCSdgZ_ANkybFnj1jp1nquFYDW-zNQSTk3NbNmiGhACQsumx-9SNlL5uaX0j0ik-rqtT5uPJmfYV7bLPzCBk_-orZEI9NttIByRFVufLtdDJG8AcXW9M8Bhra3e0-smU5-_a6G2culuKuNw"/>
+</div>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full flex flex-col py-4 z-40 bg-surface-container dark:bg-surface-container border-r border-outline-variant docked left-0 h-full w-layout-sidebar pt-16">
+<div class="px-4 mb-6 mt-2 flex items-center space-x-3">
+<div class="w-8 h-8 rounded bg-primary-container border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[18px]">database</span>
+</div>
+<div>
+<h2 class="text-body-sm font-body-sm font-bold text-on-surface">Data Warehouse</h2>
+<p class="text-label-caps font-label-caps text-on-surface-variant">Production Cluster</p>
+</div>
+</div>
+<div class="px-2 mb-6">
+<button class="w-full bg-secondary text-on-secondary-fixed py-2 rounded text-body-sm font-body-sm font-medium hover:bg-secondary-fixed transition-colors flex items-center justify-center space-x-2">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>New Pipeline</span>
+</button>
+</div>
+<div class="flex-1 flex flex-col space-y-1">
+<button class="text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg flex items-center space-x-3 px-3 py-2 transition-all duration-200">
+<span class="material-symbols-outlined text-[18px]" data-icon="chat">chat</span>
+<span class="text-body-sm font-body-sm">Chat Focus</span>
+</button>
+<button class="bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-secondary-fixed rounded-lg mx-2 flex items-center space-x-3 px-3 py-2 opacity-100 scale-[0.98]">
+<span class="material-symbols-outlined text-[18px]" data-icon="table_chart" style="font-variation-settings: 'FILL' 1;">table_chart</span>
+<span class="text-body-sm font-body-sm font-medium">Table Inspector</span>
+</button>
+<button class="text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg flex items-center space-x-3 px-3 py-2 transition-all duration-200">
+<span class="material-symbols-outlined text-[18px]" data-icon="terminal">terminal</span>
+<span class="text-body-sm font-body-sm">Job Templates</span>
+</button>
+<button class="text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg flex items-center space-x-3 px-3 py-2 transition-all duration-200">
+<span class="material-symbols-outlined text-[18px]" data-icon="account_tree">account_tree</span>
+<span class="text-body-sm font-body-sm">Lineage Explorer</span>
+</button>
+<button class="text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg flex items-center space-x-3 px-3 py-2 transition-all duration-200">
+<span class="material-symbols-outlined text-[18px]" data-icon="warning">warning</span>
+<span class="text-body-sm font-body-sm">Data Drift</span>
+</button>
+</div>
+<div class="mt-auto border-t border-outline-variant pt-2 flex flex-col space-y-1">
+<button class="text-on-surface-variant hover:bg-surface-variant mx-2 rounded-lg flex items-center space-x-3 px-3 py-2 transition-all duration-200">
+<span class="material-symbols-outlined text-[18px]" data-icon="settings">settings</span>
+<span class="text-body-sm font-body-sm">Settings</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-variant mx-2 rounded-lg flex items-center space-x-3 px-3 py-2 transition-all duration-200">
+<span class="material-symbols-outlined text-[18px]" data-icon="cloud_done">cloud_done</span>
+<span class="text-body-sm font-body-sm">API Status</span>
+</button>
+</div>
+</nav>
+<!-- Main Workspace Area -->
+<main class="flex-1 flex pt-14 pl-[260px] pb-8 relative w-full h-full bg-[#020617] overflow-hidden">
+<!-- Canvas Area (Layer 0) -->
+<div class="flex-1 relative overflow-hidden" id="schema-canvas">
+<!-- SVG Edges Layer -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-0" style="min-width: 1000px; min-height: 800px;">
+<!-- Edge 1: Fact to Dim Users -->
+<path class="edge-glow transition-all duration-300 hover:stroke-[#7bd0ff]" d="M 450 300 C 600 300, 600 150, 750 150" fill="none" stroke="#45464d" stroke-dasharray="4 2" stroke-width="1.5"></path>
+<!-- Edge 2: Fact to Dim Products -->
+<path class="edge-active transition-all duration-300" d="M 450 350 C 600 350, 600 450, 750 450" fill="none" stroke="#7bd0ff" stroke-width="2"></path>
+</svg>
+<!-- Draggable Area for Nodes -->
+<div class="absolute inset-0 w-[2000px] h-[2000px] p-8 z-10" style="transform: translate(0, 0);">
+<!-- Node 1: Fact Table (Central) -->
+<div class="absolute top-[200px] left-[150px] w-[300px] bg-primary-container border border-outline-variant rounded-lg shadow-lg overflow-hidden flex flex-col group cursor-move hover:border-secondary transition-colors">
+<!-- Header -->
+<div class="bg-surface-container-high border-b border-outline-variant px-3 py-2 flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-label-caps font-label-caps text-secondary">FACT</span>
+<span class="text-body-sm font-body-sm font-semibold text-on-surface">fct_transactions</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant group-hover:text-on-surface cursor-pointer">more_vert</span>
+</div>
+<!-- Columns -->
+<div class="flex flex-col p-2 space-y-1 bg-surface-container">
+<div class="flex justify-between items-center px-2 py-1 hover:bg-surface-variant rounded cursor-pointer group/col">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-tertiary">key</span>
+<span class="text-code-sm font-code-sm text-on-surface group-hover/col:text-secondary transition-colors">transaction_id</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">UUID</span>
+</div>
+<div class="flex justify-between items-center px-2 py-1 hover:bg-surface-variant rounded cursor-pointer group/col bg-surface-variant border border-outline-variant">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">link</span>
+<span class="text-code-sm font-code-sm text-secondary font-medium">product_id</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">INT64</span>
+</div>
+<div class="flex justify-between items-center px-2 py-1 hover:bg-surface-variant rounded cursor-pointer group/col">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">link</span>
+<span class="text-code-sm font-code-sm text-on-surface">user_id</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">INT64</span>
+</div>
+<div class="flex justify-between items-center px-2 py-1 hover:bg-surface-variant rounded cursor-pointer group/col">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">numbers</span>
+<span class="text-code-sm font-code-sm text-on-surface">amount</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">FLOAT64</span>
+</div>
+</div>
+</div>
+<!-- Node 2: Dimension Table (Users) -->
+<div class="absolute top-[80px] left-[750px] w-[260px] bg-primary-container border border-outline-variant rounded-lg shadow-lg overflow-hidden flex flex-col group cursor-move hover:border-outline transition-colors">
+<div class="bg-surface-container-high border-b border-outline-variant px-3 py-2 flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-label-caps font-label-caps text-tertiary">DIM</span>
+<span class="text-body-sm font-body-sm font-semibold text-on-surface">dim_users</span>
+</div>
+</div>
+<div class="flex flex-col p-2 space-y-1 bg-surface-container opacity-80">
+<div class="flex justify-between items-center px-2 py-1 hover:bg-surface-variant rounded cursor-pointer">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-tertiary">key</span>
+<span class="text-code-sm font-code-sm text-on-surface">user_id</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">INT64</span>
+</div>
+<div class="flex justify-between items-center px-2 py-1 hover:bg-surface-variant rounded cursor-pointer">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">match_case</span>
+<span class="text-code-sm font-code-sm text-on-surface">email</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">STRING</span>
+</div>
+</div>
+</div>
+<!-- Node 3: Dimension Table (Products) - Active -->
+<div class="absolute top-[350px] left-[750px] w-[280px] bg-primary-container border border-secondary rounded-lg shadow-[0_0_15px_rgba(123,208,255,0.15)] overflow-hidden flex flex-col group cursor-move z-20">
+<div class="bg-surface-container-highest border-b border-secondary/50 px-3 py-2 flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-label-caps font-label-caps text-tertiary">DIM</span>
+<span class="text-body-sm font-body-sm font-semibold text-on-surface">dim_products</span>
+</div>
+<span class="text-label-caps font-label-caps bg-surface-variant text-on-surface-variant px-1 rounded border border-outline-variant">PII</span>
+</div>
+<div class="flex flex-col p-2 space-y-1 bg-surface-container">
+<div class="flex justify-between items-center px-2 py-1 rounded cursor-pointer bg-surface-variant border border-secondary/50">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-tertiary">key</span>
+<span class="text-code-sm font-code-sm text-secondary font-medium">product_id</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">INT64</span>
+</div>
+<div class="flex justify-between items-center px-2 py-1 hover:bg-surface-variant rounded cursor-pointer">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">match_case</span>
+<span class="text-code-sm font-code-sm text-on-surface">sku</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">STRING</span>
+</div>
+<div class="flex justify-between items-center px-2 py-1 hover:bg-surface-variant rounded cursor-pointer">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">match_case</span>
+<span class="text-code-sm font-code-sm text-on-surface">category</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">STRING</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Canvas Controls Overlay -->
+<div class="absolute bottom-6 left-6 flex space-x-2">
+<button class="w-8 h-8 bg-surface-container-highest border border-outline-variant rounded flex items-center justify-center text-on-surface hover:bg-surface-bright transition-colors shadow-lg"><span class="material-symbols-outlined text-[18px]">add</span></button>
+<button class="w-8 h-8 bg-surface-container-highest border border-outline-variant rounded flex items-center justify-center text-on-surface hover:bg-surface-bright transition-colors shadow-lg"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<button class="w-8 h-8 bg-surface-container-highest border border-outline-variant rounded flex items-center justify-center text-on-surface hover:bg-surface-bright transition-colors shadow-lg ml-2"><span class="material-symbols-outlined text-[18px]">fit_screen</span></button>
+</div>
+</div>
+<!-- Right Inspector Panel (Layer 1/2) -->
+<aside class="w-layout-inspector h-full bg-surface-container border-l border-outline-variant flex flex-col z-30 shadow-[-4px_0_15px_rgba(0,0,0,0.5)]">
+<!-- Header -->
+<div class="p-4 border-b border-outline-variant bg-surface-container-high flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<div class="flex flex-col">
+<div class="flex items-center space-x-2 mb-1">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-label-caps font-label-caps text-tertiary">DIMENSION</span>
+</div>
+<h3 class="text-title-sm font-title-sm font-semibold text-on-surface">dim_products</h3>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[20px]">close</span></button>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mb-4">Master dimension table for all active product SKUs and categorization hierarchies.</p>
+<button class="w-full bg-secondary text-on-secondary-fixed py-2 rounded text-body-sm font-body-sm font-medium hover:bg-secondary-fixed transition-colors flex items-center justify-center space-x-2 shadow-[0_0_10px_rgba(123,208,255,0.2)]">
+<span class="material-symbols-outlined text-[16px]">add_circle</span>
+<span>Add to Job</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto">
+<!-- Metadata Section -->
+<div class="p-4 border-b border-outline-variant">
+<h4 class="text-label-caps font-label-caps text-on-surface-variant mb-3 flex items-center"><span class="material-symbols-outlined text-[14px] mr-1">info</span> METADATA</h4>
+<div class="grid grid-cols-2 gap-y-3 gap-x-2 text-body-sm font-body-sm">
+<div class="text-on-surface-variant">Owner</div>
+<div class="text-on-surface flex items-center space-x-1"><div class="w-4 h-4 bg-tertiary-container rounded-full flex items-center justify-center text-[8px] font-bold text-tertiary-fixed">JS</div><span>Data Eng Team</span></div>
+<div class="text-on-surface-variant">Updated</div>
+<div class="text-on-surface">2 hours ago</div>
+<div class="text-on-surface-variant">Size</div>
+<div class="text-on-surface">1.2 GB (4.2M rows)</div>
+<div class="text-on-surface-variant">Tags</div>
+<div class="flex space-x-1">
+<span class="text-label-caps font-label-caps bg-surface-variant text-on-surface-variant px-1 rounded border border-outline-variant">PII</span>
+<span class="text-label-caps font-label-caps bg-surface-variant text-on-surface-variant px-1 rounded border border-outline-variant">CORE</span>
+</div>
+</div>
+</div>
+<!-- Pinned Samples Section (Data Table) -->
+<div class="p-4 border-b border-outline-variant">
+<div class="flex justify-between items-center mb-3">
+<h4 class="text-label-caps font-label-caps text-on-surface-variant flex items-center"><span class="material-symbols-outlined text-[14px] mr-1">table_rows</span> PINNED SAMPLES</h4>
+<span class="text-label-caps font-label-caps text-secondary bg-secondary/10 px-1 rounded">SCRUBBED</span>
+</div>
+<div class="overflow-x-auto bg-surface border border-outline-variant rounded">
+<table class="w-full text-left text-code-sm font-code-sm whitespace-nowrap">
+<thead class="bg-surface-container-high border-b border-outline-variant text-on-surface-variant">
+<tr>
+<th class="p-cell-padding font-medium">product_id</th>
+<th class="p-cell-padding font-medium">sku</th>
+<th class="p-cell-padding font-medium">category</th>
+</tr>
+</thead>
+<tbody class="text-on-surface divide-y divide-outline-variant/50">
+<tr class="hover:bg-surface-variant/50">
+<td class="p-cell-padding text-tertiary">10042</td>
+<td class="p-cell-padding">SKU-A92B</td>
+<td class="p-cell-padding">Electronics</td>
+</tr>
+<tr class="hover:bg-surface-variant/50">
+<td class="p-cell-padding text-tertiary">10043</td>
+<td class="p-cell-padding">SKU-C11X</td>
+<td class="p-cell-padding">Home Goods</td>
+</tr>
+<tr class="hover:bg-surface-variant/50">
+<td class="p-cell-padding text-tertiary">10044</td>
+<td class="p-cell-padding">SKU-M99Q</td>
+<td class="p-cell-padding">Apparel</td>
+</tr>
+<tr class="hover:bg-surface-variant/50">
+<td class="p-cell-padding text-tertiary">10045</td>
+<td class="p-cell-padding">SKU-L001</td>
+<td class="p-cell-padding">Electronics</td>
+</tr>
+<tr class="hover:bg-surface-variant/50">
+<td class="p-cell-padding text-tertiary">10046</td>
+<td class="p-cell-padding">SKU-P44R</td>
+<td class="p-cell-padding">Automotive</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- Footer -->
+<footer class="fixed bottom-0 left-0 w-full flex justify-between items-center px-4 h-8 z-50 bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant docked full-width bottom-0 text-on-surface-variant dark:text-on-surface-variant">
+<span class="text-code-sm font-code-sm">Que v2.4.0-stable</span>
+<div class="flex space-x-4">
+<a class="text-code-sm font-code-sm text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">System Status: Operational</a>
+<a class="text-code-sm font-code-sm text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Docs</a>
+<a class="text-code-sm font-code-sm text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Support</a>
+</div>
+</footer>
+</body></html>

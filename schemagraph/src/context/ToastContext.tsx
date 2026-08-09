@@ -57,11 +57,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             type="button"
             onClick={() => dismissToast(t.id)}
             className={[
-              'pointer-events-auto border px-md py-sm text-left font-body text-[13px] transition-opacity',
+              'pointer-events-auto rounded border px-md py-sm text-left font-body text-[13px] transition-opacity',
               t.tone === 'error'
                 ? 'border-error/50 bg-error/15 text-error'
                 : t.tone === 'success'
-                  ? 'border-primary-fixed/40 bg-primary-container/15 text-primary-fixed'
+                  ? 'border-tertiary/40 bg-tertiary/15 text-tertiary'
                   : 'border-outline-variant bg-surface-container-high text-on-surface',
             ].join(' ')}
           >

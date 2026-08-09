@@ -63,7 +63,7 @@ export function JobScheduleControls({
             onChange={(e) =>
               setSchedule(e.target.value as 'off' | 'hourly' | 'daily')
             }
-            className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 text-[12px] text-on-surface"
+            className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-1.5 text-[12px] text-on-surface"
           >
             <option value="off">Off</option>
             <option value="hourly">Hourly</option>
@@ -78,7 +78,7 @@ export function JobScheduleControls({
             onChange={(e) =>
               setRunMode(e.target.value as 'dry_run' | 'live')
             }
-            className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 text-[12px] text-on-surface"
+            className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-1.5 text-[12px] text-on-surface"
           >
             <option value="dry_run">Dry run</option>
             <option value="live">Live (read-only)</option>
@@ -94,7 +94,7 @@ export function JobScheduleControls({
                 e.target.value as 'que' | 'private_runner',
               )
             }
-            className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 text-[12px] text-on-surface"
+            className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-1.5 text-[12px] text-on-surface"
           >
             <option value="que">Que (in-process)</option>
             <option value="private_runner">Private runner</option>
@@ -109,7 +109,7 @@ export function JobScheduleControls({
             disabled={!canWrite || busy}
             value={maxRetries}
             onChange={(e) => setMaxRetries(Number(e.target.value))}
-            className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 text-[12px] text-on-surface"
+            className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-1.5 text-[12px] text-on-surface"
           />
         </label>
         <label className="flex flex-col gap-1 font-label text-[11px] text-on-surface-variant">
@@ -121,7 +121,7 @@ export function JobScheduleControls({
             disabled={!canWrite || busy}
             value={retryDelaySec}
             onChange={(e) => setRetryDelaySec(Number(e.target.value))}
-            className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 text-[12px] text-on-surface"
+            className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-1.5 text-[12px] text-on-surface"
           />
         </label>
       </div>
@@ -141,7 +141,7 @@ export function JobScheduleControls({
           type="button"
           disabled={busy}
           onClick={() => void save()}
-          className="mt-md rounded-lg border border-primary/30 bg-primary/5 px-md py-1.5 font-label text-[12px] text-primary hover:bg-primary/10 disabled:opacity-40"
+          className="mt-md rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] text-secondary hover:bg-secondary/10 disabled:opacity-40"
         >
           {busy ? 'Saving…' : 'Save schedule'}
         </button>

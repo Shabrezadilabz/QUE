@@ -65,7 +65,7 @@ export function EvalPage() {
           <p className="mt-md text-[13px] text-error">{error}</p>
         ) : null}
         {toast ? (
-          <p className="mt-md text-[12px] text-primary">{toast}</p>
+          <p className="mt-md text-[12px] text-secondary">{toast}</p>
         ) : null}
 
         <div className="mt-lg grid gap-md sm:grid-cols-3">
@@ -98,7 +98,7 @@ export function EvalPage() {
           />
         </div>
 
-        <section className="mt-xl rounded-xl border border-outline-variant/30 bg-white p-md">
+        <section className="mt-xl rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
           <h2 className="font-headline text-base font-semibold">
             Scheduled golden eval
           </h2>
@@ -164,7 +164,7 @@ export function EvalPage() {
                       setError('Pairs must be valid JSON array')
                     }
                   }}
-                  className="rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary"
+                  className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary"
                 >
                   Save & enable
                 </button>
@@ -182,7 +182,7 @@ export function EvalPage() {
                         setError(e instanceof Error ? e.message : String(e)),
                       )
                   }
-                  className="rounded-lg border border-primary px-md py-1.5 text-[12px] text-primary"
+                  className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary"
                 >
                   Run now
                 </button>
@@ -201,7 +201,7 @@ export function EvalPage() {
           </h2>
           <p className="mt-xs text-[12px] text-on-surface-variant">
             One-click job packs — browse the full catalog on{' '}
-            <a href="/marketplace" className="text-primary underline">
+            <a href="/marketplace" className="text-secondary underline">
               Marketplace
             </a>
             .
@@ -210,7 +210,7 @@ export function EvalPage() {
             {templates.map((t) => (
               <li
                 key={t.id}
-                className="flex flex-wrap items-center justify-between gap-md rounded-xl border border-outline-variant/30 bg-white px-md py-md"
+                className="flex flex-wrap items-center justify-between gap-md rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md"
               >
                 <div>
                   <p className="font-label text-[13px] font-semibold">
@@ -231,7 +231,7 @@ export function EvalPage() {
                         setError(e instanceof Error ? e.message : String(e)),
                       )
                   }
-                  className="rounded-lg border border-primary px-md py-1.5 text-[12px] text-primary"
+                  className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary"
                 >
                   Apply
                 </button>
@@ -246,7 +246,7 @@ export function EvalPage() {
 
 function Card({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-outline-variant/30 bg-white px-md py-md">
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md">
       <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
         {label}
       </p>

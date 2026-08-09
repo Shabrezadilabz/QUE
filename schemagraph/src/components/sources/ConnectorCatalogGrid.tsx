@@ -41,7 +41,7 @@ export function ConnectorCatalogGrid({
   return (
     <div className="mx-auto w-full max-w-[56rem]">
       <div className="mb-lg flex flex-col items-center text-center">
-        <SourcesBranchMark className="mb-md h-14 w-14 text-primary" />
+        <SourcesBranchMark className="mb-md h-14 w-14 text-secondary" />
         <h2 className="font-headline text-xl font-semibold text-on-surface">
           Choose a connector
         </h2>
@@ -63,8 +63,8 @@ export function ConnectorCatalogGrid({
                 className={[
                   'rounded-full px-3 py-1 font-label text-[11px] font-medium transition-colors',
                   active
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-white text-on-surface-variant ring-1 ring-outline-variant/40 hover:ring-primary/40',
+                    ? 'bg-secondary text-on-secondary'
+                    : 'bg-surface-container-low text-on-surface-variant ring-1 ring-outline-variant/40 hover:ring-primary/40',
                 ].join(' ')}
               >
                 {c.label}
@@ -81,13 +81,13 @@ export function ConnectorCatalogGrid({
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Search connectors…"
-            className="w-full rounded-lg border border-outline-variant/30 bg-white py-1.5 pl-9 pr-3 font-body text-[13px] text-on-surface outline-none focus:border-primary"
+            className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-low py-1.5 pl-9 pr-3 font-body text-[13px] text-on-surface outline-none focus:border-secondary"
           />
         </div>
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-outline-variant/50 bg-white p-xl text-center">
+        <div className="rounded-lg border border-dashed border-outline-variant/50 bg-surface-container-low p-xl text-center">
           <p className="font-headline text-base font-semibold text-on-surface">
             No connector matched “{query}”
           </p>
@@ -98,14 +98,14 @@ export function ConnectorCatalogGrid({
             <button
               type="button"
               onClick={onRequest}
-              className="rounded-lg bg-primary px-md py-2 font-label text-[12px] font-semibold text-on-primary"
+              className="rounded bg-secondary px-md py-2 font-label text-[12px] font-semibold text-on-secondary"
             >
               Request connector
             </button>
             <button
               type="button"
               onClick={onUseCsv}
-              className="rounded-lg border border-primary px-md py-2 font-label text-[12px] font-semibold text-primary"
+              className="rounded border border-secondary px-md py-2 font-label text-[12px] font-semibold text-secondary"
             >
               Use CSV / Excel
             </button>
@@ -121,18 +121,18 @@ export function ConnectorCatalogGrid({
                 type="button"
                 onClick={() => onPick(item)}
                 className={[
-                  'group flex flex-col items-center gap-sm rounded-2xl border bg-white p-md text-center transition-all active:scale-[0.98]',
+                  'group flex flex-col items-center gap-sm rounded-lg border bg-surface-container-low p-md text-center transition-all active:scale-[0.98]',
                   selected
-                    ? 'border-primary shadow-[0_0_0_2px_rgba(154,68,45,0.25)]'
-                    : 'border-outline-variant/25 hover:border-primary/40 hover:shadow-md',
+                    ? 'border-secondary shadow-[0_0_0_1px_rgba(123,208,255,0.35)]'
+                    : 'border-outline-variant/25 hover:border-secondary/40',
                 ].join(' ')}
               >
                 <div
                   className={[
-                    'flex h-16 w-16 items-center justify-center rounded-xl border transition-colors sm:h-[4.5rem] sm:w-[4.5rem]',
+                    'flex h-16 w-16 items-center justify-center rounded border transition-colors sm:h-[4.5rem] sm:w-[4.5rem]',
                     selected
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-outline-variant/30 bg-[#FBF8F4] text-on-surface-variant group-hover:border-primary/40 group-hover:text-primary',
+                      ? 'border-secondary bg-secondary/10 text-secondary'
+                      : 'border-outline-variant/30 bg-surface-container text-on-surface-variant group-hover:border-secondary/40 group-hover:text-secondary',
                   ].join(' ')}
                 >
                   {item.type ? (
@@ -164,7 +164,7 @@ export function ConnectorCatalogGrid({
           <button
             type="button"
             onClick={onRequest}
-            className="flex flex-col items-center justify-center gap-sm rounded-2xl border border-dashed border-outline-variant/50 bg-transparent p-md text-center transition-colors hover:border-primary/40 hover:bg-white/60"
+            className="flex flex-col items-center justify-center gap-sm rounded-lg border border-dashed border-outline-variant/50 bg-transparent p-md text-center transition-colors hover:border-secondary/40 hover:bg-surface-container-low/60"
           >
             <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-outline-variant/40 text-on-surface-variant sm:h-[4.5rem] sm:w-[4.5rem]">
               <span className="text-2xl">⊕</span>
@@ -190,7 +190,7 @@ export function ConnectorCatalogGrid({
             type="button"
             disabled={continueDisabled}
             onClick={onContinue}
-            className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+            className="rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
           >
             {continueLabel}
           </button>

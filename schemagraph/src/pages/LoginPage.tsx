@@ -84,7 +84,7 @@ export function LoginPage() {
     <div className="flex min-h-full w-full items-stretch justify-center overflow-y-auto bg-canvas sm:items-center sm:px-lg sm:py-xl">
       <div className="que-card flex w-full max-w-[26rem] flex-col sm:my-lg md:max-w-[28rem]">
         <header className="flex items-center justify-between border-b border-secondary-container/40 bg-surface-container-low px-md py-md sm:px-lg">
-          <span className="font-headline text-lg font-bold tracking-tight text-primary sm:text-xl">
+          <span className="font-headline text-lg font-bold tracking-tight text-on-surface sm:text-xl">
             Que
           </span>
           <span className="font-label text-xs font-bold tracking-[0.14em] text-on-surface-variant sm:text-sm">
@@ -114,7 +114,7 @@ export function LoginPage() {
               className={[
                 'flex-1 rounded-md py-sm font-label text-sm tracking-widest',
                 mode === 'login'
-                  ? 'bg-primary-container text-on-primary'
+                  ? 'bg-secondary text-on-secondary'
                   : 'text-on-surface-variant',
               ].join(' ')}
             >
@@ -126,7 +126,7 @@ export function LoginPage() {
               className={[
                 'flex-1 rounded-md py-sm font-label text-sm tracking-widest',
                 mode === 'register'
-                  ? 'bg-primary-container text-on-primary'
+                  ? 'bg-secondary text-on-secondary'
                   : 'text-on-surface-variant',
               ].join(' ')}
             >
@@ -154,7 +154,7 @@ export function LoginPage() {
                   autoComplete="name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed sm:min-h-12 sm:text-[13px]"
+                  className="min-h-11 w-full rounded border border-outline-variant bg-surface-container-lowest px-md py-sm font-body text-[13px] text-on-surface outline-none focus:border-secondary sm:min-h-12 sm:text-[13px]"
                 />
               </label>
             ) : null}
@@ -169,7 +169,7 @@ export function LoginPage() {
                 inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[13px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-primary-fixed sm:min-h-12 sm:text-[13px]"
+                className="min-h-11 w-full rounded border border-outline-variant bg-surface-container-lowest px-md py-sm font-body text-[13px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-secondary sm:min-h-12 sm:text-[13px]"
                 required
               />
             </label>
@@ -186,7 +186,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={mode === 'register' ? 8 : undefined}
-                className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[13px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-primary-fixed sm:min-h-12 sm:text-[13px]"
+                className="min-h-11 w-full rounded border border-outline-variant bg-surface-container-lowest px-md py-sm font-body text-[13px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/40 focus:border-secondary sm:min-h-12 sm:text-[13px]"
                 required
               />
               {mode === 'register' ? (
@@ -206,7 +206,7 @@ export function LoginPage() {
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
                   placeholder="My workspace"
-                  className="min-h-11 w-full border border-outline-variant bg-surface-container-low px-md py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed sm:min-h-12 sm:text-[13px]"
+                  className="min-h-11 w-full rounded border border-outline-variant bg-surface-container-lowest px-md py-sm font-body text-[13px] text-on-surface outline-none focus:border-secondary sm:min-h-12 sm:text-[13px]"
                 />
               </label>
             ) : null}
@@ -215,7 +215,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="min-h-12 w-full rounded-lg bg-primary-container px-md py-md font-label text-[11px] font-bold tracking-[0.2em] text-on-primary transition-opacity hover:opacity-90 disabled:opacity-40 sm:text-xs"
+            className="min-h-12 w-full rounded bg-secondary px-md py-md font-label text-[11px] font-bold tracking-[0.2em] text-on-secondary transition-colors hover:bg-secondary-fixed-dim disabled:opacity-40 sm:text-xs"
           >
             {busy
               ? mode === 'register'
@@ -230,7 +230,7 @@ export function LoginPage() {
             <div className="space-y-sm">
               <a
                 href={`${getApiBase()}/auth/sso/start`}
-                className="block w-full rounded-xl border border-outline-variant/40 py-3 text-center font-label text-sm text-primary hover:bg-secondary-container/50"
+                className="block w-full rounded border border-outline-variant py-3 text-center font-label text-sm text-secondary hover:border-secondary hover:bg-secondary/10"
               >
                 Continue with SSO
               </a>

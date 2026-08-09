@@ -63,7 +63,7 @@ export function ScheduledJobsPanel({
   const summary = status?.summary
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
         <div>
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -80,7 +80,7 @@ export function ScheduledJobsPanel({
               type="button"
               disabled={busy || loading}
               onClick={() => void onRunDue()}
-              className="rounded-lg border border-primary/30 bg-primary/5 px-md py-1.5 font-label text-[12px] text-primary hover:bg-primary/10 disabled:opacity-40"
+              className="rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] text-secondary hover:bg-secondary/10 disabled:opacity-40"
             >
               {busy ? 'Running…' : 'Run due now'}
             </button>
@@ -89,7 +89,7 @@ export function ScheduledJobsPanel({
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary hover:text-secondary disabled:opacity-40"
           >
             {loading ? 'Refreshing…' : 'Refresh'}
           </button>

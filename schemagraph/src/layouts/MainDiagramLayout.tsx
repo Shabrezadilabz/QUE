@@ -3,6 +3,7 @@ import type { MainDiagramLayoutProps } from '@/types/diagram'
 import { MainCanvas } from '@/components/MainCanvas'
 import { RightSidebar } from '@/components/RightSidebar'
 import { TopBar } from '@/components/TopBar'
+import { IdeStatusBar } from '@/components/IdeStatusBar'
 import { useDiagram } from '@/context/DiagramContext'
 import { useToast } from '@/context/ToastContext'
 import type { DiagramAction } from '@/types/schema'
@@ -134,7 +135,7 @@ export function MainDiagramLayout({
           URL.revokeObjectURL(url)
           return
         }
-        ctx.fillStyle = '#f2ede4'
+        ctx.fillStyle = '#031427'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(img, 0, 0)
         canvas.toBlob((blob) => {
@@ -168,9 +169,9 @@ export function MainDiagramLayout({
     }
     w.document.write(`<!doctype html><html><head><title>Que export</title>
       <style>
-        body{font-family:Inter,system-ui,sans-serif;background:#f2ede4;color:#161a32;padding:24px}
-        h1{font-family:Hanken Grotesk,system-ui,sans-serif;color:#9a442d}
-        pre{white-space:pre-wrap;font-size:11px;border:1px solid #444933;padding:16px}
+        body{font-family:Inter,system-ui,sans-serif;background:#031427;color:#d3e4fe;padding:24px}
+        h1{font-family:Inter,system-ui,sans-serif;color:#7bd0ff}
+        pre{white-space:pre-wrap;font-size:11px;border:1px solid #45464d;padding:16px}
       </style></head><body>
       <h1>Que schema export</h1>
       <p>${payload.tables.length} tables · ${payload.relationships.length} relationships</p>
@@ -292,6 +293,10 @@ export function MainDiagramLayout({
           ) : null}
         </div>
       </div>
+
+      <IdeStatusBar
+        extra={`${visibleTables.length} tables · ${visibleRelationships.length} edges${fromApi ? ' · live' : ' · demo'}`}
+      />
     </div>
   )
 }
@@ -321,8 +326,8 @@ function buildExportSvg(
     .map((t) => {
       const x = t.position?.x ?? 40
       const y = t.position?.y ?? 40
-      return `<rect x="${x}" y="${y}" width="220" height="56" rx="12" fill="#ffffff" stroke="#e07a5f" stroke-width="1.5"/>
-      <text x="${x + 12}" y="${y + 34}" fill="#161a32" font-family="Hanken Grotesk,sans-serif" font-size="14">${escapeHtml(t.name)}</text>`
+      return `<rect x="${x}" y="${y}" width="220" height="56" rx="4" fill="#0b1c30" stroke="#7bd0ff" stroke-width="1.5"/>
+      <text x="${x + 12}" y="${y + 34}" fill="#d3e4fe" font-family="Inter,sans-serif" font-size="13">${escapeHtml(t.name)}</text>`
     })
     .join('\n')
   const edges = relationships
@@ -334,12 +339,12 @@ function buildExportSvg(
       const y1 = (a.position?.y ?? 0) + 28
       const x2 = (b.position?.x ?? 0) + 110
       const y2 = (b.position?.y ?? 0) + 28
-      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#444933" stroke-width="1.5"/>`
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#64748b" stroke-width="1.5"/>`
     })
     .join('\n')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-<rect width="100%" height="100%" fill="#0a0a0a"/>
+<rect width="100%" height="100%" fill="#020617"/>
 ${edges}
 ${nodes}
 </svg>`

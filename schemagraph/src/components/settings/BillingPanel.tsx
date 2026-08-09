@@ -63,7 +63,7 @@ export function BillingPanel({
   }
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <h2 className="font-headline text-base font-semibold text-on-surface-variant">
         Billing
       </h2>
@@ -123,7 +123,7 @@ export function BillingPanel({
             type="button"
             disabled={busy || !billing?.configured}
             onClick={() => void checkout()}
-            className="rounded-lg border border-primary/30 bg-primary/5 px-md py-1.5 font-label text-[12px] text-primary disabled:opacity-40"
+            className="rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] text-secondary disabled:opacity-40"
           >
             Upgrade (Checkout)
           </button>

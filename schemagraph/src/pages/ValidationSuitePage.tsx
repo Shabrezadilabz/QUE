@@ -90,7 +90,7 @@ export function ValidationSuitePage() {
             </div>
             <Link
               to="/drift-agent"
-              className="font-label text-[12px] text-primary hover:underline"
+              className="font-label text-[12px] text-secondary hover:underline"
             >
               Drift agent
             </Link>
@@ -102,12 +102,12 @@ export function ValidationSuitePage() {
             </p>
           ) : null}
           {toast ? (
-            <p className="mb-md rounded-xl border border-primary/20 bg-primary/5 px-md py-sm font-label text-[12px] text-primary">
+            <p className="mb-md rounded-xl border border-secondary/25 bg-secondary/5 px-md py-sm font-label text-[12px] text-secondary">
               {toast}
             </p>
           ) : null}
 
-          <section className="mb-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+          <section className="mb-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
             <label className="block">
               <span className="mb-xs block font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
                 Job
@@ -133,7 +133,7 @@ export function ValidationSuitePage() {
                 type="button"
                 disabled={!canWrite || busy || !jobId}
                 onClick={() => void generate()}
-                className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
               >
                 Generate suite
               </button>
@@ -141,7 +141,7 @@ export function ValidationSuitePage() {
                 type="button"
                 disabled={!canWrite || busy || !jobId}
                 onClick={() => void run()}
-                className="rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary disabled:opacity-40"
+                className="rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
               >
                 Run (live validate)
               </button>
@@ -160,7 +160,7 @@ export function ValidationSuitePage() {
             {checks.map((c) => (
               <li
                 key={c.id}
-                className="rounded-xl border border-outline-variant/30 bg-white px-lg py-md shadow-sm"
+                className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-lg py-md"
               >
                 <div className="flex flex-wrap items-center justify-between gap-sm">
                   <div>

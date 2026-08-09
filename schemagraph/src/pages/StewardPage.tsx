@@ -125,10 +125,10 @@ export function StewardPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-md">
-              <Link to="/glossary" className="font-label text-[12px] text-primary hover:underline">
+              <Link to="/glossary" className="font-label text-[12px] text-secondary hover:underline">
                 Glossary
               </Link>
-              <Link to="/settings/ai-policy" className="font-label text-[12px] text-primary hover:underline">
+              <Link to="/settings/ai-policy" className="font-label text-[12px] text-secondary hover:underline">
                 Ticket webhooks
               </Link>
             </div>
@@ -140,7 +140,7 @@ export function StewardPage() {
             </p>
           ) : null}
           {toast ? (
-            <p className="mb-md rounded-xl border border-primary/20 bg-primary/5 px-md py-sm font-label text-[12px] text-primary">
+            <p className="mb-md rounded-xl border border-secondary/25 bg-secondary/5 px-md py-sm font-label text-[12px] text-secondary">
               {toast}
             </p>
           ) : null}
@@ -167,7 +167,7 @@ export function StewardPage() {
           </div>
 
           <div className="grid gap-lg lg:grid-cols-2">
-            <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+            <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
               <h2 className="font-headline text-base font-semibold text-on-surface-variant">
                 Needs certification
               </h2>
@@ -189,7 +189,7 @@ export function StewardPage() {
                       type="button"
                       disabled={!canWrite || busy}
                       onClick={() => void certify(item)}
-                      className="shrink-0 rounded-lg bg-primary px-md py-1.5 font-label text-[11px] text-on-primary disabled:opacity-40"
+                      className="shrink-0 rounded bg-secondary px-md py-1.5 font-label text-[11px] text-on-secondary disabled:opacity-40"
                     >
                       Certify 90d
                     </button>
@@ -203,7 +203,7 @@ export function StewardPage() {
               </ul>
             </section>
 
-            <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+            <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
               <h2 className="font-headline text-base font-semibold text-on-surface-variant">
                 Policy & tickets
               </h2>
@@ -211,7 +211,7 @@ export function StewardPage() {
                 type="button"
                 disabled={!canAdmin || busy}
                 onClick={() => void seedPolicies()}
-                className="mt-md rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary disabled:opacity-40"
+                className="mt-md rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
               >
                 Seed defaults + apply PII pack
               </button>
@@ -231,7 +231,7 @@ export function StewardPage() {
                 type="button"
                 disabled={!canWrite || busy || !ticketTitle.trim()}
                 onClick={() => void openTicket()}
-                className="mt-sm rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                className="mt-sm rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
               >
                 Open ticket
               </button>

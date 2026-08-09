@@ -13,7 +13,7 @@ export function ProductPage() {
           className="pointer-events-none absolute inset-0 opacity-40"
           style={{
             background:
-              'radial-gradient(ellipse 80% 50% at 20% 0%, #ffdbd2 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 90% 20%, #bbeed4 0%, transparent 50%)',
+              'radial-gradient(ellipse 80% 50% at 20% 0%, rgba(123,208,255,0.16) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 90% 20%, rgba(78,222,163,0.12) 0%, transparent 50%)',
           }}
         />
         <div className="relative mx-auto max-w-3xl px-md py-xl md:px-lg">
@@ -54,7 +54,7 @@ export function ProductPage() {
             </ol>
           </section>
 
-          <section className="mt-xl rounded-xl border border-outline-variant/30 bg-white/80 p-lg backdrop-blur">
+          <section className="mt-xl rounded-xl border border-outline-variant/30 bg-surface-container-low/80 p-lg backdrop-blur">
             <h2 className="font-headline text-lg font-semibold">What we do not claim</h2>
             <ul className="mt-md space-y-sm text-[13px] text-on-surface-variant">
               <li>• AI replaces your DE team or is always 100% correct</li>
@@ -66,13 +66,13 @@ export function ProductPage() {
           <div className="mt-xl flex flex-wrap gap-sm">
             <Link
               to="/sources"
-              className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary"
+              className="rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary"
             >
               Connect a source
             </Link>
             <Link
               to="/joins"
-              className="rounded-lg border border-primary px-lg py-2 font-label text-[12px] font-semibold text-primary"
+              className="rounded-lg border border-secondary px-lg py-2 font-label text-[12px] font-semibold text-secondary"
             >
               Review joins
             </Link>
@@ -103,7 +103,7 @@ export function ProductPage() {
 
 function Offer({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-outline-variant/30 bg-white/90 p-lg shadow-sm">
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low/90 p-lg">
       <h3 className="font-headline text-base font-semibold text-on-surface">
         {title}
       </h3>

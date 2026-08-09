@@ -84,7 +84,7 @@ export function OnboardingRoadmapDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex items-end justify-center bg-[#2a211c]/45 p-md backdrop-blur-[2px] sm:items-center"
+      className="fixed inset-0 z-[300] flex items-end justify-center bg-black/55 p-md backdrop-blur-[2px] sm:items-center"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) close({ skipped: true })
@@ -119,7 +119,7 @@ export function OnboardingRoadmapDialog({
 
         <div className="h-1 w-full bg-secondary-container/40">
           <div
-            className="h-full bg-primary-container transition-all duration-300"
+            className="h-full bg-secondary transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -140,7 +140,7 @@ export function OnboardingRoadmapDialog({
                 setOpen(false)
                 onCloseForce?.()
               }}
-              className="inline-flex rounded-lg border border-outline-variant/50 bg-white px-md py-sm font-label text-sm tracking-wide text-primary hover:border-primary hover:bg-[#ffdbd2]/40"
+              className="inline-flex rounded border border-outline-variant bg-surface-container-high px-md py-sm font-label text-sm tracking-wide text-secondary hover:border-secondary hover:bg-secondary/15"
             >
               {current.ctaLabel} →
             </Link>
@@ -163,9 +163,9 @@ export function OnboardingRoadmapDialog({
                 className={[
                   'h-1.5 w-1.5 rounded-full transition-colors',
                   i === step
-                    ? 'bg-primary'
+                    ? 'bg-secondary'
                     : i < step
-                      ? 'bg-primary-container'
+                      ? 'bg-secondary/50'
                       : 'bg-outline-variant/50',
                 ].join(' ')}
               />
@@ -175,7 +175,7 @@ export function OnboardingRoadmapDialog({
             <button
               type="button"
               onClick={() => close({ completed: true })}
-              className="rounded-lg bg-primary-container px-md py-sm font-label text-sm font-bold tracking-widest text-on-primary hover:opacity-90"
+              className="rounded bg-secondary px-md py-sm font-label text-sm font-bold tracking-widest text-on-secondary hover:bg-secondary-fixed-dim"
             >
               DONE
             </button>
@@ -191,7 +191,7 @@ export function OnboardingRoadmapDialog({
                   stepIndex: next,
                 })
               }}
-              className="rounded-lg bg-primary-container px-md py-sm font-label text-sm font-bold tracking-widest text-on-primary hover:opacity-90"
+              className="rounded bg-secondary px-md py-sm font-label text-sm font-bold tracking-widest text-on-secondary hover:bg-secondary-fixed-dim"
             >
               NEXT
             </button>
@@ -214,7 +214,7 @@ export function OnboardingRoadmapTrigger({
       onClick={onOpen}
       title="Product roadmap — how to use Que"
       aria-label="Open Que product roadmap"
-      className="flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant/40 bg-surface-container-low font-label text-sm font-bold text-primary transition-colors hover:border-primary hover:bg-[#ffdbd2]/50"
+      className="flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant bg-surface-container-low font-label text-sm font-bold text-secondary transition-colors hover:border-secondary hover:bg-secondary/15"
     >
       ?
     </button>

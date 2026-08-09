@@ -59,7 +59,7 @@ export function SignedArtifactsPanel({
   }
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
         <div>
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -75,7 +75,7 @@ export function SignedArtifactsPanel({
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
+          className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary hover:text-secondary disabled:opacity-40"
         >
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
@@ -129,7 +129,7 @@ export function SignedArtifactsPanel({
                   <td className="max-w-[10rem] truncate px-sm py-sm">
                     {e.jobTitle || e.jobId?.slice(0, 8) || '—'}
                   </td>
-                  <td className="px-sm py-sm font-label text-[11px] text-primary">
+                  <td className="px-sm py-sm font-label text-[11px] text-secondary">
                     {e.format}
                   </td>
                   <td className="px-sm py-sm">

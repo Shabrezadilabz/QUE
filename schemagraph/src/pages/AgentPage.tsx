@@ -99,19 +99,19 @@ export function AgentPage() {
             <div className="flex flex-wrap gap-md">
               <Link
                 to="/validation"
-                className="font-label text-[12px] text-primary hover:underline"
+                className="font-label text-[12px] text-secondary hover:underline"
               >
                 Validation suite
               </Link>
               <Link
                 to="/drift-agent"
-                className="font-label text-[12px] text-primary hover:underline"
+                className="font-label text-[12px] text-secondary hover:underline"
               >
                 Drift agent
               </Link>
               <Link
                 to="/settings/ai-policy"
-                className="font-label text-[12px] text-primary hover:underline"
+                className="font-label text-[12px] text-secondary hover:underline"
               >
                 AI & Policy
               </Link>
@@ -119,7 +119,7 @@ export function AgentPage() {
           </div>
 
           {enabled === false ? (
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-lg">
+            <div className="rounded-xl border border-secondary/40 bg-secondary/5 p-lg">
               <p className="font-body text-[13px] text-on-surface">
                 Stitch Agent is off for this workspace. An admin can enable{' '}
                 <strong>enableStitchAgent</strong> under Settings → AI & Policy.
@@ -133,14 +133,14 @@ export function AgentPage() {
             </p>
           ) : null}
           {toast ? (
-            <p className="mb-md rounded-xl border border-primary/20 bg-primary/5 px-md py-sm font-label text-[12px] text-primary">
+            <p className="mb-md rounded-xl border border-secondary/25 bg-secondary/5 px-md py-sm font-label text-[12px] text-secondary">
               {toast}
             </p>
           ) : null}
 
           {enabled !== false ? (
             <div className="grid gap-lg lg:grid-cols-12">
-              <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm lg:col-span-5">
+              <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg lg:col-span-5">
                 <h2 className="font-headline text-base font-semibold text-on-surface-variant">
                   New plan
                 </h2>
@@ -160,7 +160,7 @@ export function AgentPage() {
                   type="button"
                   disabled={!canWrite || busy || enabled == null}
                   onClick={() => void start()}
-                  className="mt-md rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                  className="mt-md rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
                 >
                   {busy ? 'Working…' : 'Start agent plan'}
                 </button>
@@ -173,7 +173,7 @@ export function AgentPage() {
                         className={[
                           'w-full rounded-lg border px-md py-sm text-left font-body text-[12px]',
                           active?.id === s.id
-                            ? 'border-primary bg-primary/5 text-primary'
+                            ? 'border-secondary bg-secondary/5 text-secondary'
                             : 'border-outline-variant/30 text-on-surface',
                         ].join(' ')}
                       >
@@ -187,7 +187,7 @@ export function AgentPage() {
                 </ul>
               </section>
 
-              <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm lg:col-span-7">
+              <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg lg:col-span-7">
                 {!active ? (
                   <p className="font-body text-[13px] text-on-surface-variant">
                     Start a plan or select a session.
@@ -205,7 +205,7 @@ export function AgentPage() {
                         {active.plan?.goal}
                       </p>
                       {active.plan?.intent ? (
-                        <p className="mt-xs font-label text-[11px] uppercase tracking-widest text-primary">
+                        <p className="mt-xs font-label text-[11px] uppercase tracking-widest text-secondary">
                           Intent · {active.plan.intent}
                           {(active.plan.tools || []).length
                             ? ` · ${(active.plan.tools || []).map((t) => t.id).join(' → ')}`
@@ -229,8 +229,8 @@ export function AgentPage() {
                     </ol>
 
                     {openCheckpoint ? (
-                      <div className="rounded-xl border border-primary/30 bg-primary/5 p-md">
-                        <p className="font-label text-[11px] tracking-widest text-primary uppercase">
+                      <div className="rounded-xl border border-secondary/40 bg-secondary/5 p-md">
+                        <p className="font-label text-[11px] tracking-widest text-secondary uppercase">
                           Checkpoint · {openCheckpoint.type}
                         </p>
                         <p className="mt-sm font-body text-[13px] text-on-surface">
@@ -241,7 +241,7 @@ export function AgentPage() {
                             <>
                               <Link
                                 to="/joins"
-                                className="rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary"
+                                className="rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary"
                               >
                                 Open Join Review
                               </Link>
@@ -251,7 +251,7 @@ export function AgentPage() {
                                 onClick={() =>
                                   void resolve('continue_after_promote')
                                 }
-                                className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                                className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
                               >
                                 Continues after Promote
                               </button>
@@ -262,7 +262,7 @@ export function AgentPage() {
                                 type="button"
                                 disabled={!canWrite || busy}
                                 onClick={() => void resolve('approve')}
-                                className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                                className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
                               >
                                 Approve plan
                               </button>
@@ -291,7 +291,7 @@ export function AgentPage() {
                               key={t.id}
                               className="rounded-lg border border-outline-variant/20 px-md py-sm font-mono text-[11px] text-on-surface-variant"
                             >
-                              <span className={t.ok === false ? 'text-error' : 'text-primary'}>
+                              <span className={t.ok === false ? 'text-error' : 'text-secondary'}>
                                 {t.tool}
                               </span>
                               {t.output?.error
@@ -311,13 +311,13 @@ export function AgentPage() {
                       <div className="flex flex-wrap gap-sm">
                         <Link
                           to={`/jobs/${String(active.result.jobId)}/notebook`}
-                          className="inline-flex rounded-lg bg-primary-container px-md py-2 font-label text-[12px] font-semibold text-on-primary-fixed"
+                          className="inline-flex rounded-lg bg-secondary px-md py-2 font-label text-[12px] font-semibold text-on-secondary-fixed"
                         >
                           Open drafted job
                         </Link>
                         <Link
                           to="/validation"
-                          className="inline-flex rounded-lg border border-primary px-md py-2 font-label text-[12px] text-primary"
+                          className="inline-flex rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary"
                         >
                           Validation suite
                         </Link>

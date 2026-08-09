@@ -54,7 +54,7 @@ export function RulesPage() {
           <p className="mt-md text-[13px] text-error">{error}</p>
         ) : null}
         {canWrite ? (
-          <div className="mt-lg space-y-sm rounded-xl border border-outline-variant/30 bg-white p-md">
+          <div className="mt-lg space-y-sm rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value)}
@@ -83,7 +83,7 @@ export function RulesPage() {
             <button
               type="button"
               onClick={() => void create()}
-              className="rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary"
+              className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary"
             >
               Add rule
             </button>
@@ -93,7 +93,7 @@ export function RulesPage() {
           {items.map((r) => (
             <li
               key={r.id}
-              className="rounded-xl border border-outline-variant/30 bg-white px-md py-md"
+              className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md"
             >
               <p className="font-label text-[13px] font-semibold">
                 [{r.kind}] {r.title}

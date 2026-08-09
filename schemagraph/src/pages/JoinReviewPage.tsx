@@ -303,7 +303,7 @@ export function JoinReviewPage() {
                     type="button"
                     disabled={inferBusy || mapBusy}
                     onClick={() => void reInfer()}
-                    className="rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+                    className="rounded-lg border border-secondary px-md py-1.5 font-label text-[12px] font-semibold text-secondary disabled:opacity-40"
                   >
                     {inferBusy ? 'Inferring…' : 'Re-run inference'}
                   </button>
@@ -311,7 +311,7 @@ export function JoinReviewPage() {
                     type="button"
                     disabled={inferBusy || mapBusy}
                     onClick={() => void suggestMappings()}
-                    className="rounded-lg border border-primary/40 bg-primary/5 px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+                    className="rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] font-semibold text-secondary disabled:opacity-40"
                   >
                     {mapBusy ? 'Suggesting…' : 'Suggest mappings'}
                   </button>
@@ -319,7 +319,7 @@ export function JoinReviewPage() {
               ) : null}
               <Link
                 to="/workspace"
-                className="rounded-lg border border-outline-variant px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary"
+                className="rounded-lg border border-outline-variant px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary"
               >
                 Open Workspace
               </Link>
@@ -342,7 +342,7 @@ export function JoinReviewPage() {
                 className={[
                   'rounded-full px-md py-1 font-label text-[11px] font-semibold',
                   filter === key
-                    ? 'bg-primary text-on-primary'
+                    ? 'bg-secondary text-on-secondary'
                     : 'bg-surface-container-low text-on-surface-variant hover:bg-secondary-container/50',
                 ].join(' ')}
               >
@@ -358,7 +358,7 @@ export function JoinReviewPage() {
           </p>
         ) : null}
         {toast ? (
-          <p className="border-b border-primary/20 bg-primary/5 px-md py-sm font-label text-[12px] text-primary">
+          <p className="border-b border-secondary/25 bg-secondary/5 px-md py-sm font-label text-[12px] text-secondary">
             {toast}
             <button
               type="button"
@@ -388,7 +388,7 @@ export function JoinReviewPage() {
                       className={[
                         'w-full px-md py-md text-left transition-colors',
                         selectedId === item.id
-                          ? 'bg-primary/5'
+                          ? 'bg-secondary/5'
                           : 'hover:bg-surface-container-low',
                       ].join(' ')}
                     >
@@ -402,7 +402,7 @@ export function JoinReviewPage() {
                             {item.to.table}.{item.to.column}
                           </span>
                         </p>
-                        <span className="shrink-0 font-label text-[11px] text-primary">
+                        <span className="shrink-0 font-label text-[11px] text-secondary">
                           {Math.round(item.confidence * 100)}%
                         </span>
                       </div>
@@ -452,7 +452,7 @@ export function JoinReviewPage() {
                       : ''}
                   </p>
                   {selected.evidence.pinnedOverlap?.label ? (
-                    <p className="mt-1 font-body text-[12px] text-primary">
+                    <p className="mt-1 font-body text-[12px] text-secondary">
                       {selected.evidence.pinnedOverlap.label}
                       {selected.evidence.pinnedOverlap.confidenceHint != null
                         ? ` · hint ${Math.round(selected.evidence.pinnedOverlap.confidenceHint * 100)}% (cap 95%)`
@@ -467,7 +467,7 @@ export function JoinReviewPage() {
                 </div>
 
                 {selected.status === 'suggested' && canWrite ? (
-                  <section className="rounded-xl border border-outline-variant/30 bg-white p-md">
+                  <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
                     <h3 className="font-headline text-base font-semibold text-on-surface-variant">
                       Edit join columns
                     </h3>
@@ -481,7 +481,7 @@ export function JoinReviewPage() {
                         <select
                           value={editFromCol}
                           onChange={(e) => setEditFromCol(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-white px-md py-2 font-body text-[13px] text-on-surface"
+                          className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-md py-2 font-body text-[13px] text-on-surface"
                         >
                           {fromColOpts.map((c) => (
                             <option key={c.id} value={c.id}>
@@ -495,7 +495,7 @@ export function JoinReviewPage() {
                         <select
                           value={editToCol}
                           onChange={(e) => setEditToCol(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-white px-md py-2 font-body text-[13px] text-on-surface"
+                          className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-md py-2 font-body text-[13px] text-on-surface"
                         >
                           {toColOpts.map((c) => (
                             <option key={c.id} value={c.id}>
@@ -515,14 +515,14 @@ export function JoinReviewPage() {
                           editToCol === selected.to.columnId)
                       }
                       onClick={() => void saveEdit()}
-                      className="mt-md rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+                      className="mt-md rounded-lg border border-secondary px-md py-1.5 font-label text-[12px] font-semibold text-secondary disabled:opacity-40"
                     >
                       Save column edit
                     </button>
                   </section>
                 ) : null}
 
-                <section className="rounded-xl border border-outline-variant/30 bg-white p-md">
+                <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
                   <h3 className="font-headline text-base font-semibold text-on-surface-variant">
                     Evidence
                   </h3>
@@ -539,7 +539,7 @@ export function JoinReviewPage() {
                           className="flex items-start justify-between gap-md rounded-lg bg-surface-container-low px-md py-sm"
                         >
                           <div>
-                            <p className="font-label text-[11px] tracking-wider text-primary uppercase">
+                            <p className="font-label text-[11px] tracking-wider text-secondary uppercase">
                               {s.code || 'signal'}
                             </p>
                             <p className="mt-0.5 font-body text-[12px] text-on-surface">
@@ -562,7 +562,7 @@ export function JoinReviewPage() {
                     </p>
                   )}
                   {(selected.evidence as { sqlSnippet?: string }).sqlSnippet ? (
-                    <pre className="mt-md overflow-x-auto rounded-lg bg-[#2a211c] p-md font-mono text-[11px] text-[#f0e6dc]">
+                    <pre className="mt-md overflow-x-auto rounded-lg bg-surface-container-lowest p-md font-mono text-[11px] text-on-surface">
                       {(selected.evidence as { sqlSnippet?: string }).sqlSnippet}
                     </pre>
                   ) : (
@@ -578,7 +578,7 @@ export function JoinReviewPage() {
                       type="button"
                       disabled={busy || !canPromote}
                       onClick={() => void act('promote')}
-                      className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                      className="rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
                       title={
                         canPromote
                           ? 'Accept join into workspace truth'
@@ -608,7 +608,7 @@ export function JoinReviewPage() {
                   </p>
                 ) : null}
 
-                <section className="rounded-xl border border-outline-variant/30 bg-white p-md">
+                <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
                   <h3 className="font-headline text-base font-semibold text-on-surface-variant">
                     Team discussion
                   </h3>
@@ -634,7 +634,7 @@ export function JoinReviewPage() {
                           {canWrite ? (
                             <button
                               type="button"
-                              className="mt-1 text-[11px] text-primary"
+                              className="mt-1 text-[11px] text-secondary"
                               onClick={() => setReplyTo(c.id)}
                             >
                               Reply
@@ -643,7 +643,7 @@ export function JoinReviewPage() {
                           {(c.replies || []).map((r) => (
                             <div
                               key={r.id}
-                              className="mt-sm ml-md border-l-2 border-primary/20 pl-md"
+                              className="mt-sm ml-md border-l-2 border-secondary/25 pl-md"
                             >
                               <span className="font-semibold">
                                 {r.authorName || r.authorEmail || 'member'}
@@ -666,7 +666,7 @@ export function JoinReviewPage() {
                           Replying to thread{' '}
                           <button
                             type="button"
-                            className="text-primary underline"
+                            className="text-secondary underline"
                             onClick={() => setReplyTo(null)}
                           >
                             cancel
@@ -706,7 +706,7 @@ export function JoinReviewPage() {
                                 ),
                               )
                           }}
-                          className="rounded-lg border border-primary px-md py-1.5 text-[12px] text-primary disabled:opacity-40"
+                          className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary disabled:opacity-40"
                         >
                           Post
                         </button>
@@ -730,20 +730,20 @@ export function JoinReviewPage() {
             value={goldenText}
             onChange={(e) => setGoldenText(e.target.value)}
             rows={3}
-            className="mt-sm w-full rounded-lg border border-outline-variant/40 bg-white px-md py-sm font-mono text-[11px]"
+            className="mt-sm w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-md py-sm font-mono text-[11px]"
           />
           <button
             type="button"
             disabled={!canWrite || goldenBusy}
             onClick={() => void runGolden()}
-            className="mt-sm rounded-lg border border-primary/40 px-md py-1.5 font-label text-[12px] text-primary disabled:opacity-40"
+            className="mt-sm rounded-lg border border-secondary/40 px-md py-1.5 font-label text-[12px] text-secondary disabled:opacity-40"
           >
             {goldenBusy ? 'Evaluating…' : 'Run golden-set eval'}
           </button>
         </section>
 
         {renames.length > 0 ? (
-          <section className="shrink-0 border-t border-outline-variant/20 bg-white px-md py-md md:px-lg">
+          <section className="shrink-0 border-t border-outline-variant/20 bg-surface-container-low px-md py-md md:px-lg">
             <h2 className="font-headline text-sm font-semibold text-on-surface">
               Rename suggestions (HITL)
             </h2>
@@ -770,7 +770,7 @@ export function JoinReviewPage() {
                         type="button"
                         disabled={busy}
                         onClick={() => void actRename(r.id, 'accept')}
-                        className="rounded border border-primary/30 px-sm py-0.5 text-[11px] text-primary"
+                        className="rounded border border-secondary/40 px-sm py-0.5 text-[11px] text-secondary"
                       >
                         Accept
                       </button>
@@ -810,7 +810,7 @@ function EndpointCard({
   ep: JoinReviewItem['from']
 }) {
   return (
-    <div className="rounded-xl border border-outline-variant/30 bg-white p-md">
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
       <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
         {side}
       </p>

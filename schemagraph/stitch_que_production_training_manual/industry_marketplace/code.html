@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Marketplace - Industry Packs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#009365",
+                        "on-tertiary-fixed": "#002113",
+                        "on-error": "#690005",
+                        "on-primary": "#283044",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "primary-fixed": "#dae2fd",
+                        "primary": "#bec6e0",
+                        "on-tertiary": "#003824",
+                        "on-secondary-container": "#00374d",
+                        "surface-variant": "#26364a",
+                        "secondary-container": "#00a6e0",
+                        "on-background": "#d3e4fe",
+                        "surface": "#031427",
+                        "on-secondary": "#00354a",
+                        "inverse-on-surface": "#213145",
+                        "primary-container": "#0f172a",
+                        "surface-container-highest": "#26364a",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-primary-container": "#798098",
+                        "surface-bright": "#2a3a4f",
+                        "on-surface-variant": "#c6c6cd",
+                        "surface-tint": "#bec6e0",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "surface-container-lowest": "#000f21",
+                        "outline-variant": "#45464d",
+                        "on-surface": "#d3e4fe",
+                        "surface-container-high": "#1b2b3f",
+                        "secondary-fixed": "#c4e7ff",
+                        "on-primary-fixed": "#131b2e",
+                        "error": "#ffb4ab",
+                        "background": "#031427",
+                        "secondary": "#7bd0ff",
+                        "tertiary-container": "#001c10",
+                        "on-secondary-fixed": "#001e2c",
+                        "inverse-primary": "#565e74",
+                        "on-secondary-fixed-variant": "#004c69",
+                        "tertiary": "#4edea3",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "inverse-surface": "#d3e4fe",
+                        "error-container": "#93000a",
+                        "tertiary-fixed": "#6ffbbe",
+                        "surface-container-low": "#0b1c30",
+                        "surface-container": "#102034",
+                        "secondary-fixed-dim": "#7bd0ff",
+                        "surface-dim": "#031427",
+                        "outline": "#909097",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "cell-padding": "0.25rem 0.5rem",
+                        "panel-margin": "1rem",
+                        "layout-sidebar": "260px",
+                        "gutter-dense": "0.5rem",
+                        "layout-inspector": "320px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "code-md": ["JetBrains Mono"],
+                        "code-sm": ["JetBrains Mono"],
+                        "title-sm": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "code-md": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "title-sm": ["16px", { "lineHeight": "24px", "fontWeight": "500" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col font-body-md overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="bg-surface border-b border-outline-variant flex justify-between items-center w-full px-layout-sidebar h-14 z-50 flat no shadows docked full-width top-0 hidden md:flex">
+<div class="flex items-center gap-6">
+<div class="text-title-sm font-title-sm font-black tracking-tight text-on-surface">Que</div>
+<nav class="flex items-center gap-1">
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-150 px-3 py-2 rounded-DEFAULT text-label-caps font-label-caps" href="#">Workspace</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-150 px-3 py-2 rounded-DEFAULT text-label-caps font-label-caps" href="#">Chat</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-150 px-3 py-2 rounded-DEFAULT text-label-caps font-label-caps" href="#">Sources</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-150 px-3 py-2 rounded-DEFAULT text-label-caps font-label-caps" href="#">Joins</a>
+<a class="text-secondary font-bold border-b-2 border-secondary px-3 py-2 text-label-caps font-label-caps" href="#">Onboarding</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-surface-container-highest transition-colors duration-150"><span class="material-symbols-outlined" data-icon="group">group</span></button>
+<button class="text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-surface-container-highest transition-colors duration-150"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<button class="text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-surface-container-highest transition-colors duration-150"><span class="material-symbols-outlined" data-icon="help">help</span></button>
+</div>
+<img alt="User Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A small, circular avatar portrait of a technical user in a dark, moody environment. The avatar features subtle cyber-blue edge lighting, consistent with a high-end IDE aesthetic. It sits within a highly technical interface, serving as a profile image in the top right corner." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFssExvGqhix0jhX3Nf9vtTSbuF5DH-BeIBR4UUbM4Az2ZknVj_A8ASYjb562WvJ1xWiWPN5ieqrkfqOamYc4BEcYkL25428C502xTqLSS7xmTdZh7JwuARGpkt0ZxGJSHFIOyFdCCEzltcC73jR6gDfC2Lf-HhNChBW8s4PjjxUPfaioLxhuykTORW8CbsVz5UJFAXUqGSWZ9rS_r7XksiOhQzL50A-M_k7Ogmc6xyOJNfsTdAWzY5g"/>
+</div>
+</header>
+<div class="flex flex-1 relative w-full pt-14 pl-layout-sidebar">
+<!-- SideNavBar -->
+<aside class="bg-surface-container border-r border-outline-variant flat no shadows docked left-0 h-full w-layout-sidebar fixed left-0 top-0 flex flex-col py-4 z-40 hidden md:flex">
+<div class="px-4 mb-6 flex items-center gap-3">
+<div class="w-8 h-8 rounded-DEFAULT bg-primary-container flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface text-[18px]" data-icon="database">database</span>
+</div>
+<div>
+<h2 class="text-title-sm font-title-sm text-on-surface">Data Warehouse</h2>
+<p class="text-label-caps font-label-caps text-on-surface-variant">Production Cluster</p>
+</div>
+</div>
+<div class="px-4 mb-6">
+<button class="w-full bg-secondary text-surface font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT hover:bg-secondary-fixed transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
+                    New Pipeline
+                </button>
+</div>
+<nav class="flex-1 flex flex-col gap-1 overflow-y-auto">
+<a class="text-on-surface-variant hover:bg-surface-variant mx-2 rounded-lg p-2 flex items-center gap-3 text-body-sm font-body-sm transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="chat">chat</span>
+                    Chat Focus
+                </a>
+<a class="text-on-surface-variant hover:bg-surface-variant mx-2 rounded-lg p-2 flex items-center gap-3 text-body-sm font-body-sm transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="table_chart">table_chart</span>
+                    Table Inspector
+                </a>
+<a class="bg-secondary-container text-on-secondary-container rounded-lg mx-2 p-2 flex items-center gap-3 text-body-sm font-body-sm transition-all duration-200 font-medium" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="terminal">terminal</span>
+                    Job Templates
+                </a>
+<a class="text-on-surface-variant hover:bg-surface-variant mx-2 rounded-lg p-2 flex items-center gap-3 text-body-sm font-body-sm transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="account_tree">account_tree</span>
+                    Lineage Explorer
+                </a>
+<a class="text-on-surface-variant hover:bg-surface-variant mx-2 rounded-lg p-2 flex items-center gap-3 text-body-sm font-body-sm transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="warning">warning</span>
+                    Data Drift
+                </a>
+</nav>
+<div class="mt-auto px-2 pt-4 border-t border-outline-variant flex flex-col gap-1">
+<a class="text-on-surface-variant hover:bg-surface-variant rounded-lg p-2 flex items-center gap-3 text-body-sm font-body-sm transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="settings">settings</span>
+                    Settings
+                </a>
+<a class="text-on-surface-variant hover:bg-surface-variant rounded-lg p-2 flex items-center gap-3 text-body-sm font-body-sm transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="cloud_done">cloud_done</span>
+                    API Status
+                </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 p-panel-margin pb-20">
+<div class="max-w-7xl mx-auto space-y-8">
+<!-- Page Header -->
+<div class="flex items-end justify-between border-b border-outline-variant pb-4">
+<div>
+<h1 class="text-display-lg font-display-lg text-on-surface mb-2">Industry Packs</h1>
+<p class="text-body-md font-body-md text-on-surface-variant max-w-2xl">
+                            Accelerate your pipeline development with pre-configured schemas, dbt models, and analytical views tailored for specific verticals.
+                        </p>
+</div>
+<div class="flex gap-2">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]" data-icon="search">search</span>
+<input class="bg-surface-container-high border border-outline-variant rounded-DEFAULT pl-9 pr-4 py-1.5 text-body-sm font-code-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-secondary transition-colors w-64" placeholder="Search packs..." type="text"/>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Packs Grid -->
+<div class="lg:col-span-2 space-y-6">
+<h2 class="text-title-sm font-title-sm text-on-surface border-b border-outline-variant pb-2">Available Starter Packs</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Pack Card: Retail -->
+<div class="bg-surface-container-high border border-outline-variant rounded-xl p-5 hover:border-secondary transition-colors group cursor-pointer relative overflow-hidden flex flex-col h-full">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-outline-variant group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary" data-icon="storefront">storefront</span>
+</div>
+<span class="text-label-caps font-label-caps bg-surface-container border border-outline-variant text-on-surface-variant px-2 py-1 rounded-DEFAULT">v2.1.0</span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface mb-2 relative z-10">Retail Analytics</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mb-6 flex-1 relative z-10">Comprehensive schema for e-commerce, POS transactions, inventory management, and customer cohort analysis.</p>
+<div class="space-y-4 relative z-10">
+<div class="flex flex-wrap gap-2">
+<span class="text-label-caps font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded-sm flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="ac_unit">ac_unit</span> Snowflake</span>
+<span class="text-label-caps font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded-sm flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="model_training">model_training</span> dbt Core</span>
+</div>
+<button class="w-full bg-surface-container border border-outline-variant hover:border-secondary text-secondary font-title-sm text-title-sm py-2 rounded-DEFAULT transition-colors flex items-center justify-center gap-2 group-hover:bg-secondary/10">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span> Install Pack
+                                    </button>
+</div>
+</div>
+<!-- Pack Card: Finance -->
+<div class="bg-surface-container-high border border-outline-variant rounded-xl p-5 hover:border-secondary transition-colors group cursor-pointer relative overflow-hidden flex flex-col h-full">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-outline-variant group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary" data-icon="account_balance">account_balance</span>
+</div>
+<span class="text-label-caps font-label-caps bg-surface-container border border-outline-variant text-on-surface-variant px-2 py-1 rounded-DEFAULT flex items-center gap-1 text-tertiary">
+<span class="material-symbols-outlined text-[14px]" data-icon="verified">verified</span> SOC2
+                                    </span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface mb-2 relative z-10">Fintech Ledger</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mb-6 flex-1 relative z-10">Double-entry accounting models, transaction reconciliation, and regulatory reporting schemas.</p>
+<div class="space-y-4 relative z-10">
+<div class="flex flex-wrap gap-2">
+<span class="text-label-caps font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded-sm flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="memory">memory</span> Databricks</span>
+<span class="text-label-caps font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded-sm flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="model_training">model_training</span> dbt Cloud</span>
+</div>
+<button class="w-full bg-surface-container border border-outline-variant hover:border-secondary text-secondary font-title-sm text-title-sm py-2 rounded-DEFAULT transition-colors flex items-center justify-center gap-2 group-hover:bg-secondary/10">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span> Install Pack
+                                    </button>
+</div>
+</div>
+<!-- Pack Card: Healthcare -->
+<div class="bg-surface-container-high border border-outline-variant rounded-xl p-5 hover:border-secondary transition-colors group cursor-pointer relative overflow-hidden flex flex-col h-full">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-outline-variant group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary" data-icon="medical_services">medical_services</span>
+</div>
+<span class="text-label-caps font-label-caps bg-error/10 border border-error/20 text-error px-2 py-1 rounded-DEFAULT flex items-center gap-1">
+                                         HIPAA
+                                    </span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface mb-2 relative z-10">Healthcare EMR</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mb-6 flex-1 relative z-10">FHIR-compliant structures for patient records, claims processing, and clinical event tracking.</p>
+<div class="space-y-4 relative z-10">
+<div class="flex flex-wrap gap-2">
+<span class="text-label-caps font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded-sm flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="ac_unit">ac_unit</span> Snowflake</span>
+<span class="text-label-caps font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded-sm flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="database">database</span> BigQuery</span>
+</div>
+<button class="w-full bg-surface-container border border-outline-variant hover:border-secondary text-secondary font-title-sm text-title-sm py-2 rounded-DEFAULT transition-colors flex items-center justify-center gap-2 group-hover:bg-secondary/10">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span> Install Pack
+                                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Sidebar: Recent Installs & Status -->
+<div class="space-y-6">
+<div class="bg-surface-container-high border border-outline-variant rounded-xl p-5">
+<h3 class="text-title-sm font-title-sm text-on-surface border-b border-outline-variant pb-3 mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="history">history</span>
+                                Recent Installs
+                            </h3>
+<div class="space-y-4">
+<!-- Install Item 1 -->
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-DEFAULT bg-surface border border-outline-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary text-[16px]" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="text-body-sm font-body-sm text-on-surface font-medium">SaaS Growth Pack</p>
+<span class="text-label-caps font-label-caps text-tertiary flex items-center gap-1"><span class="material-symbols-outlined text-[12px]" data-icon="check_circle">check_circle</span> Success</span>
+</div>
+<p class="text-code-sm font-code-sm text-on-surface-variant mt-1">Installed 2 hrs ago by admin@que.io</p>
+</div>
+</div>
+<div class="h-px bg-outline-variant/50 w-full"></div>
+<!-- Install Item 2 -->
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-DEFAULT bg-surface border border-outline-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary text-[16px]" data-icon="storefront">storefront</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="text-body-sm font-body-sm text-on-surface font-medium">Retail v1.0.4</p>
+<span class="text-label-caps font-label-caps text-tertiary flex items-center gap-1"><span class="material-symbols-outlined text-[12px]" data-icon="check_circle">check_circle</span> Success</span>
+</div>
+<p class="text-code-sm font-code-sm text-on-surface-variant mt-1">Installed 3 days ago</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-high border border-outline-variant rounded-xl p-5">
+<h3 class="text-title-sm font-title-sm text-on-surface mb-3">Custom Pack Deployment</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mb-4">Have an internal schema you want to distribute across your organization?</p>
+<button class="w-full bg-transparent border border-secondary text-secondary font-title-sm text-title-sm py-2 rounded-DEFAULT hover:bg-secondary/10 transition-colors">
+                                 Upload Custom Pack
+                             </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest border-t border-outline-variant fixed bottom-0 left-0 w-full flex justify-between items-center px-4 h-8 z-50 flat no shadows docked full-width bottom-0">
+<span class="text-on-surface-variant text-code-sm font-code-sm">Que v2.4.0-stable</span>
+<div class="flex gap-4">
+<a class="text-on-surface-variant hover:text-primary transition-colors text-code-sm font-code-sm" href="#">System Status: Operational</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors text-code-sm font-code-sm" href="#">Docs</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors text-code-sm font-code-sm" href="#">Support</a>
+</div>
+</footer>
+</body></html>

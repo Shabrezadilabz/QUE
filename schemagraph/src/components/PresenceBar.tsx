@@ -63,7 +63,7 @@ export function PresenceBar() {
       {peers.slice(0, 6).map((p) => (
         <span
           key={p.userId}
-          className="inline-flex h-6 max-w-[5.5rem] items-center truncate rounded-full bg-secondary-container px-2 font-label text-[10px] text-on-surface"
+          className="inline-flex h-6 max-w-[5.5rem] items-center truncate rounded-full border border-secondary/30 bg-secondary/15 px-2 font-label text-[10px] text-secondary"
           title={`${p.displayName} · ${p.pagePath || '/'}`}
         >
           {p.displayName.split(/[@\s]/)[0]}

@@ -188,7 +188,7 @@ export function BiChartsPage() {
           </p>
           <p className="mt-sm text-[12px] text-on-surface-variant">
             Datasets:{' '}
-            <Link to="/managed" className="text-primary underline">
+            <Link to="/managed" className="text-secondary underline">
               Managed data plane
             </Link>
           </p>
@@ -200,7 +200,7 @@ export function BiChartsPage() {
           </p>
         ) : null}
         {toast ? (
-          <p className="border-b border-primary/20 bg-primary/5 px-md py-sm text-[12px] text-primary">
+          <p className="border-b border-secondary/25 bg-secondary/5 px-md py-sm text-[12px] text-secondary">
             {toast}
           </p>
         ) : null}
@@ -222,7 +222,7 @@ export function BiChartsPage() {
                   type="button"
                   disabled={busy || !title.trim()}
                   onClick={() => void create()}
-                  className="mt-sm w-full rounded-lg bg-primary px-md py-1.5 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                  className="mt-sm w-full rounded bg-secondary px-md py-1.5 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
                 >
                   Create
                 </button>
@@ -237,7 +237,7 @@ export function BiChartsPage() {
                     className={[
                       'w-full px-md py-md text-left',
                       selectedId === c.id
-                        ? 'bg-primary/5'
+                        ? 'bg-secondary/5'
                         : 'hover:bg-surface-container-low',
                     ].join(' ')}
                   >
@@ -343,7 +343,7 @@ export function BiChartsPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => void saveEdit()}
-                      className="rounded-lg border border-primary px-md py-1.5 text-[12px] font-semibold text-primary disabled:opacity-40"
+                      className="rounded-lg border border-secondary px-md py-1.5 text-[12px] font-semibold text-secondary disabled:opacity-40"
                     >
                       Save edits
                     </button>
@@ -353,7 +353,7 @@ export function BiChartsPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => void certify(selected.id)}
-                      className="rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                      className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
                     >
                       Certify
                     </button>
@@ -371,8 +371,8 @@ export function BiChartsPage() {
                 </div>
 
                 {embedToken ? (
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-md">
-                    <p className="font-label text-[11px] text-primary">
+                  <div className="rounded-xl border border-secondary/40 bg-secondary/5 p-md">
+                    <p className="font-label text-[11px] text-secondary">
                       Embed token (once)
                     </p>
                     <pre className="mt-sm overflow-x-auto font-mono text-[11px]">

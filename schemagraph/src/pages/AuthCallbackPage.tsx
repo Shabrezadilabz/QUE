@@ -63,7 +63,7 @@ export function AuthCallbackPage() {
         </p>
         <Link
           to="/login"
-          className="font-label text-sm tracking-widest text-primary hover:underline"
+          className="font-label text-sm tracking-widest text-secondary hover:underline"
         >
           BACK TO SIGN IN
         </Link>

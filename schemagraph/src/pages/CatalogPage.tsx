@@ -73,20 +73,20 @@ export function CatalogPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-md">
-              <Link to="/glossary" className="font-label text-[12px] text-primary hover:underline">
+              <Link to="/glossary" className="font-label text-[12px] text-secondary hover:underline">
                 Glossary
               </Link>
-              <Link to="/steward" className="font-label text-[12px] text-primary hover:underline">
+              <Link to="/steward" className="font-label text-[12px] text-secondary hover:underline">
                 Steward
               </Link>
-              <Link to="/lineage" className="font-label text-[12px] text-primary hover:underline">
+              <Link to="/lineage" className="font-label text-[12px] text-secondary hover:underline">
                 Column lineage
               </Link>
             </div>
           </div>
 
           {enabled === false ? (
-            <p className="mb-md rounded-xl border border-primary/30 bg-primary/5 p-md font-body text-[13px]">
+            <p className="mb-md rounded-xl border border-secondary/40 bg-secondary/5 p-md font-body text-[13px]">
               Catalog governance is off. Enable{' '}
               <strong>enableCatalogGovernance</strong> in Settings → AI & Policy.
             </p>
@@ -97,7 +97,7 @@ export function CatalogPage() {
             </p>
           ) : null}
 
-          <section className="mb-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+          <section className="mb-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
             <h2 className="font-headline text-base font-semibold text-on-surface-variant">
               Add asset
             </h2>
@@ -148,7 +148,7 @@ export function CatalogPage() {
               type="button"
               disabled={!canWrite || busy || !name.trim()}
               onClick={() => void create()}
-              className="mt-md rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+              className="mt-md rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
             >
               Create asset
             </button>
@@ -158,7 +158,7 @@ export function CatalogPage() {
             {assets.map((a) => (
               <li
                 key={a.id}
-                className="rounded-xl border border-outline-variant/30 bg-white px-lg py-md shadow-sm"
+                className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-lg py-md"
               >
                 <p className="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">
                   {a.kind} · {a.depCount} dep(s)

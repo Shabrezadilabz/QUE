@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Managed Datasets - Que</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-container": "#009365",
+                      "on-tertiary-fixed": "#002113",
+                      "on-error": "#690005",
+                      "on-primary": "#283044",
+                      "tertiary-fixed-dim": "#4edea3",
+                      "primary-fixed": "#dae2fd",
+                      "primary": "#bec6e0",
+                      "on-tertiary": "#003824",
+                      "on-secondary-container": "#00374d",
+                      "surface-variant": "#26364a",
+                      "secondary-container": "#00a6e0",
+                      "on-background": "#d3e4fe",
+                      "surface": "#031427",
+                      "on-secondary": "#00354a",
+                      "inverse-on-surface": "#213145",
+                      "primary-container": "#0f172a",
+                      "surface-container-highest": "#26364a",
+                      "primary-fixed-dim": "#bec6e0",
+                      "on-primary-container": "#798098",
+                      "surface-bright": "#2a3a4f",
+                      "on-surface-variant": "#c6c6cd",
+                      "surface-tint": "#bec6e0",
+                      "on-primary-fixed-variant": "#3f465c",
+                      "surface-container-lowest": "#000f21",
+                      "outline-variant": "#45464d",
+                      "on-surface": "#d3e4fe",
+                      "surface-container-high": "#1b2b3f",
+                      "secondary-fixed": "#c4e7ff",
+                      "on-primary-fixed": "#131b2e",
+                      "error": "#ffb4ab",
+                      "background": "#031427",
+                      "secondary": "#7bd0ff",
+                      "tertiary-container": "#001c10",
+                      "on-secondary-fixed": "#001e2c",
+                      "inverse-primary": "#565e74",
+                      "on-secondary-fixed-variant": "#004c69",
+                      "tertiary": "#4edea3",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "inverse-surface": "#d3e4fe",
+                      "error-container": "#93000a",
+                      "tertiary-fixed": "#6ffbbe",
+                      "surface-container-low": "#0b1c30",
+                      "surface-container": "#102034",
+                      "secondary-fixed-dim": "#7bd0ff",
+                      "surface-dim": "#031427",
+                      "outline": "#909097",
+                      "on-error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "cell-padding": "0.25rem 0.5rem",
+                      "panel-margin": "1rem",
+                      "layout-sidebar": "260px",
+                      "gutter-dense": "0.5rem",
+                      "layout-inspector": "320px"
+              },
+              "fontFamily": {
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "code-md": [
+                              "JetBrains Mono"
+                      ],
+                      "code-sm": [
+                              "JetBrains Mono"
+                      ],
+                      "title-sm": [
+                              "Inter"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "label-caps": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "code-md": [
+                              "13px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "code-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "title-sm": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-caps": [
+                              "11px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-body-md overflow-hidden">
+<!-- TopNavBar -->
+<nav class="bg-surface dark:bg-surface flex justify-between items-center w-full px-layout-sidebar h-14 z-50 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant flat no shadows fixed top-0 left-0">
+<div class="flex items-center gap-6">
+<div class="text-title-sm font-title-sm font-black tracking-tight text-on-surface dark:text-on-surface">Que</div>
+<div class="flex space-x-6">
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface text-label-caps font-label-caps hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 py-4" href="#">Workspace</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface text-label-caps font-label-caps hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 py-4" href="#">Chat</a>
+<a class="text-secondary dark:text-secondary-fixed font-bold border-b-2 border-secondary text-label-caps font-label-caps hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 py-4" href="#">Sources</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface text-label-caps font-label-caps hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 py-4" href="#">Joins</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface text-label-caps font-label-caps hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 py-4" href="#">Onboarding</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative flex items-center bg-surface-container px-3 py-1.5 rounded border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant text-sm mr-2" data-icon="search">search</span>
+<input class="bg-transparent border-none text-body-sm font-body-sm text-on-surface focus:ring-0 w-48 placeholder-on-surface-variant/50" placeholder="Search resources..." type="text"/>
+</div>
+<button class="text-primary dark:text-primary-fixed-dim hover:bg-surface-container-highest dark:hover:bg-surface-container-highest p-1.5 rounded transition-colors duration-150">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+</button>
+<button class="text-primary dark:text-primary-fixed-dim hover:bg-surface-container-highest dark:hover:bg-surface-container-highest p-1.5 rounded transition-colors duration-150">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-primary dark:text-primary-fixed-dim hover:bg-surface-container-highest dark:hover:bg-surface-container-highest p-1.5 rounded transition-colors duration-150">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<img class="w-8 h-8 rounded-full border border-outline-variant object-cover ml-2" data-alt="A minimalist, high-contrast abstract geometric avatar representing a user profile, rendered in dark mode with a subtle cyber blue glow, fitting a technical IDE aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAF6E32bprRCUekiND_VYgRQxLnuf078TuXazF24n7Ah5le3yP5APzqWks0BCDOmkc7KDmEcYWtcESbz0sIOcshtkQccnSI29FDgkbLzVRuSoAOD_UiyxGOa_KiyawSJZWeTrEMXiXvDxdj3r7iYV4aiHhogGkB3Z4KtWVD-QqYlnWYBQO5YVepuhqotaNOCpZgVGvvDQA2-6N6_TayYvwotTxcqnfD4XHAHOEPCdw0gXMvvNGp3j0A0w"/>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="bg-surface-container dark:bg-surface-container fixed left-0 top-0 h-full flex flex-col py-4 z-40 bg-surface-container dark:bg-surface-container border-r border-outline-variant flat no shadows w-layout-sidebar pt-16">
+<div class="px-6 mb-6">
+<div class="flex items-center gap-3 mb-6">
+<img class="w-8 h-8 rounded border border-outline-variant" data-alt="A precise, technical icon representing a data warehouse, styled as a glowing node in a dark environment with cyber blue accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPzC1v8TvfHREhPzKb-doseuYQzSZAoxzQy_e-DQOzYUY3EVdDzq3xKtcagRywoVaBcwD5CVjEhAQmTMCYIrm-MDZbhWp_Xg4FxuYtyLmKf0bAcQy9HN3LJyDguq43hj9KsOgUcuUBuVCJiEdojEUmxeS0mMFOZVRIZWIY1YqWLY7SeHPegPZ6e_znHEEzjsNjFbqMiygJ_h7oPHG5eSpJPkgAzODxkbFPyxUA4uhljoWR2EF8UNKxFw"/>
+<div>
+<h2 class="text-title-sm font-title-sm text-primary dark:text-primary-fixed-dim">Data Warehouse</h2>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Production Cluster</p>
+</div>
+</div>
+<button class="w-full bg-secondary text-on-secondary-container font-medium text-body-sm font-body-sm py-2 rounded flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm">add</span> New Pipeline
+            </button>
+</div>
+<div class="flex-1 overflow-y-auto mt-2">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg text-body-sm font-body-sm mb-1" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="chat">chat</span> Chat Focus
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-secondary-fixed rounded-lg mx-2 text-body-sm font-body-sm mb-1" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="table_chart">table_chart</span> Table Inspector
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg text-body-sm font-body-sm mb-1" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="terminal">terminal</span> Job Templates
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg text-body-sm font-body-sm mb-1" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="account_tree">account_tree</span> Lineage Explorer
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg text-body-sm font-body-sm mb-1" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="warning">warning</span> Data Drift
+            </a>
+</div>
+<div class="mt-auto px-4 border-t border-outline-variant pt-4 pb-2">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant rounded-lg text-body-sm font-body-sm mb-1" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="settings">settings</span> Settings
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant rounded-lg text-body-sm font-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="cloud_done">cloud_done</span> API Status
+            </a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 ml-[260px] pt-14 pb-8 flex flex-col bg-background">
+<div class="flex-1 flex flex-col p-panel-margin gap-panel-margin overflow-y-auto">
+<!-- Header Section -->
+<header class="flex justify-between items-end pb-4 border-b border-outline-variant">
+<div>
+<div class="text-label-caps font-label-caps text-secondary mb-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">database</span> MANAGED PLANE
+                    </div>
+<h1 class="text-headline-md font-headline-md text-on-surface">Offer B Datasets</h1>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">Certified operational datasets landing in the Que managed environment.</p>
+</div>
+<div class="flex gap-3">
+<button class="bg-surface-container-high border border-outline-variant text-on-surface px-4 py-2 rounded text-body-sm font-body-sm hover:bg-surface-variant transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">history</span> Retention Policy
+                    </button>
+<button class="bg-secondary text-on-secondary-container px-4 py-2 rounded text-body-sm font-body-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">verified</span> Certify New
+                    </button>
+</div>
+</header>
+<!-- Stats Row Bento -->
+<div class="grid grid-cols-3 gap-gutter-dense">
+<div class="bg-surface-container-high p-4 rounded border border-outline-variant relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-label-caps font-label-caps text-on-surface-variant">TOTAL STORAGE</span>
+<span class="material-symbols-outlined text-secondary text-sm">hard_drive</span>
+</div>
+<div class="text-display-lg font-display-lg text-on-surface">1.2<span class="text-title-sm font-title-sm text-on-surface-variant ml-1">PB</span></div>
+<div class="mt-2 w-full bg-surface-container-highest rounded-full h-1.5">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 65%"></div>
+</div>
+<div class="text-code-sm font-code-sm text-on-surface-variant mt-2">65% of quota used</div>
+</div>
+<div class="bg-surface-container-high p-4 rounded border border-outline-variant relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-tertiary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-label-caps font-label-caps text-on-surface-variant">ACTIVE DATASETS</span>
+<span class="material-symbols-outlined text-tertiary text-sm">dataset</span>
+</div>
+<div class="text-display-lg font-display-lg text-on-surface">24</div>
+<div class="text-code-sm font-code-sm text-on-surface-variant mt-3 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-tertiary">arrow_upward</span> +3 this week
+                    </div>
+</div>
+<div class="bg-surface-container-high p-4 rounded border border-outline-variant relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-error/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="text-label-caps font-label-caps text-on-surface-variant">ORPHANED ROWS</span>
+<span class="material-symbols-outlined text-error text-sm">delete_sweep</span>
+</div>
+<div class="text-display-lg font-display-lg text-on-surface">14.2<span class="text-title-sm font-title-sm text-on-surface-variant ml-1">M</span></div>
+<button class="text-code-sm font-code-sm text-error mt-3 flex items-center gap-1 hover:underline">
+                        Review pending deletions <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Main Table Section -->
+<div class="bg-surface-container-high border border-outline-variant rounded flex-1 flex flex-col min-h-[400px]">
+<!-- Table Toolbar -->
+<div class="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-low/50">
+<div class="flex items-center gap-2">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-2 text-on-surface-variant text-sm">filter_alt</span>
+<input class="bg-surface-container text-code-sm font-code-sm border border-outline-variant rounded pl-8 pr-3 py-1.5 text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary w-64 placeholder-on-surface-variant/50" placeholder="Filter by namespace..." type="text"/>
+</div>
+</div>
+<div class="flex gap-2">
+<span class="text-code-sm font-code-sm text-on-surface-variant flex items-center px-2">Showing 1-10 of 24</span>
+</div>
+</div>
+<!-- Data Table -->
+<div class="flex-1 overflow-auto">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-surface-container-high z-10 border-b border-outline-variant shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
+<tr>
+<th class="p-cell-padding text-label-caps font-label-caps text-on-surface-variant font-medium w-8 text-center"><input class="bg-surface border-outline-variant rounded-sm text-secondary focus:ring-secondary focus:ring-offset-surface" type="checkbox"/></th>
+<th class="p-cell-padding text-label-caps font-label-caps text-on-surface-variant font-medium">DATASET NAME</th>
+<th class="p-cell-padding text-label-caps font-label-caps text-on-surface-variant font-medium">STATUS</th>
+<th class="p-cell-padding text-label-caps font-label-caps text-on-surface-variant font-medium text-right">ROWS</th>
+<th class="p-cell-padding text-label-caps font-label-caps text-on-surface-variant font-medium text-right">STORAGE</th>
+<th class="p-cell-padding text-label-caps font-label-caps text-on-surface-variant font-medium text-center">GOVERNANCE</th>
+<th class="p-cell-padding text-label-caps font-label-caps text-on-surface-variant font-medium text-right">ACTIONS</th>
+</tr>
+</thead>
+<tbody class="text-code-sm font-code-sm divide-y divide-outline-variant/50">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-highest/50 transition-colors group">
+<td class="p-cell-padding text-center"><input class="bg-surface border-outline-variant rounded-sm text-secondary focus:ring-secondary focus:ring-offset-surface" type="checkbox"/></td>
+<td class="p-cell-padding">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm">table_view</span>
+<span class="text-on-surface font-medium">prod.offer_b.user_metrics</span>
+</div>
+</td>
+<td class="p-cell-padding">
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-tertiary-container/30 border border-tertiary/20 text-tertiary text-[10px] tracking-wide font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> SYNCING
+                                    </span>
+</td>
+<td class="p-cell-padding text-right text-on-surface-variant">45.2M</td>
+<td class="p-cell-padding text-right text-on-surface-variant">12.4 GB</td>
+<td class="p-cell-padding text-center">
+<span class="inline-block px-1.5 py-0.5 border border-outline-variant rounded text-on-surface-variant text-[10px]">90d RET</span>
+</td>
+<td class="p-cell-padding text-right">
+<div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 hover:bg-surface-variant rounded text-on-surface-variant hover:text-on-surface" title="Certify"><span class="material-symbols-outlined text-[16px]">verified</span></button>
+<button class="p-1 hover:bg-surface-variant rounded text-on-surface-variant hover:text-on-surface" title="Set Retention"><span class="material-symbols-outlined text-[16px]">schedule</span></button>
+<button class="p-1 hover:bg-error-container/30 rounded text-on-surface-variant hover:text-error" title="Delete"><span class="material-symbols-outlined text-[16px]">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-highest/50 transition-colors group">
+<td class="p-cell-padding text-center"><input class="bg-surface border-outline-variant rounded-sm text-secondary focus:ring-secondary focus:ring-offset-surface" type="checkbox"/></td>
+<td class="p-cell-padding">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm">table_view</span>
+<span class="text-on-surface font-medium">prod.offer_b.transactions_raw</span>
+</div>
+</td>
+<td class="p-cell-padding">
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-surface-variant border border-outline-variant text-on-surface-variant text-[10px] tracking-wide font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-on-surface-variant"></span> IDLE
+                                    </span>
+</td>
+<td class="p-cell-padding text-right text-on-surface-variant">1.2B</td>
+<td class="p-cell-padding text-right text-on-surface-variant">450.8 GB</td>
+<td class="p-cell-padding text-center">
+<span class="inline-block px-1.5 py-0.5 border border-outline-variant rounded text-on-surface-variant text-[10px]">30d RET</span>
+</td>
+<td class="p-cell-padding text-right">
+<div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 hover:bg-surface-variant rounded text-on-surface-variant hover:text-on-surface" title="Certify"><span class="material-symbols-outlined text-[16px]">verified</span></button>
+<button class="p-1 hover:bg-surface-variant rounded text-on-surface-variant hover:text-on-surface" title="Set Retention"><span class="material-symbols-outlined text-[16px]">schedule</span></button>
+<button class="p-1 hover:bg-error-container/30 rounded text-on-surface-variant hover:text-error" title="Delete"><span class="material-symbols-outlined text-[16px]">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-highest/50 transition-colors group bg-error/5">
+<td class="p-cell-padding text-center"><input class="bg-surface border-outline-variant rounded-sm text-secondary focus:ring-secondary focus:ring-offset-surface" type="checkbox"/></td>
+<td class="p-cell-padding">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm">table_view</span>
+<span class="text-on-surface font-medium">dev.offer_b.test_stream_01</span>
+</div>
+</td>
+<td class="p-cell-padding">
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-error-container/30 border border-error/20 text-error text-[10px] tracking-wide font-medium">
+<span class="material-symbols-outlined text-[10px]">warning</span> DRIFT
+                                    </span>
+</td>
+<td class="p-cell-padding text-right text-on-surface-variant">8.9K</td>
+<td class="p-cell-padding text-right text-on-surface-variant">12 MB</td>
+<td class="p-cell-padding text-center">
+<span class="inline-block px-1.5 py-0.5 border border-error/50 text-error rounded text-[10px] bg-error/10">UNMANAGED</span>
+</td>
+<td class="p-cell-padding text-right">
+<div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 hover:bg-surface-variant rounded text-on-surface-variant hover:text-on-surface" title="Certify"><span class="material-symbols-outlined text-[16px]">verified</span></button>
+<button class="p-1 hover:bg-surface-variant rounded text-on-surface-variant hover:text-on-surface" title="Set Retention"><span class="material-symbols-outlined text-[16px]">schedule</span></button>
+<button class="p-1 hover:bg-error-container/30 rounded text-on-surface-variant hover:text-error" title="Delete"><span class="material-symbols-outlined text-[16px]">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant flat no shadows fixed bottom-0 left-0 w-full flex justify-between items-center px-4 h-8 z-50 text-code-sm font-code-sm">
+<div class="text-on-surface-variant dark:text-on-surface-variant">Que v2.4.0-stable</div>
+<div class="flex space-x-4">
+<a class="text-tertiary dark:text-tertiary-fixed-dim hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">System Status: Operational</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Docs</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Support</a>
+</div>
+</footer>
+</body></html>

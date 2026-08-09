@@ -78,7 +78,7 @@ export function DriftAgentPage() {
             <div className="flex flex-wrap gap-sm">
               <Link
                 to="/agent"
-                className="font-label text-[12px] text-primary hover:underline"
+                className="font-label text-[12px] text-secondary hover:underline"
               >
                 Stitch Agent
               </Link>
@@ -86,7 +86,7 @@ export function DriftAgentPage() {
                 type="button"
                 disabled={!canWrite || busy}
                 onClick={() => void propose()}
-                className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                className="rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
               >
                 {busy ? 'Working…' : 'Scan & propose fixes'}
               </button>
@@ -99,7 +99,7 @@ export function DriftAgentPage() {
             </p>
           ) : null}
           {toast ? (
-            <p className="mb-md rounded-xl border border-primary/20 bg-primary/5 px-md py-sm font-label text-[12px] text-primary">
+            <p className="mb-md rounded-xl border border-secondary/25 bg-secondary/5 px-md py-sm font-label text-[12px] text-secondary">
               {toast}
             </p>
           ) : null}
@@ -113,7 +113,7 @@ export function DriftAgentPage() {
               {items.map((s) => (
                 <li
                   key={s.id}
-                  className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm"
+                  className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg"
                 >
                   <p className="font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
                     {s.kind} · {s.status}
@@ -124,7 +124,7 @@ export function DriftAgentPage() {
                   {s.jobId ? (
                     <Link
                       to={`/jobs/${s.jobId}/deploy`}
-                      className="mt-sm inline-block font-label text-[12px] text-primary hover:underline"
+                      className="mt-sm inline-block font-label text-[12px] text-secondary hover:underline"
                     >
                       Open job deploy
                     </Link>
@@ -134,7 +134,7 @@ export function DriftAgentPage() {
                       type="button"
                       disabled={!canWrite || busy}
                       onClick={() => void resolve(s.id, 'accept')}
-                      className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                      className="rounded bg-secondary px-md py-2 font-label text-[12px] text-on-secondary disabled:opacity-40"
                     >
                       Accept
                     </button>

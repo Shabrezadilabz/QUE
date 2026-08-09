@@ -58,7 +58,7 @@ function statusPill(kind: 'running' | 'failed' | 'idle' | 'done') {
 }
 
 /**
- * Sunset Clay Sync Jobs monitor — cards, health strip, live stream.
+ * Sync Jobs monitor — cards, health strip, live stream (dark IDE).
  */
 export function JobsMonitorView({
   jobs,
@@ -102,7 +102,7 @@ export function JobsMonitorView({
           {/* Monitor hero (sunset clay) */}
           <div className="mb-lg flex flex-col justify-between gap-md md:flex-row md:items-end">
             <div>
-              <h1 className="font-headline text-xl font-semibold tracking-tight text-primary">
+              <h1 className="font-headline text-xl font-semibold tracking-tight text-secondary">
                 Sync Job Monitor
               </h1>
               <p className="mt-xs font-body text-[13px] text-on-surface-variant">
@@ -132,17 +132,14 @@ export function JobsMonitorView({
           </div>
 
           <div className="mb-xl grid grid-cols-1 gap-md lg:grid-cols-3">
-            <div
-              className="flex flex-col gap-lg rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-lg lg:col-span-2"
-              style={{ boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)' }}
-            >
+            <div className="flex flex-col gap-lg rounded-lg border border-outline-variant bg-surface-container-low p-lg lg:col-span-2">
               <div className="flex items-start justify-between gap-md">
                 <div className="flex items-center gap-md">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-fixed text-primary">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/20 text-secondary">
                     ⇄
                   </div>
                   <div>
-                    <h3 className="font-headline text-base font-semibold text-primary">
+                    <h3 className="font-headline text-base font-semibold text-secondary">
                       {hero?.title ?? 'No pipelines yet'}
                     </h3>
                     <p className="font-label text-[11px] text-on-surface-variant opacity-70">
@@ -153,7 +150,7 @@ export function JobsMonitorView({
                   </div>
                 </div>
                 {hero ? (
-                  <span className="font-label text-[12px] font-semibold text-primary">
+                  <span className="font-label text-[12px] font-semibold text-secondary">
                     {heroProgress}%
                   </span>
                 ) : null}
@@ -161,7 +158,7 @@ export function JobsMonitorView({
               <div className="space-y-sm">
                 <div className="h-3 w-full overflow-hidden rounded-full bg-secondary-container">
                   <div
-                    className="h-full rounded-full bg-primary-container transition-all"
+                    className="h-full rounded-full bg-secondary transition-all"
                     style={{ width: `${hero ? heroProgress : 0}%` }}
                   />
                 </div>
@@ -204,10 +201,7 @@ export function JobsMonitorView({
               </div>
             </div>
 
-            <div
-              className="flex flex-col items-center justify-between rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-lg text-center"
-              style={{ boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)' }}
-            >
+            <div className="flex flex-col items-center justify-between rounded-lg border border-outline-variant bg-surface-container-low p-lg text-center">
               <div className="space-y-xs">
                 <span className="text-4xl text-tertiary-container">◈</span>
                 <h4 className="font-headline text-base font-semibold">
@@ -266,7 +260,7 @@ export function JobsMonitorView({
                 value={filter}
                 onChange={(e) => onFilterChange(e.target.value)}
                 placeholder="Filter…"
-                className="rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-md py-2 font-body text-[13px] text-on-surface outline-none focus:border-primary"
+                className="rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-md py-2 font-body text-[13px] text-on-surface outline-none focus:border-secondary"
               />
               <button
                 type="button"
@@ -279,7 +273,7 @@ export function JobsMonitorView({
                 <button
                   type="button"
                   onClick={onCreate}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-label text-[12px] font-semibold text-on-primary"
+                  className="inline-flex items-center gap-2 rounded bg-secondary px-4 py-2 font-label text-[12px] font-semibold text-on-secondary"
                 >
                   + New Job
                 </button>
@@ -298,7 +292,7 @@ export function JobsMonitorView({
                     <button
                       type="button"
                       onClick={onCreate}
-                      className="rounded-lg bg-primary-container px-md py-sm font-label text-[12px] font-semibold text-on-primary"
+                      className="rounded-lg bg-secondary px-md py-sm font-label text-[12px] font-semibold text-on-secondary"
                     >
                       Create one manually
                     </button>
@@ -320,10 +314,7 @@ export function JobsMonitorView({
                     key={job.id}
                     type="button"
                     onClick={() => onOpenJob(job.id)}
-                    className="flex flex-col gap-md rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-md text-left transition-all hover:scale-[1.01]"
-                    style={{
-                      boxShadow: '0px 4px 16px rgba(61, 64, 91, 0.06)',
-                    }}
+                    className="flex flex-col gap-md rounded-lg border border-outline-variant bg-surface-container-low p-md text-left transition-colors hover:border-secondary/40"
                   >
                     <div className="flex items-start justify-between gap-sm">
                       <div className="flex min-w-0 items-center gap-sm">
@@ -380,7 +371,7 @@ export function JobsMonitorView({
                               'h-full rounded-full',
                               ui.kind === 'done'
                                 ? 'bg-tertiary'
-                                : 'bg-primary',
+                                : 'bg-secondary',
                             ].join(' ')}
                             style={{ width: `${progress}%` }}
                           />
@@ -401,7 +392,7 @@ export function JobsMonitorView({
                           {new Date(job.updatedAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <span className="font-label text-[12px] text-primary">→</span>
+                      <span className="font-label text-[12px] text-secondary">→</span>
                     </div>
                   </button>
                 )
@@ -453,10 +444,7 @@ export function JobsMonitorView({
           </div>
 
           {/* Wave 4.2 — run history from job_runs */}
-          <div
-            className="mt-xl rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-lg"
-            style={{ boxShadow: '0px 4px 20px rgba(61, 64, 91, 0.08)' }}
-          >
+          <div className="mt-xl rounded-lg border border-outline-variant bg-surface-container-low p-lg">
             <div className="mb-md flex items-center justify-between">
               <h3 className="font-headline text-base font-semibold text-on-surface">
                 Run history
@@ -464,7 +452,7 @@ export function JobsMonitorView({
               <button
                 type="button"
                 onClick={onRefresh}
-                className="font-label text-[12px] font-semibold text-primary hover:underline"
+                className="font-label text-[12px] font-semibold text-secondary hover:underline"
               >
                 Refresh
               </button>
@@ -480,7 +468,7 @@ export function JobsMonitorView({
                             ? 'bg-tertiary/15 text-tertiary'
                             : r.status === 'failed'
                               ? 'bg-error/10 text-error'
-                              : 'bg-primary/10 text-primary',
+                              : 'bg-secondary/10 text-secondary',
                         ].join(' ')}
                       >
                         {r.status === 'succeeded'
@@ -493,7 +481,7 @@ export function JobsMonitorView({
                         <button
                           type="button"
                           onClick={() => onOpenJob(r.jobId)}
-                          className="truncate text-left font-label text-[12px] font-semibold text-on-surface hover:text-primary"
+                          className="truncate text-left font-label text-[12px] font-semibold text-on-surface hover:text-secondary"
                         >
                           {r.jobTitle || r.jobId.slice(0, 8)}
                         </button>
@@ -514,7 +502,7 @@ export function JobsMonitorView({
                   ))
                 : jobs.slice(0, 4).map((j) => (
                     <li key={j.id} className="flex gap-md">
-                      <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-secondary">
                         ◷
                       </span>
                       <div className="min-w-0 flex-1">
@@ -536,7 +524,7 @@ export function JobsMonitorView({
       <aside className="hidden w-[300px] shrink-0 flex-col border-l border-outline-variant/20 bg-surface-container-low lg:flex xl:w-[320px]">
         <div className="flex items-center justify-between border-b border-outline-variant/20 px-md py-sm">
           <h3 className="flex items-center gap-2 font-label text-[12px] font-semibold tracking-wide text-on-surface">
-            <span className="text-primary">▣</span> Live Stream
+            <span className="text-secondary">▣</span> Live Stream
           </h3>
           <div className="flex gap-1">
             <button
@@ -567,7 +555,7 @@ export function JobsMonitorView({
                     l.level === 'error'
                       ? 'font-bold text-error'
                       : l.level === 'warn' || l.level === 'warning'
-                        ? 'text-primary'
+                        ? 'text-secondary'
                         : l.level === 'debug'
                           ? 'text-on-surface-variant/50'
                           : 'text-on-surface-variant'
@@ -576,7 +564,7 @@ export function JobsMonitorView({
                   {l.level.toUpperCase()}
                 </span>{' '}
                 {l.jobTitle ? (
-                  <span className="text-primary">{l.jobTitle}: </span>
+                  <span className="text-secondary">{l.jobTitle}: </span>
                 ) : null}
                 <span className="text-on-surface">{l.message}</span>
               </div>
@@ -603,7 +591,7 @@ export function JobsMonitorView({
         <button
           type="button"
           onClick={onCreate}
-          className="fixed right-lg bottom-lg z-20 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-on-primary shadow-lg transition-transform hover:scale-110 active:scale-95 lg:hidden"
+          className="fixed right-lg bottom-lg z-20 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-2xl text-on-secondary transition-transform hover:scale-110 active:scale-95 lg:hidden"
           aria-label="New job"
         >
           +

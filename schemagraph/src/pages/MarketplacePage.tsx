@@ -72,7 +72,7 @@ export function MarketplacePage() {
           <p className="mt-md text-[13px] text-error">{error}</p>
         ) : null}
         {toast ? (
-          <p className="mt-md text-[12px] text-primary">{toast}</p>
+          <p className="mt-md text-[12px] text-secondary">{toast}</p>
         ) : null}
 
         <div className="mt-lg flex flex-wrap gap-sm">
@@ -112,7 +112,7 @@ export function MarketplacePage() {
           <button
             type="button"
             onClick={() => void reload()}
-            className="rounded-lg border border-primary px-md py-1.5 text-[12px] text-primary"
+            className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary"
           >
             Search
           </button>
@@ -195,7 +195,7 @@ export function MarketplacePage() {
                         {' · '}
                         <Link
                           to={`/jobs/${i.jobId}/notebook`}
-                          className="text-primary underline"
+                          className="text-secondary underline"
                         >
                           open job
                         </Link>
@@ -229,7 +229,7 @@ function PackCard({
   onInstall: () => void
 }) {
   return (
-    <div className="rounded-xl border border-outline-variant/30 bg-white px-md py-md">
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md">
       <div className="flex flex-wrap items-start justify-between gap-md">
         <div>
           <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
@@ -251,7 +251,7 @@ function PackCard({
             type="button"
             disabled={busy}
             onClick={onInstall}
-            className="shrink-0 rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary disabled:opacity-40"
+            className="shrink-0 rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
           >
             Install
           </button>

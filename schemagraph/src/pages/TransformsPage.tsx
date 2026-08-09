@@ -75,7 +75,7 @@ export function TransformsPage() {
           <p className="mt-md text-[13px] text-error">{error}</p>
         ) : null}
         {canWrite ? (
-          <div className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-md">
+          <div className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -86,7 +86,7 @@ export function TransformsPage() {
               type="button"
               disabled={busy || !prompt.trim()}
               onClick={() => void draft()}
-              className="mt-sm rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary disabled:opacity-40"
+              className="mt-sm rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
             >
               {busy ? 'Drafting…' : 'Draft SQL'}
             </button>
@@ -96,7 +96,7 @@ export function TransformsPage() {
           {items.map((d) => (
             <li
               key={d.id}
-              className="rounded-xl border border-outline-variant/30 bg-white p-md"
+              className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-md"
             >
               <div className="flex flex-wrap items-center justify-between gap-sm">
                 <p className="font-label text-[13px] font-semibold">{d.title}</p>
@@ -105,7 +105,7 @@ export function TransformsPage() {
                 </span>
               </div>
               <p className="mt-1 text-[12px] text-on-surface-variant">{d.prompt}</p>
-              <pre className="mt-md overflow-x-auto rounded-lg bg-[#2a211c] p-md font-mono text-[11px] text-[#f0e6dc]">
+              <pre className="mt-md overflow-x-auto rounded-lg bg-surface-container-lowest p-md font-mono text-[11px] text-on-surface">
                 {d.sqlText}
               </pre>
               {canWrite && d.status === 'proposed' ? (
@@ -114,7 +114,7 @@ export function TransformsPage() {
                     type="button"
                     disabled={busy}
                     onClick={() => void act(d.id, 'approve')}
-                    className="rounded border border-primary px-md py-1 text-[12px] text-primary"
+                    className="rounded border border-secondary px-md py-1 text-[12px] text-secondary"
                   >
                     Approve
                   </button>
@@ -133,7 +133,7 @@ export function TransformsPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void act(d.id, 'apply')}
-                  className="mt-sm rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary"
+                  className="mt-sm rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary"
                 >
                   Apply to job
                 </button>
@@ -141,7 +141,7 @@ export function TransformsPage() {
               {d.jobId ? (
                 <Link
                   to={`/jobs/${d.jobId}/notebook`}
-                  className="mt-sm inline-block text-[12px] text-primary underline"
+                  className="mt-sm inline-block text-[12px] text-secondary underline"
                 >
                   Open job
                 </Link>

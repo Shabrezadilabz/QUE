@@ -271,7 +271,7 @@ export function MiniMap({
           y={0}
           width={frameW}
           height={frameH}
-          fill="#f2ede4"
+          fill="#020617"
           fillOpacity={0.95}
           onPointerDown={onBackgroundPointerDown}
           style={{ cursor: 'crosshair' }}
@@ -305,7 +305,7 @@ export function MiniMap({
               key={rel.id}
               d={`M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`}
               fill="none"
-              stroke={inferred ? '#f2cc8f' : '#dbc1ba'}
+              stroke={inferred ? 'rgba(123,208,255,0.55)' : '#64748b'}
               strokeWidth={1}
               strokeDasharray={inferred ? '3 2' : undefined}
               pointerEvents="none"
@@ -326,8 +326,8 @@ export function MiniMap({
                 width={Math.max(w, 4)}
                 height={Math.max(h, 4)}
                 rx={2}
-                fill="#ffffff"
-                stroke="#dbc1ba"
+                fill="#0b1c30"
+                stroke="#45464d"
                 strokeWidth={1}
               />
               {/* Source header strip */}
@@ -336,7 +336,7 @@ export function MiniMap({
                 y={p.y}
                 width={Math.max(w, 4)}
                 height={Math.max(SOURCE_HEADER_HEIGHT * scale, 2)}
-                fill="#e07a5f"
+                fill="#7bd0ff"
               />
             </g>
           )
@@ -348,8 +348,8 @@ export function MiniMap({
           y={vpMini.y}
           width={Math.max(vpMini.w, 12)}
           height={Math.max(vpMini.h, 10)}
-          fill="rgba(224, 122, 95, 0.12)"
-          stroke="#9a442d"
+          fill="rgba(123, 208, 255, 0.12)"
+          stroke="#7bd0ff"
           strokeWidth={dragging ? 2 : 1.5}
           style={{ cursor: dragging ? 'grabbing' : 'grab' }}
           onPointerDown={onViewportPointerDown}

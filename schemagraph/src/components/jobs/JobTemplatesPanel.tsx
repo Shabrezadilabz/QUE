@@ -44,7 +44,7 @@ export function JobTemplatesPanel({ canWrite }: { canWrite: boolean }) {
           {templates.map((t) => (
             <li
               key={t.id}
-              className="min-w-[14rem] max-w-[16rem] shrink-0 rounded-xl border border-outline-variant/30 bg-white p-md shadow-sm"
+              className="min-w-[14rem] max-w-[16rem] shrink-0 rounded-xl border border-outline-variant/30 bg-surface-container-low p-md"
             >
               <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
                 {t.kind}
@@ -75,7 +75,7 @@ export function JobTemplatesPanel({ canWrite }: { canWrite: boolean }) {
                     }
                   })()
                 }}
-                className="mt-sm w-full rounded-lg border border-primary/40 py-1.5 font-label text-[11px] text-primary disabled:opacity-40"
+                className="mt-sm w-full rounded-lg border border-secondary/40 py-1.5 font-label text-[11px] text-secondary disabled:opacity-40"
               >
                 {busyId === t.id ? 'Creating…' : 'Use template'}
               </button>

@@ -48,8 +48,8 @@ export function LineagePage() {
 
   return (
     <QueAppChrome eyebrow="LINEAGE LITE · METADATA ONLY">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#F2EDE4]">
-        <div className="shrink-0 border-b border-outline-variant/20 bg-white px-lg py-md">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
+        <div className="shrink-0 border-b border-outline-variant/20 bg-surface-container-low px-lg py-md">
           <div className="flex flex-wrap items-start justify-between gap-md">
             <div>
               <h1 className="font-headline text-lg font-semibold text-on-surface">
@@ -64,7 +64,7 @@ export function LineagePage() {
             <div className="flex flex-wrap gap-sm">
               <Link
                 to="/catalog"
-                className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary"
+                className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary hover:text-secondary"
               >
                 Catalog
               </Link>
@@ -72,14 +72,14 @@ export function LineagePage() {
                 type="button"
                 onClick={() => void reload()}
                 disabled={loading}
-                className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
+                className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary hover:text-secondary disabled:opacity-40"
               >
                 {loading ? 'Refreshing…' : 'Refresh'}
               </button>
             </div>
           </div>
 
-          <div className="mt-md rounded-xl border border-outline-variant/20 bg-[#FBF8F4] p-md">
+          <div className="mt-md rounded-xl border border-outline-variant/20 bg-surface-container p-md">
             <p className="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">
               Column lineage (multi-hop)
             </p>
@@ -92,7 +92,7 @@ export function LineagePage() {
                   value={colTable}
                   onChange={(e) => setColTable(e.target.value)}
                   placeholder="orders"
-                  className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 font-body text-[12px]"
+                  className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-1.5 font-body text-[12px]"
                 />
               </label>
               <label className="block">
@@ -103,7 +103,7 @@ export function LineagePage() {
                   value={colColumn}
                   onChange={(e) => setColColumn(e.target.value)}
                   placeholder="customer_id"
-                  className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 font-body text-[12px]"
+                  className="rounded-lg border border-outline-variant/40 bg-surface-container-low px-sm py-1.5 font-body text-[12px]"
                 />
               </label>
               <button
@@ -123,7 +123,7 @@ export function LineagePage() {
                     )
                     .finally(() => setColBusy(false))
                 }}
-                className="rounded-lg bg-primary px-md py-1.5 font-label text-[12px] text-on-primary disabled:opacity-40"
+                className="rounded bg-secondary px-md py-1.5 font-label text-[12px] text-on-secondary disabled:opacity-40"
               >
                 {colBusy ? 'Tracing…' : 'Trace'}
               </button>
@@ -205,7 +205,7 @@ export function LineagePage() {
         ) : null}
 
         <div className="mx-auto grid min-h-0 w-full max-w-[72rem] flex-1 gap-md overflow-hidden p-lg lg:grid-cols-[minmax(0,20rem)_1fr]">
-          <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-outline-variant/20 bg-white">
+          <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low">
             <div className="shrink-0 border-b border-outline-variant/15 px-md py-sm">
               <h2 className="font-label text-[11px] font-semibold tracking-[0.12em] text-on-surface-variant uppercase">
                 Job paths
@@ -223,8 +223,8 @@ export function LineagePage() {
                   <button
                     type="button"
                     onClick={() => setSelectedId(p.job.id)}
-                    className={`flex w-full flex-col gap-1 border-b border-outline-variant/10 px-md py-sm text-left hover:bg-[#FBF8F4] ${
-                      selectedId === p.job.id ? 'bg-primary/5' : ''
+                    className={`flex w-full flex-col gap-1 border-b border-outline-variant/10 px-md py-sm text-left hover:bg-surface-container ${
+                      selectedId === p.job.id ? 'bg-secondary/5' : ''
                     }`}
                   >
                     <span className="truncate font-label text-[13px] font-semibold text-on-surface">
@@ -241,7 +241,7 @@ export function LineagePage() {
             </ul>
           </aside>
 
-          <main className="min-h-0 overflow-y-auto rounded-xl border border-outline-variant/20 bg-white p-md">
+          <main className="min-h-0 overflow-y-auto rounded-xl border border-outline-variant/20 bg-surface-container-low p-md">
             {!selected ? (
               <p className="font-body text-[13px] text-on-surface-variant">
                 Select a job path to inspect Sources → Joins → Job → Export /
@@ -298,7 +298,7 @@ function PathDetail({ path }: { path: LineagePath }) {
         </div>
         <Link
           to={`/jobs/${path.job.id}/deploy`}
-          className="rounded-lg border border-primary/30 bg-primary/5 px-md py-1.5 font-label text-[12px] text-primary hover:bg-primary/10"
+          className="rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] text-secondary hover:bg-secondary/10"
         >
           Open Deploy
         </Link>
@@ -310,7 +310,7 @@ function PathDetail({ path }: { path: LineagePath }) {
           title="Sources"
           ready={path.stages[0]?.ready}
           action={
-            <Link to="/sources" className="font-label text-[11px] text-primary underline">
+            <Link to="/sources" className="font-label text-[11px] text-secondary underline">
               Sources
             </Link>
           }
@@ -324,7 +324,7 @@ function PathDetail({ path }: { path: LineagePath }) {
               {path.sources.map((s) => (
                 <li
                   key={`${s.id || s.name}`}
-                  className="rounded-md border border-outline-variant/30 bg-[#FBF8F4] px-2 py-0.5 font-body text-[11px] text-on-surface"
+                  className="rounded-md border border-outline-variant/30 bg-surface-container px-2 py-0.5 font-body text-[11px] text-on-surface"
                 >
                   {s.name}
                   {s.type ? ` · ${s.type}` : ''}
@@ -339,7 +339,7 @@ function PathDetail({ path }: { path: LineagePath }) {
           title="Promoted joins"
           ready={path.stages[1]?.ready}
           action={
-            <Link to="/joins" className="font-label text-[11px] text-primary underline">
+            <Link to="/joins" className="font-label text-[11px] text-secondary underline">
               Join Review
             </Link>
           }
@@ -353,7 +353,7 @@ function PathDetail({ path }: { path: LineagePath }) {
               {path.joins.map((j, i) => (
                 <li
                   key={j.id || `${j.label}-${i}`}
-                  className="rounded-lg border border-outline-variant/20 bg-[#FBF8F4] px-sm py-1.5 font-body text-[12px] text-on-surface"
+                  className="rounded-lg border border-outline-variant/20 bg-surface-container px-sm py-1.5 font-body text-[12px] text-on-surface"
                 >
                   {j.label}
                   {j.frozen ? (
@@ -383,7 +383,7 @@ function PathDetail({ path }: { path: LineagePath }) {
           action={
             <Link
               to="/verify"
-              className="font-label text-[11px] text-primary underline"
+              className="font-label text-[11px] text-secondary underline"
             >
               Verify
             </Link>
@@ -396,8 +396,8 @@ function PathDetail({ path }: { path: LineagePath }) {
             </p>
           ) : null}
           {path.export ? (
-            <div className="mb-sm rounded-lg border border-primary/20 bg-primary/5 px-sm py-sm">
-              <p className="font-label text-[11px] font-semibold text-primary uppercase">
+            <div className="mb-sm rounded-lg border border-secondary/25 bg-secondary/5 px-sm py-sm">
+              <p className="font-label text-[11px] font-semibold text-secondary uppercase">
                 Latest export · {path.export.format}
               </p>
               <p className="mt-1 font-mono text-[11px] text-on-surface-variant">
@@ -411,7 +411,7 @@ function PathDetail({ path }: { path: LineagePath }) {
                   href={path.export.githubPrUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-1 block truncate font-body text-[12px] text-primary underline"
+                  className="mt-1 block truncate font-body text-[12px] text-secondary underline"
                 >
                   {path.export.githubPrUrl}
                 </a>
@@ -472,7 +472,7 @@ function StageCard({
   children: ReactNode
 }) {
   return (
-    <li className="relative rounded-xl border border-outline-variant/20 bg-[#FBF8F4] p-md">
+    <li className="relative rounded-xl border border-outline-variant/20 bg-surface-container p-md">
       <div className="mb-sm flex items-center justify-between gap-sm">
         <div className="flex items-center gap-sm">
           <span

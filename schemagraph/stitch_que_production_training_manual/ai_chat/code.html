@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Que - AI Data Chat</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-container": "#009365",
+                    "on-tertiary-fixed": "#002113",
+                    "on-error": "#690005",
+                    "on-primary": "#283044",
+                    "tertiary-fixed-dim": "#4edea3",
+                    "primary-fixed": "#dae2fd",
+                    "primary": "#bec6e0",
+                    "on-tertiary": "#003824",
+                    "on-secondary-container": "#00374d",
+                    "surface-variant": "#26364a",
+                    "secondary-container": "#00a6e0",
+                    "on-background": "#d3e4fe",
+                    "surface": "#031427",
+                    "on-secondary": "#00354a",
+                    "inverse-on-surface": "#213145",
+                    "primary-container": "#0f172a",
+                    "surface-container-highest": "#26364a",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-primary-container": "#798098",
+                    "surface-bright": "#2a3a4f",
+                    "on-surface-variant": "#c6c6cd",
+                    "surface-tint": "#bec6e0",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "surface-container-lowest": "#000f21",
+                    "outline-variant": "#45464d",
+                    "on-surface": "#d3e4fe",
+                    "surface-container-high": "#1b2b3f",
+                    "secondary-fixed": "#c4e7ff",
+                    "on-primary-fixed": "#131b2e",
+                    "error": "#ffb4ab",
+                    "background": "#031427",
+                    "secondary": "#7bd0ff",
+                    "tertiary-container": "#001c10",
+                    "on-secondary-fixed": "#001e2c",
+                    "inverse-primary": "#565e74",
+                    "on-secondary-fixed-variant": "#004c69",
+                    "tertiary": "#4edea3",
+                    "on-tertiary-fixed-variant": "#005236",
+                    "inverse-surface": "#d3e4fe",
+                    "error-container": "#93000a",
+                    "tertiary-fixed": "#6ffbbe",
+                    "surface-container-low": "#0b1c30",
+                    "surface-container": "#102034",
+                    "secondary-fixed-dim": "#7bd0ff",
+                    "surface-dim": "#031427",
+                    "outline": "#909097",
+                    "on-error-container": "#ffdad6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "cell-padding": "0.25rem 0.5rem",
+                    "panel-margin": "1rem",
+                    "layout-sidebar": "260px",
+                    "gutter-dense": "0.5rem",
+                    "layout-inspector": "320px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "code-md": ["JetBrains Mono"],
+                    "code-sm": ["JetBrains Mono"],
+                    "title-sm": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                    "code-md": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+                    "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                    "title-sm": ["16px", { "lineHeight": "24px", "fontWeight": "500" }],
+                    "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                    "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                    "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                    "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for IDE feel */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #45464d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #798098; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md text-body-md h-screen w-screen overflow-hidden flex antialiased selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- JSON Component: SideNavBar -->
+<!-- Active State: "Chat Focus" (Index 0) -->
+<nav class="fixed left-0 top-0 h-full flex flex-col py-4 z-40 bg-surface-container dark:bg-surface-container border-r border-outline-variant w-layout-sidebar shrink-0">
+<!-- Header -->
+<div class="px-6 pb-6 border-b border-outline-variant mb-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="dns">dns</span>
+</div>
+<div>
+<h1 class="text-title-sm font-title-sm text-on-surface">Data Warehouse</h1>
+<p class="text-label-caps font-label-caps text-on-surface-variant">Production Cluster</p>
+</div>
+</div>
+<!-- Primary Action -->
+<div class="px-4 mb-6">
+<button class="w-full flex items-center justify-center gap-2 bg-primary-container text-primary border border-outline-variant rounded-lg px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-variant transition-all duration-200 text-title-sm font-title-sm scale-95 transition-transform">
+<span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
+                New Pipeline
+            </button>
+</div>
+<!-- Navigation Links -->
+<div class="flex-1 overflow-y-auto space-y-1">
+<!-- Active Link: Chat Focus -->
+<a class="flex items-center gap-3 bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-secondary-fixed rounded-lg mx-2 px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-variant transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="chat" style="font-variation-settings: 'FILL' 1;">chat</span>
+<span class="text-body-sm font-body-sm font-medium">Chat Focus</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-variant transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="table_chart">table_chart</span>
+<span class="text-body-sm font-body-sm">Table Inspector</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-variant transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+<span class="text-body-sm font-body-sm">Job Templates</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-variant transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="account_tree">account_tree</span>
+<span class="text-body-sm font-body-sm">Lineage Explorer</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg px-4 py-2 hover:bg-surface-variant dark:hover:bg-surface-variant transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-error" data-icon="warning">warning</span>
+<span class="text-body-sm font-body-sm">Data Drift</span>
+</a>
+</div>
+<!-- Footer Links -->
+<div class="pt-4 border-t border-outline-variant space-y-1">
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg px-4 py-2" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-body-sm font-body-sm">Settings</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant mx-2 rounded-lg px-4 py-2" href="#">
+<span class="material-symbols-outlined text-tertiary" data-icon="cloud_done">cloud_done</span>
+<span class="text-body-sm font-body-sm">API Status</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper (offset by Sidebar width) -->
+<div class="flex-1 flex flex-col min-w-0 ml-layout-sidebar">
+<!-- JSON Component: TopNavBar -->
+<!-- Active State: "Chat" (Index 1) -->
+<header class="flex justify-between items-center w-full px-6 h-14 z-50 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant shrink-0">
+<!-- Brand / Search (Left) -->
+<div class="flex items-center gap-6">
+<span class="text-title-sm font-title-sm font-black tracking-tight text-on-surface dark:text-on-surface">Que</span>
+<!-- Navigation Links -->
+<nav class="hidden md:flex items-center gap-1 h-14">
+<a class="px-3 h-full flex items-center text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 text-label-caps font-label-caps" href="#">Workspace</a>
+<!-- Active Link -->
+<a class="px-3 h-full flex items-center text-secondary dark:text-secondary-fixed font-bold border-b-2 border-secondary hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 text-label-caps font-label-caps" href="#">Chat</a>
+<a class="px-3 h-full flex items-center text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 text-label-caps font-label-caps" href="#">Sources</a>
+<a class="px-3 h-full flex items-center text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 text-label-caps font-label-caps" href="#">Joins</a>
+<a class="px-3 h-full flex items-center text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 text-label-caps font-label-caps" href="#">Onboarding</a>
+</nav>
+</div>
+<!-- Trailing Actions (Right) -->
+<div class="flex items-center gap-2 text-primary dark:text-primary-fixed-dim">
+<button class="p-2 rounded hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+</button>
+<button class="p-2 rounded hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-secondary"></span>
+</button>
+<button class="p-2 rounded hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors duration-150 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="ml-4 pl-4 border-l border-outline-variant flex items-center gap-3 cursor-pointer opacity-80 scale-[0.99] transition-all">
+<img alt="User Profile" class="w-8 h-8 rounded-full border border-outline-variant object-cover" data-alt="A small, high-contrast user avatar portrait of a data engineer in a dimly lit server room. Professional, crisp, hyper-realistic, cool lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAU9FA2EmL5dr_x3QqDlCaQttEzosywUyGRhmrbLJOAx3EFNnzTGtaz2wOcEgozENOzYFxOmQQHCNKXMjUrmGWTbc995XKZSqZhJKWZy9ApuK3_Yxa9dBfgL7jA5y_VukQlnzDzz4VtRFtgM86ceJFdySbZTq9JuG30Maww3X8x3rbNUAsonCH5k6sytN5YOsxyRZWBjizIKY_cRk1_jLrAa-SVFkC-ppTrhBCLGgmGXx2zu0vG6Op0Eg"/>
+</div>
+</div>
+</header>
+<!-- IDE Work Surface -->
+<main class="flex-1 flex overflow-hidden">
+<!-- Chat Canvas -->
+<div class="flex-1 flex flex-col min-w-0 relative">
+<!-- Chat Messages Area -->
+<div class="flex-1 overflow-y-auto px-6 py-8 space-y-8 scroll-smooth">
+<!-- Date Separator -->
+<div class="flex items-center justify-center gap-4">
+<div class="h-px w-16 bg-outline-variant"></div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">Today, 10:24 AM</span>
+<div class="h-px w-16 bg-outline-variant"></div>
+</div>
+<!-- User Message -->
+<div class="flex gap-4 max-w-3xl ml-auto group">
+<div class="flex-1 text-right">
+<div class="inline-block bg-surface-container-high rounded-lg rounded-tr-none p-4 shadow-sm border border-outline-variant">
+<p class="text-body-md font-body-md text-on-surface">
+                                    I need to build a materialized view combining <span class="text-secondary bg-secondary-container/10 px-1 rounded font-code-sm border border-secondary/30">@events_raw</span> and <span class="text-secondary bg-secondary-container/10 px-1 rounded font-code-sm border border-secondary/30">@users_dim</span> to track daily active sessions per region. The <span class="text-on-tertiary-container bg-tertiary-container/30 px-1 rounded font-code-sm border border-tertiary/30">/skills optimize</span> flag is active.
+                                </p>
+</div>
+</div>
+<div class="w-8 h-8 rounded-full bg-primary-container shrink-0 overflow-hidden border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="person">person</span>
+</div>
+</div>
+<!-- AI Response (Schema Design Focus) -->
+<div class="flex gap-4 max-w-4xl mr-auto">
+<div class="w-8 h-8 rounded bg-surface-container-high shrink-0 overflow-hidden border border-secondary/50 flex items-center justify-center shadow-[0_0_8px_rgba(123,208,255,0.2)]">
+<span class="text-secondary font-black text-[14px]">Q</span>
+</div>
+<div class="flex-1 space-y-4">
+<!-- AI Content -->
+<div class="bg-surface-container-low rounded-lg rounded-tl-none border-l-2 border-secondary p-5 shadow-sm space-y-4">
+<p class="text-body-md font-body-md text-on-surface">
+                                    I've designed a materialized view schema based on the <span class="font-code-sm text-on-surface-variant">@events_raw</span> stream and <span class="font-code-sm text-on-surface-variant">@users_dim</span> table. Using the <span class="font-code-sm text-tertiary">/optimize</span> skill, I've partitioned by <span class="font-code-sm">event_date</span> and clustered by <span class="font-code-sm">region_id</span> to minimize scan overhead during your dashboard queries.
+                                </p>
+<!-- SQL Block (Layer 2) -->
+<div class="rounded-md border border-outline-variant bg-surface-container-highest overflow-hidden">
+<div class="flex items-center justify-between px-4 py-2 border-b border-outline-variant bg-surface-container">
+<span class="text-label-caps font-label-caps text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]" data-icon="database">database</span>
+                                            SQL (ClickHouse Dialect)
+                                        </span>
+<button class="text-on-surface-variant hover:text-on-surface flex items-center gap-1 text-label-caps transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span> Copy
+                                        </button>
+</div>
+<pre class="p-4 overflow-x-auto text-code-sm font-code-sm leading-relaxed text-on-surface"><span class="text-secondary">CREATE MATERIALIZED VIEW</span> prod_analytics.mv_daily_regional_sessions
+<span class="text-secondary">ENGINE</span> = AggregatingMergeTree()
+<span class="text-secondary">PARTITION BY</span> toYYYYMM(session_date)
+<span class="text-secondary">ORDER BY</span> (region_id, session_date)
+<span class="text-secondary">AS SELECT</span>
+    toDate(e.timestamp) <span class="text-secondary">AS</span> session_date,
+    u.region_id,
+    <span class="text-tertiary">uniqCombined</span>(e.session_id) <span class="text-secondary">AS</span> total_unique_sessions,
+    <span class="text-tertiary">count</span>() <span class="text-secondary">AS</span> total_events
+<span class="text-secondary">FROM</span> raw_data.events_raw e
+<span class="text-secondary">INNER JOIN</span> dims.users_dim u <span class="text-secondary">ON</span> e.user_id = u.user_id
+<span class="text-secondary">WHERE</span> e.event_type = <span class="text-tertiary-fixed-dim">'session_start'</span>
+<span class="text-secondary">GROUP BY</span> 
+    session_date, 
+    region_id;</pre>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+                                    Notice the use of <span class="font-code-sm text-tertiary">uniqCombined()</span> instead of <span class="font-code-sm">COUNT(DISTINCT)</span> for probabilistic counting, which is ~3x faster for large cardinality in this engine.
+                                </p>
+</div>
+<!-- Action & Feedback Bar -->
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded bg-secondary-container/10 border border-secondary text-secondary hover:bg-secondary-container/20 transition-colors text-title-sm font-title-sm">
+<span class="material-symbols-outlined text-[16px]" data-icon="save">save</span>
+                                        Save job draft
+                                    </button>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors text-title-sm font-title-sm">
+<span class="material-symbols-outlined text-[16px]" data-icon="play_arrow">play_arrow</span>
+                                        Dry Run
+                                    </button>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-label-caps font-label-caps text-on-surface-variant flex items-center gap-1 opacity-70">
+<span class="material-symbols-outlined text-[12px]" data-icon="model_training">model_training</span>
+                                        Que-v2-instruct (Confidence: High)
+                                    </span>
+<div class="flex items-center gap-1 border-l border-outline-variant pl-4">
+<button class="p-1 rounded text-on-surface-variant hover:text-tertiary hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="thumb_up">thumb_up</span>
+</button>
+<button class="p-1 rounded text-on-surface-variant hover:text-error hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="thumb_down">thumb_down</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- spacer for sticky bottom -->
+<div class="h-8"></div>
+</div>
+<!-- Bottom Input Area (Sticky) -->
+<div class="mt-auto shrink-0 bg-surface flex flex-col z-10 relative shadow-[0_-10px_20px_rgba(3,20,39,0.8)]">
+<!-- "Offer A Strip": Warehouse Status -->
+<div class="h-8 bg-surface-container-lowest border-y border-outline-variant flex items-center justify-between px-6">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary"></span>
+</span>
+<span class="text-label-caps font-label-caps text-on-surface-variant uppercase">Compute Cluster: Online</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="bolt">bolt</span> Load: 14%
+                            </span>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-label-caps font-label-caps text-on-surface-variant">Active Queries: <span class="text-on-surface font-code-sm">2</span></span>
+<span class="text-label-caps font-label-caps text-on-surface-variant border-l border-outline-variant pl-4">Queue: <span class="text-on-surface font-code-sm">0</span></span>
+</div>
+</div>
+<!-- Input Box -->
+<div class="p-4 px-6 pb-6">
+<div class="relative bg-surface-container-high rounded-xl border border-outline-variant focus-within:border-secondary focus-within:shadow-[0_0_0_1px_rgba(123,208,255,1)] transition-all">
+<!-- Context / Mentions Visual Hint Bar -->
+<div class="absolute top-2 left-4 right-4 flex gap-2 items-center z-10 pointer-events-none">
+<span class="bg-surface-variant border border-outline-variant text-on-surface-variant text-label-caps font-label-caps px-2 py-0.5 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="target">target</span> @users_dim
+                                </span>
+</div>
+<textarea class="w-full bg-transparent text-on-surface font-body-md text-body-md p-4 pt-10 pb-12 border-none focus:ring-0 resize-none placeholder-on-surface-variant/50" placeholder="Design a schema, ask about lineage, use @ to mention tables, or / to use skills..." rows="3"></textarea>
+<!-- Action Bar inside input -->
+<div class="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+<div class="flex items-center gap-1">
+<button class="p-2 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors" title="Attach Schema Context">
+<span class="material-symbols-outlined text-[20px]" data-icon="attach_file">attach_file</span>
+</button>
+<button class="p-2 rounded text-secondary hover:bg-secondary-container/20 transition-colors text-label-caps font-label-caps flex items-center gap-1 border border-transparent hover:border-secondary/30" title="Use AI Skill">
+<span class="material-symbols-outlined text-[16px]" data-icon="magic_button">magic_button</span>
+                                        /skills
+                                    </button>
+</div>
+<button class="bg-secondary text-on-secondary-fixed p-2 rounded-lg hover:brightness-110 transition-all flex items-center justify-center shadow-md shadow-secondary/20 scale-[0.98] active:scale-95">
+<span class="material-symbols-outlined text-[20px]" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Focus Tables Sidebar (Right Panel) -->
+<aside class="w-layout-inspector shrink-0 border-l border-outline-variant bg-surface-container hidden lg:flex flex-col z-20">
+<!-- Panel Header -->
+<div class="h-14 border-b border-outline-variant flex items-center justify-between px-4 bg-surface-container-high shrink-0">
+<h2 class="text-title-sm font-title-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-secondary" data-icon="center_focus_strong">center_focus_strong</span>
+                        Focus Tables
+                    </h2>
+<span class="text-label-caps font-label-caps text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded">2 active</span>
+</div>
+<!-- Panel Content -->
+<div class="flex-1 overflow-y-auto p-4 space-y-4">
+<!-- Table Node 1 -->
+<div class="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden group hover:border-secondary/50 transition-colors cursor-default">
+<div class="bg-surface-variant px-3 py-2 border-b border-outline-variant flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-tertiary" data-icon="table">table</span>
+<span class="text-title-sm font-title-sm text-on-surface">events_raw</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant border border-outline-variant px-1 rounded text-[9px]">KAFKA</span>
+</div>
+<div class="p-3 space-y-2">
+<!-- Schema Column -->
+<div class="flex items-center justify-between group/col">
+<span class="text-code-sm font-code-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px] text-primary" data-icon="key">key</span>
+                                    event_id
+                                </span>
+<span class="text-label-caps font-label-caps text-on-surface-variant">UUID</span>
+</div>
+<div class="flex items-center justify-between group/col">
+<span class="text-code-sm font-code-sm text-on-surface flex items-center gap-2 pl-[20px]">
+                                    user_id
+                                </span>
+<span class="text-label-caps font-label-caps text-on-surface-variant">STRING</span>
+</div>
+<div class="flex items-center justify-between group/col">
+<span class="text-code-sm font-code-sm text-on-surface flex items-center gap-2 pl-[20px]">
+                                    event_type
+                                </span>
+<span class="text-label-caps font-label-caps text-on-surface-variant">ENUM</span>
+</div>
+<div class="flex items-center justify-between group/col">
+<span class="text-code-sm font-code-sm text-on-surface flex items-center gap-2 pl-[20px]">
+                                    timestamp
+                                </span>
+<span class="text-label-caps font-label-caps text-on-surface-variant">DATETIME64</span>
+</div>
+</div>
+</div>
+<!-- Lineage Connector Visual -->
+<div class="flex justify-center -my-2 relative z-10">
+<div class="w-px h-6 bg-outline-variant relative">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface-container border border-outline-variant rounded-full p-0.5">
+<span class="material-symbols-outlined text-[12px] text-secondary" data-icon="join">join</span>
+</div>
+</div>
+</div>
+<!-- Table Node 2 -->
+<div class="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden group hover:border-secondary/50 transition-colors cursor-default">
+<div class="bg-surface-variant px-3 py-2 border-b border-outline-variant flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary" data-icon="table_chart">table_chart</span>
+<span class="text-title-sm font-title-sm text-on-surface">users_dim</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant border border-outline-variant px-1 rounded text-[9px]">POSTGRES</span>
+</div>
+<div class="p-3 space-y-2">
+<div class="flex items-center justify-between group/col">
+<span class="text-code-sm font-code-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px] text-primary" data-icon="key">key</span>
+                                    user_id
+                                </span>
+<span class="text-label-caps font-label-caps text-on-surface-variant">STRING</span>
+</div>
+<div class="flex items-center justify-between group/col">
+<span class="text-code-sm font-code-sm text-on-surface flex items-center gap-2 pl-[20px]">
+                                    region_id
+                                </span>
+<span class="text-label-caps font-label-caps text-on-surface-variant">INT32</span>
+</div>
+<div class="flex items-center justify-between group/col">
+<span class="text-code-sm font-code-sm text-on-surface flex items-center gap-2 pl-[20px]">
+                                    subscription_tier
+                                </span>
+<span class="text-label-caps font-label-caps text-on-surface-variant">STRING</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+</div>
+</body></html>

@@ -32,7 +32,7 @@ export function StatusPage() {
           <p className="mt-md text-[13px] text-error">{error}</p>
         ) : null}
         {data ? (
-          <div className="mt-lg space-y-sm rounded-xl border border-outline-variant/30 bg-white p-lg text-[13px]">
+          <div className="mt-lg space-y-sm rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg text-[13px]">
             <Row label="API" value={ok ? 'ok' : 'down'} />
             <Row
               label="DB latency"

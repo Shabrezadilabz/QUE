@@ -121,7 +121,7 @@ export function TopBar({
         {/* Brand + nav */}
         <div className="flex shrink-0 items-center gap-md sm:gap-lg lg:gap-xl">
           <MobileNav showBelow="lg" />
-          <span className="font-headline text-[1.35rem] font-bold leading-none tracking-tight text-primary sm:text-[1.65rem]">
+          <span className="font-headline text-[1.35rem] font-bold leading-none tracking-tight text-secondary sm:text-[1.65rem]">
             Que
           </span>
           <nav
@@ -165,27 +165,27 @@ export function TopBar({
           </nav>
         </div>
 
-        {/* Search — keep a real minimum width so it never collapses to an icon */}
-        <div className="mx-sm flex min-h-9 min-w-[9rem] flex-1 items-center gap-sm rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm shadow-sm focus-within:border-primary-fixed sm:min-h-10 sm:min-w-[14rem] sm:max-w-[22rem] sm:px-md lg:mx-md">
+        {/* Search — mono filter field (DESIGN.md code-sm) */}
+        <div className="relative mx-sm min-h-9 min-w-[9rem] flex-1 sm:min-h-9 sm:min-w-[14rem] sm:max-w-[16rem] lg:mx-md lg:max-w-[18rem]">
           <span
-            className="shrink-0 font-label text-xs text-on-surface-variant"
+            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 font-mono text-[12px] text-on-surface-variant"
             aria-hidden
           >
             ⌕
           </span>
           <label htmlFor={searchId} className="sr-only">
-            Search tables and columns
+            Filter tables and columns
           </label>
           <input
             id={searchId}
             type="search"
             value={searchQuery}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search…"
-            className="min-w-0 flex-1 border-none bg-transparent font-body text-[13px] text-on-surface outline-none placeholder:text-on-surface-variant/50 sm:text-sm"
+            placeholder="Filter tables…"
+            className="que-search-input h-9 w-full rounded border border-outline-variant bg-surface-container py-1 pr-14 pl-8 font-mono text-[12px] text-on-surface outline-none transition-all placeholder:text-on-surface-variant/50 focus:border-secondary focus:ring-1 focus:ring-secondary"
             autoComplete="off"
           />
-          <span className="hidden shrink-0 font-label text-[10px] font-bold tracking-widest text-on-surface-variant/50 md:inline">
+          <span className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 font-label text-[10px] font-bold tracking-widest text-on-surface-variant/50 md:inline">
             {isMac ? '⌘K' : 'Ctrl+K'}
           </span>
         </div>
@@ -199,7 +199,7 @@ export function TopBar({
 
           <button
             type="button"
-            className="rounded-lg border border-outline-variant/50 px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-primary-fixed hover:text-primary-fixed 2xl:hidden"
+            className="rounded-lg border border-outline-variant/50 px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-secondary-fixed hover:text-secondary-fixed 2xl:hidden"
             aria-expanded={menuOpen}
             aria-controls="topbar-collapsed-panel"
             onClick={() => setMenuOpen((o) => !o)}
@@ -243,11 +243,11 @@ function VisibleCounts({
       className={`items-center gap-sm font-label text-[10px] tracking-[0.14em] text-on-surface-variant ${className}`}
       aria-live="polite"
     >
-      <span className="que-pill whitespace-nowrap border border-sand/40 bg-surface-container-lowest px-sm py-xs">
-        <span className="text-primary">{tables}</span> TABLES
+      <span className="que-pill whitespace-nowrap border border-outline-variant bg-surface-container-lowest px-sm py-xs">
+        <span className="text-secondary">{tables}</span> TABLES
       </span>
-      <span className="que-pill whitespace-nowrap border border-sand/40 bg-surface-container-lowest px-sm py-xs">
-        <span className="text-primary">{relationships}</span> RELS
+      <span className="que-pill whitespace-nowrap border border-outline-variant bg-surface-container-lowest px-sm py-xs">
+        <span className="text-secondary">{relationships}</span> RELS
       </span>
     </div>
   )
@@ -339,7 +339,7 @@ function ExportButtons({
           key={fmt}
           type="button"
           onClick={() => onExport(fmt)}
-          className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase transition-colors hover:border-primary-fixed hover:text-primary-fixed"
+          className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase transition-colors hover:border-secondary-fixed hover:text-secondary-fixed"
         >
           {fmt}
         </button>

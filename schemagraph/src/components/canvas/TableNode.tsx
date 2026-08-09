@@ -14,7 +14,7 @@ import {
 } from '@/components/canvas/ColumnIcons'
 import { SAMPLE_TABLE_NODE } from '@/data/dummySchema'
 
-/* Sunset Clay table card — 24px radius, soft shadow, tinted header */
+/* Technical node — dark IDE tonal card (DESIGN.md) */
 
 export interface TableNodeProps {
   table: SchemaTable
@@ -37,16 +37,16 @@ function headerTone(sourceType: string, selected: boolean): {
   muted: string
 } {
   if (selected) {
-    return { bg: '#e07a5f', fg: '#ffffff', muted: 'rgba(255,255,255,0.75)' }
+    return { bg: 'rgba(123,208,255,0.18)', fg: '#7bd0ff', muted: 'rgba(123,208,255,0.7)' }
   }
   switch (sourceType) {
     case 'mongodb':
     case 'databricks':
-      return { bg: 'rgba(56,103,83,0.08)', fg: '#161a32', muted: '#55423e' }
+      return { bg: 'rgba(78,222,163,0.08)', fg: '#d3e4fe', muted: '#c6c6cd' }
     case 'snowflake':
-      return { bg: 'rgba(154,68,45,0.06)', fg: '#161a32', muted: '#55423e' }
+      return { bg: 'rgba(123,208,255,0.08)', fg: '#d3e4fe', muted: '#c6c6cd' }
     default:
-      return { bg: 'rgba(154,68,45,0.05)', fg: '#161a32', muted: '#55423e' }
+      return { bg: 'rgba(38,54,74,0.9)', fg: '#d3e4fe', muted: '#c6c6cd' }
   }
 }
 
@@ -57,19 +57,19 @@ const Card = styled.div<{
 }>`
   position: absolute;
   width: ${TABLE_NODE_WIDTH}px;
-  background: #ffffff;
-  border-radius: 24px;
+  background: #0b1c30;
+  border-radius: 0.5rem;
   overflow: hidden;
   border: ${({ $selected, $searchMatch }) =>
     $selected
-      ? '1px solid rgba(224, 122, 95, 0.45)'
+      ? '1px solid rgba(123, 208, 255, 0.55)'
       : $searchMatch
-        ? '1px solid rgba(242, 204, 143, 0.8)'
-        : '1px solid rgba(219, 193, 186, 0.4)'};
+        ? '1px solid rgba(78, 222, 163, 0.55)'
+        : '1px solid #45464d'};
   box-shadow: ${({ $selected }) =>
     $selected
-      ? '0 8px 28px rgba(154, 68, 45, 0.16), 0 0 0 2px rgba(224, 122, 95, 0.2)'
-      : '0 4px 20px rgba(61, 64, 91, 0.06)'};
+      ? '0 0 0 1px rgba(123, 208, 255, 0.25), 0 0 24px rgba(123, 208, 255, 0.12)'
+      : 'none'};
   cursor: default;
   user-select: none;
   z-index: ${({ $dragging, $searchMatch }) =>
@@ -79,7 +79,7 @@ const Card = styled.div<{
   will-change: ${({ $dragging }) => ($dragging ? 'left, top' : 'auto')};
 
   &:hover {
-    border-color: rgba(224, 122, 95, 0.5);
+    border-color: rgba(123, 208, 255, 0.45);
   }
 `
 
@@ -92,7 +92,7 @@ const Header = styled.div<{ $bg: string; $fg: string }>`
   padding: 0 14px;
   background: ${({ $bg }) => $bg};
   color: ${({ $fg }) => $fg};
-  border-bottom: 1px solid rgba(219, 193, 186, 0.2);
+  border-bottom: 1px solid #45464d;
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -110,9 +110,11 @@ const HeaderLeft = styled.span`
 `
 
 const TableName = styled.span`
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -128,11 +130,11 @@ const HeaderAction = styled.button<{ $fg: string }>`
   font-size: 16px;
   line-height: 1;
   padding: 4px;
-  border-radius: 8px;
+  border-radius: 0.25rem;
 
   &:hover {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.06);
+    background: rgba(123, 208, 255, 0.12);
   }
 `
 
@@ -153,20 +155,21 @@ const ColumnRow = styled.li<{ $selected: boolean }>`
   justify-content: space-between;
   gap: 8px;
   padding: 0 10px;
-  border-radius: 0.5rem;
+  border-radius: 0.25rem;
   cursor: pointer;
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-  font-size: 13px;
-  color: ${({ $selected }) => ($selected ? '#161a32' : '#55423e')};
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: ${({ $selected }) => ($selected ? '#7bd0ff' : '#c6c6cd')};
 
   ${({ $selected }) =>
     $selected &&
     css`
-      background: rgba(230, 227, 208, 0.45);
+      background: rgba(123, 208, 255, 0.12);
     `}
 
   &:hover {
-    background: rgba(244, 242, 255, 0.9);
+    background: rgba(38, 54, 74, 0.9);
+    color: #d3e4fe;
   }
 `
 
@@ -186,24 +189,25 @@ const ColName = styled.span`
 
 const TypeMuted = styled.span`
   flex-shrink: 0;
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 11px;
   letter-spacing: 0.02em;
-  color: #88726d;
+  color: #909097;
 `
 
 const KeyWrap = styled.span`
   display: inline-flex;
-  color: #386753;
+  color: #4edea3;
   flex-shrink: 0;
 `
 
 const ExpandHint = styled.div`
   padding: 8px 16px 14px;
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
-  letter-spacing: 0.06em;
-  color: #88726d;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #909097;
   text-transform: uppercase;
 `
 
@@ -215,27 +219,28 @@ const Tooltip = styled.div`
   z-index: 50;
   width: 220px;
   padding: 10px 12px;
-  background: #ffffff;
-  border: 1px solid rgba(242, 204, 143, 0.55);
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 20px rgba(61, 64, 91, 0.1);
+  background: #1b2b3f;
+  border: 1px solid #45464d;
+  border-radius: 0.375rem;
+  box-shadow: none;
   pointer-events: none;
   text-align: left;
 `
 
 const TipTitle = styled.div`
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 12px;
-  font-weight: 600;
-  color: #9a442d;
+  font-weight: 500;
+  color: #7bd0ff;
   margin-bottom: 6px;
 `
 
 const TipMeta = styled.div`
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
-  letter-spacing: 0.04em;
-  color: #55423e;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #c6c6cd;
   text-transform: uppercase;
   margin-bottom: 4px;
 `
@@ -245,7 +250,7 @@ const TipBody = styled.p`
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.4;
-  color: #161a32;
+  color: #d3e4fe;
 `
 
 function ColumnTooltip({ column }: { column: SchemaColumn }) {

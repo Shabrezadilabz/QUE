@@ -92,19 +92,19 @@ export function resolveLineStyle(
 
   if (relationship.type === 'ai-inferred') {
     return {
-      stroke: muted ? '#c9c7b5' : emphasized ? '#e07a5f' : '#f2cc8f',
+      stroke: muted ? '#45464d' : emphasized ? '#7bd0ff' : 'rgba(123,208,255,0.55)',
       strokeWidth: emphasized ? 2.25 : conf >= 0.75 ? 1.75 : 1.25,
       strokeDasharray: '6 4',
-      markerFill: muted ? '#c9c7b5' : emphasized ? '#e07a5f' : '#f2cc8f',
+      markerFill: muted ? '#45464d' : emphasized ? '#7bd0ff' : 'rgba(123,208,255,0.55)',
       label: 'AI-inferred',
     }
   }
 
   return {
-    stroke: muted ? '#c9c7b5' : emphasized ? '#9a442d' : '#dbc1ba',
+    stroke: muted ? '#45464d' : emphasized ? '#7bd0ff' : '#64748b',
     strokeWidth: emphasized ? 2.5 : 1.75,
     strokeDasharray: emphasized ? undefined : '4 4',
-    markerFill: muted ? '#c9c7b5' : emphasized ? '#9a442d' : '#dbc1ba',
+    markerFill: muted ? '#45464d' : emphasized ? '#7bd0ff' : '#64748b',
     label: 'Explicit',
   }
 }
@@ -172,18 +172,26 @@ const EdgeGroup = styled.g<{ $active: boolean }>`
   .rl-path {
     stroke-dasharray: 320;
     animation: ${drawIn} 0.55s ease-out forwards;
+    transition: stroke 0.15s ease, filter 0.15s ease;
+  }
+
+  &:hover .rl-path {
+    filter: drop-shadow(0 0 4px rgba(123, 208, 255, 0.4));
   }
 
   ${({ $active }) =>
     $active &&
     css`
       .rl-path {
+        stroke: #7bd0ff !important;
+        stroke-width: 2px;
+        filter: drop-shadow(0 0 6px rgba(123, 208, 255, 0.6));
         animation: ${hoverGlow} 0.9s ease-in-out infinite;
       }
     `}
 
   &:focus-visible .rl-hit {
-    stroke: #e07a5f;
+    stroke: #7bd0ff;
     stroke-opacity: 0.45;
   }
 `
@@ -194,14 +202,14 @@ const TooltipCard = styled.div<{ $interactive?: boolean }>`
   width: 260px;
   max-width: calc(100vw - 24px);
   padding: 10px 12px;
-  background: #ffffff;
-  border: 1px solid rgba(242, 204, 143, 0.55);
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 20px rgba(61, 64, 91, 0.1);
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  background: #1b2b3f;
+  border: 1px solid #45464d;
+  border-radius: 0.375rem;
+  box-shadow: none;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.45;
-  color: #161a32;
+  color: #d3e4fe;
   pointer-events: ${({ $interactive }) => ($interactive ? 'auto' : 'none')};
 `
 
@@ -214,15 +222,15 @@ const TipActions = styled.div`
 const TipButton = styled.button<{ $primary?: boolean }>`
   flex: 1;
   border: 1px solid
-    ${({ $primary }) => ($primary ? '#e07a5f' : '#dbc1ba')};
-  border-radius: 0.5rem;
+    ${({ $primary }) => ($primary ? '#7bd0ff' : '#45464d')};
+  border-radius: 0.25rem;
   background: ${({ $primary }) =>
-    $primary ? '#e07a5f' : 'transparent'};
-  color: ${({ $primary }) => ($primary ? '#ffffff' : '#55423e')};
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+    $primary ? '#7bd0ff' : 'transparent'};
+  color: ${({ $primary }) => ($primary ? '#00354a' : '#c6c6cd')};
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 8px 6px;
   cursor: pointer;
@@ -238,12 +246,12 @@ const TipButton = styled.button<{ $primary?: boolean }>`
 `
 
 const TipTitle = styled.div`
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #9a442d;
+  color: #7bd0ff;
   margin-bottom: 8px;
 `
 
@@ -253,25 +261,25 @@ const TipRow = styled.div`
 `
 
 const TipMuted = styled.span`
-  color: #55423e;
+  color: #c6c6cd;
 `
 
 const TipNote = styled.p`
   margin: 8px 0 0;
   padding-top: 8px;
-  border-top: 1px solid rgba(219, 193, 186, 0.55);
-  color: #c4c9ac;
+  border-top: 1px solid #45464d;
+  color: #c6c6cd;
   font-size: 10px;
   line-height: 1.5;
 `
 
 const TipHint = styled.div`
   margin-top: 8px;
-  font-family: 'Space Mono', monospace;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 9px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #5c6148;
+  color: #909097;
 `
 
 type TooltipState =

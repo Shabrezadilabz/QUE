@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Production Use Guide (Full Functionality)</title>
+  <style>
+    @page { size: A4; margin: 12mm 10mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 9.2pt;
+      line-height: 1.38;
+      color: #1a1a1a;
+      max-width: 940px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    h1 { font-size: 17pt; margin: 0 0 6px; letter-spacing: -0.02em; }
+    h2 {
+      font-size: 12pt; margin: 20px 0 8px; padding-bottom: 3px;
+      border-bottom: 2px solid #5c3a2e; page-break-after: avoid; color: #3d241c;
+    }
+    h3 { font-size: 10.2pt; margin: 12px 0 5px; page-break-after: avoid; color: #4a3028; }
+    h4 { font-size: 9.3pt; margin: 9px 0 3px; color: #5c3a2e; }
+    p, li { margin: 0 0 3px; }
+    ul, ol { margin: 0 0 7px; padding-left: 1.15em; }
+    .meta { color: #555; font-size: 8.2pt; margin-bottom: 10px; }
+    .cover {
+      border: 2px solid #5c3a2e; padding: 20px 16px; margin-bottom: 14px;
+      background: linear-gradient(165deg, #faf6f1 0%, #f0e4d8 100%);
+    }
+    .cover .brand {
+      font-size: 9pt; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: #8b4a34;
+    }
+    .toc { page-break-after: always; }
+    .toc a { color: #1a1a1a; text-decoration: none; }
+    .toc ol { columns: 2; column-gap: 18px; }
+    .toc li { break-inside: avoid; margin-bottom: 2px; font-size: 8.2pt; }
+    table {
+      width: 100%; border-collapse: collapse; margin: 5px 0 10px;
+      font-size: 7.8pt; page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #c9b8a8; padding: 3px 5px; text-align: left; vertical-align: top;
+    }
+    th { background: #efe4d8; font-weight: 600; }
+    code {
+      font-family: Consolas, "Courier New", monospace; font-size: 7.4pt;
+      background: #f3ebe3; padding: 1px 3px;
+    }
+    pre.flow {
+      font-family: Consolas, monospace; font-size: 7.2pt; line-height: 1.25;
+      background: #1e1e1e; color: #e8e0d5; padding: 10px 12px; border-radius: 6px;
+      white-space: pre; overflow-x: auto; page-break-inside: avoid;
+    }
+    .ok { border-left: 3px solid #4a7c59; background: #eef6f0; padding: 6px 9px; margin: 5px 0; font-size: 8.2pt; }
+    .note { border-left: 3px solid #c4a574; background: #f8f4ec; padding: 6px 9px; margin: 5px 0; font-size: 8.2pt; }
+    .warn { border-left: 3px solid #b45309; background: #fff7ed; padding: 6px 9px; margin: 5px 0; font-size: 8.2pt; }
+    .out { border-left: 3px solid #a33; background: #faf0f0; padding: 6px 9px; margin: 5px 0; font-size: 8.2pt; }
+    .card {
+      border: 1px solid #d9c9b8; padding: 9px 11px; margin: 8px 0 12px;
+      background: #fffefb; page-break-inside: avoid;
+    }
+    .card > h3, .card > h4 { margin-top: 0; }
+    .page-break { page-break-before: always; }
+    .footer-note { margin-top: 20px; font-size: 7.3pt; color: #666; }
+    .ctrl { font-weight: 600; color: #6b3a2a; }
+    .route { font-family: Consolas, monospace; font-size: 7.6pt; color: #5c3a2e; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      counter-increment: step; margin: 0 0 5px; padding: 5px 8px 5px 32px;
+      position: relative; background: #faf7f3; border: 1px solid #e8dcd0;
+      page-break-inside: avoid;
+    }
+    .steps li::before {
+      content: counter(step); position: absolute; left: 6px; top: 5px;
+      width: 18px; height: 18px; border-radius: 50%; background: #8b4a34; color: #fff;
+      font-size: 7.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center;
+      line-height: 18px; text-align: center;
+    }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media print {
+      .toc ol { columns: 2; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que · Production Use &amp; Training Manual</div>
+  <h1>Full Functionality Guide — Every Page, Flow &amp; Scenario</h1>
+  <p class="meta">
+    Product: <strong>Que</strong> (SchemaGraph) — Cursor for data teams · schema-first · HITL · attested delivery<br />
+    Local app: <code>http://localhost:5174</code> · API: <code>http://localhost:8787</code><br />
+    Repo: <code>github.com/Shabrezadilabz/QUE</code> · Doc version: <strong>2.0</strong> · Aug 2026<br />
+    Audience: DE / DA / analytics eng / stewards / admins / pilot leads
+  </p>
+  <p class="ok" style="margin-bottom:6px">
+    <strong>Purpose of this document:</strong> teach every production surface so a team can
+    <em>perform daily work</em> and <em>upskill</em> — not a marketing brochure.
+  </p>
+  <p class="warn" style="margin-bottom:0">
+    <strong>Honest boundaries:</strong> Que is not your warehouse, not Tableau, not SOC 2 Type II by itself.
+    AI never reads the full lake — only metadata + pinned scrubbed samples (5–10 rows).
+  </p>
+</div>
+
+<nav class="toc">
+  <h2>Table of contents</h2>
+  <ol>
+    <li><a href="#start">1. Quick start &amp; demo login</a></li>
+    <li><a href="#dna">2. Product DNA &amp; Offer A / B</a></li>
+    <li><a href="#roles">3. Roles &amp; permissions</a></li>
+    <li><a href="#arch">4. Architecture &amp; master flows</a></li>
+    <li><a href="#scenario-a">5. Scenario A — Offer A warehouse stitch</a></li>
+    <li><a href="#scenario-b">6. Scenario B — Offer B managed + BI</a></li>
+    <li><a href="#scenario-c">7. Scenario C — Team Cursor loop</a></li>
+    <li><a href="#pages">8. Every page (detailed)</a></li>
+    <li><a href="#public">8.0 Public pages</a></li>
+    <li><a href="#workspace">8.1 Workspace</a></li>
+    <li><a href="#sources">8.2 Sources</a></li>
+    <li><a href="#joins">8.3 Joins</a></li>
+    <li><a href="#chat">8.4 AI Chat</a></li>
+    <li><a href="#agent">8.5 Agent</a></li>
+    <li><a href="#jobs">8.6 Jobs</a></li>
+    <li><a href="#proposals">8.7 Proposals</a></li>
+    <li><a href="#transforms">8.8 Transforms</a></li>
+    <li><a href="#rules">8.9 Rules</a></li>
+    <li><a href="#metrics">8.10 Metrics</a></li>
+    <li><a href="#bi">8.11 Certified BI</a></li>
+    <li><a href="#managed">8.12 Managed datasets</a></li>
+    <li><a href="#marketplace">8.13 Marketplace</a></li>
+    <li><a href="#eval">8.14 Eval</a></li>
+    <li><a href="#lineage">8.15 Lineage</a></li>
+    <li><a href="#catalog">8.16 Catalog / Glossary / Domains / Steward</a></li>
+    <li><a href="#validation">8.17 Validation &amp; Drift Agent</a></li>
+    <li><a href="#compliance">8.18 Compliance</a></li>
+    <li><a href="#product">8.19 Product (client brief)</a></li>
+    <li><a href="#settings">8.20 Settings (all tabs)</a></li>
+    <li><a href="#ops">9. Ops, health, digests, DR</a></li>
+    <li><a href="#upskill">10. Team operating model &amp; upskilling</a></li>
+    <li><a href="#trouble">11. Troubleshooting cheat sheet</a></li>
+    <li><a href="#claims">12. Claims you can / cannot make</a></li>
+    <li><a href="#deep">13. Deep control inventory</a></li>
+    <li><a href="#glossary-terms">14. Glossary</a></li>
+    <li><a href="#appendix-api">15. API quick reference</a></li>
+  </ol>
+</nav>
+
+<!-- ========== 1 ========== -->
+<h2 id="start">1. Quick start &amp; demo login</h2>
+<table>
+  <tr><th>Piece</th><th>Command / URL</th></tr>
+  <tr><td>Postgres</td><td>Docker <code>stitch-pg</code> on <code>:5432</code> (user/db/pass: <code>stitch</code>)</td></tr>
+  <tr><td>Migrate</td><td><code>cd api &amp;&amp; npm run migrate</code></td></tr>
+  <tr><td>Seed demo owner</td><td><code>npm run seed:demo</code> → <code>demo@que.local</code> / <code>que-demo-2026</code></td></tr>
+  <tr><td>API</td><td><code>cd api &amp;&amp; npm run dev</code> → <code>http://localhost:8787</code></td></tr>
+  <tr><td>UI</td><td><code>npm run dev</code> → <code>http://localhost:5174</code></td></tr>
+  <tr><td>Health</td><td><code>GET /health</code> · <code>GET /status</code> · public UI <span class="route">/status</span></td></tr>
+</table>
+<div class="note">
+  Legacy demo users may also exist (e.g. <code>owner@stitch.local</code>). Prefer the Que demo seed for client walkthroughs.
+</div>
+
+<!-- ========== 2 ========== -->
+<h2 id="dna">2. Product DNA &amp; Offer A / B</h2>
+<table>
+  <tr><th>Rule</th><th>Why it matters in production</th></tr>
+  <tr><td>Schema-first</td><td>Connectors introspect structure; they do not ETL your lake into Que.</td></tr>
+  <tr><td>Pinned samples 5–10</td><td>Scrubbed, frozen until re-pin; used for join overlap ~88–95% band.</td></tr>
+  <tr><td>Human Promote</td><td>Suggested joins are not truth until Promote (HITL).</td></tr>
+  <tr><td>Attested delivery</td><td>Exports / jobs carry evidence; warehouse (or managed plane) is SoR for rows.</td></tr>
+  <tr><td>AI denied lake</td><td><code>aiMayUsePinnedSamples</code> default ON; managed row payloads denied to AI.</td></tr>
+</table>
+<div class="grid2">
+  <div class="card">
+    <h3>Offer A — Bring your warehouse</h3>
+    <p>Databricks / Snowflake / Postgres stay system of record. Que proposes joins, drafts jobs, digests external run failures, exports / triggers.</p>
+    <p><strong>When:</strong> You already have a warehouse and want control-plane HITL.</p>
+  </div>
+  <div class="card">
+    <h3>Offer B — Que managed plane</h3>
+    <p>Excel/SQL teams land certified datasets in Que (quotas + retention). Certify → BI charts → embed.</p>
+    <p><strong>When:</strong> No warehouse yet, but need attested DA path.</p>
+  </div>
+</div>
+
+<!-- ========== 3 ========== -->
+<h2 id="roles">3. Roles &amp; permissions</h2>
+<table>
+  <tr><th>Role</th><th>Can do</th><th>Cannot do</th></tr>
+  <tr><td class="ctrl">Viewer</td><td>Browse schema, joins, lineage, BI preview (read)</td><td>Sync, Promote, settings writes, mint embeds</td></tr>
+  <tr><td class="ctrl">Member</td><td>Sync, edit joins, Promote/Reject, jobs, transforms, comments</td><td>Most admin security / billing / retry policy</td></tr>
+  <tr><td class="ctrl">Admin</td><td>Members, security, enterprise, DR/backup, embed tokens, golden schedule</td><td>Owner-only destructive workspace ops (as configured)</td></tr>
+  <tr><td class="ctrl">Owner</td><td>Full workspace control + billing</td><td>—</td></tr>
+</table>
+<p>Presence chips in the top bar show teammates currently active (HTTP heartbeat — not live cursors).</p>
+
+<!-- ========== 4 ========== -->
+<div class="page-break"></div>
+<h2 id="arch">4. Architecture &amp; master flows</h2>
+<pre class="flow">
+┌─────────────┐   introspect    ┌──────────────────┐   suggest    ┌─────────────┐
+│  Sources    │ ───────────────▶│  Metadata (PG)   │ ───────────▶│ Join Review │
+│ Postgres /  │  pin 5–10 rows  │ schema + pins   │  evidence   │ Promote /   │
+│ Excel / DBX │                 │ relationships    │             │ Reject/Edit │
+└─────────────┘                 └────────┬─────────┘             └──────┬──────┘
+                                         │                               │
+                    schema pack          │                               │ accepted joins
+                    + pinned samples     ▼                               ▼
+                                 ┌──────────────┐               ┌────────────────┐
+                                 │ AI Chat /    │               │ Jobs notebook  │
+                                 │ Agent / Rules│──────────────▶│ dry-run / live │
+                                 └──────────────┘   drafts      └───────┬────────┘
+                                                                        │
+                              Offer A ──▶ warehouse / external status ──┤
+                              Offer B ──▶ Managed datasets ──▶ BI embed ┘
+</pre>
+
+<pre class="flow">
+CURSOR LOOP (team OS)
+  Rules (memory) → Chat/Agent drafts → Transforms / Proposals (diff) → Approve
+       ^                                      |
+       +-------- learn-from-Promote &lt;---------+
+  Eval (golden schedule) monitors join quality over time
+</pre>
+
+<!-- ========== 5 ========== -->
+<h2 id="scenario-a">5. Scenario A — Offer A warehouse stitch (production day)</h2>
+<p><strong>Goal:</strong> Two sources → trusted joins → job → attested handoff into customer warehouse; failures digested in Que.</p>
+<ol class="steps">
+  <li>Login as owner/admin → open <span class="route">/product</span> once for positioning, then <span class="route">/sources</span>.</li>
+  <li>Add Postgres + Excel (or Databricks/Snowflake). Click <span class="ctrl">Sync schema</span>. Confirm pins created (scrubbed samples).</li>
+  <li>Go to <span class="route">/joins</span>. Filter <span class="ctrl">Suggested</span>. Open a high-score edge. Review evidence + overlap.</li>
+  <li>If columns wrong: edit mapping → save → <span class="ctrl">Promote</span>. Discuss in thread comments with DE/DA.</li>
+  <li><span class="route">/settings/ai-policy</span>: set execution plane to <span class="ctrl">customer</span> (Offer A). Keep pinned samples ON.</li>
+  <li><span class="route">/jobs</span>: create or open job from stitch / marketplace pack. Dry-run (samples). Live validate only when ready.</li>
+  <li>Export / trigger warehouse job. Post status via external-status bridge (or automation).</li>
+  <li><span class="route">/compliance</span> → <span class="ctrl">Build digest</span> for Offer A failure summary. Chat shows Offer A strip too.</li>
+  <li><span class="route">/lineage</span> + export attestation verify at <span class="route">/verify</span> for auditors/partners.</li>
+</ol>
+<div class="ok"><strong>Success:</strong> Promoted joins feed job contract; warehouse remains SoR; Que holds decisions + evidence.</div>
+
+<!-- ========== 6 ========== -->
+<h2 id="scenario-b">6. Scenario B — Offer B managed plane + certified BI</h2>
+<p><strong>Goal:</strong> Excel/SQL team lands a certified table in Que and embeds a chart for stakeholders.</p>
+<ol class="steps">
+  <li>Enable managed plane in <span class="route">/settings/ai-policy</span> (<code>enableManagedDataPlane</code>).</li>
+  <li>Connect Excel/CSV → sync → promote joins → job dry-run → <span class="ctrl">Land to managed</span> (from job flow).</li>
+  <li><span class="route">/managed</span>: open dataset → review columns → <span class="ctrl">Certify</span>.</li>
+  <li><span class="route">/metrics</span>: define <code>COUNT(*)</code> or <code>SUM(amount)</code>, optional source column for lineage → Certify → Publish BI.</li>
+  <li><span class="route">/bi</span>: bind certified dataset, set chart type/axes, <span class="ctrl">Preview</span>, <span class="ctrl">Certify</span>, <span class="ctrl">Mint embed</span>.</li>
+  <li>Share viewer URL <span class="route">/embed/&lt;token&gt;</span> (public, read-only). API also at <code>GET /bi/embed/:token</code>.</li>
+  <li>Watch quotas/retention on managed plane; purge expired from ops/compliance path as needed.</li>
+</ol>
+<div class="warn">AI still cannot pull managed row payloads. Embeds are for humans/stakeholders.</div>
+
+<!-- ========== 7 ========== -->
+<h2 id="scenario-c">7. Scenario C — Team Cursor loop (daily DE/DA)</h2>
+<ol class="steps">
+  <li>Admin seeds org <span class="route">/rules</span> (join conventions, naming, PII).</li>
+  <li>DE opens <span class="route">/agent</span> or <span class="route">/chat</span> with @tables → draft transform / job.</li>
+  <li>Transform lands in <span class="route">/transforms</span> and/or <span class="route">/proposals</span> as open diff.</li>
+  <li>Peer reviews unified diff on <span class="route">/proposals</span> → Approve / Reject.</li>
+  <li>On Promote, rules can learn patterns. Comments/threads on <span class="route">/joins</span> capture debate.</li>
+  <li><span class="route">/eval</span>: configure golden pairs JSON → enable schedule → Run now; watch recall.</li>
+  <li><span class="route">/marketplace</span>: install industry pack to bootstrap a job when starting a domain.</li>
+</ol>
+
+<!-- ========== 8 PUBLIC ========== -->
+<div class="page-break"></div>
+<h2 id="pages">8. Every page — detailed production use</h2>
+
+<h2 id="public">8.0 Public pages (no login)</h2>
+
+<div class="card">
+  <h3><span class="route">/login</span> — Login</h3>
+  <p><strong>What:</strong> Email/password and optional SSO continue.</p>
+  <p><strong>Do:</strong> Sign in → lands on Workspace. Use SSO when org enforces it.</p>
+  <p><strong>Scenario:</strong> New hire invited → accepts invite → login → switches workspace if multi-tenant.</p>
+</div>
+<div class="card">
+  <h3><span class="route">/sales</span> — Public sales</h3>
+  <p>Honest positioning for prospects (Offer A/B). CTA to login / status. Not a full marketing site.</p>
+</div>
+<div class="card">
+  <h3><span class="route">/status</span> — Public status</h3>
+  <p>Ops transparency: API ok, DB latency, inventory counts, region. Share with clients during incidents.</p>
+</div>
+<div class="card">
+  <h3><span class="route">/verify</span> — Attestation verify</h3>
+  <p>Paste/export fingerprint or token to verify attested artifacts independently of login.</p>
+</div>
+<div class="card">
+  <h3><span class="route">/embed/:token</span> — Certified BI viewer</h3>
+  <p>Read-only chart for stakeholders. Token minted only after chart certify. Revoke from BI admin actions.</p>
+</div>
+
+<!-- WORKSPACE -->
+<h2 id="workspace">8.1 <span class="route">/workspace</span> — Schema canvas</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Visual system of record for <em>schema truth</em>: tables as nodes, relationships as edges.</p>
+  <h4>What to do</h4>
+  <ul>
+    <li>Pan/zoom canvas; drag tables (members+); expand columns.</li>
+    <li>Select table → right inspector: schema, samples (capped), add to job.</li>
+    <li>Filter by source; use TopBar confidence / join filters when available.</li>
+    <li>Viewers: read-only (no drag persist).</li>
+  </ul>
+  <h4>Production scenario</h4>
+  <p>After sync, DE opens Workspace to sanity-check that Excel + Postgres tables both appear, then jumps to Joins for HITL.</p>
+</div>
+
+<!-- SOURCES -->
+<h2 id="sources">8.2 <span class="route">/sources</span> — Connectors &amp; sync</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Register connectors and sync <strong>schema + pinned samples</strong>.</p>
+  <h4>Connectors (typical)</h4>
+  <p>PostgreSQL, Excel/CSV, MongoDB, Databricks, Snowflake, BigQuery, Salesforce (fixture and/or live).</p>
+  <h4>How to use</h4>
+  <ol>
+    <li><span class="ctrl">Add source</span> → pick connector → fill form (or fixtures path for demos).</li>
+    <li><span class="ctrl">Sync schema</span> — retries/checkpoints apply automatically.</li>
+    <li>Set sync schedule (hourly/daily/off) for continuous introspect.</li>
+    <li>On error: check health kind (auth vs transient); fix secrets; re-sync.</li>
+  </ol>
+  <h4>Scenario</h4>
+  <p>Ops schedules nightly sync for Snowflake. Auth failure stops tight loops; transient errors retry with backoff.</p>
+  <div class="note">SLA view: API <code>/connector-reliability</code> also surfaces on Compliance.</div>
+</div>
+
+<!-- JOINS -->
+<h2 id="joins">8.3 <span class="route">/joins</span> — Join Review (HITL)</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>The trust gate. Suggested joins become production truth only after Promote.</p>
+  <h4>Controls</h4>
+  <ul>
+    <li>Filters: suggested / accepted / rejected / all</li>
+    <li>Evidence: name/type, uniqueness proxy, pinned overlap score</li>
+    <li>Edit columns / direction → save → Promote or Reject</li>
+    <li>Team discussion: comment + <span class="ctrl">Reply</span> threads</li>
+    <li>Re-run join inference / mapping assist / golden eval hooks as available</li>
+  </ul>
+  <h4>Scenario</h4>
+  <p>DA believes <code>customer_id</code> ↔ <code>cust_id</code>. Overlap 91%. DE edits left/right columns, threads “confirmed in CRM”, Promotes. Proposal/diff may also appear for audit.</p>
+  <div class="warn">Never claim 100% join accuracy. Band ~88–95% on easy keys with pins.</div>
+</div>
+
+<!-- CHAT -->
+<h2 id="chat">8.4 <span class="route">/chat</span> — AI Chat</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Schema-only assistant: design questions, SQL drafts, job drafts. Uses schema packs + optional pinned samples.</p>
+  <h4>How to use</h4>
+  <ul>
+    <li>@mention tables; slash skills; sidebar focus tables</li>
+    <li>Ask for join rationale, notebook steps, validation checks</li>
+    <li>Save job draft when offered (members+)</li>
+    <li>Offer A strip: refresh warehouse digest without leaving chat</li>
+  </ul>
+  <h4>Scenario</h4>
+  <p>“Draft a reconciliation job using promoted joins between ledger and bank_feed” → review SQL → save job → open Jobs.</p>
+</div>
+
+<!-- AGENT -->
+<h2 id="agent">8.5 <span class="route">/agent</span> — Stitch Agent</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Multi-step agent sessions (checkpoints) for stitch goals, including <code>draft_transform</code>.</p>
+  <h4>How to use</h4>
+  <ol>
+    <li>Create session with a clear goal (“transform events to weekly active accounts”).</li>
+    <li>Advance checkpoints; when joins needed, Promote in Joins then continue.</li>
+    <li>Resulting transform/proposal appears in Transforms / Proposals for HITL.</li>
+  </ol>
+</div>
+
+<!-- JOBS -->
+<h2 id="jobs">8.6 <span class="route">/jobs</span> — Notebook → ship</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Production stitch jobs: markdown + SQL notebook, freeze contract, dry-run, live validate, export, schedule, materialize.</p>
+  <h4>Tabs / actions (typical)</h4>
+  <ul>
+    <li>Notebook editor (SQL cells)</li>
+    <li>Dry-run (capped samples) vs live (bounded rows)</li>
+    <li>Export JSON / SQL / dbt / dbt PR (gates: promoted joins, drift)</li>
+    <li>Schedules + private runner / orchestrator hooks</li>
+    <li>Templates panel; land to managed when Offer B</li>
+    <li>Contract tests run history</li>
+  </ul>
+  <h4>Scenario</h4>
+  <p>After Promote, open job → dry-run → fix null keys → export dbt PR → warehouse CI runs → external status posts back → digest on Compliance.</p>
+</div>
+
+<!-- PROPOSALS -->
+<h2 id="proposals">8.7 <span class="route">/proposals</span> — Approve / Diff</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>PR-style inbox for joins, transforms, SQL changes.</p>
+  <h4>How to use</h4>
+  <ul>
+    <li>Toggle <span class="ctrl">Unified</span> vs side-by-side</li>
+    <li>Approve / Reject (members+)</li>
+    <li>Link to Agent for drafting context</li>
+  </ul>
+  <h4>Scenario</h4>
+  <p>Junior DA drafts transform; senior DE reviews unified diff; Approve applies workspace truth.</p>
+</div>
+
+<!-- TRANSFORMS -->
+<h2 id="transforms">8.8 <span class="route">/transforms</span> — NL → SQL HITL</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Natural-language transform drafts with review states (proposed → approved/rejected/applied).</p>
+  <h4>Scenario</h4>
+  <p>“Weekly active accounts from events” → draft SQL → review → approve → attach/open job.</p>
+</div>
+
+<!-- RULES -->
+<h2 id="rules">8.9 <span class="route">/rules</span> — Org memory</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Cursor-like rules injected into AI + team conventions. Can learn from Promote.</p>
+  <h4>How to use</h4>
+  <ul>
+    <li>Create join / naming / PII rules; enable/disable</li>
+    <li>After Promote, confirm learned rule suggestions</li>
+  </ul>
+  <h4>Scenario</h4>
+  <p>Rule: “Never join on email alone for finance.” Chat/agent respects it in drafts.</p>
+</div>
+
+<!-- METRICS -->
+<h2 id="metrics">8.10 <span class="route">/metrics</span> — Semantic layer</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Certified metrics on managed datasets; lineage-to-metric graph.</p>
+  <h4>How to use</h4>
+  <ol>
+    <li>Create metric name + expression (<code>COUNT(*)</code>, <code>SUM(amount)</code>)</li>
+    <li>Bind certified managed dataset; optional source column</li>
+    <li>Preview → Certify → Publish BI</li>
+    <li>Inspect metric lineage edges on the page</li>
+  </ol>
+</div>
+
+<!-- BI -->
+<h2 id="bi">8.11 <span class="route">/bi</span> — Certified BI</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Lightweight charts (table/bar/kpi/pie) on certified managed data; embed tokens.</p>
+  <h4>How to use</h4>
+  <ol>
+    <li>Create chart → bind certified dataset → set type/x/y</li>
+    <li>Preview → Certify → Mint embed (admin)</li>
+    <li>Copy viewer URL <span class="route">/embed/…</span> and API GET URL</li>
+  </ol>
+  <div class="note">Not a Tableau replacement — stakeholder embeds with certification gate.</div>
+</div>
+
+<!-- MANAGED -->
+<h2 id="managed">8.12 <span class="route">/managed</span> — Offer B datasets</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Host job outputs with quotas/retention when no warehouse SoR.</p>
+  <h4>How to use</h4>
+  <ul>
+    <li>List datasets; open rows (capped UI); certify; delete when obsolete</li>
+    <li>Only certified datasets feed BI / metrics publish</li>
+  </ul>
+</div>
+
+<!-- MARKETPLACE -->
+<div class="page-break"></div>
+<h2 id="marketplace">8.13 <span class="route">/marketplace</span> — Industry packs</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Install starter job packs (retail, finance, SaaS, healthcare, logistics, marketing, HR, platform, Snowflake/dbt, Databricks gold).</p>
+  <h4>How to use</h4>
+  <ul>
+    <li>Filter industry/tag/search → Install → opens draft job</li>
+    <li>Review recent installs list</li>
+  </ul>
+  <h4>Scenario</h4>
+  <p>New finance domain: install Ledger reconciliation → sync real tables → remap joins → Promote → run.</p>
+</div>
+
+<!-- EVAL -->
+<h2 id="eval">8.14 <span class="route">/eval</span> — Quality dashboard</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Promote rates, job success, rules coverage + scheduled golden-set eval.</p>
+  <h4>How to use</h4>
+  <ul>
+    <li>Read KPI cards weekly in ops review</li>
+    <li>Admin: paste golden pairs JSON → Save &amp; enable → Run now</li>
+    <li>Recall drops are audited (alerts path)</li>
+    <li>Quick-apply industry templates (or use Marketplace)</li>
+  </ul>
+</div>
+
+<!-- LINEAGE -->
+<h2 id="lineage">8.15 <span class="route">/lineage</span> — Lineage lite</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Metadata lineage (not warehouse-native full column graph for every vendor).</p>
+  <h4>Scenario</h4>
+  <p>Before export, DA checks which tables feed the job; pairs with column-lineage API when investigating a metric.</p>
+</div>
+
+<!-- CATALOG BLOCK -->
+<h2 id="catalog">8.16 Catalog · Glossary · Domains · Steward</h2>
+<table>
+  <tr><th>Page</th><th>Use in production</th></tr>
+  <tr><td><span class="route">/catalog</span></td><td>Asset inventory / governance hooks — describe products, not replace Workspace stitch.</td></tr>
+  <tr><td><span class="route">/glossary</span></td><td>Business terms aligned to tables/columns for DA clarity.</td></tr>
+  <tr><td><span class="route">/domains</span></td><td>Data-product domains; ownership boundaries for multi-team workspaces.</td></tr>
+  <tr><td><span class="route">/steward</span></td><td>Stewardship queue: ownership, quality follow-ups, policy actions.</td></tr>
+</table>
+
+<!-- VALIDATION / DRIFT -->
+<h2 id="validation">8.17 <span class="route">/validation</span> &amp; <span class="route">/drift-agent</span></h2>
+<div class="card">
+  <h4>Validation suite</h4>
+  <p>Run structured checks before ship (nulls, dups, contract expectations).</p>
+  <h4>Drift agent</h4>
+  <p>When source schema changes after sync, review drift severity; alerts can webhook/email (settings).</p>
+  <h4>Scenario</h4>
+  <p>Upstream renamed column → sync drift high → block export → fix joins → re-Promote → re-export.</p>
+</div>
+
+<!-- COMPLIANCE -->
+<h2 id="compliance">8.18 <span class="route">/compliance</span> — Evidence &amp; ops checklist</h2>
+<div class="card">
+  <h4>Purpose</h4>
+  <p>Auditor-facing evidence pack + SaaS ops checklist + Offer A digests. <strong>Not</strong> a Type II letter.</p>
+  <h4>How to use</h4>
+  <ul>
+    <li><span class="ctrl">Refresh pack</span> / Download markdown</li>
+    <li>Admin: <span class="ctrl">Run backup</span>, <span class="ctrl">Run DR drill</span></li>
+    <li><span class="ctrl">Build digest</span> for warehouse/external failures</li>
+    <li>Read connector SLA summary</li>
+  </ul>
+</div>
+
+<!-- PRODUCT -->
+<h2 id="product">8.19 <span class="route">/product</span> — Client positioning</h2>
+<div class="card">
+  <p>Internal/client conversation page: Offer A/B, day-one path, what you do not claim. Use at kickoff meetings.</p>
+</div>
+
+<!-- SETTINGS -->
+<div class="page-break"></div>
+<h2 id="settings">8.20 Settings — every tab</h2>
+<table>
+  <tr><th>Route</th><th>What to configure</th><th>Who</th></tr>
+  <tr><td><span class="route">/settings/members</span></td><td>Invite users, roles, revoke</td><td>Admin+</td></tr>
+  <tr><td><span class="route">/settings/security</span></td><td>SSO enforce, sessions, secrets</td><td>Admin+</td></tr>
+  <tr><td><span class="route">/settings/enterprise</span></td><td>CMK, SCIM, SIEM, ABAC, isolation tests, SOC2 export</td><td>Admin+</td></tr>
+  <tr><td><span class="route">/settings/automation</span></td><td>Sync schedules overview, job schedules, orchestrator, private runner</td><td>Admin/Member</td></tr>
+  <tr><td><span class="route">/settings/governance</span></td><td>Policy packs, PII, tickets, certifications</td><td>Admin+</td></tr>
+  <tr><td><span class="route">/settings/team</span></td><td>Team OS notify (Slack/Teams), promote min role</td><td>Admin+</td></tr>
+  <tr><td><span class="route">/settings/billing</span></td><td>Seats / portal / checkout</td><td>Owner/Admin</td></tr>
+  <tr><td><span class="route">/settings/ai-policy</span></td><td>Pinned samples, scrub, managed plane, auto-promote (keep OFF), LLM prefs</td><td>Admin+</td></tr>
+</table>
+<div class="warn">Keep <strong>auto-promote low-risk</strong> off unless you deliberately accept risk and document it.</div>
+
+<!-- OPS -->
+<h2 id="ops">9. Ops, health, digests, DR</h2>
+<table>
+  <tr><th>Capability</th><th>Where</th><th>Production habit</th></tr>
+  <tr><td>Health / status</td><td><code>/health</code>, <code>/status</code>, UI <span class="route">/status</span></td><td>Uptime checks + status page link in runbooks</td></tr>
+  <tr><td>Prometheus</td><td><code>/metrics?format=prom</code></td><td>Scrape from your observability stack</td></tr>
+  <tr><td>Warehouse digests</td><td>Compliance + Chat strip + ingest API</td><td>Daily for Offer A heavy warehouses</td></tr>
+  <tr><td>Metadata backup</td><td>Compliance → Run backup</td><td>Weekly + before major schema campaigns</td></tr>
+  <tr><td>DR drill</td><td>Compliance → Run DR drill</td><td>Quarterly (records evidence)</td></tr>
+  <tr><td>Golden eval</td><td>Eval schedule</td><td>Daily/weekly; investigate recall drops</td></tr>
+  <tr><td>Managed retention</td><td>API purge / settings days</td><td>Align with DPA retention</td></tr>
+</table>
+
+<!-- UPSKILL -->
+<h2 id="upskill">10. Team operating model &amp; upskilling</h2>
+<pre class="flow">
+WEEKLY RITUAL (recommended)
+  Mon  Sync health + digests review (Ops/DE)
+  Tue  Join Review queue burn-down (DE + DA)
+  Wed  Proposals/Transforms review hour (senior DE)
+  Thu  Metrics/BI certify for stakeholders (DA)
+  Fri  Eval recall + Rules cleanup + Compliance checklist
+</pre>
+<table>
+  <tr><th>Role upskill path</th><th>Practice in Que</th></tr>
+  <tr><td>Junior DA</td><td>Marketplace pack → Chat drafts → comment on joins → never Promote alone first week</td></tr>
+  <tr><td>DE</td><td>Edit/Promote joins → Jobs dry-run → dbt export → digest failures</td></tr>
+  <tr><td>Analytics eng</td><td>Metrics + BI certify + embeds; lineage checks</td></tr>
+  <tr><td>Steward / governance</td><td>Glossary/domains/steward + Compliance pack</td></tr>
+  <tr><td>Admin</td><td>SSO/SCIM/SIEM, DR drills, golden schedule, AI policy</td></tr>
+</table>
+<div class="ok">
+  <strong>Upskill metric:</strong> approvals/week, promote rate, job success 30d, golden recall trend, time-to-first-certified-BI.
+</div>
+
+<!-- TROUBLE -->
+<h2 id="trouble">11. Troubleshooting cheat sheet</h2>
+<table>
+  <tr><th>Symptom</th><th>Likely cause</th><th>What to do</th></tr>
+  <tr><td>Sync auth error</td><td>Bad token/password</td><td>Fix secrets; auth errors skip tight scheduled loops</td></tr>
+  <tr><td>Low join confidence</td><td>Weak keys / empty pins</td><td>Re-pin samples; edit mapping; use query-history assist on DBX/SF</td></tr>
+  <tr><td>Export blocked</td><td>Unreviewed joins / drift</td><td>Promote or reject; resolve drift; check settings gates</td></tr>
+  <tr><td>BI mint fails</td><td>Chart/dataset not certified</td><td>Certify dataset → chart → mint</td></tr>
+  <tr><td>AI refuses rows</td><td>By design</td><td>Use pins only; never expect lake dump</td></tr>
+  <tr><td>Viewer can’t Promote</td><td>Role</td><td>Ask admin for member+</td></tr>
+  <tr><td>Embed 401</td><td>Revoked/expired token</td><td>Mint new token; check certify still true</td></tr>
+  <tr><td>Golden eval 400</td><td>No pairs</td><td>Paste pairs JSON on Eval before Run</td></tr>
+</table>
+
+<!-- CLAIMS -->
+<h2 id="claims">12. Claims you can / cannot make</h2>
+<div class="grid2">
+  <div class="ok">
+    <strong>You can say</strong>
+    <ul>
+      <li>Schema-first HITL stitch control plane</li>
+      <li>Pinned scrubbed samples; ~88–95% band on easy keys</li>
+      <li>Attested exports into customer SoR</li>
+      <li>Evidence pack for auditor diligence</li>
+      <li>Offer A + Offer B dual path</li>
+    </ul>
+  </div>
+  <div class="out">
+    <strong>Do not say</strong>
+    <ul>
+      <li>We replace Databricks/Snowflake</li>
+      <li>AI is always 100% correct / no humans</li>
+      <li>We are SOC 2 Type II certified (unless auditor letter exists)</li>
+      <li>Que is the enterprise lake for all rows</li>
+      <li>Certified BI is a full Tableau suite</li>
+    </ul>
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2 id="deep">13. Deep control inventory (button / field level)</h2>
+<p class="meta">Use this section as a training checklist — walk each control once on a demo workspace.</p>
+
+<h3>13.1 App chrome (every authenticated page)</h3>
+<table>
+  <tr><th>Control</th><th>Action</th></tr>
+  <tr><td>Que logo</td><td>Go to Workspace</td></tr>
+  <tr><td>Workspace switcher</td><td>Switch membership context (multi-workspace users)</td></tr>
+  <tr><td>Primary nav links</td><td>Jump to Workspace, Chat, Sources, Joins, Proposals, Transforms, Rules, Metrics, Eval, Marketplace, Domains, Catalog, Jobs, Managed, BI, Compliance, Product, Lineage, Steward, Agent, Settings</td></tr>
+  <tr><td>Presence chips</td><td>See who is active + which path they are on</td></tr>
+  <tr><td>Onboarding roadmap</td><td>Open guided checklist dialog</td></tr>
+  <tr><td>Auth session controls</td><td>Account / logout / session management</td></tr>
+  <tr><td>Mobile hamburger</td><td>Same nav on narrow viewports</td></tr>
+</table>
+
+<h3>13.2 Workspace canvas</h3>
+<table>
+  <tr><th>Control</th><th>How to use</th></tr>
+  <tr><td>Background drag</td><td>Pan diagram</td></tr>
+  <tr><td>Wheel / zoom buttons</td><td>Zoom in/out</td></tr>
+  <tr><td>Drag table header</td><td>Reposition node (saved for member+)</td></tr>
+  <tr><td>Click table title</td><td>Select + expand/collapse columns</td></tr>
+  <tr><td>Click column</td><td>Inspect column detail / samples</td></tr>
+  <tr><td>Source filter</td><td>Focus one connector’s tables</td></tr>
+  <tr><td>Add to Job</td><td>Push selected tables into a job draft</td></tr>
+  <tr><td>Show Lineage</td><td>Jump toward lineage investigation</td></tr>
+</table>
+<div class="card">
+  <h4>Training drill</h4>
+  <ol class="steps">
+    <li>Sync two sources → open Workspace → confirm both source colors/icons.</li>
+    <li>Expand a fact + dim table → note key icons.</li>
+    <li>Select relationship edge if shown → jump to Joins for Promote.</li>
+  </ol>
+</div>
+
+<h3>13.3 Sources</h3>
+<table>
+  <tr><th>Control</th><th>How to use</th></tr>
+  <tr><td>Add / New source</td><td>Pick connector type</td></tr>
+  <tr><td>Connector form fields</td><td>Host, token, warehouse, fixtures path, etc.</td></tr>
+  <tr><td>Sync schema</td><td>Introspect + pin samples (retries automatic)</td></tr>
+  <tr><td>Sync schedule</td><td>off / hourly / daily</td></tr>
+  <tr><td>Status LED</td><td>active / warning / error</td></tr>
+  <tr><td>Delete connection</td><td>Admin; removes metadata for that source</td></tr>
+</table>
+<div class="card">
+  <h4>Training drill — Excel + Postgres</h4>
+  <ol class="steps">
+    <li>Add Postgres demo fixture → Sync → note table count.</li>
+    <li>Add Excel/CSV pack → Sync → pins created.</li>
+    <li>Set Postgres schedule to daily → confirm next run time on Automation settings.</li>
+  </ol>
+</div>
+
+<h3>13.4 Joins</h3>
+<table>
+  <tr><th>Control</th><th>How to use</th></tr>
+  <tr><td>Status filter chips</td><td>suggested / accepted / rejected / all</td></tr>
+  <tr><td>Queue list</td><td>Select an edge to inspect</td></tr>
+  <tr><td>Evidence panel</td><td>Read score, signals, overlap</td></tr>
+  <tr><td>Edit columns</td><td>Change left/right column mapping</td></tr>
+  <tr><td>Promote</td><td>Accept into workspace truth (member+ / min role)</td></tr>
+  <tr><td>Reject</td><td>Store negative memory for inference</td></tr>
+  <tr><td>Comment / Reply</td><td>Threaded discussion before Promote</td></tr>
+  <tr><td>Re-run inference</td><td>Refresh suggestions after new sync</td></tr>
+  <tr><td>Mapping assist</td><td>Rename / alias suggestions review</td></tr>
+</table>
+
+<h3>13.5 Chat</h3>
+<table>
+  <tr><th>Control</th><th>How to use</th></tr>
+  <tr><td>Composer</td><td>Natural language; @table mentions</td></tr>
+  <tr><td>Skills</td><td>Slash/skill shortcuts for common asks</td></tr>
+  <tr><td>Sidebar tables</td><td>Focus context pack</td></tr>
+  <tr><td>Save job draft</td><td>Materialize assistant draft into Jobs</td></tr>
+  <tr><td>Reindex</td><td>Rebuild embeddings after big sync</td></tr>
+  <tr><td>Stop</td><td>Cancel in-flight ask</td></tr>
+  <tr><td>Offer A strip</td><td>Refresh warehouse digest</td></tr>
+  <tr><td>Feedback</td><td>Thumbs / notes for model quality</td></tr>
+</table>
+
+<h3>13.6 Jobs</h3>
+<table>
+  <tr><th>Control</th><th>How to use</th></tr>
+  <tr><td>Job list / open</td><td>Select notebook job</td></tr>
+  <tr><td>Notebook cells</td><td>Edit SQL / markdown</td></tr>
+  <tr><td>Dry-run</td><td>Bounded sample execution</td></tr>
+  <tr><td>Live validate</td><td>Bounded live rows (careful)</td></tr>
+  <tr><td>Export JSON/SQL/dbt/PR</td><td>Attested handoff (gates apply)</td></tr>
+  <tr><td>Schedule</td><td>Cron-like job schedule</td></tr>
+  <tr><td>Templates</td><td>Insert common notebook patterns</td></tr>
+  <tr><td>Land managed</td><td>Offer B materialize into Que plane</td></tr>
+  <tr><td>Contract tests</td><td>Run + view history</td></tr>
+  <tr><td>External status</td><td>Bridge warehouse run state into Que</td></tr>
+</table>
+
+<h3>13.7 Marketplace → Eval → Metrics → BI chain</h3>
+<pre class="flow">
+Install pack (/marketplace)
+   -> draft job (/jobs)
+   -> map real tables + Promote (/joins)
+   -> dry-run
+   -> (Offer B) land + certify (/managed)
+   -> define metric (/metrics) + lineage
+   -> chart + certify + mint (/bi)
+   -> share /embed/:token
+   -> track quality (/eval golden schedule)
+</pre>
+
+<h3>13.8 Compliance ops drill (quarterly)</h3>
+<ol class="steps">
+  <li>Refresh SOC2 evidence pack → download markdown → attach to diligence folder.</li>
+  <li>Run metadata backup → confirm checklist “backup” done.</li>
+  <li>Run DR drill → confirm passed steps (backup + isolation + db ping).</li>
+  <li>Build warehouse digest → file Offer A failures with owners.</li>
+  <li>Confirm connector SLA counts (ok/degraded/breached).</li>
+  <li>Note: this is evidence, not Type II certification.</li>
+</ol>
+
+<div class="page-break"></div>
+<h2 id="glossary-terms">14. Glossary of Que terms</h2>
+<table>
+  <tr><th>Term</th><th>Meaning</th></tr>
+  <tr><td>Pin / pinned samples</td><td>Frozen scrubbed 5–10 rows per table for overlap/AI</td></tr>
+  <tr><td>Promote</td><td>Human accept of a suggested join into truth</td></tr>
+  <tr><td>Contract freeze</td><td>Snapshot of joins/schema bound into a job</td></tr>
+  <tr><td>Attestation</td><td>Signed evidence on exports for verify</td></tr>
+  <tr><td>Offer A</td><td>Customer warehouse is SoR</td></tr>
+  <tr><td>Offer B</td><td>Que managed plane hosts certified datasets</td></tr>
+  <tr><td>Proposal diff</td><td>PR-like before/after for review</td></tr>
+  <tr><td>Golden eval</td><td>Labeled join pairs to measure recall</td></tr>
+  <tr><td>Digest</td><td>Aggregated external/warehouse run failures</td></tr>
+  <tr><td>Presence</td><td>Heartbeat who is online in workspace</td></tr>
+</table>
+
+<h2 id="appendix-api">15. API quick reference (for power users)</h2>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Use</th></tr>
+  <tr><td>GET</td><td><code>/status</code> / <code>/health</code></td><td>Ops health</td></tr>
+  <tr><td>POST</td><td><code>/workspaces/:id/connections/:id/sync</code></td><td>Schema sync w/ retries</td></tr>
+  <tr><td>POST</td><td><code>.../relationships/:id/review</code></td><td>Promote/reject</td></tr>
+  <tr><td>GET/POST</td><td><code>.../comments</code></td><td>Join threads</td></tr>
+  <tr><td>GET</td><td><code>/marketplace/packs</code></td><td>Catalog</td></tr>
+  <tr><td>POST</td><td><code>.../industry-templates/:packId/apply</code></td><td>Install pack</td></tr>
+  <tr><td>GET</td><td><code>.../metrics-lineage</code></td><td>Semantic lineage</td></tr>
+  <tr><td>POST</td><td><code>.../presence/heartbeat</code></td><td>Multiplayer presence</td></tr>
+  <tr><td>POST</td><td><code>.../warehouse-digests/build</code></td><td>Offer A digest</td></tr>
+  <tr><td>POST</td><td><code>.../dr-drills/run</code></td><td>DR evidence</td></tr>
+  <tr><td>GET</td><td><code>/bi/embed/:token</code></td><td>Public embed JSON</td></tr>
+</table>
+
+<div class="ok">
+  <strong>How to train a new teammate in one day</strong>
+  <ol>
+    <li>Morning: Product page + Scenario A through Promote (sections 2, 5, 8.2–8.3).</li>
+    <li>Midday: Chat → Jobs dry-run → export (8.4, 8.6).</li>
+    <li>Afternoon: Marketplace pack OR Offer B BI path (6, 8.11–8.13).</li>
+    <li>End of day: Eval glance + Compliance backup (8.14, 8.18) + read claims (12).</li>
+  </ol>
+</div>
+
+<p class="footer-note">
+  End of Que Production Use Guide v2.1 · Files:
+  <code>docs/Que-Production-Use-Guide.html</code> ·
+  <code>docs/Que-Production-Use-Guide.pdf</code> ·
+  Regenerate: <code>node scripts/html-to-pdf.mjs docs/Que-Production-Use-Guide.html docs/Que-Production-Use-Guide.pdf</code>
+</p>
+
+</body>
+</html>

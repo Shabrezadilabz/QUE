@@ -128,7 +128,7 @@ export function CompliancePage() {
           </p>
         ) : null}
         {toast ? (
-          <p className="mt-md text-[12px] text-primary">{toast}</p>
+          <p className="mt-md text-[12px] text-secondary">{toast}</p>
         ) : null}
 
         <div className="mt-md flex flex-wrap gap-sm">
@@ -136,7 +136,7 @@ export function CompliancePage() {
             type="button"
             disabled={busy}
             onClick={() => void load()}
-            className="rounded-lg border border-primary px-md py-1.5 text-[12px] font-semibold text-primary disabled:opacity-40"
+            className="rounded-lg border border-secondary px-md py-1.5 text-[12px] font-semibold text-secondary disabled:opacity-40"
           >
             {busy ? 'Loading…' : 'Refresh pack'}
           </button>
@@ -144,7 +144,7 @@ export function CompliancePage() {
             <button
               type="button"
               onClick={downloadMd}
-              className="rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary"
+              className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary"
             >
               Download markdown
             </button>
@@ -185,7 +185,7 @@ export function CompliancePage() {
                           setError(e instanceof Error ? e.message : String(e)),
                         )
                     }
-                    className="rounded-lg border border-primary px-md py-1.5 text-[12px] text-primary"
+                    className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary"
                   >
                     Run backup
                   </button>
@@ -202,7 +202,7 @@ export function CompliancePage() {
                           setError(e instanceof Error ? e.message : String(e)),
                         )
                     }
-                    className="rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary"
+                    className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary"
                   >
                     Run DR drill
                   </button>
@@ -213,7 +213,7 @@ export function CompliancePage() {
               {ops.checklist.map((c) => (
                 <li
                   key={c.id}
-                  className="flex flex-wrap items-center justify-between gap-sm rounded-xl border border-outline-variant/30 bg-white px-md py-md"
+                  className="flex flex-wrap items-center justify-between gap-sm rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md"
                 >
                   <div>
                     <p className="font-label text-[13px] font-semibold">
@@ -227,7 +227,7 @@ export function CompliancePage() {
                     className={[
                       'rounded-full px-md py-0.5 font-label text-[11px] uppercase',
                       c.done
-                        ? 'bg-primary/10 text-primary'
+                        ? 'bg-secondary/10 text-secondary'
                         : 'bg-surface-container-low text-on-surface-variant',
                     ].join(' ')}
                   >
@@ -269,7 +269,7 @@ export function CompliancePage() {
                     setError(e instanceof Error ? e.message : String(e)),
                   )
               }
-              className="rounded-lg border border-primary px-md py-1.5 text-[12px] text-primary"
+              className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary"
             >
               Build digest
             </button>
@@ -283,7 +283,7 @@ export function CompliancePage() {
               digests.map((d) => (
                 <li
                   key={d.id}
-                  className="rounded-xl border border-outline-variant/30 bg-white px-md py-md text-[13px]"
+                  className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md text-[13px]"
                 >
                   <p className="font-semibold">{d.summary}</p>
                   <p className="mt-1 text-[11px] text-on-surface-variant">
@@ -300,7 +300,7 @@ export function CompliancePage() {
 
         {pack ? (
           <div className="mt-lg space-y-lg">
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-md text-[13px] text-on-surface">
+            <div className="rounded-xl border border-secondary/40 bg-secondary/5 p-md text-[13px] text-on-surface">
               {pack.disclaimer}
             </div>
             <div className="grid gap-md sm:grid-cols-2">
@@ -322,7 +322,7 @@ export function CompliancePage() {
                 {pack.controls.map((c) => (
                   <li
                     key={c.id}
-                    className="rounded-xl border border-outline-variant/30 bg-white px-md py-md"
+                    className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-sm">
                       <p className="font-label text-[13px] font-semibold">
@@ -364,7 +364,7 @@ export function CompliancePage() {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-outline-variant/30 bg-white px-md py-md">
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md">
       <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
         {label}
       </p>

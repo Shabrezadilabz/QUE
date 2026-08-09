@@ -56,7 +56,7 @@ const CREATABLE: DataSourceType[] = [
 
 const STATUS_DOT: Record<DataSourceStatus, string> = {
   active: 'bg-tertiary',
-  warning: 'bg-sand',
+  warning: 'bg-amber-400',
   error: 'bg-error',
 }
 
@@ -330,7 +330,7 @@ function statusBadge(status: DataSourceStatus): {
   if (status === 'warning') {
     return {
       label: 'Needs sync',
-      className: 'bg-primary/10 text-primary',
+      className: 'bg-amber-400/15 text-amber-300',
     }
   }
   return {
@@ -340,7 +340,7 @@ function statusBadge(status: DataSourceStatus): {
 }
 
 /**
- * Sources — Sunset Clay list + create-sync-job wizard.
+ * Sources — connect / sync / catalog (dark IDE).
  */
 export function SourcesPage() {
   const { canWrite, canAdmin } = useWorkspaceRole()
@@ -816,7 +816,7 @@ export function SourcesPage() {
         </p>
       ) : null}
       {toast ? (
-        <p className="border-b border-primary/20 bg-primary-container/10 px-md py-sm font-body text-sm text-primary">
+        <p className="border-b border-secondary/25 bg-secondary/10 px-md py-sm font-body text-sm text-secondary">
           {toast}
           <button
             type="button"
@@ -848,11 +848,11 @@ export function SourcesPage() {
                       cancelWizard()
                     }
                   }}
-                  className="font-label text-[12px] font-medium text-primary hover:underline"
+                  className="font-label text-[12px] font-medium text-secondary hover:underline"
                 >
                   {wizardStep === 2 ? '← Back to connectors' : '← All sources'}
                 </button>
-                <div className="flex items-center gap-1 rounded-lg border border-outline-variant/25 bg-white p-0.5">
+                <div className="flex items-center gap-1 rounded-lg border border-outline-variant/25 bg-surface-container-low p-0.5">
                   {WIZARD_STEPS.map((label, i) => {
                     const n = i + 1
                     const active = n === wizardStep
@@ -863,9 +863,9 @@ export function SourcesPage() {
                         className={[
                           'rounded-md px-3 py-1 font-label text-[11px]',
                           active
-                            ? 'bg-primary text-on-primary'
+                            ? 'bg-secondary text-on-secondary'
                             : done
-                              ? 'text-primary'
+                              ? 'text-tertiary'
                               : 'text-on-surface-variant/50',
                         ].join(' ')}
                       >
@@ -904,8 +904,8 @@ export function SourcesPage() {
               {wizardStep === 2 ? (
                 <div className="grid grid-cols-1 items-start gap-lg lg:grid-cols-12">
                   <aside className="lg:col-span-4">
-                    <div className="sticky top-4 rounded-2xl border border-outline-variant/20 bg-white p-lg">
-                      <div className="mb-md flex h-16 w-16 items-center justify-center rounded-xl border border-primary/30 bg-primary/5 text-primary">
+                    <div className="sticky top-4 rounded-lg border border-outline-variant/20 bg-surface-container-low p-lg">
+                      <div className="mb-md flex h-16 w-16 items-center justify-center rounded-xl border border-secondary/40 bg-secondary/5 text-secondary">
                         {form.type ? (
                           <SourceTypeIcon type={form.type} className="h-8 w-8" />
                         ) : null}
@@ -931,7 +931,7 @@ export function SourcesPage() {
                           ))}
                         </div>
                       ) : null}
-                      <div className="mt-lg rounded-xl bg-[#FBF8F4] p-md">
+                      <div className="mt-lg rounded-xl bg-surface-container p-md">
                         <p className="font-label text-[11px] font-semibold text-on-surface">
                           Destination
                         </p>
@@ -943,7 +943,7 @@ export function SourcesPage() {
                   </aside>
 
                   <div className="lg:col-span-8">
-                    <div className="rounded-2xl border border-outline-variant/20 bg-white p-lg shadow-sm">
+                    <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-lg">
                       <h3 className="mb-xs font-headline text-base font-semibold text-on-surface">
                         Connection setup
                       </h3>
@@ -973,7 +973,7 @@ export function SourcesPage() {
                           type="button"
                           disabled={busy || !form.name.trim() || !canAdmin}
                           onClick={() => void save()}
-                          className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                          className="rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
                         >
                           {form.type === 'excel' || form.type === 'csv'
                             ? busy
@@ -1004,9 +1004,9 @@ export function SourcesPage() {
               <>
                 <div className="mb-xl flex flex-col items-start gap-md sm:flex-row sm:items-end sm:justify-between">
                   <div className="flex items-start gap-md">
-                    <SourcesBranchMark className="mt-1 hidden h-10 w-10 shrink-0 text-primary sm:block" />
+                    <SourcesBranchMark className="mt-1 hidden h-10 w-10 shrink-0 text-secondary sm:block" />
                     <div>
-                      <h1 className="font-headline text-xl font-semibold tracking-tight text-primary">
+                      <h1 className="font-headline text-xl font-semibold tracking-tight text-secondary">
                         Sources
                       </h1>
                       <p className="mt-xs max-w-[36rem] font-body text-[13px] text-on-surface-variant">
@@ -1021,13 +1021,13 @@ export function SourcesPage() {
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
                       placeholder="Filter sources…"
-                      className="min-w-0 flex-1 rounded-lg border border-outline-variant/30 bg-white px-md py-1.5 font-body text-[13px] outline-none focus:border-primary sm:w-52 sm:flex-none"
+                      className="min-w-0 flex-1 rounded-lg border border-outline-variant/30 bg-surface-container-low px-md py-1.5 font-body text-[13px] outline-none focus:border-secondary sm:w-52 sm:flex-none"
                     />
                     {canAdmin ? (
                       <button
                         type="button"
                         onClick={startCreate}
-                        className="rounded-lg bg-primary px-md py-1.5 font-label text-[12px] font-semibold text-on-primary"
+                        className="rounded bg-secondary px-md py-1.5 font-label text-[12px] font-semibold text-on-secondary"
                       >
                         + Add connector
                       </button>
@@ -1036,7 +1036,7 @@ export function SourcesPage() {
                 </div>
 
                 {canAdmin ? (
-                  <div className="mb-lg flex flex-col gap-md rounded-2xl border border-primary/15 bg-white p-md sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mb-lg flex flex-col gap-md rounded-lg border border-secondary/20 bg-surface-container-low p-md sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2 className="font-label text-[13px] font-semibold text-on-surface">
                         {POC_PACK.title}
@@ -1049,7 +1049,7 @@ export function SourcesPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => void installPocPack()}
-                      className="shrink-0 rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+                      className="shrink-0 rounded-lg border border-secondary px-md py-1.5 font-label text-[12px] font-semibold text-secondary disabled:opacity-40"
                     >
                       Install POC pack
                     </button>
@@ -1073,10 +1073,10 @@ export function SourcesPage() {
                           setSelectedId(s.id)
                           goView('detail', { id: s.id })
                         }}
-                        className="group flex flex-col items-center gap-sm rounded-2xl border border-outline-variant/25 bg-white p-md text-center transition-all hover:border-primary/40 hover:shadow-md"
+                        className="group flex flex-col items-center gap-sm rounded-lg border border-outline-variant/25 bg-surface-container-low p-md text-center transition-all hover:border-secondary/40 hover:shadow-md"
                       >
                         <div className="relative">
-                          <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-outline-variant/30 bg-[#FBF8F4] text-primary transition-colors group-hover:border-primary/40">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-outline-variant/30 bg-surface-container text-secondary transition-colors group-hover:border-secondary/40">
                             <SourceTypeIcon type={s.type} className="h-7 w-7" />
                           </div>
                           <span
@@ -1100,7 +1100,7 @@ export function SourcesPage() {
                     <button
                       type="button"
                       onClick={startCreate}
-                      className="flex min-h-[160px] flex-col items-center justify-center gap-sm rounded-2xl border border-dashed border-outline-variant/50 bg-transparent p-md text-center hover:border-primary/40 hover:bg-white/70"
+                      className="flex min-h-[160px] flex-col items-center justify-center gap-sm rounded-lg border border-dashed border-outline-variant/50 bg-transparent p-md text-center hover:border-secondary/40 hover:bg-surface-container-low/70"
                     >
                       <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-outline-variant/40 text-2xl text-on-surface-variant">
                         +
@@ -1138,12 +1138,12 @@ export function SourcesPage() {
                     setSelectedId(null)
                     goView('home')
                   }}
-                  className="mb-md font-label text-[12px] font-medium text-primary hover:underline"
+                  className="mb-md font-label text-[12px] font-medium text-secondary hover:underline"
                 >
                   ← Back to Sources
                 </button>
                 <div className="mb-lg flex flex-wrap items-start gap-md">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-primary/30 bg-primary/5 text-primary">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-secondary/40 bg-secondary/5 text-secondary">
                     <SourceTypeIcon type={selected.type} className="h-7 w-7" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -1201,7 +1201,7 @@ export function SourcesPage() {
                               type="button"
                               disabled={busy}
                               onClick={() => void sync()}
-                              className="rounded-md bg-primary/10 px-sm py-1 font-label text-[11px] font-bold text-primary disabled:opacity-40"
+                              className="rounded-md bg-secondary/10 px-sm py-1 font-label text-[11px] font-bold text-secondary disabled:opacity-40"
                             >
                               Retry sync
                             </button>
@@ -1214,7 +1214,7 @@ export function SourcesPage() {
 
                 <div
                   id="connector-credentials"
-                  className="rounded-2xl border border-outline-variant/20 bg-white p-lg shadow-sm"
+                  className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-lg"
                 >
                   <ConnectionFields
                     form={form}
@@ -1231,7 +1231,7 @@ export function SourcesPage() {
                 </div>
 
                 {syncable ? (
-                  <div className="mt-lg rounded-2xl border border-outline-variant/20 bg-white p-lg shadow-sm">
+                  <div className="mt-lg rounded-lg border border-outline-variant/20 bg-surface-container-low p-lg">
                     <h3 className="font-label text-[11px] font-semibold tracking-[0.12em] text-on-surface-variant uppercase">
                       Sync schedule
                     </h3>
@@ -1281,7 +1281,7 @@ export function SourcesPage() {
                               }
                             })()
                           }}
-                          className="mt-1 block rounded-lg border border-outline-variant/40 bg-[#FBF8F4] px-sm py-1.5 font-body text-[13px] text-on-surface disabled:opacity-40"
+                          className="mt-1 block rounded-lg border border-outline-variant/40 bg-surface-container px-sm py-1.5 font-body text-[13px] text-on-surface disabled:opacity-40"
                         >
                           <option value="off">Off</option>
                           <option value="hourly">Hourly</option>
@@ -1318,7 +1318,7 @@ export function SourcesPage() {
                       type="button"
                       disabled={busy || !form.name.trim()}
                       onClick={() => void save()}
-                      className="rounded-lg bg-primary px-md py-1.5 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                      className="rounded bg-secondary px-md py-1.5 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
                     >
                       Save
                     </button>
@@ -1328,7 +1328,7 @@ export function SourcesPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => void sync()}
-                      className="rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+                      className="rounded-lg border border-secondary px-md py-1.5 font-label text-[12px] font-semibold text-secondary disabled:opacity-40"
                     >
                       Sync Schema
                     </button>
@@ -1345,7 +1345,7 @@ export function SourcesPage() {
                   ) : null}
                   <Link
                     to="/workspace"
-                    className="ml-auto rounded-lg border border-outline-variant px-md py-1.5 font-label text-[12px] font-semibold text-on-surface-variant hover:border-primary"
+                    className="ml-auto rounded-lg border border-outline-variant px-md py-1.5 font-label text-[12px] font-semibold text-on-surface-variant hover:border-secondary"
                   >
                     Open Workspace
                   </Link>
@@ -1359,7 +1359,7 @@ export function SourcesPage() {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-outline-variant bg-surface-container-low px-sm py-1.5 font-body text-[13px] text-on-surface outline-none focus:border-primary'
+  'w-full rounded-lg border border-outline-variant bg-surface-container-low px-sm py-1.5 font-body text-[13px] text-on-surface outline-none focus:border-secondary'
 
 function Field({
   label,
@@ -1463,8 +1463,8 @@ function ConnectionFields({
       ) : null}
       {form.type === 'excel' || form.type === 'csv' ? (
         <div className="space-y-md">
-          <div className="rounded-xl border border-dashed border-primary/40 bg-primary-container/5 p-md">
-            <p className="font-label text-[10px] font-bold tracking-widest text-primary">
+          <div className="rounded-xl border border-dashed border-secondary/40 bg-secondary/5 p-md">
+            <p className="font-label text-[10px] font-bold tracking-widest text-secondary">
               Upload {form.type === 'excel' ? 'Excel' : 'CSV'}
             </p>
             <p className="mt-xs font-body text-xs text-on-surface-variant">
@@ -1655,7 +1655,7 @@ function AuthModeToggle({
           className={[
             'flex-1 rounded-md py-2.5 font-label text-sm font-semibold',
             mode === 'fixture'
-              ? 'bg-primary-container text-on-primary'
+              ? 'bg-secondary text-on-secondary'
               : 'text-on-surface-variant hover:bg-surface-container',
           ].join(' ')}
         >
@@ -1667,7 +1667,7 @@ function AuthModeToggle({
           className={[
             'flex-1 rounded-md py-2.5 font-label text-sm font-semibold',
             mode === 'live'
-              ? 'bg-primary-container text-on-primary'
+              ? 'bg-secondary text-on-secondary'
               : 'text-on-surface-variant hover:bg-surface-container',
           ].join(' ')}
         >

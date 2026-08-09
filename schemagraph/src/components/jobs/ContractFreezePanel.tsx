@@ -92,10 +92,10 @@ export function ContractFreezePanel({
   const disabled = busy || acting || loading
 
   return (
-    <section className="rounded-xl border border-primary/20 bg-white p-md lg:col-span-2">
+    <section className="rounded-xl border border-secondary/25 bg-surface-container-low p-md lg:col-span-2">
       <div className="flex flex-wrap items-start justify-between gap-sm">
         <div>
-          <h3 className="font-label text-[11px] tracking-[0.12em] text-primary uppercase">
+          <h3 className="font-label text-[11px] tracking-[0.12em] text-secondary uppercase">
             Contract freeze
           </h3>
           <p className="mt-xs max-w-[40rem] font-body text-[12px] text-on-surface-variant">
@@ -156,10 +156,10 @@ export function ContractFreezePanel({
           </div>
 
           {status.unreviewedJoins > 0 ? (
-            <p className="rounded-lg border border-primary/20 bg-primary/5 px-md py-sm font-body text-[12px] text-on-surface">
+            <p className="rounded-lg border border-secondary/25 bg-secondary/5 px-md py-sm font-body text-[12px] text-on-surface">
               {status.unreviewedJoins} suggested join(s) touch this job&apos;s
               tables.{' '}
-              <Link to="/joins" className="font-semibold text-primary underline">
+              <Link to="/joins" className="font-semibold text-secondary underline">
                 Review in Joins
               </Link>{' '}
               before freezing if you need them locked.
@@ -184,7 +184,7 @@ export function ContractFreezePanel({
           ) : null}
 
           {status.validation.warnings.length > 0 ? (
-            <ul className="space-y-xs rounded-lg border border-outline-variant/30 bg-[#FBF8F4] px-md py-sm">
+            <ul className="space-y-xs rounded-lg border border-outline-variant/30 bg-surface-container px-md py-sm">
               {status.validation.warnings.slice(0, 4).map((w) => (
                 <li
                   key={w}
@@ -229,7 +229,7 @@ export function ContractFreezePanel({
           ) : (
             <p className="font-body text-[12px] text-on-surface-variant">
               No joins locked yet. Promote joins on{' '}
-              <Link to="/joins" className="text-primary underline">
+              <Link to="/joins" className="text-secondary underline">
                 Join Review
               </Link>
               , then Freeze.
@@ -248,7 +248,7 @@ export function ContractFreezePanel({
                 type="button"
                 disabled={disabled}
                 onClick={() => void onFreeze()}
-                className="rounded-lg bg-primary px-md py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                className="rounded bg-secondary px-md py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
               >
                 {acting
                   ? 'Working…'
@@ -267,7 +267,7 @@ export function ContractFreezePanel({
             </button>
             <Link
               to="/joins"
-              className="rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-primary"
+              className="rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-secondary"
             >
               Open Joins
             </Link>
@@ -288,7 +288,7 @@ function Metric({
   warn?: boolean
 }) {
   return (
-    <div className="rounded-lg border border-outline-variant/20 bg-[#FBF8F4] px-sm py-sm">
+    <div className="rounded-lg border border-outline-variant/20 bg-surface-container px-sm py-sm">
       <p className="font-label text-[10px] tracking-wider text-on-surface-variant uppercase">
         {label}
       </p>

@@ -60,7 +60,7 @@ export function PrivateRunnerPanel({
   }
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
       <h2 className="font-headline text-base font-semibold text-on-surface-variant">
         Private runner
       </h2>
@@ -78,7 +78,7 @@ export function PrivateRunnerPanel({
         <p className="mt-sm font-body text-[12px] text-tertiary">{msg}</p>
       ) : null}
       {secretOnce ? (
-        <p className="mt-sm rounded-lg bg-primary/5 px-md py-sm font-mono text-[11px] text-primary">
+        <p className="mt-sm rounded-lg bg-secondary/5 px-md py-sm font-mono text-[11px] text-secondary">
           New secret (copy now): {secretOnce}
         </p>
       ) : null}
@@ -110,7 +110,7 @@ export function PrivateRunnerPanel({
             type="button"
             disabled={busy}
             onClick={() => void save()}
-            className="rounded-lg border border-primary/30 bg-primary/5 px-md py-1.5 font-label text-[12px] text-primary disabled:opacity-40"
+            className="rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] text-secondary disabled:opacity-40"
           >
             Save
           </button>

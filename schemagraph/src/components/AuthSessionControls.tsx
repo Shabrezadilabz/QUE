@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 
-/** Compact signed-in identity — Sunset Clay avatar chip. */
+/** Compact signed-in identity — dark IDE presence chip. */
 export function AuthSessionControls() {
   const { user, logout } = useAuth()
   const { role } = useWorkspaceRole()
@@ -22,7 +22,7 @@ export function AuthSessionControls() {
     <div className="flex shrink-0 items-center gap-sm">
       {role ? (
         <span
-          className="hidden rounded-full bg-secondary-container px-sm py-xs font-label text-[9px] font-medium tracking-wide text-on-secondary-container uppercase sm:inline"
+          className="hidden rounded-full bg-secondary/15 px-sm py-xs font-label text-[9px] font-medium tracking-wide text-secondary uppercase sm:inline"
           title={`${user.email} · ${role}`}
         >
           {role}
@@ -32,7 +32,7 @@ export function AuthSessionControls() {
         type="button"
         onClick={() => void onLogout()}
         title={`Sign out (${user.email})`}
-        className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-outline-variant/40 bg-[#ffdbd2] font-label text-xs font-bold text-primary transition-opacity hover:opacity-90"
+        className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-outline-variant bg-surface-container-highest font-label text-xs font-bold text-secondary transition-colors hover:border-secondary hover:bg-secondary/15"
         aria-label={`Signed in as ${user.email}. Click to sign out.`}
       >
         {initial}

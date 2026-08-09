@@ -23,7 +23,7 @@ export type {
 const WIDTH_PX = 320
 
 /**
- * Properties panel — Sunset Clay workspace mock fidelity.
+ * Properties panel — dark IDE inspector.
  */
 export function RightSidebar({
   table,
@@ -55,7 +55,7 @@ export function RightSidebar({
   return (
     <aside
       data-region="right-sidebar"
-      className={`flex h-full shrink-0 flex-col border-l border-outline-variant/30 bg-white shadow-[-10px_0_30px_rgba(61,64,91,0.03)] ${className}`}
+      className={`flex h-full shrink-0 flex-col border-l border-outline-variant bg-surface-container ${className}`}
       style={{ width: WIDTH_PX }}
       aria-label="Properties"
     >
@@ -75,15 +75,15 @@ export function RightSidebar({
         </div>
 
         {status === 'ready' && table ? (
-          <div className="flex items-center gap-md rounded-xl border border-primary/20 bg-[#ffdbd2] p-md">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white text-primary shadow-sm">
+          <div className="flex items-center gap-md rounded-lg border border-secondary/30 bg-secondary/10 p-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-outline-variant bg-surface-container-high text-secondary">
               <SourceTypeIcon type={table.sourceType} className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate font-label text-sm font-bold text-[#3c0800]">
+              <p className="truncate font-label text-sm font-bold text-on-surface">
                 {table.name}
               </p>
-              <p className="text-[11px] text-[#7c2e19]">
+              <p className="font-mono text-[11px] text-on-surface-variant">
                 Table · {table.sourceLabel || sourceTypeLabel(table.sourceType)}
               </p>
             </div>
@@ -113,7 +113,7 @@ export function RightSidebar({
             <Section
               title={`Columns (${table.columns.length})`}
               action={
-                <span className="font-label text-[10px] text-primary">
+                <span className="font-label text-[10px] text-secondary">
                   {stats.rowCount != null
                     ? `${stats.rowCount.toLocaleString()} rows`
                     : null}
@@ -152,7 +152,7 @@ export function RightSidebar({
               {onPreviewData ? (
                 <button
                   type="button"
-                  className="mt-sm font-label text-[10px] tracking-widest text-primary hover:underline"
+                  className="mt-sm font-label text-[10px] tracking-widest text-secondary hover:underline"
                   onClick={() => onPreviewData(table.id)}
                 >
                   Refresh preview
@@ -163,7 +163,7 @@ export function RightSidebar({
             {onShowLineage ? (
               <button
                 type="button"
-                className="rounded-lg border border-outline-variant/40 px-md py-sm font-label text-[11px] tracking-widest text-on-surface-variant hover:border-primary"
+                className="rounded-lg border border-outline-variant/40 px-md py-sm font-label text-[11px] tracking-widest text-on-surface-variant hover:border-secondary"
                 onClick={() => onShowLineage(table.id)}
               >
                 Show lineage
@@ -178,7 +178,7 @@ export function RightSidebar({
           type="button"
           disabled={!table || status !== 'ready'}
           onClick={() => table && onAddToJob?.(table.id)}
-          className="w-full rounded-xl bg-on-background py-md font-label text-sm font-medium text-white transition-colors hover:bg-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+          className="w-full rounded bg-secondary py-md font-label text-sm font-medium text-on-secondary transition-colors hover:bg-secondary-fixed-dim active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Save Changes
         </button>
@@ -228,8 +228,8 @@ function ColumnPill({
       className={[
         'flex w-full items-center justify-between rounded-lg border px-sm py-sm text-left transition-colors',
         selected
-          ? 'border-primary/40 bg-surface-container-low'
-          : 'border-outline-variant/30 bg-surface-container-low/30 hover:border-primary/40',
+          ? 'border-secondary/40 bg-surface-container-low'
+          : 'border-outline-variant/30 bg-surface-container-low/30 hover:border-secondary/40',
       ].join(' ')}
     >
       <span className="flex min-w-0 items-center gap-sm">
@@ -262,7 +262,7 @@ function Tag({
     tone === 'sage'
       ? 'bg-tertiary/10 text-tertiary'
       : tone === 'primary'
-        ? 'bg-primary/10 text-primary'
+        ? 'bg-secondary/10 text-secondary'
         : 'bg-secondary-container text-on-secondary-container'
   return (
     <span
@@ -285,7 +285,7 @@ function PreviewTable({ rows }: { rows: SampleDataRow[] }) {
   return (
     <div className="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low">
       <table className="w-full text-left text-[11px]">
-        <thead className="border-b border-outline-variant/20 bg-white">
+        <thead className="border-b border-outline-variant/20 bg-surface-container-low">
           <tr>
             {keys.map((k) => (
               <th
@@ -341,7 +341,7 @@ function EmptyState() {
 function LoadingState() {
   return (
     <div className="flex flex-col items-center gap-sm py-lg" role="status">
-      <div className="h-8 w-8 animate-pulse rounded-full border-2 border-primary-fixed border-t-transparent" />
+      <div className="h-8 w-8 animate-pulse rounded-full border-2 border-secondary border-t-transparent" />
       <p className="font-label text-[11px] tracking-widest text-on-surface-variant">
         LOADING…
       </p>

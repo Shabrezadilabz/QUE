@@ -108,7 +108,7 @@ export function WorkspaceSwitcher({
               type="button"
               disabled={creating}
               onClick={() => void onCreateWorkspace()}
-              className="w-full rounded-lg bg-primary-container py-sm font-label text-[11px] text-on-primary disabled:opacity-40"
+              className="w-full rounded bg-secondary py-sm font-label text-[11px] text-on-secondary disabled:opacity-40"
             >
               {creating ? 'Creating…' : 'Create'}
             </button>
@@ -168,7 +168,7 @@ export function WorkspaceSwitcher({
                 className={[
                   'flex w-full items-start justify-between gap-md px-md py-sm text-left transition-colors',
                   active
-                    ? 'border-l-2 border-primary bg-secondary-container'
+                    ? 'border-l-2 border-secondary bg-secondary/15'
                     : 'border-l-2 border-transparent hover:bg-surface-container-high',
                 ].join(' ')}
               >
@@ -181,7 +181,7 @@ export function WorkspaceSwitcher({
                   </span>
                 </span>
                 {active ? (
-                  <span className="font-label text-[9px] tracking-widest text-primary">
+                  <span className="font-label text-[9px] tracking-widest text-secondary">
                     ACTIVE
                   </span>
                 ) : null}
@@ -211,7 +211,7 @@ export function WorkspaceSwitcher({
               type="button"
               disabled={creating}
               onClick={() => void onCreateWorkspace()}
-              className="mb-sm w-full rounded-lg bg-primary-container py-xs font-label text-[10px] tracking-widest text-on-primary disabled:opacity-40"
+              className="mb-sm w-full rounded bg-secondary py-xs font-label text-[10px] tracking-widest text-on-secondary disabled:opacity-40"
             >
               {creating ? 'CREATING…' : '+ CREATE WORKSPACE'}
             </button>

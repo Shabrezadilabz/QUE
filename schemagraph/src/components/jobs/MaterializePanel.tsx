@@ -85,7 +85,7 @@ export function MaterializePanel({
     <>
       {!embedded ? (
         <>
-          <h3 className="font-label text-[11px] font-semibold tracking-[0.12em] text-primary uppercase">
+          <h3 className="font-label text-[11px] font-semibold tracking-[0.12em] text-secondary uppercase">
             Materialize · customer warehouse
           </h3>
           <p className="mt-xs max-w-[42rem] font-body text-[12px] leading-relaxed text-on-surface-variant">
@@ -115,7 +115,7 @@ export function MaterializePanel({
               disabled={!canWrite || busy}
               value={connectionId}
               onChange={(e) => setConnectionId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-[#FBF8F4] px-sm py-1.5 font-body text-[13px] disabled:opacity-40"
+              className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-surface-container px-sm py-1.5 font-body text-[13px] disabled:opacity-40"
             >
               {sources.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -134,7 +134,7 @@ export function MaterializePanel({
               onChange={(e) =>
                 setKind(e.target.value === 'table' ? 'table' : 'view')
               }
-              className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-[#FBF8F4] px-sm py-1.5 font-body text-[13px] disabled:opacity-40"
+              className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-surface-container px-sm py-1.5 font-body text-[13px] disabled:opacity-40"
             >
               <option value="view">View (CREATE OR REPLACE)</option>
               <option value="table">Table (CTAS)</option>
@@ -149,7 +149,7 @@ export function MaterializePanel({
               value={schema}
               onChange={(e) => setSchema(e.target.value)}
               placeholder="public / PUBLIC"
-              className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-[#FBF8F4] px-sm py-1.5 font-body text-[13px] disabled:opacity-40"
+              className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-surface-container px-sm py-1.5 font-body text-[13px] disabled:opacity-40"
             />
           </label>
           <label className="block">
@@ -161,7 +161,7 @@ export function MaterializePanel({
               value={objectName}
               onChange={(e) => setObjectName(e.target.value)}
               placeholder="que_job_…"
-              className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-[#FBF8F4] px-sm py-1.5 font-body text-[13px] disabled:opacity-40"
+              className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-surface-container px-sm py-1.5 font-body text-[13px] disabled:opacity-40"
             />
           </label>
         </div>
@@ -198,7 +198,7 @@ export function MaterializePanel({
             type="button"
             disabled={busy || !confirm}
             onClick={() => void onMaterialize()}
-            className="rounded-lg bg-primary px-md py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+            className="rounded bg-secondary px-md py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
           >
             {busy ? 'Materializing…' : `Create ${kind} in warehouse`}
           </button>
@@ -210,7 +210,7 @@ export function MaterializePanel({
   if (embedded) return <div>{body}</div>
 
   return (
-    <section className="rounded-xl border border-primary/25 bg-white p-md lg:col-span-2">
+    <section className="rounded-xl border border-secondary/30 bg-surface-container-low p-md lg:col-span-2">
       {body}
     </section>
   )

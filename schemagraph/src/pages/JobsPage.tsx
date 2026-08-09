@@ -39,7 +39,7 @@ import {
 const STATUS_STYLE: Record<JobStatus, string> = {
   draft: 'bg-secondary-container text-on-secondary-container',
   ready: 'bg-tertiary/10 text-tertiary',
-  exported: 'bg-primary/10 text-primary',
+  exported: 'bg-secondary/10 text-secondary',
   archived: 'bg-outline-variant/20 text-on-surface-variant/50',
 }
 
@@ -654,11 +654,11 @@ export function JobsPage() {
 
   const runStateClass =
     running || latestRun?.status === 'running'
-      ? 'text-primary-fixed'
+      ? 'text-secondary'
       : latestRun?.status === 'failed'
         ? 'text-error'
         : latestRun?.status === 'succeeded'
-          ? 'text-primary-fixed'
+          ? 'text-secondary'
           : 'text-on-surface-variant'
 
   return (
@@ -671,7 +671,7 @@ export function JobsPage() {
             </p>
           ) : null}
           {toast ? (
-            <p className="shrink-0 border-b border-primary/20 bg-primary-container/10 px-md py-sm font-label text-[10px] tracking-widest text-primary">
+            <p className="shrink-0 border-b border-secondary/25 bg-secondary/10 px-md py-sm font-label text-[10px] tracking-widest text-secondary">
               {toast}
               <button
                 type="button"
@@ -703,14 +703,14 @@ export function JobsPage() {
           </div>
         ) : (
           <>
-            <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#F2EDE4]">
+            <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
           {error ? (
             <p className="shrink-0 border-b border-error/40 bg-error/10 px-md py-sm font-body text-[12px] text-error">
               {error}
             </p>
           ) : null}
           {toast ? (
-            <p className="shrink-0 border-b border-primary/20 bg-primary-container/10 px-md py-sm font-label text-[10px] tracking-widest text-primary">
+            <p className="shrink-0 border-b border-secondary/25 bg-secondary/10 px-md py-sm font-label text-[10px] tracking-widest text-secondary">
               {toast}
               <button
                 type="button"
@@ -721,18 +721,18 @@ export function JobsPage() {
               </button>
             </p>
           ) : null}
-              <div className="flex h-14 shrink-0 items-center justify-between gap-md border-b border-outline-variant/20 bg-white/70 px-lg backdrop-blur-md">
+              <div className="flex h-14 shrink-0 items-center justify-between gap-md border-b border-outline-variant/20 bg-surface-container-low/70 px-lg">
                 <div className="flex min-w-0 items-center gap-md">
                   <button
                     type="button"
                     onClick={closeEditor}
-                    className="shrink-0 rounded-lg px-2 py-1.5 font-label text-[12px] text-on-surface-variant transition-colors hover:bg-secondary-container hover:text-primary"
+                    className="shrink-0 rounded-lg px-2 py-1.5 font-label text-[12px] text-on-surface-variant transition-colors hover:bg-secondary-container hover:text-secondary"
                     title="Back to Sync Jobs"
                   >
                     ←
                   </button>
                   <div className="flex min-w-0 items-center gap-2 rounded-xl border border-outline-variant/15 bg-secondary-container/80 px-3 py-1.5">
-                    <span className="shrink-0 text-primary" aria-hidden>
+                    <span className="shrink-0 text-secondary" aria-hidden>
                       ⟨/⟩
                     </span>
                     <span className="truncate font-label text-[12px] font-medium text-on-secondary-container">
@@ -748,7 +748,7 @@ export function JobsPage() {
                         : selected.status}
                     </span>
                     {notebookDirty ? (
-                      <span className="rounded-md bg-primary/10 px-2 py-0.5 font-label text-[10px] font-bold text-primary uppercase">
+                      <span className="rounded-md bg-secondary/10 px-2 py-0.5 font-label text-[10px] font-bold text-secondary uppercase">
                         Modified
                       </span>
                     ) : (
@@ -759,7 +759,7 @@ export function JobsPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-sm">
-                  <div className="mr-sm hidden items-center rounded-lg border border-outline-variant/25 bg-[#FBF8F4] p-0.5 sm:flex">
+                  <div className="mr-sm hidden items-center rounded-lg border border-outline-variant/25 bg-surface-container p-0.5 sm:flex">
                     {(
                       [
                         ['notebook', 'Notebook'],
@@ -774,8 +774,8 @@ export function JobsPage() {
                         className={[
                           'rounded-md px-2.5 py-1 font-label text-[11px] font-medium transition-colors',
                           jobTab === id
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-on-surface-variant hover:text-primary',
+                            ? 'bg-surface-container-low text-secondary'
+                            : 'text-on-surface-variant hover:text-secondary',
                         ].join(' ')}
                       >
                         {label}
@@ -794,7 +794,7 @@ export function JobsPage() {
                               : 'dry_run',
                           )
                         }
-                        className="hidden rounded-lg border border-outline-variant/30 bg-white px-sm py-1.5 font-label text-[11px] text-on-surface outline-none disabled:opacity-40 md:block"
+                        className="hidden rounded-lg border border-outline-variant/30 bg-surface-container-low px-sm py-1.5 font-label text-[11px] text-on-surface outline-none disabled:opacity-40 md:block"
                         title="Run mode"
                       >
                         <option value="dry_run">Dry-run · ≤10</option>
@@ -812,7 +812,7 @@ export function JobsPage() {
                         type="button"
                         disabled={!notebookDirty || savingNotebook}
                         onClick={() => void saveNotebook()}
-                        className="rounded-lg bg-primary px-3 py-1.5 font-label text-[12px] font-semibold text-on-primary shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
+                        className="rounded bg-secondary px-3 py-1.5 font-label text-[12px] font-semibold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-40"
                       >
                         {savingNotebook ? 'Saving…' : 'Commit'}
                       </button>
@@ -822,7 +822,7 @@ export function JobsPage() {
                     <button
                       type="button"
                       onClick={() => goJobView(selected.id, 'deploy')}
-                      className="rounded-lg border border-outline-variant/30 px-3 py-1.5 font-label text-[11px] text-on-surface-variant hover:bg-white"
+                      className="rounded-lg border border-outline-variant/30 px-3 py-1.5 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
                     >
                       Deploy →
                     </button>
@@ -830,7 +830,7 @@ export function JobsPage() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-1 border-b border-outline-variant/15 bg-white px-lg py-1 sm:hidden">
+              <div className="flex shrink-0 items-center gap-1 border-b border-outline-variant/15 bg-surface-container-low px-lg py-1 sm:hidden">
                 {(
                   [
                     ['notebook', 'Notebook'],
@@ -845,7 +845,7 @@ export function JobsPage() {
                     className={[
                       'rounded-md px-2.5 py-1 font-label text-[11px]',
                       jobTab === id
-                        ? 'bg-primary/10 font-semibold text-primary'
+                        ? 'bg-secondary/10 font-semibold text-secondary'
                         : 'text-on-surface-variant',
                     ].join(' ')}
                   >
@@ -902,7 +902,7 @@ export function JobsPage() {
               ) : null}
 
               {jobTab === 'results' ? (
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-container-low">
                   <div className="shrink-0 border-b border-outline-variant/15 px-lg py-md">
                     <h2 className="font-headline text-base font-semibold text-on-surface">
                       Results · Preview
@@ -916,7 +916,7 @@ export function JobsPage() {
                       <JobPreviewPanel latestRun={latestRun} />
                     </div>
                   </div>
-                  <div className="shrink-0 border-t border-outline-variant/20 bg-[#FBF8F4] px-lg py-sm">
+                  <div className="shrink-0 border-t border-outline-variant/20 bg-surface-container px-lg py-sm">
                     <div className="mx-auto flex max-w-[64rem] flex-wrap items-center gap-sm">
                       <ExecStat
                         label="Latency"
@@ -926,7 +926,7 @@ export function JobsPage() {
                             ? `${latestRun.output.liveResults[0].durationMs}ms`
                             : '—'
                         }
-                        tint="border border-outline-variant/15 bg-white"
+                        tint="border border-outline-variant/15 bg-surface-container-low"
                       />
                       <ExecStat
                         label="State"
@@ -936,14 +936,14 @@ export function JobsPage() {
                       <ExecStat
                         label="Mode"
                         value={(latestRun?.mode || runMode).replace('_', ' ')}
-                        tint="border border-outline-variant/15 bg-white"
+                        tint="border border-outline-variant/15 bg-surface-container-low"
                       />
                       {canWrite ? (
                         <button
                           type="button"
                           disabled={running}
                           onClick={() => void startRun('all')}
-                          className="ml-auto rounded-lg bg-primary px-md py-1.5 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                          className="ml-auto rounded bg-secondary px-md py-1.5 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
                         >
                           {running ? 'Running…' : 'Run again'}
                         </button>
@@ -954,18 +954,18 @@ export function JobsPage() {
               ) : null}
 
               {jobTab === 'notebook' && canWrite ? (
-                <div className="flex shrink-0 flex-wrap items-center gap-xs border-b border-outline-variant/15 bg-[#F2EDE4]/80 px-lg py-1.5">
+                <div className="flex shrink-0 flex-wrap items-center gap-xs border-b border-outline-variant/15 bg-surface-container-low/80 px-lg py-1.5">
                   <button
                     type="button"
                     onClick={() => addCell('sql')}
-                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-primary hover:bg-white"
+                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-secondary hover:bg-surface-container-highest"
                   >
                     + SQL
                   </button>
                   <button
                     type="button"
                     onClick={() => addCell('markdown')}
-                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-white"
+                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
                   >
                     + Markdown
                   </button>
@@ -973,7 +973,7 @@ export function JobsPage() {
                     type="button"
                     disabled={!activeCellId || running}
                     onClick={() => void startRun('cell')}
-                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-white disabled:opacity-40"
+                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest disabled:opacity-40"
                   >
                     Run cell
                   </button>
@@ -981,7 +981,7 @@ export function JobsPage() {
                     type="button"
                     disabled={!notebookDirty || savingNotebook}
                     onClick={() => discardNotebook()}
-                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-white disabled:opacity-40"
+                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest disabled:opacity-40"
                   >
                     Discard
                   </button>
@@ -990,7 +990,7 @@ export function JobsPage() {
                     {notebookDirty ? ' · unsaved' : ''}
                     <button
                       type="button"
-                      className="ml-sm text-primary underline"
+                      className="ml-sm text-secondary underline"
                       onClick={() => goJobView(selected.id, 'results')}
                     >
                       View results
@@ -1002,8 +1002,8 @@ export function JobsPage() {
               {jobTab === 'notebook' ? (
               <>
               <div className="flex min-h-0 flex-1 overflow-hidden">
-                <div className="flex min-w-0 flex-1 flex-col bg-white">
-                  <div className="flex h-9 shrink-0 items-center justify-between border-b border-outline-variant/10 bg-[#FBF8F4]/80 px-4">
+                <div className="flex min-w-0 flex-1 flex-col bg-surface-container-low">
+                  <div className="flex h-9 shrink-0 items-center justify-between border-b border-outline-variant/10 bg-surface-container/80 px-4">
                     <span className="font-label text-[11px] tracking-[0.12em] text-on-surface-variant/70 uppercase">
                       Notebook
                     </span>
@@ -1012,7 +1012,7 @@ export function JobsPage() {
                       Markdown
                     </span>
                   </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto bg-[#F2EDE4]/55 p-lg">
+                  <div className="min-h-0 flex-1 overflow-y-auto bg-surface-container-low/55 p-lg">
                     <div className="mx-auto max-w-[48rem] space-y-md">
                       {cells.map((cell, idx) => (
                         <NotebookCellEditor
@@ -1042,11 +1042,11 @@ export function JobsPage() {
                         />
                       ))}
                       {canWrite ? (
-                        <div className="flex flex-wrap justify-center gap-md rounded-2xl border border-dashed border-outline-variant/35 bg-white/50 py-lg">
+                        <div className="flex flex-wrap justify-center gap-md rounded-lg border border-dashed border-outline-variant/35 bg-surface-container-low/50 py-lg">
                           <button
                             type="button"
                             onClick={() => addCell('sql')}
-                            className="rounded-xl bg-primary/10 px-md py-sm font-label text-[12px] font-medium text-primary hover:bg-primary/15"
+                            className="rounded-xl bg-secondary/10 px-md py-sm font-label text-[12px] font-medium text-secondary hover:bg-secondary/15"
                           >
                             + SQL cell
                           </button>
@@ -1065,7 +1065,7 @@ export function JobsPage() {
                   {/* Process / output panel */}
               <div
                 className={[
-                  'shrink-0 border-t border-outline-variant/20 bg-white flex flex-col',
+                  'shrink-0 border-t border-outline-variant/20 bg-surface-container-low flex flex-col',
                   processOpen ? 'h-[26%]' : 'h-9',
                 ].join(' ')}
               >
@@ -1088,7 +1088,7 @@ export function JobsPage() {
                         className={[
                           'font-label text-[11px]',
                           processTab === id && processOpen
-                            ? 'font-semibold text-primary'
+                            ? 'font-semibold text-secondary'
                             : 'text-on-surface-variant hover:text-on-surface',
                         ].join(' ')}
                       >
@@ -1106,17 +1106,17 @@ export function JobsPage() {
                     <button
                       type="button"
                       onClick={() => setProcessOpen((v) => !v)}
-                      className="font-label text-[11px] text-on-surface-variant hover:text-primary"
+                      className="font-label text-[11px] text-on-surface-variant hover:text-secondary"
                     >
                       {processOpen ? 'Collapse' : 'Expand'}
                     </button>
                   </div>
                 </div>
                 {processOpen ? (
-                  <div className="min-h-0 flex-1 overflow-y-auto bg-[#FBF8F4] p-md font-mono text-[11px] leading-relaxed text-on-surface-variant">
+                  <div className="min-h-0 flex-1 overflow-y-auto bg-surface-container p-md font-mono text-[11px] leading-relaxed text-on-surface-variant">
                     {processTab === 'process' ? (
                       <>
-                        <div className="font-medium text-primary">
+                        <div className="font-medium text-secondary">
                           Job: {selected.title}
                         </div>
                         <div>
@@ -1172,9 +1172,9 @@ export function JobsPage() {
                               {live.map((pv, i) => (
                                 <div
                                   key={`${pv.cellId}-${i}`}
-                                  className="overflow-hidden rounded-xl border border-outline-variant/25 bg-white"
+                                  className="overflow-hidden rounded-xl border border-outline-variant/25 bg-surface-container-low"
                                 >
-                                  <div className="border-b border-outline-variant/15 bg-secondary-container/40 px-sm py-xs font-label text-[10px] tracking-wide text-primary">
+                                  <div className="border-b border-outline-variant/15 bg-secondary-container/40 px-sm py-xs font-label text-[10px] tracking-wide text-secondary">
                                     Validate ·{' '}
                                     {pv.cellTitle || pv.cellId.slice(0, 8)} ·{' '}
                                     {pv.rowCount} row
@@ -1239,9 +1239,9 @@ export function JobsPage() {
                               {samples.map((pv, i) => (
                                 <div
                                   key={`${pv.table}-${i}`}
-                                  className="overflow-hidden rounded-xl border border-outline-variant/25 bg-white"
+                                  className="overflow-hidden rounded-xl border border-outline-variant/25 bg-surface-container-low"
                                 >
-                                  <div className="border-b border-outline-variant/15 bg-secondary-container/40 px-sm py-xs font-label text-[10px] tracking-wide text-primary">
+                                  <div className="border-b border-outline-variant/15 bg-secondary-container/40 px-sm py-xs font-label text-[10px] tracking-wide text-secondary">
                                     {pv.table} · {pv.rowCount} rows
                                   </div>
                                   <div className="overflow-x-auto p-sm">
@@ -1304,7 +1304,7 @@ export function JobsPage() {
                                   log.level === 'error'
                                     ? 'text-error'
                                     : log.level === 'warn'
-                                      ? 'text-primary'
+                                      ? 'text-secondary'
                                       : 'text-on-surface-variant/75'
                                 }
                               >
@@ -1326,7 +1326,7 @@ export function JobsPage() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-wrap items-center gap-md border-t border-outline-variant/20 bg-white/90 px-lg py-sm">
+              <div className="flex shrink-0 flex-wrap items-center gap-md border-t border-outline-variant/20 bg-surface-container-low/90 px-lg py-sm">
                 <div className="mr-sm hidden font-label text-[10px] tracking-[0.14em] text-on-surface-variant/55 uppercase sm:block">
                   Execution
                 </div>
@@ -1347,12 +1347,12 @@ export function JobsPage() {
                 <ExecStat
                   label="Mode"
                   value={(latestRun?.mode || runMode).replace('_', ' ')}
-                  tint="border border-outline-variant/15 bg-white"
+                  tint="border border-outline-variant/15 bg-surface-container-low"
                 />
                 <button
                   type="button"
                   onClick={() => goJobView(selected.id, 'results')}
-                  className="rounded-lg px-2 py-1 font-label text-[11px] text-primary hover:underline"
+                  className="rounded-lg px-2 py-1 font-label text-[11px] text-secondary hover:underline"
                 >
                   Open results →
                 </button>
@@ -1395,11 +1395,11 @@ export function JobsPage() {
                 }
               }}
             >
-              <div className="flex w-[min(100%,32rem)] flex-col rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-2xl">
+              <div className="flex w-[min(100%,32rem)] flex-col rounded-lg border border-outline-variant/30 bg-surface-container-lowest">
                 <div className="border-b border-outline-variant px-md py-sm">
                   <h3
                     id="que-new-job-title"
-                    className="font-label text-[11px] font-bold tracking-widest text-primary-fixed"
+                    className="font-label text-[11px] font-bold tracking-widest text-secondary"
                   >
                     NEW JOB
                   </h3>
@@ -1417,7 +1417,7 @@ export function JobsPage() {
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       autoFocus
-                      className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-primary-fixed"
+                      className="mt-xs w-full border border-outline-variant bg-surface-container px-sm py-sm font-body text-[13px] text-on-surface outline-none focus:border-secondary-fixed"
                       placeholder="Untitled Que job"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') void submitCreateJob()
@@ -1452,8 +1452,8 @@ export function JobsPage() {
                                 className={[
                                   'border px-sm py-xs font-body text-[11px]',
                                   on
-                                    ? 'border-primary-fixed bg-primary-container/20 text-primary-fixed'
-                                    : 'border-outline-variant text-on-surface-variant hover:border-primary-fixed',
+                                    ? 'border-secondary bg-secondary/20 text-secondary'
+                                    : 'border-outline-variant text-on-surface-variant hover:border-secondary-fixed',
                                 ].join(' ')}
                               >
                                 {name}
@@ -1478,7 +1478,7 @@ export function JobsPage() {
                     type="button"
                     disabled={creating}
                     onClick={() => void submitCreateJob()}
-                    className="bg-primary-container px-md py-sm font-label text-[10px] font-bold tracking-widest text-on-primary-fixed disabled:opacity-40"
+                    className="bg-secondary px-md py-sm font-label text-[10px] font-bold tracking-widest text-on-secondary-fixed disabled:opacity-40"
                   >
                     {creating ? 'CREATING…' : 'CREATE'}
                   </button>
@@ -1532,7 +1532,7 @@ function JobPreviewPanel({ latestRun }: { latestRun: JobRun | null }) {
       <div className="space-y-sm">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-2 font-label text-[12px] text-on-surface-variant">
-            <span className="text-primary">⇩</span> Input Sample
+            <span className="text-secondary">⇩</span> Input Sample
           </h3>
           <span className="font-label text-[10px] text-on-surface-variant/50">
             {samples[0]
@@ -1558,13 +1558,7 @@ function JobPreviewPanel({ latestRun }: { latestRun: JobRun | null }) {
             <span className="text-tertiary">⇧</span> Output Result
           </h3>
           <span
-            className={`rounded px-2 py-0.5 font-label text-[10px] font-bold uppercase ${
-              latestRun.status === 'succeeded'
-                ? 'bg-tertiary/10 text-tertiary'
-                : latestRun.status === 'failed'
-                  ? 'bg-error/10 text-error'
-                  : 'bg-primary/10 text-primary'
-            }`}
+            className={`rounded px-2 py-0.5 font-label text-[10px] font-bold uppercase ${ latestRun.status === 'succeeded' ? 'bg-tertiary/10 text-tertiary' : latestRun.status === 'failed' ? 'bg-error/10 text-error' : 'bg-secondary/10 text-secondary' }`}
           >
             {latestRun.status}
           </span>

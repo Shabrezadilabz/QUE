@@ -116,7 +116,7 @@ export function MetricsPage() {
         </p>
         <p className="mt-sm text-[12px]">
           Need data?{' '}
-          <Link to="/managed" className="text-primary underline">
+          <Link to="/managed" className="text-secondary underline">
             Managed datasets
           </Link>
         </p>
@@ -124,12 +124,12 @@ export function MetricsPage() {
           <p className="mt-md text-[13px] text-error">{error}</p>
         ) : null}
         {preview != null ? (
-          <p className="mt-md rounded-lg bg-primary/5 px-md py-sm text-[13px] text-primary">
+          <p className="mt-md rounded-lg bg-secondary/5 px-md py-sm text-[13px] text-secondary">
             Preview value: {preview}
           </p>
         ) : null}
         {canWrite ? (
-          <div className="mt-lg grid gap-sm rounded-xl border border-outline-variant/30 bg-white p-md">
+          <div className="mt-lg grid gap-sm rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -163,14 +163,14 @@ export function MetricsPage() {
             <button
               type="button"
               onClick={() => void create().catch((e) => setError(String(e.message || e)))}
-              className="rounded-lg bg-primary px-md py-1.5 text-[12px] font-semibold text-on-primary"
+              className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary"
             >
               Create metric
             </button>
           </div>
         ) : null}
         {lineage && lineage.nodes.length > 0 ? (
-          <section className="mt-lg rounded-xl border border-outline-variant/30 bg-white p-md">
+          <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
             <h2 className="font-headline text-base font-semibold">
               Metric lineage
             </h2>
@@ -191,7 +191,7 @@ export function MetricsPage() {
           {items.map((m) => (
             <li
               key={m.id}
-              className="flex flex-wrap items-center justify-between gap-md rounded-xl border border-outline-variant/30 bg-white px-md py-md"
+              className="flex flex-wrap items-center justify-between gap-md rounded-xl border border-outline-variant/30 bg-surface-container-low px-md py-md"
             >
               <div>
                 <p className="font-label text-[13px] font-semibold">{m.name}</p>
@@ -219,7 +219,7 @@ export function MetricsPage() {
                         setError(String(e.message || e)),
                       )
                     }
-                    className="rounded border border-primary px-sm py-1 text-[11px] text-primary"
+                    className="rounded border border-secondary px-sm py-1 text-[11px] text-secondary"
                   >
                     Certify
                   </button>
@@ -232,7 +232,7 @@ export function MetricsPage() {
                         .then(() => setPreview('Published to /bi'))
                         .catch((e) => setError(String(e.message || e)))
                     }
-                    className="rounded bg-primary px-sm py-1 text-[11px] text-on-primary"
+                    className="rounded bg-secondary px-sm py-1 text-[11px] text-on-secondary"
                   >
                     Publish BI
                   </button>

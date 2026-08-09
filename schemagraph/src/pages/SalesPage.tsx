@@ -2,6 +2,7 @@
  * Public sales page — honest positioning for prospects (no auth).
  */
 import { Link } from 'react-router-dom'
+import { QueLogo } from '@/components/QueLogo'
 
 export function SalesPage() {
   return (
@@ -14,9 +15,11 @@ export function SalesPage() {
         }}
       />
       <div className="relative mx-auto max-w-3xl px-md py-xl md:px-lg">
-        <p className="font-label text-[12px] tracking-[0.22em] text-on-surface-variant uppercase">
-          Que
-        </p>
+        <QueLogo
+          size={40}
+          withWordmark
+          wordmarkClassName="font-label text-[12px] tracking-[0.22em] text-on-surface-variant uppercase"
+        />
         <h1 className="mt-md font-headline text-4xl font-semibold tracking-tight text-on-surface md:text-5xl">
           Cursor for data teams.
         </h1>

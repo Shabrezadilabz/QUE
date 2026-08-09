@@ -13,6 +13,7 @@ import {
   OnboardingRoadmapTrigger,
 } from '@/components/OnboardingRoadmapDialog'
 import { IdeStatusBar } from '@/components/IdeStatusBar'
+import { QueLogo } from '@/components/QueLogo'
 
 interface QueAppChromeProps {
   children: ReactNode
@@ -75,9 +76,10 @@ export function QueAppChrome({
           </button>
           <Link
             to="/workspace"
-            className="shrink-0 font-headline text-[1.1rem] font-bold tracking-tight text-on-surface"
+            className="shrink-0 inline-flex items-center"
+            aria-label="Que home"
           >
-            Que
+            <QueLogo size={28} withWordmark />
           </Link>
           <nav
             className="hidden h-14 items-stretch md:flex"

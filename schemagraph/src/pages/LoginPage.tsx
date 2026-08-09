@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getApiBase } from '@/services/apiConfig'
+import { QueLogo } from '@/components/QueLogo'
 
 /**
  * Login / Sign up — email/password + optional OIDC SSO.
@@ -84,9 +85,11 @@ export function LoginPage() {
     <div className="flex min-h-full w-full items-stretch justify-center overflow-y-auto bg-canvas sm:items-center sm:px-lg sm:py-xl">
       <div className="que-card flex w-full max-w-[26rem] flex-col sm:my-lg md:max-w-[28rem]">
         <header className="flex items-center justify-between border-b border-secondary-container/40 bg-surface-container-low px-md py-md sm:px-lg">
-          <span className="font-headline text-lg font-bold tracking-tight text-on-surface sm:text-xl">
-            Que
-          </span>
+          <QueLogo
+            size={32}
+            withWordmark
+            wordmarkClassName="font-headline text-lg font-bold tracking-tight text-on-surface sm:text-xl"
+          />
           <span className="font-label text-xs font-bold tracking-[0.14em] text-on-surface-variant sm:text-sm">
             {mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'}
           </span>

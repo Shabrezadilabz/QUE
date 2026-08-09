@@ -4,6 +4,7 @@ import { AuthSessionControls } from '@/components/AuthSessionControls'
 import { MobileNav } from '@/components/MobileNav'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
 import { primaryNavLinkClass } from '@/components/primaryNavStyles'
+import { QueLogo } from '@/components/QueLogo'
 import type { DataSourceType } from '@/types/dataSource'
 import type {
   DiagramFilters,
@@ -121,9 +122,11 @@ export function TopBar({
         {/* Brand + nav */}
         <div className="flex shrink-0 items-center gap-md sm:gap-lg lg:gap-xl">
           <MobileNav showBelow="lg" />
-          <span className="font-headline text-[1.35rem] font-bold leading-none tracking-tight text-secondary sm:text-[1.65rem]">
-            Que
-          </span>
+          <QueLogo
+            size={30}
+            withWordmark
+            wordmarkClassName="font-headline text-[1.2rem] font-bold leading-none tracking-tight text-on-surface sm:text-[1.35rem]"
+          />
           <nav
             className="hidden items-center gap-5 lg:flex lg:gap-7"
             aria-label="Primary"

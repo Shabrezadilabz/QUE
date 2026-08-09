@@ -1,9 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Que">
-  <rect width="128" height="128" fill="#0B111B"/>
-  <g fill="#FFFFFF">
-    <!-- Hub -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" role="img" aria-label="Que">
+  <!-- Transparent mark  white geometry for dark IDE chrome -->
+  <g fill="currentColor">
     <rect x="48" y="48" width="32" height="32" rx="6"/>
-    <!-- Three arm pairs at 0° / 120° / 240° -->
     <g transform="translate(64 64)">
       <g>
         <rect x="22" y="-13" width="50" height="8" rx="4"/>

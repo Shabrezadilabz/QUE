@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { QueLogo } from '@/components/QueLogo'
 
 /**
  * Design / sales foundation — honest Que positioning for client conversations.
@@ -17,9 +18,11 @@ export function ProductPage() {
           }}
         />
         <div className="relative mx-auto max-w-3xl px-md py-xl md:px-lg">
-          <p className="font-label text-[11px] tracking-[0.2em] text-on-surface-variant uppercase">
-            Que
-          </p>
+          <QueLogo
+            size={36}
+            withWordmark
+            wordmarkClassName="font-label text-[11px] tracking-[0.2em] text-on-surface-variant uppercase"
+          />
           <h1 className="mt-sm font-headline text-3xl font-semibold tracking-tight text-on-surface md:text-4xl">
             Cursor for data teams — schema-first, human-approved.
           </h1>

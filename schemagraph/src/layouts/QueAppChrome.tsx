@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { AuthSessionControls } from '@/components/AuthSessionControls'
 import { MobileNav } from '@/components/MobileNav'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
+import { PresenceBar } from '@/components/PresenceBar'
 import { primaryNavLinkClass } from '@/components/primaryNavStyles'
 import {
   OnboardingRoadmapDialog,
@@ -49,11 +50,53 @@ export function QueAppChrome({
             <NavLink to="/joins" className={primaryNavLinkClass}>
               Joins
             </NavLink>
+            <NavLink to="/proposals" className={primaryNavLinkClass}>
+              Proposals
+            </NavLink>
+            <NavLink to="/transforms" className={primaryNavLinkClass}>
+              Transforms
+            </NavLink>
+            <NavLink to="/rules" className={primaryNavLinkClass}>
+              Rules
+            </NavLink>
+            <NavLink to="/metrics" className={primaryNavLinkClass}>
+              Metrics
+            </NavLink>
+            <NavLink to="/eval" className={primaryNavLinkClass}>
+              Eval
+            </NavLink>
+            <NavLink to="/marketplace" className={primaryNavLinkClass}>
+              Marketplace
+            </NavLink>
+            <NavLink to="/domains" className={primaryNavLinkClass}>
+              Domains
+            </NavLink>
+            <NavLink to="/catalog" className={primaryNavLinkClass}>
+              Catalog
+            </NavLink>
             <NavLink to="/jobs" className={primaryNavLinkClass}>
               Jobs
             </NavLink>
+            <NavLink to="/managed" className={primaryNavLinkClass}>
+              Managed
+            </NavLink>
+            <NavLink to="/bi" className={primaryNavLinkClass}>
+              BI
+            </NavLink>
+            <NavLink to="/compliance" className={primaryNavLinkClass}>
+              Compliance
+            </NavLink>
+            <NavLink to="/product" className={primaryNavLinkClass}>
+              Product
+            </NavLink>
             <NavLink to="/lineage" className={primaryNavLinkClass}>
               Lineage
+            </NavLink>
+            <NavLink to="/steward" className={primaryNavLinkClass}>
+              Steward
+            </NavLink>
+            <NavLink to="/agent" className={primaryNavLinkClass}>
+              Agent
             </NavLink>
             <NavLink to="/settings" className={primaryNavLinkClass}>
               Settings
@@ -61,6 +104,7 @@ export function QueAppChrome({
           </nav>
         </div>
         <div className="flex shrink-0 items-center gap-sm sm:gap-md">
+          <PresenceBar />
           <p className="hidden font-label text-[10px] tracking-[0.14em] text-on-surface-variant/70 xl:block">
             {eyebrow}
           </p>

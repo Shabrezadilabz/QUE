@@ -550,6 +550,15 @@ export async function inferCrossSourceJoins(workspaceId, connectionId, options =
 
   const memory = await loadWorkspaceJoinMemory(workspaceId)
 
+  // Prefer pinned samples for overlap (stable across syncs)
+  let pinnedByTableCol = new Map()
+  try {
+    const { loadPinnedColumnValueMap } = await import('./pinnedSamples.js')
+    pinnedByTableCol = await loadPinnedColumnValueMap(workspaceId)
+  } catch {
+    /* pinned table may be missing before migrate */
+  }
+
   const { rows: existing } = await query(
     `SELECT from_column_id, to_column_id FROM relationships
      WHERE workspace_id = $1`,
@@ -591,23 +600,40 @@ export async function inferCrossSourceJoins(workspaceId, connectionId, options =
         to.object_name,
       )
 
+      const fromPinned =
+        pinnedByTableCol.get(`${from.object_name}\0${from.column_name}`) || null
+      const toPinned =
+        pinnedByTableCol.get(`${to.object_name}\0${to.column_name}`) || null
+
       const hit = scoreJoinCandidate({
         fromCol: from.column_name,
         fromTable: from.object_name,
         fromType: from.data_type,
         fromKey: from.key_kind,
-        fromSamples: from.sample_values,
+        fromSamples: fromPinned?.length ? fromPinned : from.sample_values,
         fromRefLabel: from.references_label,
         toCol: to.column_name,
         toTable: to.object_name,
         toType: to.data_type,
         toKey: to.key_kind,
-        toSamples: to.sample_values,
+        toSamples: toPinned?.length ? toPinned : to.sample_values,
         toRefLabel: to.references_label,
         priorApproved,
         priorRejected,
       })
       if (!hit) continue
+      if (fromPinned?.length && toPinned?.length) {
+        hit.evidence = hit.evidence || { signals: [] }
+        hit.evidence.signals = [
+          ...(hit.evidence.signals || []),
+          {
+            code: 'pinned_samples',
+            label: 'Overlap scored on pinned scrubbed samples (fixed until re-pin)',
+            weight: 0.02,
+          },
+        ]
+        hit.evidence.pinnedSamples = true
+      }
 
       let a = from
       let b = to

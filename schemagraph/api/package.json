@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "seed": "node src/seed.js",
     "migrate": "node scripts/migrate.js",
+    "seed:demo": "node scripts/seedDemoWorkspace.js",
     "eval:joins": "node eval/runJoinEval.js",
     "test:privacy": "node eval/runPrivacyTests.js",
     "test:functional": "node eval/runFunctionalTests.js",

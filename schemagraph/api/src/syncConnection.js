@@ -16,8 +16,10 @@ import { getWorkspaceSettings } from './workspaceSettings.js'
 import { buildSyncDrift, capturePreSyncDrift } from './syncDrift.js'
 import { scrubIntrospectionResult } from './privacy/sampleScrub.js'
 import { assistJoinsFromDatabricksHistory } from './connectors/databricksQueryJoins.js'
+import { assistJoinsFromSnowflakeHistory } from './connectors/snowflakeQueryJoins.js'
 import { unsealConnectionConfig } from './connectionCrypto.js'
 import { classifySyncError } from './connectionHealth.js'
+import { ensurePinnedSamplesForConnection } from './pinnedSamples.js'
 
 /**
  * @param {string} workspaceId
@@ -44,6 +46,10 @@ export async function syncConnection(workspaceId, connectionId) {
   const prefs = wsSettings?.settings
   if (config.includeSamples == null && prefs) {
     config.includeSamples = prefs.includeSamplesDefault
+  }
+  // Production: always pull capped samples for pinned overlap (still scrubbed)
+  if (prefs?.aiMayUsePinnedSamples !== false) {
+    config.includeSamples = true
   }
 
   let introspected
@@ -147,6 +153,20 @@ export async function syncConnection(workspaceId, connectionId) {
       }
     : null
 
+  // Production: auto-pin scrubbed samples for new tables (never overwrite pins)
+  let pinnedSamples = { created: 0 }
+  try {
+    // Prefer including samples on sync so pins have material to freeze
+    if (config.includeSamples !== false) {
+      pinnedSamples = await ensurePinnedSamplesForConnection(
+        workspaceId,
+        connectionId,
+      )
+    }
+  } catch (err) {
+    console.warn('[Que] pin samples skipped:', err.message || err)
+  }
+
   let suggestedJoins = 0
   if (prefs?.inferJoinsOnSync !== false) {
     const inferResult = await inferCrossSourceJoins(workspaceId, connectionId)
@@ -177,6 +197,29 @@ export async function syncConnection(workspaceId, connectionId) {
     }
   }
 
+  if (
+    prefs?.snowflakeQueryJoinAssist !== false &&
+    connection.source_type === 'snowflake' &&
+    config.mode === 'live'
+  ) {
+    try {
+      const sfJoins = await assistJoinsFromSnowflakeHistory(
+        workspaceId,
+        connectionId,
+        config,
+      )
+      queryHistoryJoins = sfJoins
+      if (sfJoins?.created) {
+        suggestedJoins += sfJoins.created
+      }
+    } catch (err) {
+      queryHistoryJoins = {
+        created: 0,
+        error: String(err.message || err),
+      }
+    }
+  }
+
   const drift = await buildSyncDrift(
     workspaceId,
     connectionId,
@@ -193,6 +236,7 @@ export async function syncConnection(workspaceId, connectionId) {
     relationshipsSynced: applied.relationshipsSynced,
     suggestedJoins,
     queryHistoryJoins,
+    pinnedSamples,
     drift,
     snapshot,
   }

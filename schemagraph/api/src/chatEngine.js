@@ -1,12 +1,20 @@
 /**
  * Schema-only chat engine with RAG, model switching, and skill runtime.
  * Never sends raw warehouse rows — metadata + product docs only.
+ * Pinned scrubbed samples (5–10) may be included when aiMayUsePinnedSamples.
+ * Managed dataset row payloads are never included.
  */
 import {
   buildSchemaContextPack,
   findTablesMentioned,
 } from './schemaContext.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
+import { buildPinnedSamplesAiPack } from './pinnedSamples.js'
+import { managedDatasetsSchemaForAi } from './managedDataPlane.js'
+import {
+  buildRulesAiPack,
+  formatRulesForPrompt,
+} from './workspaceRules.js'
 import {
   formatRagContext,
   retrieveForQuery,
@@ -21,6 +29,65 @@ import { attachSamplePreviews } from './samplePreview.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { bestJoinOnClause } from './inferJoins.js'
+import { getWorkspaceLineageLite } from './lineageLite.js'
+
+/**
+ * Phase 3 — lineage-grounded citation strings (edges + owners / job titles).
+ */
+async function lineageCitations(workspaceId, message) {
+  try {
+    const lite = await getWorkspaceLineageLite(workspaceId, { limit: 24 })
+    const q = String(message || '').toLowerCase()
+    const out = []
+    for (const j of lite.joins || []) {
+      const label = j.label || ''
+      const hay = `${label} ${j.from?.table || ''} ${j.to?.table || ''}`.toLowerCase()
+      if (!q || hay.split(/\W+/).some((t) => t.length > 2 && q.includes(t))) {
+        out.push(
+          `lineage:join ${label}` +
+            (j.from?.connection || j.to?.connection
+              ? ` · owners ${[j.from?.connection, j.to?.connection].filter(Boolean).join(' → ')}`
+              : ''),
+        )
+      }
+      if (out.length >= 6) break
+    }
+    for (const path of lite.paths || []) {
+      const title = path.job?.title || ''
+      if (
+        title &&
+        (!q ||
+          title
+            .toLowerCase()
+            .split(/\W+/)
+            .some((t) => t.length > 2 && q.includes(t)))
+      ) {
+        const stages = (path.stages || [])
+          .filter((s) => s.ready)
+          .map((s) => s.label)
+          .join(' → ')
+        out.push(
+          `lineage:job ${title}` +
+            (stages ? ` · ${stages}` : '') +
+            (path.complete ? ' · complete' : ''),
+        )
+      }
+      if (out.length >= 10) break
+    }
+    if (!out.length && (lite.joins || []).length) {
+      for (const j of (lite.joins || []).slice(0, 3)) {
+        out.push(`lineage:join ${j.label}`)
+      }
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+function mergeCitations(...lists) {
+  return [...new Set(lists.flat().filter(Boolean))]
+}
 
 function finalizeChatResult(result, pack) {
   return attachSamplePreviews(result, pack, 3, 5)
@@ -81,12 +148,15 @@ export async function answerChat(
   const { block: ragBlock, citations: ragCitations } =
     formatRagContext(ragChunks)
   const mentioned = resolveMentioned(pack, trimmed, mentions)
+  const linCites = await lineageCitations(workspaceId, trimmed)
 
   // Drift gate note for AI (does not hard-block chat — jobs/export do)
   let driftPrefix = ''
+  let hasOpenHighDrift = false
   try {
     const openHigh = await getOpenHighDrift(workspaceId)
     if (openHigh.length) {
+      hasOpenHighDrift = true
       driftPrefix =
         `⚠️ **Open schema drift** (${openHigh.length}): ${openHigh
           .slice(0, 3)
@@ -97,6 +167,12 @@ export async function answerChat(
   } catch {
     /* drift table may be missing */
   }
+  let lineagePrefix = ''
+  if (linCites.length) {
+    lineagePrefix =
+      `_Lineage anchors:_ ${linCites.slice(0, 4).join(' · ')}\n\n`
+  }
+  const replyPrefix = `${driftPrefix}${lineagePrefix}`
 
   // 1) Skill path (deterministic + RAG note)
   const skill = detectSkill(trimmed)
@@ -121,16 +197,67 @@ export async function answerChat(
     )
     const out = {
       ...result,
-      reply: `${driftPrefix}${result.reply}`,
-      citations: [...new Set([...(result.citations || []), ...ragCitations])],
+      reply: `${replyPrefix}${result.reply}`,
+      citations: mergeCitations(result.citations, ragCitations, linCites),
+      lineageCitations: linCites,
       retrievedChunks: retrievedChunkSummary(ragChunks),
       model: model?.id || null,
       contextStats: pack.stats,
       vectorReady,
-      driftBlocking: Boolean(driftPrefix),
+      driftBlocking: hasOpenHighDrift,
     }
     await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
     return finalizeChatResult(out, pack)
+  }
+
+  // Pinned scrubbed samples for AI (default ON) — never managed rows
+  let pinnedAiBlock = ''
+  let managedSchemaBlock = ''
+  let rulesBlock = ''
+  try {
+    const rules = await buildRulesAiPack(workspaceId)
+    rulesBlock = formatRulesForPrompt(rules)
+  } catch {
+    /* rules optional until migrate */
+  }
+  if (settings.aiMayUsePinnedSamples !== false) {
+    try {
+      const pins = await buildPinnedSamplesAiPack(workspaceId, { maxTables: 16 })
+      if (pins.length) {
+        pinnedAiBlock =
+          `\n## Pinned scrubbed samples (fixed 5–10 rows; not live warehouse)\n` +
+          pins
+            .map((p) => {
+              const header = p.columns.join(' | ')
+              const body = (p.rows || [])
+                .slice(0, 10)
+                .map((row) =>
+                  p.columns.map((c) => String(row?.[c] ?? '')).join(' | '),
+                )
+                .join('\n')
+              return `### ${p.table}\n${header}\n${body}`
+            })
+            .join('\n\n')
+      }
+    } catch {
+      /* pins optional */
+    }
+  }
+  try {
+    const managedMeta = await managedDatasetsSchemaForAi(workspaceId)
+    if (managedMeta.length) {
+      managedSchemaBlock =
+        `\n## Managed datasets (schema only — row data denied to AI)\n` +
+        managedMeta
+          .map(
+            (d) =>
+              `• ${d.name} (${d.slug}) · ${d.rowCount} rows · cols: ${(d.columns || []).map((c) => c.name).join(', ')}` +
+              (d.certified ? ' · certified' : ''),
+          )
+          .join('\n')
+    }
+  } catch {
+    /* managed plane optional */
   }
 
   // 2) RAG + LLM when preferred and model available
@@ -145,14 +272,19 @@ export async function answerChat(
         model,
         mentioned,
         keys,
+        pinnedAiBlock,
+        managedSchemaBlock,
+        rulesBlock,
       })
       if (llm) {
         const out = {
           ...llm,
-          reply: `${driftPrefix}${llm.reply}`,
+          reply: `${replyPrefix}${llm.reply}`,
+          citations: mergeCitations(llm.citations, linCites),
+          lineageCitations: linCites,
           contextStats: pack.stats,
           vectorReady,
-          driftBlocking: Boolean(driftPrefix),
+          driftBlocking: hasOpenHighDrift,
         }
         await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
         return finalizeChatResult(out, pack)
@@ -166,14 +298,15 @@ export async function answerChat(
   const heuristic = heuristicAnswer(pack, trimmed, mentions)
   const out = {
     ...heuristic,
-    reply: `${driftPrefix}${heuristic.reply}`,
-    citations: [...new Set([...(heuristic.citations || []), ...ragCitations])],
+    reply: `${replyPrefix}${heuristic.reply}`,
+    citations: mergeCitations(heuristic.citations, ragCitations, linCites),
+    lineageCitations: linCites,
     retrievedChunks: retrievedChunkSummary(ragChunks),
     model: null,
     contextStats: pack.stats,
     mode: heuristic.mode || 'heuristic',
     vectorReady,
-    driftBlocking: Boolean(driftPrefix),
+    driftBlocking: hasOpenHighDrift,
   }
   await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
   return finalizeChatResult(out, pack)
@@ -212,16 +345,24 @@ async function tryRagLlmAnswer({
   model,
   mentioned,
   keys,
+  pinnedAiBlock = '',
+  managedSchemaBlock = '',
+  rulesBlock = '',
 }) {
   const system =
     `You are Que AI — a schema-only data engineering assistant.\n` +
     `Answer ONLY from the retrieved context and schema stats below. Never invent tables.\n` +
-    `Never ask for or assume access to raw row data. Cite table.column / doc titles.\n` +
-    `When proposing SQL, mark it as a draft.\n\n` +
+    `You may use pinned scrubbed sample grids when provided (5–10 rows, not the lake).\n` +
+    `Never request or assume access to managed dataset row payloads or full warehouse facts.\n` +
+    `Cite table.column / doc titles. When proposing SQL, mark it as a draft.\n` +
+    `Always obey workspace rules below (org memory from Promote + admins).\n\n` +
     `## Workspace stats\n` +
     `Tables: ${pack.stats.tableCount} · Columns: ${pack.stats.columnCount} · ` +
     `Relationships: ${pack.stats.relationshipCount} · Suggested: ${pack.stats.suggestedJoins}\n\n` +
-    ragBlock
+    ragBlock +
+    rulesBlock +
+    pinnedAiBlock +
+    managedSchemaBlock
 
   const text = await callChatModel(model, system, message, history, keys)
   const cited = findTablesMentioned(pack, `${message}\n${text}`)
@@ -349,8 +490,9 @@ function privacyPolicy(pack) {
   return {
     reply:
       `**Que schema-only policy**\n\n` +
-      `Que AI answers from **metadata packs** + **retrieved vector chunks** only: table/collection names, column names & types, keys, recorded relationships, capped samples, and product docs.\n\n` +
-      `**Never centralized into chat prompts:** raw warehouse fact rows, PII payloads, full Excel cell dumps, or production query results.\n\n` +
+      `Que AI answers from **metadata packs** + **retrieved vector chunks** + optional **pinned scrubbed samples** (5–10 rows per table, frozen until re-pin).\n\n` +
+      `**Never sent to AI:** full warehouse/lake rows, managed data-plane row payloads (Offer B), unrestricted PII dumps, or production query dumps.\n\n` +
+      `Join confidence uses pinned overlap in the **~88–95%** band (not 100%) — humans edit + Promote.\n\n` +
       `This workspace pack currently has **${pack.stats.tableCount}** tables, **${pack.stats.columnCount}** columns, **${pack.stats.relationshipCount}** relationships.`,
     citations: [],
     jobDraft: null,

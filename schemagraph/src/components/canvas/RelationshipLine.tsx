@@ -387,6 +387,25 @@ function RelationshipTooltipPortal({
           <TipButton type="button" disabled={busy} onClick={onReject}>
             Reject
           </TipButton>
+          <TipButton
+            type="button"
+            onClick={() => {
+              window.location.assign('/joins')
+            }}
+          >
+            Full evidence
+          </TipButton>
+        </TipActions>
+      ) : relationship.evidence?.signals?.length ? (
+        <TipActions>
+          <TipButton
+            type="button"
+            onClick={() => {
+              window.location.assign('/joins')
+            }}
+          >
+            Full evidence
+          </TipButton>
         </TipActions>
       ) : null}
       {pinnedHint ? (

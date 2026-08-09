@@ -8,10 +8,22 @@ import {
   runJoinInference,
   runMappingAssistApi,
   reviewRenameSuggestionApi,
+  runGoldenSetEvalApi,
+  fetchWorkspaceSettings,
+  fetchTableColumns,
+  fetchJoinComments,
+  addJoinCommentApi,
   type JoinReviewItem,
   type RenameSuggestion,
 } from '@/services/stitchApi'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
+
+const ROLE_RANK: Record<string, number> = {
+  viewer: 1,
+  member: 2,
+  admin: 3,
+  owner: 4,
+}
 
 type Filter = 'suggested' | 'accepted' | 'rejected' | 'all'
 
@@ -20,7 +32,7 @@ type Filter = 'suggested' | 'accepted' | 'rejected' | 'all'
  * HITL Promote / Reject — never auto-accept.
  */
 export function JoinReviewPage() {
-  const { canWrite } = useWorkspaceRole()
+  const { canWrite, role } = useWorkspaceRole()
   const [filter, setFilter] = useState<Filter>('suggested')
   const [items, setItems] = useState<JoinReviewItem[]>([])
   const [summary, setSummary] = useState({
@@ -35,6 +47,45 @@ export function JoinReviewPage() {
   const [renames, setRenames] = useState<RenameSuggestion[]>([])
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [promoteMinRole, setPromoteMinRole] = useState('member')
+  const [proposeMinRole, setProposeMinRole] = useState('member')
+  const canPromote =
+    canWrite &&
+    (ROLE_RANK[role || ''] || 0) >= (ROLE_RANK[promoteMinRole] || 2)
+  const canPropose =
+    canWrite &&
+    (ROLE_RANK[role || ''] || 0) >= (ROLE_RANK[proposeMinRole] || 2)
+  const [goldenText, setGoldenText] = useState(
+    'orders,order_id,customers,id\nfact_orders,customer_id,dim_customer,customer_id',
+  )
+  const [goldenBusy, setGoldenBusy] = useState(false)
+  const [editFromCol, setEditFromCol] = useState('')
+  const [editToCol, setEditToCol] = useState('')
+  const [fromColOpts, setFromColOpts] = useState<
+    { id: string; name: string; dataType: string }[]
+  >([])
+  const [toColOpts, setToColOpts] = useState<
+    { id: string; name: string; dataType: string }[]
+  >([])
+  const [comments, setComments] = useState<
+    {
+      id: string
+      body: string
+      authorName?: string
+      authorEmail?: string
+      createdAt: string
+      parentId?: string | null
+      replies?: {
+        id: string
+        body: string
+        authorName?: string
+        authorEmail?: string
+        createdAt: string
+      }[]
+    }[]
+  >([])
+  const [commentText, setCommentText] = useState('')
+  const [replyTo, setReplyTo] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
     setError(null)
@@ -55,13 +106,71 @@ export function JoinReviewPage() {
     void reload()
   }, [reload])
 
+  useEffect(() => {
+    fetchWorkspaceSettings()
+      .then((s) => {
+        setPromoteMinRole(s.settings.joinPromoteMinRole || 'member')
+        setProposeMinRole(s.settings.joinProposeMinRole || 'member')
+      })
+      .catch(() => undefined)
+  }, [])
+
   const selected = useMemo(
     () => items.find((i) => i.id === selectedId) ?? null,
     [items, selectedId],
   )
 
+  useEffect(() => {
+    if (!selected) {
+      setFromColOpts([])
+      setToColOpts([])
+      setComments([])
+      return
+    }
+    setEditFromCol(selected.from.columnId)
+    setEditToCol(selected.to.columnId)
+    void Promise.all([
+      fetchTableColumns(selected.from.tableId),
+      fetchTableColumns(selected.to.tableId),
+      fetchJoinComments(selected.id),
+    ])
+      .then(([fromCols, toCols, cmts]) => {
+        setFromColOpts(fromCols)
+        setToColOpts(toCols)
+        setComments(cmts)
+      })
+      .catch(() => {
+        setFromColOpts([])
+        setToColOpts([])
+        setComments([])
+      })
+  }, [selected?.id, selected?.from.tableId, selected?.to.tableId])
+
+  async function saveEdit() {
+    if (!selected || !canWrite || !editFromCol || !editToCol) return
+    setBusy(true)
+    setError(null)
+    try {
+      await reviewRelationship(selected.id, 'edit', {
+        fromColumnId: editFromCol,
+        toColumnId: editToCol,
+      })
+      setToast('Join columns updated — review pinned overlap, then Promote')
+      notifySchemaChanged('join-review')
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function act(action: 'promote' | 'reject') {
     if (!selected || !canWrite) return
+    if (action === 'promote' && !canPromote) {
+      setError(`Promote requires ${promoteMinRole}+ (Settings → Team OS)`)
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -81,7 +190,10 @@ export function JoinReviewPage() {
   }
 
   async function reInfer() {
-    if (!canWrite) return
+    if (!canPropose) {
+      setError(`Propose/infer requires ${proposeMinRole}+ (Settings → Team OS)`)
+      return
+    }
     setInferBusy(true)
     setError(null)
     try {
@@ -115,6 +227,41 @@ export function JoinReviewPage() {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setMapBusy(false)
+    }
+  }
+
+  async function runGolden() {
+    if (!canWrite) return
+    setGoldenBusy(true)
+    setError(null)
+    try {
+      const pairs = goldenText
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [fromTable, fromColumn, toTable, toColumn] = line
+            .split(',')
+            .map((s) => s.trim())
+          return { fromTable, fromColumn, toTable, toColumn }
+        })
+        .filter((p) => p.fromTable && p.fromColumn && p.toTable && p.toColumn)
+      const { report, markdown } = await runGoldenSetEvalApi(pairs)
+      const blob = new Blob([markdown], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'que-golden-set-report.md'
+      a.click()
+      URL.revokeObjectURL(url)
+      const recall = Number((report as { recall?: number }).recall || 0)
+      setToast(
+        `Golden-set recall ${(recall * 100).toFixed(1)}% · report downloaded`,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setGoldenBusy(false)
     }
   }
 
@@ -294,16 +441,86 @@ export function JoinReviewPage() {
                   </h2>
                   <p className="mt-1 font-body text-[13px] text-on-surface-variant">
                     Confidence {Math.round(selected.confidence * 100)}%
+                    {selected.evidence.pinnedOverlap?.band
+                      ? ` · pinned ${selected.evidence.pinnedOverlap.band}`
+                      : ''}
+                    {selected.evidence.prePromoteConfidence != null
+                      ? ` · pre-promote ${Math.round(selected.evidence.prePromoteConfidence * 100)}%`
+                      : ''}
                     {selected.joinCriteria
                       ? ` · ${selected.joinCriteria}`
                       : ''}
                   </p>
+                  {selected.evidence.pinnedOverlap?.label ? (
+                    <p className="mt-1 font-body text-[12px] text-primary">
+                      {selected.evidence.pinnedOverlap.label}
+                      {selected.evidence.pinnedOverlap.confidenceHint != null
+                        ? ` · hint ${Math.round(selected.evidence.pinnedOverlap.confidenceHint * 100)}% (cap 95%)`
+                        : ''}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-md sm:grid-cols-2">
                   <EndpointCard side="From" ep={selected.from} />
                   <EndpointCard side="To" ep={selected.to} />
                 </div>
+
+                {selected.status === 'suggested' && canWrite ? (
+                  <section className="rounded-xl border border-outline-variant/30 bg-white p-md">
+                    <h3 className="font-headline text-base font-semibold text-on-surface-variant">
+                      Edit join columns
+                    </h3>
+                    <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+                      Correct the keys, then Promote. Overlap re-scores from
+                      pinned scrubbed samples (not 100%).
+                    </p>
+                    <div className="mt-md grid gap-md sm:grid-cols-2">
+                      <label className="block font-label text-[11px] text-on-surface-variant">
+                        From column
+                        <select
+                          value={editFromCol}
+                          onChange={(e) => setEditFromCol(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-white px-md py-2 font-body text-[13px] text-on-surface"
+                        >
+                          {fromColOpts.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} · {c.dataType}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block font-label text-[11px] text-on-surface-variant">
+                        To column
+                        <select
+                          value={editToCol}
+                          onChange={(e) => setEditToCol(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-outline-variant/40 bg-white px-md py-2 font-body text-[13px] text-on-surface"
+                        >
+                          {toColOpts.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} · {c.dataType}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={
+                        busy ||
+                        !editFromCol ||
+                        !editToCol ||
+                        (editFromCol === selected.from.columnId &&
+                          editToCol === selected.to.columnId)
+                      }
+                      onClick={() => void saveEdit()}
+                      className="mt-md rounded-lg border border-primary px-md py-1.5 font-label text-[12px] font-semibold text-primary disabled:opacity-40"
+                    >
+                      Save column edit
+                    </button>
+                  </section>
+                ) : null}
 
                 <section className="rounded-xl border border-outline-variant/30 bg-white p-md">
                   <h3 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -344,15 +561,29 @@ export function JoinReviewPage() {
                       suggestion). Review column names and samples carefully.
                     </p>
                   )}
+                  {(selected.evidence as { sqlSnippet?: string }).sqlSnippet ? (
+                    <pre className="mt-md overflow-x-auto rounded-lg bg-[#2a211c] p-md font-mono text-[11px] text-[#f0e6dc]">
+                      {(selected.evidence as { sqlSnippet?: string }).sqlSnippet}
+                    </pre>
+                  ) : (
+                    <pre className="mt-md overflow-x-auto rounded-lg bg-surface-container-low p-md font-mono text-[11px] text-on-surface-variant">
+                      {`-- illustrative join for review\nSELECT *\nFROM ${selected.from.table} a\nJOIN ${selected.to.table} b\n  ON a.${selected.from.column} = b.${selected.to.column}\nLIMIT 20;`}
+                    </pre>
+                  )}
                 </section>
 
                 {selected.status === 'suggested' && canWrite ? (
                   <div className="flex flex-wrap gap-sm">
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={busy || !canPromote}
                       onClick={() => void act('promote')}
                       className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-semibold text-on-primary disabled:opacity-40"
+                      title={
+                        canPromote
+                          ? 'Accept join into workspace truth'
+                          : `Requires ${promoteMinRole}+`
+                      }
                     >
                       {busy ? 'Working…' : 'Promote'}
                     </button>
@@ -364,16 +595,152 @@ export function JoinReviewPage() {
                     >
                       Reject
                     </button>
+                    {!canPromote ? (
+                      <p className="w-full font-body text-[12px] text-on-surface-variant">
+                        Promote locked — needs {promoteMinRole}+ (Team OS).
+                        You can still Reject or propose via inference if allowed.
+                      </p>
+                    ) : null}
                   </div>
                 ) : selected.status === 'suggested' && !canWrite ? (
                   <p className="font-body text-[12px] text-on-surface-variant">
                     Member role required to promote or reject.
                   </p>
                 ) : null}
+
+                <section className="rounded-xl border border-outline-variant/30 bg-white p-md">
+                  <h3 className="font-headline text-base font-semibold text-on-surface-variant">
+                    Team discussion
+                  </h3>
+                  <ul className="mt-sm max-h-56 space-y-sm overflow-y-auto">
+                    {comments.length === 0 ? (
+                      <li className="text-[12px] text-on-surface-variant">
+                        No comments yet — ask DE/DA teammates before Promote.
+                      </li>
+                    ) : (
+                      comments.map((c) => (
+                        <li
+                          key={c.id}
+                          className="rounded-lg bg-surface-container-low px-md py-sm text-[12px]"
+                        >
+                          <span className="font-semibold">
+                            {c.authorName || c.authorEmail || 'member'}
+                          </span>
+                          <span className="text-on-surface-variant">
+                            {' '}
+                            · {new Date(c.createdAt).toLocaleString()}
+                          </span>
+                          <p className="mt-0.5">{c.body}</p>
+                          {canWrite ? (
+                            <button
+                              type="button"
+                              className="mt-1 text-[11px] text-primary"
+                              onClick={() => setReplyTo(c.id)}
+                            >
+                              Reply
+                            </button>
+                          ) : null}
+                          {(c.replies || []).map((r) => (
+                            <div
+                              key={r.id}
+                              className="mt-sm ml-md border-l-2 border-primary/20 pl-md"
+                            >
+                              <span className="font-semibold">
+                                {r.authorName || r.authorEmail || 'member'}
+                              </span>
+                              <span className="text-on-surface-variant">
+                                {' '}
+                                · {new Date(r.createdAt).toLocaleString()}
+                              </span>
+                              <p className="mt-0.5">{r.body}</p>
+                            </div>
+                          ))}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                  {canWrite ? (
+                    <div className="mt-sm space-y-sm">
+                      {replyTo ? (
+                        <p className="text-[11px] text-on-surface-variant">
+                          Replying to thread{' '}
+                          <button
+                            type="button"
+                            className="text-primary underline"
+                            onClick={() => setReplyTo(null)}
+                          >
+                            cancel
+                          </button>
+                        </p>
+                      ) : null}
+                      <div className="flex gap-sm">
+                        <input
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          placeholder={
+                            replyTo ? 'Write a reply…' : 'Add a comment…'
+                          }
+                          className="min-w-0 flex-1 rounded-lg border border-outline-variant/40 px-md py-1.5 text-[13px]"
+                        />
+                        <button
+                          type="button"
+                          disabled={!commentText.trim() || busy}
+                          onClick={() => {
+                            if (!selected) return
+                            void addJoinCommentApi(
+                              selected.id,
+                              commentText.trim(),
+                              { parentId: replyTo },
+                            )
+                              .then(() => fetchJoinComments(selected.id))
+                              .then((cmts) => {
+                                setComments(cmts)
+                                setCommentText('')
+                                setReplyTo(null)
+                              })
+                              .catch((err) =>
+                                setError(
+                                  err instanceof Error
+                                    ? err.message
+                                    : String(err),
+                                ),
+                              )
+                          }}
+                          className="rounded-lg border border-primary px-md py-1.5 text-[12px] text-primary disabled:opacity-40"
+                        >
+                          Post
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </section>
               </div>
             )}
           </main>
         </div>
+
+        <section className="shrink-0 border-t border-outline-variant/20 bg-surface-container-low px-md py-md md:px-lg">
+          <h2 className="font-headline text-sm font-semibold text-on-surface">
+            Golden-set POC eval
+          </h2>
+          <p className="mt-xs font-body text-[11px] text-on-surface-variant">
+            CSV lines: fromTable,fromColumn,toTable,toColumn — downloads a markdown recall report.
+          </p>
+          <textarea
+            value={goldenText}
+            onChange={(e) => setGoldenText(e.target.value)}
+            rows={3}
+            className="mt-sm w-full rounded-lg border border-outline-variant/40 bg-white px-md py-sm font-mono text-[11px]"
+          />
+          <button
+            type="button"
+            disabled={!canWrite || goldenBusy}
+            onClick={() => void runGolden()}
+            className="mt-sm rounded-lg border border-primary/40 px-md py-1.5 font-label text-[12px] text-primary disabled:opacity-40"
+          >
+            {goldenBusy ? 'Evaluating…' : 'Run golden-set eval'}
+          </button>
+        </section>
 
         {renames.length > 0 ? (
           <section className="shrink-0 border-t border-outline-variant/20 bg-white px-md py-md md:px-lg">

@@ -6,8 +6,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   SourceTypeIcon,
   sourceTypeLabel,
@@ -92,11 +91,6 @@ type FormState = {
 const WIZARD_STEPS = ['Choose', 'Configure'] as const
 
 type SourcesView = 'home' | 'catalog' | 'form' | 'detail'
-
-function parseSourcesView(raw: string | null): SourcesView {
-  if (raw === 'catalog' || raw === 'form' || raw === 'detail') return raw
-  return 'home'
-}
 
 const emptyForm = (type: DataSourceType = 'postgresql'): FormState => ({
   name: '',
@@ -351,9 +345,20 @@ function statusBadge(status: DataSourceStatus): {
 export function SourcesPage() {
   const { canWrite, canAdmin } = useWorkspaceRole()
   const { workspaceId, workspaces } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const view = parseSourcesView(searchParams.get('view'))
-  const deepLinkId = searchParams.get('id')
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { sourceId: routeSourceId, connector: routeConnector } = useParams<{
+    sourceId?: string
+    connector?: string
+  }>()
+  const view: SourcesView = location.pathname.startsWith('/sources/new')
+    ? routeConnector
+      ? 'form'
+      : 'catalog'
+    : routeSourceId
+      ? 'detail'
+      : 'home'
+  const deepLinkId = routeSourceId ?? null
   const workspaceName =
     workspaces.find((w) => w.id === workspaceId)?.name || 'Workspace'
   const [sources, setSources] = useState<DataSource[]>([])
@@ -363,14 +368,13 @@ export function SourcesPage() {
   )
   const [wizardStep, setWizardStep] = useState(view === 'form' ? 2 : 1)
   const [catalogKey, setCatalogKey] = useState<string | null>(
-    searchParams.get('connector'),
+    routeConnector ?? null,
   )
   const [catalogQuery, setCatalogQuery] = useState('')
   const [catalogCategory, setCatalogCategory] =
     useState<ConnectorCategoryId>('all')
   const [form, setForm] = useState<FormState>(() => {
-    const key = searchParams.get('connector')
-    const item = CONNECTOR_CATALOG.find((c) => c.key === key)
+    const item = CONNECTOR_CATALOG.find((c) => c.key === routeConnector)
     return emptyForm(item?.type ?? 'postgresql')
   })
   const [filter, setFilter] = useState('')
@@ -384,11 +388,21 @@ export function SourcesPage() {
     next: SourcesView,
     opts?: { id?: string | null; connector?: string | null },
   ) {
-    const params: Record<string, string> = {}
-    if (next !== 'home') params.view = next
-    if (opts?.id) params.id = opts.id
-    if (opts?.connector) params.connector = opts.connector
-    setSearchParams(params)
+    if (next === 'home') {
+      navigate('/sources')
+      return
+    }
+    if (next === 'catalog') {
+      navigate('/sources/new')
+      return
+    }
+    if (next === 'form') {
+      navigate(`/sources/new/${opts?.connector || catalogKey || 'postgresql'}`)
+      return
+    }
+    if (next === 'detail' && opts?.id) {
+      navigate(`/sources/${opts.id}`)
+    }
   }
 
   async function reload(preferId?: string | null) {
@@ -428,7 +442,7 @@ export function SourcesPage() {
       setCreating(true)
       setSelectedId(null)
       setWizardStep(view === 'form' ? 2 : 1)
-      const key = searchParams.get('connector')
+      const key = routeConnector || null
       if (key) {
         setCatalogKey(key)
         const item = CONNECTOR_CATALOG.find((c) => c.key === key)
@@ -456,7 +470,7 @@ export function SourcesPage() {
       if (!deepLinkId) setSelectedId(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, deepLinkId, searchParams])
+  }, [view, deepLinkId, routeConnector])
 
   useEffect(() => {
     if (creating) return
@@ -819,7 +833,6 @@ export function SourcesPage() {
   if (creating) {
     const catalogItem = CONNECTOR_CATALOG.find((c) => c.key === catalogKey)
     return (
-      <QueAppChrome eyebrow="SOURCES · CONNECT">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
           {banners}
           <div className="min-h-0 flex-1 overflow-y-auto px-md py-lg md:px-lg lg:px-margin-desktop">
@@ -978,13 +991,11 @@ export function SourcesPage() {
             </div>
           </div>
         </div>
-      </QueAppChrome>
     )
   }
 
   /* List + detail */
   return (
-    <QueAppChrome eyebrow="SOURCES · CONNECT · SYNC">
       <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {banners}
@@ -1344,7 +1355,6 @@ export function SourcesPage() {
           </main>
         </div>
       </div>
-    </QueAppChrome>
   )
 }
 

@@ -36,6 +36,9 @@ function mapRun(row) {
     trigger: row.trigger || 'manual',
     attempt: row.attempt ?? 1,
     parentRunId: row.parent_run_id ?? null,
+    executionTarget: row.execution_target || 'que',
+    externalRef: row.external_ref || null,
+    externalStatus: row.external_status || null,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
@@ -147,6 +150,21 @@ export async function runJob(workspaceId, jobId, opts = {}) {
   // validate ≡ live with product row cap (20)
   const mode =
     opts.mode === 'live' || opts.mode === 'validate' ? 'live' : 'dry_run'
+  if (mode === 'live') {
+    try {
+      const { getWorkspaceSettings } = await import('./workspaceSettings.js')
+      const settings = (await getWorkspaceSettings(workspaceId))?.settings
+      if (settings?.enableLiveValidate === false) {
+        const err = new Error(
+          'Live validate is disabled for this workspace (Settings → AI & Policy)',
+        )
+        err.status = 403
+        throw err
+      }
+    } catch (err) {
+      if (err.status) throw err
+    }
+  }
   const maxRows = Math.min(
     Math.max(
       Number(opts.maxRows ?? LIVE_VALIDATE_MAX_ROWS),
@@ -430,6 +448,47 @@ export async function runJob(workspaceId, jobId, opts = {}) {
       output,
       finishedAt: new Date().toISOString(),
     })
+
+    // Offer B — land live results OR dry-run sample previews into managed plane
+    if (status === 'succeeded') {
+      try {
+        const { landManagedDatasetFromJobRun } = await import(
+          './managedDataPlane.js'
+        )
+        const land = await landManagedDatasetFromJobRun(workspaceId, {
+          jobId,
+          runId,
+          jobTitle: job.title,
+          liveResults,
+          samplePreviews,
+          userId: opts.userId || null,
+        })
+        if (land.landed && land.item) {
+          pushLog(
+            logs,
+            'info',
+            `Managed data plane: landed “${land.item.name}” via ${land.source} (${land.item.rowCount} rows) · AI access denied`,
+          )
+          run = await persistRun(runId, {
+            status,
+            summary: `${summary} · managed:${land.item.slug}`,
+            logs,
+            output: {
+              ...output,
+              managedDatasetId: land.item.id,
+              managedLandSource: land.source,
+            },
+            finishedAt: new Date().toISOString(),
+          })
+        }
+      } catch (landErr) {
+        pushLog(
+          logs,
+          'warn',
+          `Managed land skipped: ${landErr.message || landErr}`,
+        )
+      }
+    }
   } catch (err) {
     pushLog(logs, 'error', String(err.message || err))
     run = await persistRun(runId, {

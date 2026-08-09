@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { WarehouseRunsStrip } from '@/components/WarehouseRunsStrip'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
@@ -631,7 +632,7 @@ export function ChatPage() {
         ),
       )
       pushToast('Job saved — opening Jobs…', 'success')
-      navigate(`/jobs?job=${encodeURIComponent(job.id)}`)
+      navigate(`/jobs/${encodeURIComponent(job.id)}/notebook`)
     } catch (err) {
       pushToast(
         err instanceof Error ? err.message : 'Save job failed',
@@ -693,6 +694,7 @@ export function ChatPage() {
     <QueAppChrome eyebrow="SCHEMA-ONLY · MODEL ASSISTANT">
       <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-sm md:px-lg md:py-md">
+          <WarehouseRunsStrip />
           <div className="mb-md flex shrink-0 items-end justify-between gap-md">
             <div>
               <h1 className="font-headline text-xl font-semibold text-primary sm:text-xl">

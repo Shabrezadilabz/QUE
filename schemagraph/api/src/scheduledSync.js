@@ -3,7 +3,7 @@
  * In-process ticker; soft-fail per connection; never full-table ETL.
  */
 import { query } from './db.js'
-import { syncConnection } from './syncConnection.js'
+import { syncWithRetries } from './connectorReliability.js'
 import { recordAuditEvent } from './auditLog.js'
 
 export const SYNC_SCHEDULES = new Set(['off', 'hourly', 'daily'])
@@ -104,7 +104,9 @@ export async function setConnectionSyncSchedule(
 export async function getWorkspaceSyncScheduleStatus(workspaceId) {
   const { rows } = await query(
     `SELECT id, name, source_type, status, sync_schedule, sync_next_at,
-            last_scheduled_sync_at, last_sync_at, last_sync_error_kind
+            last_scheduled_sync_at, last_sync_at, last_sync_error_kind,
+            sync_retry_max, sync_attempt, last_sync_duration_ms,
+            sync_checkpoint_json
      FROM connections
      WHERE workspace_id = $1
      ORDER BY
@@ -129,6 +131,16 @@ export async function getWorkspaceSyncScheduleStatus(workspaceId) {
       ? new Date(r.last_sync_at).toISOString()
       : null,
     lastSyncErrorKind: r.last_sync_error_kind || null,
+    syncRetryMax: Number(r.sync_retry_max || 3),
+    syncAttempt: Number(r.sync_attempt || 0),
+    lastSyncDurationMs:
+      r.last_sync_duration_ms != null
+        ? Number(r.last_sync_duration_ms)
+        : null,
+    checkpoint:
+      r.sync_checkpoint_json && typeof r.sync_checkpoint_json === 'object'
+        ? r.sync_checkpoint_json
+        : {},
     syncable: SYNCABLE.has(r.source_type),
   }))
   const scheduled = connections.filter((c) => c.syncSchedule !== 'off')
@@ -211,7 +223,7 @@ export async function runScheduledSyncTick(opts = {}) {
   for (const row of due) {
     const started = Date.now()
     try {
-      const sync = await syncConnection(row.workspace_id, row.id)
+      const sync = await syncWithRetries(row.workspace_id, row.id)
       const bump = await bumpScheduleAfterRun(row.id, row.sync_schedule, true)
       void recordAuditEvent({
         workspaceId: row.workspace_id,
@@ -223,6 +235,7 @@ export async function runScheduledSyncTick(opts = {}) {
         meta: {
           schedule: row.sync_schedule,
           tablesSynced: sync?.tablesSynced,
+          attempts: sync?.attempts,
           durationMs: Date.now() - started,
         },
       })
@@ -233,6 +246,7 @@ export async function runScheduledSyncTick(opts = {}) {
         ok: true,
         nextAt: bump.nextAt,
         tablesSynced: sync?.tablesSynced,
+        attempts: sync?.attempts,
       })
     } catch (err) {
       const bump = await bumpScheduleAfterRun(row.id, row.sync_schedule, false)
@@ -246,6 +260,7 @@ export async function runScheduledSyncTick(opts = {}) {
         meta: {
           schedule: row.sync_schedule,
           error: String(err.message || err).slice(0, 500),
+          healthKind: err.healthKind || null,
         },
       })
       results.push({

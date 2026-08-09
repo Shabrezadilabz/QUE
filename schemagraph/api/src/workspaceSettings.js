@@ -15,6 +15,21 @@ import { getSsoConfig } from './auth.js'
 const DEFAULT_SETTINGS = {
   includeSamplesDefault: false,
   scrubSamples: true,
+  /**
+   * Production — AI chat/agent may use pinned scrubbed 5–10 row samples.
+   * Never full tables. Default ON for join/SQL quality.
+   */
+  aiMayUsePinnedSamples: true,
+  /** Rows pinned per table (5–10) */
+  pinnedSampleRows: 10,
+  /** Offer B — Que-hosted job output store for Excel/SQL customers */
+  enableManagedDataPlane: false,
+  /** Default job landing: customer | managed | que */
+  defaultExecutionPlane: 'customer',
+  /** Offer B quotas / retention */
+  managedMaxDatasets: 25,
+  managedMaxRowsPerDataset: 50000,
+  managedRetentionDays: 90,
   inferJoinsOnSync: true,
   preferLlmChat: false,
   aiModelId: 'gpt-4o-mini',
@@ -41,6 +56,48 @@ const DEFAULT_SETTINGS = {
   dbtModelsPath: 'models/que',
   /** Databricks query-history assisted joins (MVP) */
   databricksQueryJoinAssist: true,
+  /** Snowflake query-history assisted joins (MVP) */
+  snowflakeQueryJoinAssist: true,
+  /** Feature activation flags (admin toggles) */
+  enableStitchAgent: false,
+  enableLiveValidate: true,
+  enableMaterialize: true,
+  /**
+   * Phase 3 — optional auto-Promote for low-risk suggested joins only.
+   * Default false: HITL Promote remains required.
+   */
+  enableAutoPromoteLowRisk: false,
+  /** Phase 4 — catalog / governance expansion (optional) */
+  enableCatalogGovernance: false,
+  /** Prefer steward-oriented nav copy / default landings when true */
+  stewardUxMode: false,
+  ticketProvider: 'webhook',
+  ticketWebhookUrl: '',
+  ticketWebhookAuthHeader: '',
+  jiraWebhookUrl: '',
+  serviceNowWebhookUrl: '',
+  /** Phase 5 — enterprise control plane */
+  enforceSso: false,
+  siemExportEnabled: false,
+  siemWebhookUrl: '',
+  dataRegion: '',
+  dataResidency: '',
+  slaUptimeTarget: '99.9%',
+  slaRpoHours: 24,
+  slaRtoHours: 4,
+  /** Comma/newline-separated GitHub branches allowed for dbt PRs */
+  githubAllowedBranches: 'main',
+  /** Lowest role allowed to open PRs to githubBaseBranch (member|admin|owner) */
+  githubPrMinRole: 'member',
+  /** Phase 2 Team OS — propose vs promote */
+  joinProposeMinRole: 'member',
+  joinPromoteMinRole: 'member',
+  /** Slack/Teams webhooks */
+  joinReviewNotifyEnabled: true,
+  joinReviewWebhookUrl: '',
+  joinPromoteNotify: false,
+  driftDigestEnabled: true,
+  driftDigestWebhookUrl: '',
 }
 
 function mergeSettings(raw) {
@@ -229,8 +286,145 @@ function pickAllowed(patch) {
   if (typeof patch.scrubSamples === 'boolean') {
     out.scrubSamples = patch.scrubSamples
   }
+  if (typeof patch.aiMayUsePinnedSamples === 'boolean') {
+    out.aiMayUsePinnedSamples = patch.aiMayUsePinnedSamples
+  }
+  if (
+    typeof patch.pinnedSampleRows === 'number' &&
+    Number.isFinite(patch.pinnedSampleRows)
+  ) {
+    out.pinnedSampleRows = Math.min(
+      10,
+      Math.max(5, Math.round(patch.pinnedSampleRows)),
+    )
+  }
+  if (typeof patch.enableManagedDataPlane === 'boolean') {
+    out.enableManagedDataPlane = patch.enableManagedDataPlane
+  }
+  if (typeof patch.defaultExecutionPlane === 'string') {
+    const p = patch.defaultExecutionPlane.trim().toLowerCase()
+    if (['customer', 'managed', 'que'].includes(p)) {
+      out.defaultExecutionPlane = p
+    }
+  }
+  if (
+    typeof patch.managedMaxDatasets === 'number' &&
+    Number.isFinite(patch.managedMaxDatasets)
+  ) {
+    out.managedMaxDatasets = Math.min(
+      200,
+      Math.max(1, Math.round(patch.managedMaxDatasets)),
+    )
+  }
+  if (
+    typeof patch.managedMaxRowsPerDataset === 'number' &&
+    Number.isFinite(patch.managedMaxRowsPerDataset)
+  ) {
+    out.managedMaxRowsPerDataset = Math.min(
+      100000,
+      Math.max(100, Math.round(patch.managedMaxRowsPerDataset)),
+    )
+  }
+  if (
+    typeof patch.managedRetentionDays === 'number' &&
+    Number.isFinite(patch.managedRetentionDays)
+  ) {
+    out.managedRetentionDays = Math.min(
+      365,
+      Math.max(1, Math.round(patch.managedRetentionDays)),
+    )
+  }
   if (typeof patch.databricksQueryJoinAssist === 'boolean') {
     out.databricksQueryJoinAssist = patch.databricksQueryJoinAssist
+  }
+  if (typeof patch.snowflakeQueryJoinAssist === 'boolean') {
+    out.snowflakeQueryJoinAssist = patch.snowflakeQueryJoinAssist
+  }
+  if (typeof patch.enableStitchAgent === 'boolean') {
+    out.enableStitchAgent = patch.enableStitchAgent
+  }
+  if (typeof patch.enableLiveValidate === 'boolean') {
+    out.enableLiveValidate = patch.enableLiveValidate
+  }
+  if (typeof patch.enableMaterialize === 'boolean') {
+    out.enableMaterialize = patch.enableMaterialize
+  }
+  if (typeof patch.enableAutoPromoteLowRisk === 'boolean') {
+    out.enableAutoPromoteLowRisk = patch.enableAutoPromoteLowRisk
+  }
+  if (typeof patch.enableCatalogGovernance === 'boolean') {
+    out.enableCatalogGovernance = patch.enableCatalogGovernance
+  }
+  if (typeof patch.stewardUxMode === 'boolean') {
+    out.stewardUxMode = patch.stewardUxMode
+  }
+  if (typeof patch.ticketProvider === 'string') {
+    const p = patch.ticketProvider.trim().toLowerCase()
+    if (['webhook', 'jira', 'servicenow'].includes(p)) out.ticketProvider = p
+  }
+  for (const key of [
+    'ticketWebhookUrl',
+    'ticketWebhookAuthHeader',
+    'jiraWebhookUrl',
+    'serviceNowWebhookUrl',
+    'siemWebhookUrl',
+    'dataRegion',
+    'dataResidency',
+    'slaUptimeTarget',
+  ]) {
+    if (typeof patch[key] === 'string') {
+      out[key] = patch[key].trim().slice(0, 500)
+    }
+  }
+  if (typeof patch.enforceSso === 'boolean') {
+    out.enforceSso = patch.enforceSso
+  }
+  if (typeof patch.siemExportEnabled === 'boolean') {
+    out.siemExportEnabled = patch.siemExportEnabled
+  }
+  if (typeof patch.slaRpoHours === 'number' && Number.isFinite(patch.slaRpoHours)) {
+    out.slaRpoHours = Math.min(168, Math.max(1, Math.round(patch.slaRpoHours)))
+  }
+  if (typeof patch.slaRtoHours === 'number' && Number.isFinite(patch.slaRtoHours)) {
+    out.slaRtoHours = Math.min(168, Math.max(1, Math.round(patch.slaRtoHours)))
+  }
+  if (typeof patch.githubAllowedBranches === 'string') {
+    out.githubAllowedBranches = patch.githubAllowedBranches
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 40)
+      .join(', ')
+      .slice(0, 500) || 'main'
+  }
+  if (typeof patch.githubPrMinRole === 'string') {
+    const role = patch.githubPrMinRole.trim().toLowerCase()
+    if (['member', 'admin', 'owner'].includes(role)) {
+      out.githubPrMinRole = role
+    }
+  }
+  for (const key of ['joinProposeMinRole', 'joinPromoteMinRole']) {
+    if (typeof patch[key] === 'string') {
+      const role = patch[key].trim().toLowerCase()
+      if (['member', 'admin', 'owner'].includes(role)) {
+        out[key] = role
+      }
+    }
+  }
+  if (typeof patch.joinReviewNotifyEnabled === 'boolean') {
+    out.joinReviewNotifyEnabled = patch.joinReviewNotifyEnabled
+  }
+  if (typeof patch.joinPromoteNotify === 'boolean') {
+    out.joinPromoteNotify = patch.joinPromoteNotify
+  }
+  if (typeof patch.driftDigestEnabled === 'boolean') {
+    out.driftDigestEnabled = patch.driftDigestEnabled
+  }
+  if (typeof patch.joinReviewWebhookUrl === 'string') {
+    out.joinReviewWebhookUrl = patch.joinReviewWebhookUrl.trim().slice(0, 500)
+  }
+  if (typeof patch.driftDigestWebhookUrl === 'string') {
+    out.driftDigestWebhookUrl = patch.driftDigestWebhookUrl.trim().slice(0, 500)
   }
   if (typeof patch.emitContractEvents === 'boolean') {
     out.emitContractEvents = patch.emitContractEvents

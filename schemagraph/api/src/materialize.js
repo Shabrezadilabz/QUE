@@ -182,6 +182,13 @@ export function buildMaterializeDdl({
 async function assertMaterializeAllowed(workspaceId, job, options = {}) {
   const settingsPayload = await getWorkspaceSettings(workspaceId)
   const settings = settingsPayload?.settings ?? {}
+  if (settings.enableMaterialize === false) {
+    const err = new Error(
+      'Materialize is disabled for this workspace (Settings → AI & Policy)',
+    )
+    err.status = 403
+    throw err
+  }
   const blockOnDrift = settings.blockExportOnDrift !== false
   const blockOnUnreviewed = settings.blockExportOnUnreviewedJoins === true
 

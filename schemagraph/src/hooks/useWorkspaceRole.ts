@@ -23,6 +23,7 @@ export function useWorkspaceRole() {
       workspaceId,
       canWrite: rank >= ROLE_RANK.member,
       canAdmin: rank >= ROLE_RANK.admin,
+      canOwner: rank >= ROLE_RANK.owner,
     }
   }, [workspaces, workspaceId])
 }

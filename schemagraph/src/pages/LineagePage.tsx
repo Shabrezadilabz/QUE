@@ -2,19 +2,25 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import {
+  fetchColumnLineage,
   fetchWorkspaceLineage,
+  type ColumnLineageResult,
   type LineagePath,
   type WorkspaceLineage,
 } from '@/services/stitchApi'
 
 /**
- * Wave 3.4 — Lineage lite: Sources → joins → job → export / materialize.
+ * Wave 3.4 + Phase 4 — Lineage lite + multi-hop column lineage.
  */
 export function LineagePage() {
   const [data, setData] = useState<WorkspaceLineage | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [colTable, setColTable] = useState('')
+  const [colColumn, setColColumn] = useState('')
+  const [colLineage, setColLineage] = useState<ColumnLineageResult | null>(null)
+  const [colBusy, setColBusy] = useState(false)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -51,18 +57,109 @@ export function LineagePage() {
               </h1>
               <p className="mt-1 max-w-[40rem] font-body text-[13px] text-on-surface-variant">
                 Sources → promoted joins → stitch jobs → attested export or
-                customer warehouse objects. Schema metadata only — Que is not a
-                catalog of raw rows.
+                customer warehouse objects. Phase 4 adds multi-hop column hops
+                from joins + dbt/BI/catalog metadata.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void reload()}
-              disabled={loading}
-              className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
-            >
-              {loading ? 'Refreshing…' : 'Refresh'}
-            </button>
+            <div className="flex flex-wrap gap-sm">
+              <Link
+                to="/catalog"
+                className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary"
+              >
+                Catalog
+              </Link>
+              <button
+                type="button"
+                onClick={() => void reload()}
+                disabled={loading}
+                className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
+              >
+                {loading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-md rounded-xl border border-outline-variant/20 bg-[#FBF8F4] p-md">
+            <p className="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">
+              Column lineage (multi-hop)
+            </p>
+            <div className="mt-sm flex flex-wrap items-end gap-sm">
+              <label className="block">
+                <span className="mb-1 block font-label text-[10px] text-on-surface-variant">
+                  Table
+                </span>
+                <input
+                  value={colTable}
+                  onChange={(e) => setColTable(e.target.value)}
+                  placeholder="orders"
+                  className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 font-body text-[12px]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block font-label text-[10px] text-on-surface-variant">
+                  Column
+                </span>
+                <input
+                  value={colColumn}
+                  onChange={(e) => setColColumn(e.target.value)}
+                  placeholder="customer_id"
+                  className="rounded-lg border border-outline-variant/40 bg-white px-sm py-1.5 font-body text-[12px]"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={colBusy || !colTable.trim()}
+                onClick={() => {
+                  setColBusy(true)
+                  fetchColumnLineage({
+                    table: colTable.trim(),
+                    column: colColumn.trim() || undefined,
+                    direction: 'both',
+                    maxHops: 4,
+                  })
+                    .then(setColLineage)
+                    .catch((e) =>
+                      setError(e instanceof Error ? e.message : String(e)),
+                    )
+                    .finally(() => setColBusy(false))
+                }}
+                className="rounded-lg bg-primary px-md py-1.5 font-label text-[12px] text-on-primary disabled:opacity-40"
+              >
+                {colBusy ? 'Tracing…' : 'Trace'}
+              </button>
+            </div>
+            {colLineage ? (
+              <div className="mt-sm grid gap-sm sm:grid-cols-2">
+                <div>
+                  <p className="font-label text-[10px] uppercase text-on-surface-variant">
+                    Upstream · {colLineage.upstream?.nodes?.length || 0}
+                  </p>
+                  <ul className="mt-1 max-h-28 overflow-y-auto font-mono text-[11px] text-on-surface">
+                    {(colLineage.upstream?.nodes || []).slice(0, 20).map((n) => (
+                      <li key={`u-${n.key}`}>
+                        {n.key}
+                        {n.hop != null ? ` · hop ${n.hop}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-label text-[10px] uppercase text-on-surface-variant">
+                    Downstream · {colLineage.downstream?.nodes?.length || 0}
+                  </p>
+                  <ul className="mt-1 max-h-28 overflow-y-auto font-mono text-[11px] text-on-surface">
+                    {(colLineage.downstream?.nodes || [])
+                      .slice(0, 20)
+                      .map((n) => (
+                        <li key={`d-${n.key}`}>
+                          {n.key}
+                          {n.hop != null ? ` · hop ${n.hop}` : ''}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {data ? (
@@ -200,7 +297,7 @@ function PathDetail({ path }: { path: LineagePath }) {
           </p>
         </div>
         <Link
-          to={`/jobs?job=${path.job.id}&tab=deploy`}
+          to={`/jobs/${path.job.id}/deploy`}
           className="rounded-lg border border-primary/30 bg-primary/5 px-md py-1.5 font-label text-[12px] text-primary hover:bg-primary/10"
         >
           Open Deploy

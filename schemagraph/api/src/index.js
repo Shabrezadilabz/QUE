@@ -4,7 +4,6 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { query } from './db.js'
-import { syncConnection } from './syncConnection.js'
 import { buildSchemaContextPack } from './schemaContext.js'
 import { answerChat } from './chatEngine.js'
 import {
@@ -58,6 +57,7 @@ import {
   ensureDevUserPassword,
   getSsoConfig,
   listWorkspacesForUser,
+  listUserSessions,
   login,
   logout,
   optionalAuth,
@@ -65,13 +65,136 @@ import {
   requireAuth,
   requireMinRole,
   requireWorkspaceMember,
+  revokeOtherUserSessions,
+  revokeUserSession,
+  ROLE_RANK,
 } from './auth.js'
+import {
+  listDomains,
+  getDomain,
+  createDomain,
+  updateDomain,
+  deleteDomain,
+} from './domains.js'
+import {
+  listJobTemplates,
+  createJobTemplate,
+  deleteJobTemplate,
+  applyJobTemplate,
+} from './jobTemplates.js'
+import {
+  notifyJoinReviewPending,
+  notifyJoinPromoted,
+  sendDriftDigest,
+  roleMeetsMin,
+} from './teamNotify.js'
 import {
   buildAuthorizeRedirectUrl,
   buildSsoErrorRedirect,
   completeOidcCallback,
 } from './oidc.js'
 import { requestLogMiddleware } from './logger.js'
+import { rateLimitMiddleware } from './rateLimit.js'
+import {
+  createAgentSession,
+  listAgentSessions,
+  getAgentSession,
+  advanceAgentCheckpoint,
+  continueAgentAfterPromote,
+  listJoinMemory,
+} from './agentSessions.js'
+import {
+  generateValidationSuite,
+  runValidationSuite,
+  getValidationSuite,
+} from './validationSuite.js'
+import {
+  listDriftFixSuggestions,
+  proposeDriftFixes,
+  resolveDriftFix,
+} from './driftAgent.js'
+import { maybeAutoPromoteLowRisk } from './autoPromote.js'
+import {
+  listGlossaryTerms,
+  createGlossaryTerm,
+  updateGlossaryTerm,
+  deleteGlossaryTerm,
+  listTermLinks,
+  linkTermToColumn,
+} from './glossary.js'
+import {
+  listCatalogAssets,
+  createCatalogAsset,
+  updateCatalogAsset,
+  deleteCatalogAsset,
+  listAssetDeps,
+} from './catalogAssets.js'
+import {
+  listCertifications,
+  certifyTarget,
+  expireCertification,
+  getStewardQueue,
+} from './stewardship.js'
+import { getColumnLineage } from './columnLineage.js'
+import {
+  listPolicyPacks,
+  createPolicyPack,
+  updatePolicyPack,
+  deletePolicyPack,
+  ensureDefaultPolicyPacks,
+  applyPiiPolicyPack,
+} from './policyPacks.js'
+import {
+  listGovernanceTickets,
+  createGovernanceTicket,
+} from './ticketIntegrations.js'
+import {
+  listApiKeys,
+  createApiKey,
+  revokeApiKey,
+} from './apiKeys.js'
+import {
+  createScimToken,
+  listScimTokens,
+  revokeScimToken,
+  resolveScimToken,
+  scimListUsers,
+  scimGetUser,
+  scimCreateUser,
+  scimPatchUser,
+  scimDeleteUser,
+} from './scim.js'
+import {
+  getCmkStatus,
+  enableCmk,
+  disableCmk,
+  rotateCmk,
+} from './cmk.js'
+import {
+  listAbacPolicies,
+  createAbacPolicy,
+  deleteAbacPolicy,
+} from './abac.js'
+import {
+  listBreakGlass,
+  openBreakGlass,
+  closeBreakGlass,
+} from './breakGlass.js'
+import {
+  getSiemConfig,
+  updateSiemConfig,
+  exportSiemEvents,
+  pushSiemWebhook,
+} from './siemExport.js'
+import { buildSoc2EvidencePack } from './soc2Evidence.js'
+import {
+  runTenantIsolationTests,
+  listIsolationRuns,
+} from './tenantIsolation.js'
+import {
+  evaluateGoldenSet,
+  formatGoldenSetMarkdown,
+} from './goldenSetEval.js'
 import { ingestBiLineage, listLatestBiLineage } from './exporters/biLineage.js'
 import { ingestDbtManifest } from './exporters/dbtManifestAssist.js'
 import {
@@ -102,6 +225,85 @@ import { listAuditEvents, recordAuditEvent } from './auditLog.js'
 import { getWorkspaceUsage } from './usage.js'
 import { notifyDriftAlert, createDriftEventAndAlert } from './driftAlerts.js'
 import { listJoinReviews } from './joinReviews.js'
+import {
+  editRelationshipColumns,
+  listTableColumns,
+} from './relationshipEdit.js'
+import {
+  pinTableSamples,
+  listPinnedSamples,
+  getPinnedSample,
+  ensurePinnedSamplesForConnection,
+} from './pinnedSamples.js'
+import {
+  listManagedDatasets,
+  getManagedDataset,
+  readManagedDatasetRows,
+  certifyManagedDataset,
+  deleteManagedDataset,
+  upsertManagedDatasetFromJob,
+  isManagedPlaneEnabled,
+  getManagedPlaneQuotas,
+  purgeExpiredManagedDatasets,
+  landManagedDatasetFromJobRun,
+} from './managedDataPlane.js'
+import { collectOpsSnapshot, formatPrometheus } from './opsMetrics.js'
+import {
+  listWorkspaceRules,
+  createWorkspaceRule,
+  updateWorkspaceRule,
+  deleteWorkspaceRule,
+  learnRuleFromPromote,
+} from './workspaceRules.js'
+import { listJoinComments, addJoinComment } from './joinComments.js'
+import {
+  listTransformDrafts,
+  getTransformDraft,
+  createTransformDraft,
+  reviewTransformDraft,
+} from './transformDrafts.js'
+import {
+  listProposalDiffs,
+  reviewProposalDiff,
+  createJoinProposalDiff,
+} from './proposalDiffs.js'
+import {
+  listMetrics,
+  getMetric,
+  createMetric,
+  updateMetric,
+  previewMetric,
+  publishMetricToBi,
+  getMetricLineage,
+} from './metricDefinitions.js'
+import {
+  getEvalDashboard,
+  runGoldenEvalForDashboard,
+} from './evalDashboard.js'
+import {
+  runAndStoreContractTests,
+  listContractTestRuns,
+} from './contractTests.js'
+import {
+  listIndustryTemplatePacks,
+  getIndustryTemplatePack,
+  listMarketplaceCatalog,
+  applyIndustryTemplatePack,
+  listPackInstalls,
+} from './industryTemplates.js'
+import { buildNotebookFromFields } from './jobNotebook.js'
+import { reportExternalJobStatus } from './jobStatusBridge.js'
+import {
+  listBiCharts,
+  getBiChart,
+  createBiChart,
+  updateBiChart,
+  deleteBiChart,
+  previewBiChart,
+  mintBiEmbedToken,
+  revokeBiEmbedToken,
+  resolveBiEmbed,
+} from './certifiedBi.js'
 import {
   getWorkspaceSyncScheduleStatus,
   runScheduledSyncTick,
@@ -139,6 +341,34 @@ import {
   listMaterializations,
 } from './materialize.js'
 import { getWorkspaceLineageLite } from './lineageLite.js'
+import {
+  buildWarehouseRunDigest,
+  listWarehouseDigests,
+  ingestExternalWarehouseDigest,
+} from './warehouseRunDigest.js'
+import {
+  createMetadataBackup,
+  listBackups,
+  getBackup,
+  runDrDrill,
+  listDrDrills,
+  getSaasOpsSummary,
+} from './saasOps.js'
+import {
+  getGoldenEvalSchedule,
+  upsertGoldenEvalSchedule,
+  runGoldenEvalNow,
+  startGoldenEvalLoop,
+} from './scheduledGoldenEval.js'
+import {
+  syncWithRetries,
+  getConnectorReliabilityStatus,
+  updateConnectionRetryPolicy,
+} from './connectorReliability.js'
+import {
+  heartbeatPresence,
+  listPresence,
+} from './workspacePresence.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -207,18 +437,32 @@ app.post(
 )
 app.use(express.json({ limit: '4mb' }))
 app.use(requestLogMiddleware)
+app.use(rateLimitMiddleware({ windowMs: 60_000, max: 180 }))
 
 app.get('/health', async (_req, res) => {
   try {
-    await query('SELECT 1')
-    res.json({
-      ok: true,
-      service: 'que-api',
-      authDisabled: authDisabled(),
-      sso: getSsoConfig().status,
-    })
+    const snap = await collectOpsSnapshot()
+    if (!snap.ok) {
+      res.status(503).json(snap)
+      return
+    }
+    res.json(snap)
   } catch (err) {
     res.status(503).json({ ok: false, error: String(err.message || err) })
+  }
+})
+
+/** Ops monitoring — JSON or Prometheus text (?format=prom) */
+app.get('/metrics', async (req, res) => {
+  try {
+    const snap = await collectOpsSnapshot()
+    if (String(req.query.format || '').toLowerCase() === 'prom') {
+      res.type('text/plain; version=0.0.4').send(formatPrometheus(snap))
+      return
+    }
+    res.json({ ok: true, ...snap })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err.message || err) })
   }
 })
 
@@ -247,6 +491,34 @@ app.post('/auth/login', async (req, res) => {
     res.json({ ok: true, ...result })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/auth/sessions', requireAuth, async (req, res) => {
+  try {
+    const sessions = await listUserSessions(req.user.id, req.authToken)
+    res.json({ ok: true, sessions })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.delete('/auth/sessions/:sessionId', requireAuth, async (req, res) => {
+  try {
+    const ok = await revokeUserSession(req.user.id, req.params.sessionId)
+    if (!ok) return res.status(404).json({ error: 'Session not found' })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post('/auth/sessions/revoke-others', requireAuth, async (req, res) => {
+  try {
+    const out = await revokeOtherUserSessions(req.user.id, req.authToken)
+    res.json({ ok: true, ...out })
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
   }
 })
 
@@ -668,10 +940,8 @@ app.get('/workspaces/:workspaceId/join-reviews', async (req, res) => {
 })
 
 /**
- * Promote or reject a Stitch Relation.
- * Body: { action: 'promote' | 'reject' }
- * - promote → status=accepted, relation_type=explicit
- * - reject  → status=rejected (hidden from schema GET)
+ * Promote, reject, or edit join columns on a Stitch Relation.
+ * Body: { action: 'promote' | 'reject' | 'edit', fromColumnId?, toColumnId? }
  */
 app.patch(
   '/workspaces/:workspaceId/relationships/:relationshipId',
@@ -679,11 +949,39 @@ app.patch(
   async (req, res) => {
     const { workspaceId, relationshipId } = req.params
     const action = req.body?.action
-    if (action !== 'promote' && action !== 'reject') {
-      res.status(400).json({ error: "body.action must be 'promote' or 'reject'" })
+    if (action !== 'promote' && action !== 'reject' && action !== 'edit') {
+      res.status(400).json({
+        error: "body.action must be 'promote', 'reject', or 'edit'",
+      })
       return
     }
     try {
+      if (action === 'edit') {
+        const relationship = await editRelationshipColumns(
+          workspaceId,
+          relationshipId,
+          {
+            fromColumnId: req.body?.fromColumnId,
+            toColumnId: req.body?.toColumnId,
+            userId: req.user?.id ?? null,
+          },
+        )
+        res.json({ ok: true, relationship })
+        return
+      }
+      if (action === 'promote') {
+        const settings = (await getWorkspaceSettings(workspaceId))?.settings
+        const minRole = settings?.joinPromoteMinRole || 'member'
+        if (
+          !authDisabled() &&
+          !roleMeetsMin(req.workspaceRole, minRole, ROLE_RANK)
+        ) {
+          res.status(403).json({
+            error: `forbidden — promote requires ${minRole}+ (Settings → AI & Policy)`,
+          })
+          return
+        }
+      }
       const { rows: beforeRows } = await query(
         `SELECT id, status, relation_type, confidence, evidence_json
          FROM relationships WHERE id = $1 AND workspace_id = $2`,
@@ -697,12 +995,25 @@ app.patch(
       const nextStatus = action === 'promote' ? 'accepted' : 'rejected'
       const nextType = action === 'promote' ? 'explicit' : undefined
       const nextConfidence = action === 'promote' ? 1 : before.confidence
+      const prevEvidence =
+        before.evidence_json && typeof before.evidence_json === 'object'
+          ? before.evidence_json
+          : {}
+      const nextEvidence =
+        action === 'promote'
+          ? {
+              ...prevEvidence,
+              prePromoteConfidence: Number(before.confidence),
+              promotedAt: new Date().toISOString(),
+            }
+          : prevEvidence
 
       const { rows } = await query(
         `UPDATE relationships SET
            status = $3,
            relation_type = COALESCE($4, relation_type),
            confidence = $5,
+           evidence_json = $6::jsonb,
            updated_at = now()
          WHERE id = $1 AND workspace_id = $2
          RETURNING id, status, relation_type, confidence, join_criteria, label, ai_notes,
@@ -713,6 +1024,7 @@ app.patch(
           nextStatus,
           nextType ?? null,
           nextConfidence,
+          JSON.stringify(nextEvidence || {}),
         ],
       )
 
@@ -757,6 +1069,53 @@ app.patch(
       void reindexWorkspace(workspaceId).catch((err) =>
         console.warn('[Que] reindex after promote/reject:', err.message || err),
       )
+      if (action === 'promote') {
+        void notifyJoinPromoted(workspaceId, {
+          summary: `Join ${relationshipId} promoted`,
+          relationshipId,
+        })
+        // join memory (best-effort)
+        try {
+          const { rememberPromotedJoin } = await import('./agentSessions.js')
+          const { rows: names } = await query(
+            `SELECT fo.name AS from_table, fc.name AS from_column,
+                    tto.name AS to_table, tc.name AS to_column
+             FROM relationships r
+             JOIN schema_objects fo ON fo.id = r.from_object_id
+             JOIN schema_columns fc ON fc.id = r.from_column_id
+             JOIN schema_objects tto ON tto.id = r.to_object_id
+             JOIN schema_columns tc ON tc.id = r.to_column_id
+             WHERE r.id = $1`,
+            [relationshipId],
+          )
+          if (names[0]) {
+            await rememberPromotedJoin(workspaceId, req.user?.id, {
+              fromTable: names[0].from_table,
+              fromColumn: names[0].from_column,
+              toTable: names[0].to_table,
+              toColumn: names[0].to_column,
+              relationshipId,
+            })
+            await learnRuleFromPromote(workspaceId, {
+              fromTable: names[0].from_table,
+              fromColumn: names[0].from_column,
+              toTable: names[0].to_table,
+              toColumn: names[0].to_column,
+              userId: req.user?.id ?? null,
+            }).catch(() => null)
+            await createJoinProposalDiff(workspaceId, {
+              relationshipId,
+              title: `${names[0].from_table}.${names[0].from_column} → ${names[0].to_table}.${names[0].to_column}`,
+              summary: 'Promoted join (accepted)',
+              before: { status: before.status },
+              after: { status: 'accepted', confidence: 1 },
+              userId: req.user?.id ?? null,
+            }).catch(() => null)
+          }
+        } catch {
+          /* optional */
+        }
+      }
       const r = rows[0]
       res.json({
         ok: true,
@@ -801,6 +1160,17 @@ app.post(
         ? req.body.connectionId
         : null
     try {
+      const settings = (await getWorkspaceSettings(workspaceId))?.settings
+      const minPropose = settings?.joinProposeMinRole || 'member'
+      if (
+        !authDisabled() &&
+        !roleMeetsMin(req.workspaceRole, minPropose, ROLE_RANK)
+      ) {
+        res.status(403).json({
+          error: `forbidden — propose/infer requires ${minPropose}+`,
+        })
+        return
+      }
       if (connectionId) {
         const conn = await getConnection(workspaceId, connectionId)
         if (!conn) {
@@ -812,6 +1182,11 @@ app.post(
       void reindexWorkspace(workspaceId).catch((err) =>
         console.warn('[Que] reindex after join-inference:', err.message || err),
       )
+      if ((result.created || 0) > 0) {
+        void notifyJoinReviewPending(workspaceId, {
+          created: result.created,
+        })
+      }
       res.json({ ok: true, ...result })
     } catch (err) {
       res.status(500).json({ error: String(err.message || err) })
@@ -885,7 +1260,7 @@ app.post(
   async (req, res) => {
     const { workspaceId, connectionId } = req.params
     try {
-      const result = await syncConnection(workspaceId, connectionId)
+      const result = await syncWithRetries(workspaceId, connectionId)
       void reindexWorkspace(workspaceId).catch((err) =>
         console.warn('[Que] reindex after sync:', err.message || err),
       )
@@ -1888,6 +2263,1186 @@ app.get('/workspaces/:workspaceId/audit-events', async (req, res) => {
   }
 })
 
+/** Phase 0 — audit CSV export */
+app.get('/workspaces/:workspaceId/audit-events/export', async (req, res) => {
+  try {
+    const events = await listAuditEvents(req.params.workspaceId, {
+      limit: 500,
+      action: req.query.action,
+    })
+    const header = 'id,created_at,action,actor_email,resource_type,resource_id,summary'
+    const rows = events.map((e) =>
+      [
+        e.id,
+        e.createdAt,
+        e.action,
+        e.actor?.email || '',
+        e.resourceType || '',
+        e.resourceId || '',
+        JSON.stringify(e.summary || ''),
+      ].join(','),
+    )
+    const csv = [header, ...rows].join('\n')
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="que-audit-${req.params.workspaceId.slice(0, 8)}.csv"`,
+    )
+    res.send(csv)
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Phase 0.2 — golden-set join eval */
+app.post(
+  '/workspaces/:workspaceId/joins/golden-eval',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const report = await evaluateGoldenSet(
+        req.params.workspaceId,
+        req.body?.pairs || [],
+      )
+      const markdown = formatGoldenSetMarkdown(report)
+      res.json({ ok: true, report, markdown })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 1 — Stitch Agent */
+app.get('/workspaces/:workspaceId/agent/sessions', async (req, res) => {
+  try {
+    const sessions = await listAgentSessions(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, sessions })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/agent/sessions',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const session = await createAgentSession(
+        req.params.workspaceId,
+        req.user?.id,
+        req.body || {},
+      )
+      res.status(201).json({ ok: true, session })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/agent/sessions/:sessionId', async (req, res) => {
+  try {
+    const session = await getAgentSession(
+      req.params.workspaceId,
+      req.params.sessionId,
+    )
+    if (!session) return res.status(404).json({ error: 'Not found' })
+    res.json({ ok: true, session })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/agent/sessions/:sessionId/checkpoint',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const action = String(req.body?.action || '').toLowerCase()
+      let session
+      if (action === 'continue_after_promote') {
+        session = await continueAgentAfterPromote(
+          req.params.workspaceId,
+          req.params.sessionId,
+          req.user?.id,
+          req.body || {},
+        )
+      } else {
+        session = await advanceAgentCheckpoint(
+          req.params.workspaceId,
+          req.params.sessionId,
+          req.user?.id,
+          req.body || {},
+        )
+      }
+      res.json({ ok: true, session })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/join-memory', async (req, res) => {
+  try {
+    const items = await listJoinMemory(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Phase 3 — Validation suite */
+app.get(
+  '/workspaces/:workspaceId/jobs/:jobId/validation-suite',
+  async (req, res) => {
+    try {
+      const suite = await getValidationSuite(
+        req.params.workspaceId,
+        req.params.jobId,
+      )
+      res.json({ ok: true, ...suite })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/validation-suite/generate',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const suite = await generateValidationSuite(
+        req.params.workspaceId,
+        req.params.jobId,
+      )
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'validation_suite.generate',
+        resourceType: 'job',
+        resourceId: req.params.jobId,
+        summary: `Generated ${suite.checks?.length || 0} validation checks`,
+      })
+      res.json({ ok: true, ...suite })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/validation-suite/run',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await runValidationSuite(
+        req.params.workspaceId,
+        req.params.jobId,
+        { trigger: 'manual' },
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 3 — Drift agent */
+app.get('/workspaces/:workspaceId/drift-fixes', async (req, res) => {
+  try {
+    const suggestions = await listDriftFixSuggestions(req.params.workspaceId, {
+      status: req.query.status || 'proposed',
+    })
+    res.json({ ok: true, suggestions })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/drift-fixes/propose',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await proposeDriftFixes(
+        req.params.workspaceId,
+        req.user?.id,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/drift-fixes/:suggestionId/resolve',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await resolveDriftFix(
+        req.params.workspaceId,
+        req.params.suggestionId,
+        req.user?.id,
+        { action: req.body?.action || 'accept' },
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/joins/auto-promote-low-risk',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const out = await maybeAutoPromoteLowRisk(
+        req.params.workspaceId,
+        req.user?.id,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 4 — Catalog / glossary / stewardship / lineage / policy / tickets */
+app.get('/workspaces/:workspaceId/glossary', async (req, res) => {
+  try {
+    const terms = await listGlossaryTerms(req.params.workspaceId, {
+      status: req.query.status,
+    })
+    res.json({ ok: true, terms })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/glossary',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const term = await createGlossaryTerm(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id,
+      )
+      res.status(201).json({ ok: true, term })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/glossary/:termId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const term = await updateGlossaryTerm(
+        req.params.workspaceId,
+        req.params.termId,
+        req.body || {},
+      )
+      res.json({ ok: true, term })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/glossary/:termId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await deleteGlossaryTerm(req.params.workspaceId, req.params.termId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/glossary/:termId/links',
+  async (req, res) => {
+    try {
+      const links = await listTermLinks(
+        req.params.workspaceId,
+        req.params.termId,
+      )
+      res.json({ ok: true, links })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/glossary/:termId/links',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const link = await linkTermToColumn(
+        req.params.workspaceId,
+        req.params.termId,
+        req.body || {},
+      )
+      res.status(201).json({ ok: true, link })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/catalog/assets', async (req, res) => {
+  try {
+    const assets = await listCatalogAssets(req.params.workspaceId, {
+      kind: req.query.kind,
+    })
+    res.json({ ok: true, assets })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/catalog/assets',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const asset = await createCatalogAsset(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id,
+      )
+      res.status(201).json({ ok: true, asset })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/catalog/assets/:assetId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const asset = await updateCatalogAsset(
+        req.params.workspaceId,
+        req.params.assetId,
+        req.body || {},
+      )
+      res.json({ ok: true, asset })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/catalog/assets/:assetId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await deleteCatalogAsset(req.params.workspaceId, req.params.assetId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/catalog/assets/:assetId/deps',
+  async (req, res) => {
+    try {
+      const deps = await listAssetDeps(
+        req.params.workspaceId,
+        req.params.assetId,
+      )
+      res.json({ ok: true, deps })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/stewardship/certs', async (req, res) => {
+  try {
+    const certifications = await listCertifications(req.params.workspaceId, {
+      status: req.query.status,
+    })
+    res.json({ ok: true, certifications })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/stewardship/queue', async (req, res) => {
+  try {
+    const queue = await getStewardQueue(req.params.workspaceId)
+    res.json({ ok: true, ...queue })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/stewardship/certify',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const certification = await certifyTarget(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id,
+      )
+      res.status(201).json({ ok: true, certification })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/stewardship/certs/:certId/expire',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const certification = await expireCertification(
+        req.params.workspaceId,
+        req.params.certId,
+        req.user?.id,
+      )
+      res.json({ ok: true, certification })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/column-lineage', async (req, res) => {
+  try {
+    const lineage = await getColumnLineage(req.params.workspaceId, {
+      table: req.query.table,
+      column: req.query.column,
+      maxHops: req.query.maxHops,
+      direction: req.query.direction,
+    })
+    res.json(lineage)
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/policy-packs', async (req, res) => {
+  try {
+    let packs = await listPolicyPacks(req.params.workspaceId)
+    if (req.query.ensureDefaults === '1' && !packs.length) {
+      packs = await ensureDefaultPolicyPacks(req.params.workspaceId)
+    }
+    res.json({ ok: true, packs })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/policy-packs',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const pack = await createPolicyPack(
+        req.params.workspaceId,
+        req.body || {},
+      )
+      res.status(201).json({ ok: true, pack })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/policy-packs/:packId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const pack = await updatePolicyPack(
+        req.params.workspaceId,
+        req.params.packId,
+        req.body || {},
+      )
+      res.json({ ok: true, pack })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/policy-packs/:packId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await deletePolicyPack(req.params.workspaceId, req.params.packId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/policy-packs/apply-pii',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const out = await applyPiiPolicyPack(
+        req.params.workspaceId,
+        req.body?.packId || null,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/governance/tickets', async (req, res) => {
+  try {
+    const tickets = await listGovernanceTickets(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, tickets })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/governance/tickets',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const ticket = await createGovernanceTicket(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id,
+      )
+      res.status(201).json({ ok: true, ticket })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 5 — Enterprise control plane */
+app.get('/workspaces/:workspaceId/enterprise/api-keys', async (req, res) => {
+  try {
+    const keys = await listApiKeys(req.params.workspaceId)
+    res.json({ ok: true, keys })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/api-keys',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const key = await createApiKey(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id,
+      )
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'api_key.create',
+        resourceType: 'api_key',
+        resourceId: key.id,
+        summary: `Created API key ${key.name}`,
+      })
+      res.status(201).json({ ok: true, key })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/enterprise/api-keys/:keyId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await revokeApiKey(req.params.workspaceId, req.params.keyId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/enterprise/scim-tokens', async (req, res) => {
+  try {
+    const tokens = await listScimTokens(req.params.workspaceId)
+    res.json({ ok: true, tokens })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/scim-tokens',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const token = await createScimToken(
+        req.params.workspaceId,
+        req.user?.id,
+        req.body?.name,
+      )
+      res.status(201).json({ ok: true, token })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/enterprise/scim-tokens/:tokenId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await revokeScimToken(req.params.workspaceId, req.params.tokenId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** SCIM 2.0 Users — Bearer scim_… token */
+app.get('/workspaces/:workspaceId/scim/v2/Users', async (req, res) => {
+  try {
+    if (!req.scim && !authDisabled()) {
+      return res.status(401).json({
+        schemas: ['urn:ietf:params:scim:api:messages:2.0:Error'],
+        detail: 'SCIM bearer required',
+        status: '401',
+      })
+    }
+    const out = await scimListUsers(req.params.workspaceId, {
+      filter: req.query.filter,
+      startIndex: req.query.startIndex,
+      count: req.query.count,
+    })
+    res.json(out)
+  } catch (err) {
+    res.status(err.status || 500).json({
+      schemas: ['urn:ietf:params:scim:api:messages:2.0:Error'],
+      detail: String(err.message || err),
+      status: String(err.status || 500),
+    })
+  }
+})
+
+app.get('/workspaces/:workspaceId/scim/v2/Users/:userId', async (req, res) => {
+  try {
+    if (!req.scim && !authDisabled()) {
+      return res.status(401).json({ detail: 'SCIM bearer required', status: '401' })
+    }
+    res.json(await scimGetUser(req.params.workspaceId, req.params.userId))
+  } catch (err) {
+    res.status(err.status || 500).json({ detail: String(err.message || err) })
+  }
+})
+
+app.post('/workspaces/:workspaceId/scim/v2/Users', async (req, res) => {
+  try {
+    if (!req.scim && !authDisabled()) {
+      return res.status(401).json({ detail: 'SCIM bearer required', status: '401' })
+    }
+    const user = await scimCreateUser(req.params.workspaceId, req.body || {})
+    res.status(201).json(user)
+  } catch (err) {
+    res.status(err.status || 500).json({ detail: String(err.message || err) })
+  }
+})
+
+app.patch('/workspaces/:workspaceId/scim/v2/Users/:userId', async (req, res) => {
+  try {
+    if (!req.scim && !authDisabled()) {
+      return res.status(401).json({ detail: 'SCIM bearer required', status: '401' })
+    }
+    res.json(
+      await scimPatchUser(
+        req.params.workspaceId,
+        req.params.userId,
+        req.body || {},
+      ),
+    )
+  } catch (err) {
+    res.status(err.status || 500).json({ detail: String(err.message || err) })
+  }
+})
+
+app.put('/workspaces/:workspaceId/scim/v2/Users/:userId', async (req, res) => {
+  try {
+    if (!req.scim && !authDisabled()) {
+      return res.status(401).json({ detail: 'SCIM bearer required', status: '401' })
+    }
+    res.json(
+      await scimPatchUser(
+        req.params.workspaceId,
+        req.params.userId,
+        req.body || {},
+      ),
+    )
+  } catch (err) {
+    res.status(err.status || 500).json({ detail: String(err.message || err) })
+  }
+})
+
+app.delete('/workspaces/:workspaceId/scim/v2/Users/:userId', async (req, res) => {
+  try {
+    if (!req.scim && !authDisabled()) {
+      return res.status(401).json({ detail: 'SCIM bearer required', status: '401' })
+    }
+    await scimDeleteUser(req.params.workspaceId, req.params.userId)
+    res.status(204).end()
+  } catch (err) {
+    res.status(err.status || 500).json({ detail: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/scim/v2/ServiceProviderConfig', (_req, res) => {
+  res.json({
+    schemas: ['urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig'],
+    patch: { supported: true },
+    bulk: { supported: false },
+    filter: { supported: true, maxResults: 200 },
+    changePassword: { supported: false },
+    sort: { supported: false },
+    etag: { supported: false },
+    authenticationSchemes: [
+      {
+        type: 'oauthbearertoken',
+        name: 'OAuth Bearer Token',
+        description: 'Que SCIM token (scim_…)',
+        primary: true,
+      },
+    ],
+  })
+})
+
+app.get('/workspaces/:workspaceId/enterprise/cmk', async (req, res) => {
+  try {
+    res.json({ ok: true, cmk: await getCmkStatus(req.params.workspaceId) })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/cmk/enable',
+  requireMinRole('owner'),
+  async (req, res) => {
+    try {
+      const cmk = await enableCmk(req.params.workspaceId, req.body || {})
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'cmk.enable',
+        resourceType: 'cmk',
+        summary: `Enabled CMK ${cmk.keyId}`,
+      })
+      res.json({ ok: true, cmk })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/cmk/disable',
+  requireMinRole('owner'),
+  async (req, res) => {
+    try {
+      const cmk = await disableCmk(req.params.workspaceId)
+      res.json({ ok: true, cmk })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/cmk/rotate',
+  requireMinRole('owner'),
+  async (req, res) => {
+    try {
+      const cmk = await rotateCmk(req.params.workspaceId)
+      res.json({ ok: true, cmk })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/enterprise/abac', async (req, res) => {
+  try {
+    res.json({ ok: true, policies: await listAbacPolicies(req.params.workspaceId) })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/abac',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const policy = await createAbacPolicy(
+        req.params.workspaceId,
+        req.body || {},
+      )
+      res.status(201).json({ ok: true, policy })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/enterprise/abac/:policyId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await deleteAbacPolicy(req.params.workspaceId, req.params.policyId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/enterprise/break-glass', async (req, res) => {
+  try {
+    res.json({ ok: true, events: await listBreakGlass(req.params.workspaceId) })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/break-glass',
+  requireMinRole('owner'),
+  async (req, res) => {
+    try {
+      const event = await openBreakGlass(
+        req.params.workspaceId,
+        req.user?.id,
+        req.body?.reason,
+        req.body?.hours,
+      )
+      res.status(201).json({ ok: true, event })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/break-glass/:eventId/close',
+  requireMinRole('owner'),
+  async (req, res) => {
+    try {
+      await closeBreakGlass(
+        req.params.workspaceId,
+        req.params.eventId,
+        req.user?.id,
+      )
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/enterprise/siem', async (req, res) => {
+  try {
+    res.json({ ok: true, siem: await getSiemConfig(req.params.workspaceId) })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/enterprise/siem',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const siem = await updateSiemConfig(req.params.workspaceId, req.body || {})
+      res.json({ ok: true, siem })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/enterprise/siem/export', async (req, res) => {
+  try {
+    const out = await exportSiemEvents(req.params.workspaceId, {
+      since: req.query.since,
+      limit: req.query.limit,
+    })
+    if (req.query.format === 'jsonl') {
+      res.type('application/x-ndjson').send(out.jsonl)
+      return
+    }
+    res.json({ ok: true, ...out })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/siem/push',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const out = await pushSiemWebhook(req.params.workspaceId)
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/enterprise/soc2-evidence',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const out = await buildSoc2EvidencePack(req.params.workspaceId)
+      if (req.query.format === 'md') {
+        res.type('text/markdown').send(out.markdown)
+        return
+      }
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/isolation-test',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const result = await runTenantIsolationTests(req.params.workspaceId)
+      res.json({ ok: true, result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/enterprise/isolation-runs',
+  async (req, res) => {
+    try {
+      res.json({
+        ok: true,
+        runs: await listIsolationRuns(req.params.workspaceId),
+      })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 2 — Domains / data products */
+app.get('/workspaces/:workspaceId/domains', async (req, res) => {
+  try {
+    const domains = await listDomains(req.params.workspaceId)
+    res.json({ ok: true, domains })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/domains',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const domain = await createDomain(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id,
+      )
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'domain.create',
+        resourceType: 'domain',
+        resourceId: domain.id,
+        summary: `Created domain ${domain.name}`,
+      })
+      res.status(201).json({ ok: true, domain })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/domains/:domainId', async (req, res) => {
+  try {
+    const domain = await getDomain(req.params.workspaceId, req.params.domainId)
+    if (!domain) return res.status(404).json({ error: 'not found' })
+    res.json({ ok: true, domain })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/domains/:domainId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const domain = await updateDomain(
+        req.params.workspaceId,
+        req.params.domainId,
+        req.body || {},
+      )
+      res.json({ ok: true, domain })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/domains/:domainId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const ok = await deleteDomain(
+        req.params.workspaceId,
+        req.params.domainId,
+      )
+      if (!ok) return res.status(404).json({ error: 'not found' })
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 2 — Job templates */
+app.get('/workspaces/:workspaceId/job-templates', async (req, res) => {
+  try {
+    const templates = await listJobTemplates(req.params.workspaceId)
+    res.json({ ok: true, templates })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/job-templates',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const template = await createJobTemplate(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id,
+      )
+      res.status(201).json({ ok: true, template })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/job-templates/:templateId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const ok = await deleteJobTemplate(
+        req.params.workspaceId,
+        req.params.templateId,
+      )
+      if (!ok) return res.status(404).json({ error: 'not found or system template' })
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/job-templates/:templateId/apply',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const job = await applyJobTemplate(
+        req.params.workspaceId,
+        req.params.templateId,
+        req.body || {},
+      )
+      res.status(201).json({ ok: true, job })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 2 — Drift digest + join-review test notify */
+app.post(
+  '/workspaces/:workspaceId/notify/drift-digest',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const out = await sendDriftDigest(req.params.workspaceId, { force: true })
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/notify/join-review-test',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const out = await notifyJoinReviewPending(req.params.workspaceId, {
+        created: Number(req.body?.created || 1),
+      })
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 /** Wave 1.5 — usage counters (billing precursor; soft limits). */
 app.get('/workspaces/:workspaceId/usage', async (req, res) => {
   try {
@@ -2213,6 +3768,1064 @@ app.delete(
   },
 )
 
+/* ── Production: pinned samples ── */
+app.get('/workspaces/:workspaceId/pinned-samples', async (req, res) => {
+  try {
+    const items = await listPinnedSamples(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get(
+  '/workspaces/:workspaceId/pinned-samples/:schemaObjectId',
+  async (req, res) => {
+    try {
+      const item = await getPinnedSample(
+        req.params.workspaceId,
+        req.params.schemaObjectId,
+      )
+      if (!item) {
+        res.status(404).json({ error: 'pinned sample not found' })
+        return
+      }
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/pinned-samples/:schemaObjectId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await pinTableSamples(
+        req.params.workspaceId,
+        req.params.schemaObjectId,
+        {
+          userId: req.user?.id ?? null,
+          force: req.body?.force === true || req.body?.rePin === true,
+        },
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/pinned-samples/ensure',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const connectionId = req.body?.connectionId
+      if (!connectionId) {
+        res.status(400).json({ error: 'connectionId required' })
+        return
+      }
+      const result = await ensurePinnedSamplesForConnection(
+        req.params.workspaceId,
+        connectionId,
+        { userId: req.user?.id ?? null },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/tables/:schemaObjectId/columns',
+  async (req, res) => {
+    try {
+      const columns = await listTableColumns(
+        req.params.workspaceId,
+        req.params.schemaObjectId,
+      )
+      res.json({ ok: true, columns })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Production: Offer B managed data plane ── */
+app.get('/workspaces/:workspaceId/managed-datasets', async (req, res) => {
+  try {
+    const enabled = await isManagedPlaneEnabled(req.params.workspaceId)
+    const quotas = await getManagedPlaneQuotas(req.params.workspaceId)
+    const items = enabled
+      ? await listManagedDatasets(req.params.workspaceId)
+      : []
+    res.json({ ok: true, enabled, quotas, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/managed-datasets/purge-expired',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const result = await purgeExpiredManagedDatasets(req.params.workspaceId)
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/runs/:runId/land-managed',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const run = await getJobRun(
+        req.params.workspaceId,
+        req.params.jobId,
+        req.params.runId,
+      )
+      if (!run) {
+        res.status(404).json({ error: 'run not found' })
+        return
+      }
+      const job = await getJob(req.params.workspaceId, req.params.jobId)
+      const land = await landManagedDatasetFromJobRun(req.params.workspaceId, {
+        jobId: req.params.jobId,
+        runId: req.params.runId,
+        jobTitle: job?.title,
+        liveResults: run.output?.liveResults || [],
+        samplePreviews: run.output?.samplePreviews || [],
+        userId: req.user?.id ?? null,
+      })
+      res.json({ ok: true, ...land })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/managed-datasets/:datasetId',
+  async (req, res) => {
+    try {
+      const item = await getManagedDataset(
+        req.params.workspaceId,
+        req.params.datasetId,
+      )
+      if (!item) {
+        res.status(404).json({ error: 'dataset not found' })
+        return
+      }
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/managed-datasets/:datasetId/rows',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await readManagedDatasetRows(
+        req.params.workspaceId,
+        req.params.datasetId,
+        { limit: req.query.limit, offset: req.query.offset },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/managed-datasets',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await upsertManagedDatasetFromJob(req.params.workspaceId, {
+        ...req.body,
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/managed-datasets/:datasetId/certify',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await certifyManagedDataset(
+        req.params.workspaceId,
+        req.params.datasetId,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/managed-datasets/:datasetId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await deleteManagedDataset(
+        req.params.workspaceId,
+        req.params.datasetId,
+      )
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Production: external job status bridge ── */
+app.post(
+  '/workspaces/:workspaceId/jobs/external-status',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const run = await reportExternalJobStatus(
+        req.params.workspaceId,
+        req.body || {},
+        { actorLabel: req.user?.email || 'api' },
+      )
+      res.json({ ok: true, run })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/external-status',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const run = await reportExternalJobStatus(
+        req.params.workspaceId,
+        { ...(req.body || {}), jobId: req.params.jobId },
+        { actorLabel: req.user?.email || 'api' },
+      )
+      res.json({ ok: true, run })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Production: certified BI ── */
+app.get('/workspaces/:workspaceId/bi/charts', async (req, res) => {
+  try {
+    const items = await listBiCharts(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/bi/charts',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await createBiChart(req.params.workspaceId, {
+        ...req.body,
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/bi/charts/:chartId', async (req, res) => {
+  try {
+    const item = await getBiChart(req.params.workspaceId, req.params.chartId)
+    if (!item) {
+      res.status(404).json({ error: 'chart not found' })
+      return
+    }
+    res.json({ ok: true, item })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/bi/charts/:chartId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await updateBiChart(
+        req.params.workspaceId,
+        req.params.chartId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/bi/charts/:chartId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await deleteBiChart(req.params.workspaceId, req.params.chartId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/bi/charts/:chartId/preview',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await previewBiChart(
+        req.params.workspaceId,
+        req.params.chartId,
+        { limit: req.query.limit },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/bi/charts/:chartId/embed-token',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const result = await mintBiEmbedToken(
+        req.params.workspaceId,
+        req.params.chartId,
+        {
+          label: req.body?.label,
+          expiresInDays: req.body?.expiresInDays,
+          userId: req.user?.id ?? null,
+        },
+      )
+      res.status(201).json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/bi/embed-tokens/:tokenId/revoke',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await revokeBiEmbedToken(req.params.workspaceId, req.params.tokenId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/bi/embed/:token', async (req, res) => {
+  try {
+    const result = await resolveBiEmbed(req.params.token)
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/* ── P1: Offer A warehouse digests ── */
+app.get('/workspaces/:workspaceId/warehouse-digests', async (req, res) => {
+  try {
+    const items = await listWarehouseDigests(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/warehouse-digests/build',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const digest = await buildWarehouseRunDigest(req.params.workspaceId, {
+        jobId: req.body?.jobId || null,
+        limit: req.body?.limit,
+      })
+      res.status(201).json({ ok: true, digest })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/warehouse-digests/ingest',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const digest = await ingestExternalWarehouseDigest(
+        req.params.workspaceId,
+        req.body || {},
+        { userId: req.user?.id ?? null },
+      )
+      res.status(201).json({ ok: true, digest })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── P1: connector reliability ── */
+app.get(
+  '/workspaces/:workspaceId/connector-reliability',
+  async (req, res) => {
+    try {
+      const status = await getConnectorReliabilityStatus(req.params.workspaceId)
+      res.json({ ok: true, ...status })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/connections/:connectionId/retry-policy',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const item = await updateConnectionRetryPolicy(
+        req.params.workspaceId,
+        req.params.connectionId,
+        req.body || {},
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── P1: SaaS backups + DR drills ── */
+app.get('/workspaces/:workspaceId/saas-ops', async (req, res) => {
+  try {
+    const summary = await getSaasOpsSummary(req.params.workspaceId)
+    res.json({ ok: true, ...summary })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/backups', async (req, res) => {
+  try {
+    const items = await listBackups(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/backups',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const item = await createMetadataBackup(req.params.workspaceId, {
+        label: req.body?.label,
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/backups/:backupId', async (req, res) => {
+  try {
+    const item = await getBackup(req.params.workspaceId, req.params.backupId)
+    if (!item) {
+      res.status(404).json({ error: 'backup not found' })
+      return
+    }
+    res.json({ ok: true, item })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/dr-drills', async (req, res) => {
+  try {
+    const items = await listDrDrills(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/dr-drills/run',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const result = await runDrDrill(req.params.workspaceId, {
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── P1: scheduled golden eval ── */
+app.get('/workspaces/:workspaceId/golden-eval/schedule', async (req, res) => {
+  try {
+    const schedule = await getGoldenEvalSchedule(req.params.workspaceId)
+    res.json({ ok: true, schedule })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.put(
+  '/workspaces/:workspaceId/golden-eval/schedule',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const schedule = await upsertGoldenEvalSchedule(
+        req.params.workspaceId,
+        req.body || {},
+      )
+      res.json({ ok: true, schedule })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/golden-eval/run',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await runGoldenEvalNow(req.params.workspaceId, {
+        alertOnDrop: req.body?.alertOnDrop !== false,
+      })
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Public product status (alias of health snapshot) */
+app.get('/status', async (_req, res) => {
+  try {
+    const snap = await collectOpsSnapshot()
+    res.status(snap.ok ? 200 : 503).json({
+      ok: snap.ok,
+      product: 'Que',
+      message: snap.ok
+        ? 'All systems operational'
+        : 'Degraded — database unreachable',
+      ...snap,
+    })
+  } catch (err) {
+    res.status(503).json({ ok: false, error: String(err.message || err) })
+  }
+})
+
+/* ── Gap close: workspace rules ── */
+app.get('/workspaces/:workspaceId/rules', async (req, res) => {
+  try {
+    const items = await listWorkspaceRules(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/rules',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await createWorkspaceRule(req.params.workspaceId, {
+        ...req.body,
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/rules/:ruleId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await updateWorkspaceRule(
+        req.params.workspaceId,
+        req.params.ruleId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/rules/:ruleId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      await deleteWorkspaceRule(req.params.workspaceId, req.params.ruleId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Gap close: join comments ── */
+app.get(
+  '/workspaces/:workspaceId/relationships/:relationshipId/comments',
+  async (req, res) => {
+    try {
+      const items = await listJoinComments(
+        req.params.workspaceId,
+        req.params.relationshipId,
+      )
+      res.json({ ok: true, items })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/relationships/:relationshipId/comments',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await addJoinComment(
+        req.params.workspaceId,
+        req.params.relationshipId,
+        req.body?.body,
+        req.user?.id ?? null,
+        { parentId: req.body?.parentId || null },
+      )
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Gap close: transform drafts ── */
+app.get('/workspaces/:workspaceId/transforms', async (req, res) => {
+  try {
+    const items = await listTransformDrafts(req.params.workspaceId, {
+      status: req.query.status,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/transforms',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await createTransformDraft(req.params.workspaceId, {
+        prompt: req.body?.prompt,
+        title: req.body?.title,
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/transforms/:draftId', async (req, res) => {
+  try {
+    const item = await getTransformDraft(
+      req.params.workspaceId,
+      req.params.draftId,
+    )
+    if (!item) {
+      res.status(404).json({ error: 'draft not found' })
+      return
+    }
+    res.json({ ok: true, item })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/transforms/:draftId/review',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await reviewTransformDraft(
+        req.params.workspaceId,
+        req.params.draftId,
+        req.body?.action,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Gap close: proposal diffs ── */
+app.get('/workspaces/:workspaceId/proposals', async (req, res) => {
+  try {
+    const items = await listProposalDiffs(req.params.workspaceId, {
+      status: req.query.status || 'open',
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/proposals/:diffId/review',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await reviewProposalDiff(
+        req.params.workspaceId,
+        req.params.diffId,
+        req.body?.action,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Gap close: metrics ── */
+app.get('/workspaces/:workspaceId/metrics-defs', async (req, res) => {
+  try {
+    const items = await listMetrics(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/metrics-defs',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await createMetric(req.params.workspaceId, {
+        ...req.body,
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/metrics-defs/:metricId',
+  async (req, res) => {
+    try {
+      const item = await getMetric(
+        req.params.workspaceId,
+        req.params.metricId,
+      )
+      if (!item) {
+        res.status(404).json({ error: 'metric not found' })
+        return
+      }
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/metrics-defs/:metricId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await updateMetric(
+        req.params.workspaceId,
+        req.params.metricId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/metrics-defs/:metricId/preview',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await previewMetric(
+        req.params.workspaceId,
+        req.params.metricId,
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/metrics-defs/:metricId/publish-bi',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await publishMetricToBi(
+        req.params.workspaceId,
+        req.params.metricId,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Gap close: eval dashboard + contract tests ── */
+app.get('/workspaces/:workspaceId/eval-dashboard', async (req, res) => {
+  try {
+    const dashboard = await getEvalDashboard(req.params.workspaceId)
+    res.json({ ok: true, dashboard })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/eval-dashboard/golden',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await runGoldenEvalForDashboard(
+        req.params.workspaceId,
+        req.body?.pairs || [],
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/contract-tests', async (req, res) => {
+  try {
+    const items = await listContractTestRuns(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/jobs/:jobId/contract-tests/run',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await runAndStoreContractTests(
+        req.params.workspaceId,
+        req.params.jobId,
+        { userId: req.user?.id ?? null },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Gap close: industry templates + marketplace ── */
+app.get('/industry-templates', (req, res) => {
+  res.json({
+    ok: true,
+    items: listIndustryTemplatePacks({
+      industry: req.query.industry,
+      tag: req.query.tag,
+      q: req.query.q,
+    }),
+  })
+})
+
+app.get('/marketplace/packs', (req, res) => {
+  res.json({
+    ok: true,
+    ...listMarketplaceCatalog({
+      industry: req.query.industry,
+      tag: req.query.tag,
+      q: req.query.q,
+    }),
+  })
+})
+
+app.get('/workspaces/:workspaceId/marketplace/installs', async (req, res) => {
+  try {
+    const items = await listPackInstalls(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/industry-templates/:packId/apply',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await applyIndustryTemplatePack(
+        req.params.workspaceId,
+        req.params.packId,
+        { userId: req.user?.id ?? null },
+      )
+      res.status(201).json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── P2: presence ── */
+app.get('/workspaces/:workspaceId/presence', async (req, res) => {
+  try {
+    const items = await listPresence(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/presence/heartbeat',
+  requireMinRole('viewer'),
+  async (req, res) => {
+    try {
+      const items = await heartbeatPresence(req.params.workspaceId, {
+        userId: req.user?.id,
+        displayName: req.user?.displayName || req.user?.name || '',
+        email: req.user?.email || '',
+        pagePath: req.body?.pagePath || '',
+        status: req.body?.status || 'active',
+      })
+      res.json({ ok: true, items })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── P2: metric lineage ── */
+app.get('/workspaces/:workspaceId/metrics-lineage', async (req, res) => {
+  try {
+    const graph = await getMetricLineage(req.params.workspaceId, null)
+    res.json({ ok: true, ...graph })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get(
+  '/workspaces/:workspaceId/metrics-defs/:metricId/lineage',
+  async (req, res) => {
+    try {
+      const graph = await getMetricLineage(
+        req.params.workspaceId,
+        req.params.metricId,
+      )
+      res.json({ ok: true, ...graph })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.get('/workspaces/:workspaceId/bi-lineage', async (req, res) => {
   try {
     const items = await listLatestBiLineage(req.params.workspaceId)
@@ -2256,6 +4869,9 @@ app.get('/', (_req, res) => {
     authDisabled: authDisabled(),
     endpoints: [
       'GET /health',
+      'GET /metrics',
+      'GET /metrics?format=prom',
+      'GET /bi/embed/:token',
       'POST /auth/register',
       'POST /auth/login',
       'POST /auth/logout',
@@ -2270,6 +4886,10 @@ app.get('/', (_req, res) => {
       'GET /workspaces/:workspaceId/members',
       'GET /workspaces/:workspaceId/audit-events',
       'GET /workspaces/:workspaceId/usage',
+      'GET /workspaces/:workspaceId/pinned-samples',
+      'GET /workspaces/:workspaceId/managed-datasets',
+      'GET /workspaces/:workspaceId/bi/charts',
+      'GET /workspaces/:workspaceId/enterprise/soc2-evidence',
       'GET /workspaces/:workspaceId/orchestrator',
       'PATCH /workspaces/:workspaceId/orchestrator',
       'POST /workspaces/:workspaceId/orchestrator/test',
@@ -2279,6 +4899,15 @@ app.get('/', (_req, res) => {
       'GET /workspaces/:workspaceId/private-runner',
       'PATCH /workspaces/:workspaceId/private-runner',
       'POST /runner/callback',
+      'GET /workspaces/:workspaceId/jobs/:jobId/validation-suite',
+      'POST /workspaces/:workspaceId/jobs/:jobId/validation-suite/generate',
+      'POST /workspaces/:workspaceId/jobs/:jobId/validation-suite/run',
+      'GET /workspaces/:workspaceId/drift-fixes',
+      'POST /workspaces/:workspaceId/drift-fixes/propose',
+      'POST /workspaces/:workspaceId/drift-fixes/:suggestionId/resolve',
+      'POST /workspaces/:workspaceId/joins/auto-promote-low-risk',
+      'GET /workspaces/:workspaceId/agent/sessions',
+      'POST /workspaces/:workspaceId/agent/sessions',
       'GET /workspaces/:workspaceId/billing',
       'POST /workspaces/:workspaceId/billing/checkout',
       'POST /workspaces/:workspaceId/billing/portal',
@@ -2361,6 +4990,14 @@ ensureDevUserPassword()
       }
       startScheduledSyncLoop()
       startScheduledJobsLoop()
+      startGoldenEvalLoop()
+      // Offer B retention — purge expired managed datasets hourly
+      setInterval(() => {
+        void purgeExpiredManagedDatasets().catch((err) =>
+          console.warn('[Que] managed retention purge:', err.message || err),
+        )
+      }, 60 * 60 * 1000)
+      void purgeExpiredManagedDatasets().catch(() => undefined)
     })
   })
   .catch((err) => {

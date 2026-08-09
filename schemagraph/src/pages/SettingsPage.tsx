@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
-import { Link } from 'react-router-dom'
-import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { Link, useNavigate } from 'react-router-dom'
 import { ExportAttestationsPanel } from '@/components/settings/ExportAttestationsPanel'
 import { SignedArtifactsPanel } from '@/components/settings/SignedArtifactsPanel'
 import { ScheduledSyncPanel } from '@/components/settings/ScheduledSyncPanel'
@@ -11,6 +10,10 @@ import { BillingPanel } from '@/components/settings/BillingPanel'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import { getApiBase } from '@/services/stitchApi'
+import {
+  SETTINGS_SECTION_META,
+  type SettingsSection,
+} from '@/pages/settings/settingsSections'
 import {
   createWorkspaceInvite,
   fetchWorkspaceAuditEvents,
@@ -26,6 +29,12 @@ import {
   removeWorkspaceMember,
   revokeWorkspaceInvite,
   runJoinInference,
+  exportAuditCsv,
+  fetchAuthSessions,
+  revokeAuthSession,
+  revokeOtherAuthSessions,
+  sendDriftDigestApi,
+  sendJoinReviewTestNotify,
   updateWorkspaceLlmSecrets,
   updateWorkspaceMemberRole,
   updateWorkspaceSettings,
@@ -51,11 +60,14 @@ type MemberRow = {
 }
 
 /**
- * Settings — Sunset Clay workspace settings shell + Que policy/BYOK controls.
+ * Settings section body — rendered inside SettingsLayout nested routes.
  */
-export function SettingsPage() {
+export function SettingsPage({ section = 'members' }: { section?: SettingsSection }) {
   const { canAdmin, canWrite, role } = useWorkspaceRole()
   const { workspaceId, user } = useAuth()
+  const navigate = useNavigate()
+  const sectionMeta = SETTINGS_SECTION_META[section]
+  const isDev = import.meta.env.DEV
   const [data, setData] = useState<WorkspaceSettingsPayload | null>(null)
   const [draft, setDraft] = useState<WorkspaceSettingsFlags | null>(null)
   const [busy, setBusy] = useState(false)
@@ -67,7 +79,7 @@ export function SettingsPage() {
   const [openaiKeyDraft, setOpenaiKeyDraft] = useState('')
   const [anthropicKeyDraft, setAnthropicKeyDraft] = useState('')
   const [memberQuery, setMemberQuery] = useState('')
-  const [showAdvanced, setShowAdvanced] = useState(false)
+  const showAdvanced = section === 'ai-policy'
   const [membersApi, setMembersApi] = useState<WorkspaceMember[]>([])
   const [memberSummary, setMemberSummary] = useState<{
     ownerCount: number
@@ -89,6 +101,17 @@ export function SettingsPage() {
         setDraft({
           includeSamplesDefault: payload.settings.includeSamplesDefault,
           scrubSamples: payload.settings.scrubSamples !== false,
+          aiMayUsePinnedSamples:
+            payload.settings.aiMayUsePinnedSamples !== false,
+          pinnedSampleRows: payload.settings.pinnedSampleRows ?? 10,
+          enableManagedDataPlane:
+            payload.settings.enableManagedDataPlane === true,
+          defaultExecutionPlane:
+            payload.settings.defaultExecutionPlane ?? 'customer',
+          managedMaxDatasets: payload.settings.managedMaxDatasets ?? 25,
+          managedMaxRowsPerDataset:
+            payload.settings.managedMaxRowsPerDataset ?? 50000,
+          managedRetentionDays: payload.settings.managedRetentionDays ?? 90,
           inferJoinsOnSync: payload.settings.inferJoinsOnSync,
           preferLlmChat: payload.settings.preferLlmChat,
           aiModelId: payload.settings.aiModelId ?? 'gpt-4o-mini',
@@ -101,6 +124,20 @@ export function SettingsPage() {
             payload.settings.blockExportOnUnreviewedJoins === true,
           databricksQueryJoinAssist:
             payload.settings.databricksQueryJoinAssist !== false,
+          snowflakeQueryJoinAssist:
+            payload.settings.snowflakeQueryJoinAssist !== false,
+          enableStitchAgent: payload.settings.enableStitchAgent === true,
+          enableLiveValidate: payload.settings.enableLiveValidate !== false,
+          enableMaterialize: payload.settings.enableMaterialize !== false,
+          enableAutoPromoteLowRisk:
+            payload.settings.enableAutoPromoteLowRisk === true,
+          enableCatalogGovernance:
+            payload.settings.enableCatalogGovernance === true,
+          stewardUxMode: payload.settings.stewardUxMode === true,
+          ticketProvider: payload.settings.ticketProvider ?? 'webhook',
+          ticketWebhookUrl: payload.settings.ticketWebhookUrl ?? '',
+          jiraWebhookUrl: payload.settings.jiraWebhookUrl ?? '',
+          serviceNowWebhookUrl: payload.settings.serviceNowWebhookUrl ?? '',
           emitContractEvents: payload.settings.emitContractEvents !== false,
           contractWebhookUrl: payload.settings.contractWebhookUrl ?? '',
           driftAlertsEnabled: payload.settings.driftAlertsEnabled !== false,
@@ -110,6 +147,17 @@ export function SettingsPage() {
           githubOwner: payload.settings.githubOwner ?? '',
           githubRepo: payload.settings.githubRepo ?? '',
           githubBaseBranch: payload.settings.githubBaseBranch ?? 'main',
+          githubAllowedBranches:
+            payload.settings.githubAllowedBranches ?? 'main',
+          githubPrMinRole: payload.settings.githubPrMinRole ?? 'member',
+          joinProposeMinRole: payload.settings.joinProposeMinRole ?? 'member',
+          joinPromoteMinRole: payload.settings.joinPromoteMinRole ?? 'member',
+          joinReviewNotifyEnabled:
+            payload.settings.joinReviewNotifyEnabled !== false,
+          joinReviewWebhookUrl: payload.settings.joinReviewWebhookUrl ?? '',
+          joinPromoteNotify: payload.settings.joinPromoteNotify === true,
+          driftDigestEnabled: payload.settings.driftDigestEnabled !== false,
+          driftDigestWebhookUrl: payload.settings.driftDigestWebhookUrl ?? '',
           dbtModelsPath: payload.settings.dbtModelsPath ?? 'models/que',
         })
       })
@@ -191,6 +239,18 @@ export function SettingsPage() {
     data &&
     (draft.includeSamplesDefault !== data.settings.includeSamplesDefault ||
       draft.scrubSamples !== (data.settings.scrubSamples !== false) ||
+      draft.aiMayUsePinnedSamples !==
+        (data.settings.aiMayUsePinnedSamples !== false) ||
+      draft.pinnedSampleRows !== (data.settings.pinnedSampleRows ?? 10) ||
+      draft.enableManagedDataPlane !==
+        (data.settings.enableManagedDataPlane === true) ||
+      draft.defaultExecutionPlane !==
+        (data.settings.defaultExecutionPlane ?? 'customer') ||
+      draft.managedMaxDatasets !== (data.settings.managedMaxDatasets ?? 25) ||
+      draft.managedMaxRowsPerDataset !==
+        (data.settings.managedMaxRowsPerDataset ?? 50000) ||
+      draft.managedRetentionDays !==
+        (data.settings.managedRetentionDays ?? 90) ||
       draft.inferJoinsOnSync !== data.settings.inferJoinsOnSync ||
       draft.preferLlmChat !== data.settings.preferLlmChat ||
       draft.aiModelId !== (data.settings.aiModelId ?? 'gpt-4o-mini') ||
@@ -213,6 +273,30 @@ export function SettingsPage() {
       draft.githubOwner !== data.settings.githubOwner ||
       draft.githubRepo !== data.settings.githubRepo ||
       draft.githubBaseBranch !== data.settings.githubBaseBranch ||
+      draft.githubAllowedBranches !==
+        (data.settings.githubAllowedBranches ?? 'main') ||
+      draft.joinProposeMinRole !==
+        (data.settings.joinProposeMinRole ?? 'member') ||
+      draft.joinPromoteMinRole !==
+        (data.settings.joinPromoteMinRole ?? 'member') ||
+      draft.joinReviewNotifyEnabled !==
+        (data.settings.joinReviewNotifyEnabled !== false) ||
+      draft.joinPromoteNotify !==
+        (data.settings.joinPromoteNotify === true) ||
+      draft.joinReviewWebhookUrl !==
+        (data.settings.joinReviewWebhookUrl ?? '') ||
+      draft.driftDigestEnabled !==
+        (data.settings.driftDigestEnabled !== false) ||
+      draft.driftDigestWebhookUrl !==
+        (data.settings.driftDigestWebhookUrl ?? '') ||
+      draft.enableStitchAgent !==
+        (data.settings.enableStitchAgent === true) ||
+      draft.enableAutoPromoteLowRisk !==
+        (data.settings.enableAutoPromoteLowRisk === true) ||
+      draft.enableCatalogGovernance !==
+        (data.settings.enableCatalogGovernance === true) ||
+      draft.stewardUxMode !== (data.settings.stewardUxMode === true) ||
+      draft.ticketWebhookUrl !== (data.settings.ticketWebhookUrl ?? '') ||
       draft.dbtModelsPath !== data.settings.dbtModelsPath)
 
   async function save() {
@@ -270,20 +354,18 @@ export function SettingsPage() {
       : 0
 
   return (
-    <QueAppChrome eyebrow="SETTINGS · WORKSPACE POLICY">
-      <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-          <main className="min-h-0 flex-1 overflow-y-auto px-md py-lg pb-40 md:px-lg lg:px-margin-desktop">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          <main className="min-h-0 flex-1 overflow-y-auto px-md py-lg pb-32 md:px-lg lg:px-margin-desktop">
             <div className="mb-xl flex flex-col justify-between gap-md sm:flex-row sm:items-end">
               <div>
                 <h1 className="font-headline text-xl font-semibold tracking-tight text-on-surface">
-                  Workspace Settings
+                  {sectionMeta.title}
                 </h1>
                 <p className="mt-xs max-w-[42rem] font-body text-[13px] leading-snug text-on-surface-variant">
-                  Team permissions, encrypted secrets, and privacy gates that keep
-                  Que schema-only — AI suggestions still need human Promote.
+                  {sectionMeta.subtitle}
                 </p>
               </div>
+              {section === 'members' ? (
               <button
                 type="button"
                 disabled={!canAdmin}
@@ -299,6 +381,7 @@ export function SettingsPage() {
                 <span aria-hidden>+</span>
                 Invite Member
               </button>
+              ) : null}
             </div>
 
             {error ? (
@@ -325,9 +408,10 @@ export function SettingsPage() {
               </p>
             ) : (
               <>
+                {section === 'members' ? (
                 <div className="grid grid-cols-12 gap-lg">
                   {/* Member Registry */}
-                  <section className="col-span-12 rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm lg:col-span-8">
+                  <section className="col-span-12 rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
                     <div className="mb-md flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h2 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -589,9 +673,15 @@ export function SettingsPage() {
                       </div>
                     ) : null}
                   </section>
+                </div>
+                ) : null}
 
-                  {/* Right column */}
-                  <div className="col-span-12 flex flex-col gap-lg lg:col-span-4">
+                {section === 'security' ? (
+                <div className="grid grid-cols-12 gap-lg">
+                  <div className="col-span-12">
+                    <SessionsSecurityPanel />
+                  </div>
+                  <div className="col-span-12 flex flex-col gap-lg lg:col-span-6">
                     <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
                       <div className="mb-md flex items-center justify-between">
                         <h3 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -600,9 +690,9 @@ export function SettingsPage() {
                         <button
                           type="button"
                           className="font-label text-[12px] text-primary hover:underline"
-                          onClick={() => setShowAdvanced(true)}
+                          onClick={() => navigate('/settings/ai-policy')}
                         >
-                          View all
+                          Manage in AI & Policy
                         </button>
                       </div>
                       <div className="space-y-sm">
@@ -627,14 +717,15 @@ export function SettingsPage() {
                         <button
                           type="button"
                           disabled={!canAdmin}
-                          onClick={() => setShowAdvanced(true)}
+                          onClick={() => navigate('/settings/ai-policy')}
                           className="mt-sm w-full rounded-lg border border-primary py-2 font-label text-[12px] text-primary transition-colors hover:bg-primary/5 disabled:opacity-40"
                         >
-                          Generate New Key
+                          Configure BYOK keys
                         </button>
                       </div>
                     </section>
-
+                  </div>
+                  <div className="col-span-12 flex flex-col gap-lg lg:col-span-6">
                     <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
                       <div className="mb-md flex items-center justify-between">
                         <h3 className="font-headline text-base font-semibold text-on-surface-variant">
@@ -643,10 +734,10 @@ export function SettingsPage() {
                         <button
                           type="button"
                           className="font-label text-[13px] text-on-surface-variant hover:text-primary"
-                          onClick={() => setShowAdvanced(true)}
+                          onClick={() => navigate('/settings/ai-policy')}
                           aria-label="Edit environment"
                         >
-                          +
+                          Edit
                         </button>
                       </div>
                       <div className="space-y-xs">
@@ -673,19 +764,24 @@ export function SettingsPage() {
                       </div>
                     </section>
                   </div>
+                  <div className="col-span-12 mt-lg">
+                    <SsoStatusPanel />
+                  </div>
                 </div>
+                ) : null}
 
-                {/* Workspace snapshot strip */}
+                {section === 'members' || section === 'security' ? (
                 <div className="mt-lg grid gap-sm sm:grid-cols-4">
                   <Stat label="Connections" value={data.stats.connections} />
                   <Stat label="Tables" value={data.stats.tables} />
                   <Stat label="Relations" value={data.stats.relationships} />
                   <Stat label="Jobs" value={data.stats.jobs} />
                 </div>
+                ) : null}
 
-                <SsoStatusPanel />
+                {section === 'automation' ? (
+                <div className="mt-lg space-y-lg">
                 <UsageCountersPanel usage={usage} />
-                <DriftAlertsPanel canAdmin={canAdmin} />
                 <ScheduledSyncPanel
                   workspaceId={workspaceId}
                   canAdmin={canAdmin}
@@ -702,27 +798,216 @@ export function SettingsPage() {
                   workspaceId={workspaceId}
                   canAdmin={canAdmin}
                 />
-                <BillingPanel workspaceId={workspaceId} canAdmin={canAdmin} />
+                </div>
+                ) : null}
+
+                {section === 'governance' ? (
+                <div className="mt-lg space-y-lg">
+                <DriftAlertsPanel canAdmin={canAdmin} />
                 <ExportAttestationsPanel workspaceId={workspaceId} />
                 <SignedArtifactsPanel
                   workspaceId={workspaceId}
                   canAdmin={canAdmin}
                 />
                 <AuditLogPanel workspaceId={workspaceId} />
+                </div>
+                ) : null}
 
-                <div className="mt-lg">
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvanced((v) => !v)}
-                    className="mb-md rounded-lg border border-outline-variant/40 bg-white px-md py-sm font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary"
-                  >
-                    {showAdvanced
-                      ? 'Hide policy & AI settings'
-                      : 'Show policy, BYOK & AI settings'}
-                  </button>
+                {section === 'billing' ? (
+                <div className="mt-lg space-y-lg">
+                <BillingPanel workspaceId={workspaceId} canAdmin={canAdmin} />
+                <UsageCountersPanel usage={usage} />
+                </div>
+                ) : null}
 
-                  {showAdvanced ? (
-                    <div className="space-y-lg pb-lg">
+                {section === 'team' ? (
+                <div className="mt-lg space-y-lg">
+                  <Section title="PROPOSE_VS_PROMOTE" meta="TEAM OS ACL">
+                    <p className="mb-md font-body text-[12px] text-on-surface-variant">
+                      Analysts can stay at member for propose/infer; raise Promote
+                      to admin if only seniors may accept joins into contracts.
+                    </p>
+                    <label className="mb-md block max-w-sm">
+                      <span className="mb-xs block font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
+                        Min role to propose / infer joins
+                      </span>
+                      <select
+                        disabled={!canAdmin}
+                        value={draft.joinProposeMinRole ?? 'member'}
+                        onChange={(e) =>
+                          setDraft((d) =>
+                            d
+                              ? {
+                                  ...d,
+                                  joinProposeMinRole: e.target
+                                    .value as WorkspaceSettingsFlags['joinProposeMinRole'],
+                                }
+                              : d,
+                          )
+                        }
+                        className="w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-2 font-body text-[13px]"
+                      >
+                        <option value="member">member+</option>
+                        <option value="admin">admin+</option>
+                        <option value="owner">owner only</option>
+                      </select>
+                    </label>
+                    <label className="mb-md block max-w-sm">
+                      <span className="mb-xs block font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
+                        Min role to Promote joins
+                      </span>
+                      <select
+                        disabled={!canAdmin}
+                        value={draft.joinPromoteMinRole ?? 'member'}
+                        onChange={(e) =>
+                          setDraft((d) =>
+                            d
+                              ? {
+                                  ...d,
+                                  joinPromoteMinRole: e.target
+                                    .value as WorkspaceSettingsFlags['joinPromoteMinRole'],
+                                }
+                              : d,
+                          )
+                        }
+                        className="w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-2 font-body text-[13px]"
+                      >
+                        <option value="member">member+</option>
+                        <option value="admin">admin+</option>
+                        <option value="owner">owner only</option>
+                      </select>
+                    </label>
+                    {canAdmin ? (
+                      <button
+                        type="button"
+                        disabled={!dirty || busy}
+                        onClick={() => void save()}
+                        className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                      >
+                        Save role gates
+                      </button>
+                    ) : null}
+                  </Section>
+
+                  <Section title="SLACK_TEAMS_NOTIFY" meta="JOIN REVIEW · DRIFT DIGEST">
+                    <Toggle
+                      label="Join review notifications"
+                      hint="Webhook when inference creates suggestions needing Promote"
+                      checked={draft.joinReviewNotifyEnabled !== false}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, joinReviewNotifyEnabled: v } : d,
+                        )
+                      }
+                    />
+                    <Toggle
+                      label="Notify on Promote"
+                      hint="Optional ping when a join is accepted"
+                      checked={draft.joinPromoteNotify === true}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, joinPromoteNotify: v } : d,
+                        )
+                      }
+                    />
+                    <Field
+                      label="Join review webhook URL (Slack or generic)"
+                      value={draft.joinReviewWebhookUrl ?? ''}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, joinReviewWebhookUrl: v } : d,
+                        )
+                      }
+                      placeholder="https://hooks.slack.com/services/…"
+                    />
+                    <Toggle
+                      label="Drift digest enabled"
+                      hint="Summarize open high/warn drift to a webhook"
+                      checked={draft.driftDigestEnabled !== false}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, driftDigestEnabled: v } : d,
+                        )
+                      }
+                    />
+                    <Field
+                      label="Drift digest webhook URL"
+                      value={draft.driftDigestWebhookUrl ?? ''}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, driftDigestWebhookUrl: v } : d,
+                        )
+                      }
+                      placeholder="Falls back to join/drift alert URL if empty"
+                    />
+                    {canAdmin ? (
+                      <div className="flex flex-wrap gap-sm pt-md">
+                        <button
+                          type="button"
+                          disabled={!dirty || busy}
+                          onClick={() => void save()}
+                          className="rounded-lg bg-primary px-md py-2 font-label text-[12px] text-on-primary disabled:opacity-40"
+                        >
+                          Save notify settings
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void sendJoinReviewTestNotify()
+                              .then(() => setToast('Join review test notify sent'))
+                              .catch((err) =>
+                                setError(
+                                  err instanceof Error
+                                    ? err.message
+                                    : String(err),
+                                ),
+                              )
+                          }}
+                          className="rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px]"
+                        >
+                          Test join webhook
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void sendDriftDigestApi()
+                              .then((r) =>
+                                setToast(
+                                  `Drift digest · open=${String(r.openCount ?? '—')}`,
+                                ),
+                              )
+                              .catch((err) =>
+                                setError(
+                                  err instanceof Error
+                                    ? err.message
+                                    : String(err),
+                                ),
+                              )
+                          }}
+                          className="rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px]"
+                        >
+                          Send drift digest now
+                        </button>
+                      </div>
+                    ) : null}
+                  </Section>
+                  <p className="font-body text-[12px] text-on-surface-variant">
+                    Domains live at{' '}
+                    <Link to="/domains" className="text-primary hover:underline">
+                      /domains
+                    </Link>
+                    . Job templates are on the Jobs page.
+                  </p>
+                </div>
+                ) : null}
+
+                {section === 'ai-policy' && showAdvanced ? (
+                    <div className="mt-lg space-y-lg pb-lg">
                       <Section
                         title="Workspace"
                         meta={`${data.workspace.name} · ${data.workspace.slug}`}
@@ -740,7 +1025,6 @@ export function SettingsPage() {
                         </div>
                       </Section>
 
-                      {/* Existing policy / BYOK / AI / caps preserved below via include */}
                       <PolicyAndAiBlocks
                         data={data}
                         draft={draft}
@@ -765,13 +1049,12 @@ export function SettingsPage() {
                         setData={setData}
                       />
                     </div>
-                  ) : null}
-                </div>
+                ) : null}
               </>
             )}
           </main>
 
-          {/* Usage footer */}
+          {(section === 'billing' || section === 'members') && isDev ? (
           <div className="absolute right-0 bottom-0 left-0 z-40 border-t border-outline-variant/20 bg-background/95 p-lg shadow-lg backdrop-blur-md md:px-lg lg:px-margin-desktop">
             <div className="flex flex-col justify-between gap-lg md:flex-row md:items-center">
               <div className="min-w-0 flex-1">
@@ -779,6 +1062,9 @@ export function SettingsPage() {
                   <div className="flex items-center gap-sm">
                     <span className="font-label text-[12px] font-semibold text-on-surface">
                       Workspace Usage
+                    </span>
+                    <span className="rounded bg-secondary-container px-xs font-label text-[9px] text-on-secondary-container">
+                      DEV
                     </span>
                   </div>
                   <span className="font-label text-[12px] text-on-surface-variant">
@@ -800,26 +1086,14 @@ export function SettingsPage() {
                 <button
                   type="button"
                   className="px-md py-2 font-label text-[12px] text-on-surface-variant hover:text-on-surface"
-                  onClick={() =>
-                    setToast('Billing is not enabled in this Que demo build')
-                  }
+                  onClick={() => navigate('/settings/billing')}
                 >
                   Manage Billing
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg bg-primary px-lg py-2 font-label text-[12px] font-medium text-on-primary hover:shadow-md"
-                  onClick={() =>
-                    setToast('Upgrade plan — contact Que for production seats')
-                  }
-                >
-                  Upgrade Plan
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+          ) : null}
 
       {inviteOpen ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-md">
@@ -908,7 +1182,7 @@ export function SettingsPage() {
           </div>
         </div>
       ) : null}
-    </QueAppChrome>
+    </div>
   )
 }
 
@@ -916,6 +1190,102 @@ function initials(name: string) {
   const parts = name.trim().split(/\s+/)
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
   return name.slice(0, 2).toUpperCase()
+}
+
+function SessionsSecurityPanel() {
+  const [sessions, setSessions] = useState<
+    { id: string; createdAt: string; expiresAt: string; current: boolean }[]
+  >([])
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function load() {
+    try {
+      setSessions(await fetchAuthSessions())
+      setErr(null)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [])
+
+  return (
+    <section className="rounded-xl border border-outline-variant/30 bg-white p-lg shadow-sm">
+      <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
+        <div>
+          <h3 className="font-headline text-base font-semibold text-on-surface-variant">
+            Active sessions
+          </h3>
+          <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+            Revoke stolen sessions. Current browser session is marked.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            void (async () => {
+              setBusy(true)
+              try {
+                await revokeOtherAuthSessions()
+                await load()
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : String(e))
+              } finally {
+                setBusy(false)
+              }
+            })()
+          }}
+          className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] hover:border-primary"
+        >
+          Revoke other sessions
+        </button>
+      </div>
+      {err ? (
+        <p className="mb-sm font-body text-[12px] text-error">{err}</p>
+      ) : null}
+      <ul className="space-y-xs">
+        {sessions.map((s) => (
+          <li
+            key={s.id}
+            className="flex items-center justify-between gap-sm rounded-lg bg-surface-container-low px-md py-sm font-body text-[12px]"
+          >
+            <span>
+              {new Date(s.createdAt).toLocaleString()}
+              {s.current ? (
+                <span className="ml-sm font-label text-[10px] text-primary uppercase">
+                  current
+                </span>
+              ) : null}
+            </span>
+            {!s.current ? (
+              <button
+                type="button"
+                className="font-label text-[11px] text-error hover:underline"
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      await revokeAuthSession(s.id)
+                      await load()
+                    } catch (e) {
+                      setErr(e instanceof Error ? e.message : String(e))
+                    }
+                  })()
+                }}
+              >
+                Revoke
+              </button>
+            ) : (
+              <span className="text-on-surface-variant">—</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
 }
 
 type SsoPublicConfig = {
@@ -1342,14 +1712,37 @@ function AuditLogPanel({ workspaceId }: { workspaceId: string | null }) {
             Wave 1.1 — sync, join promote/reject, exports, invites, roles, secrets.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
-        >
-          {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div className="flex gap-sm">
+          <button
+            type="button"
+            onClick={() => {
+              void (async () => {
+                try {
+                  const blob = await exportAuditCsv(workspaceId || undefined)
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'que-audit.csv'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : String(e))
+                }
+              })()
+            }}
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"
+          >
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
       {err ? (
         <p className="mb-sm font-body text-[12px] text-error">{err}</p>
@@ -1549,6 +1942,138 @@ function PolicyAndAiBlocks({
     }
   />
   <Toggle
+    label="AI may use pinned scrubbed samples"
+    hint="Default ON — chat/agent sees frozen 5–10 row grids only (never the lake)"
+    checked={draft.aiMayUsePinnedSamples !== false}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, aiMayUsePinnedSamples: v } : d))
+    }
+  />
+  <label className="mb-md block font-label text-[12px] text-on-surface-variant">
+    Pinned sample rows (5–10)
+    <input
+      type="number"
+      min={5}
+      max={10}
+      value={draft.pinnedSampleRows ?? 10}
+      disabled={!canAdmin}
+      onChange={(e) =>
+        setDraft((d) =>
+          d
+            ? {
+                ...d,
+                pinnedSampleRows: Math.min(
+                  10,
+                  Math.max(5, Number(e.target.value) || 10),
+                ),
+              }
+            : d,
+        )
+      }
+      className="mt-1 w-24 rounded-lg border border-outline-variant/40 px-md py-1.5 font-body text-[13px] text-on-surface"
+    />
+  </label>
+  <Toggle
+    label="Enable Que Managed Data Plane (Offer B)"
+    hint="Host job outputs for Excel/SQL customers — AI never reads row payloads"
+    checked={draft.enableManagedDataPlane === true}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, enableManagedDataPlane: v } : d))
+    }
+  />
+  <label className="mb-md block font-label text-[12px] text-on-surface-variant">
+    Default execution plane
+    <select
+      value={draft.defaultExecutionPlane ?? 'customer'}
+      disabled={!canAdmin}
+      onChange={(e) => {
+        const plane = e.target.value as 'customer' | 'managed' | 'que'
+        setDraft((d) => (d ? { ...d, defaultExecutionPlane: plane } : d))
+      }}
+      className="mt-1 block w-full max-w-xs rounded-lg border border-outline-variant/40 px-md py-2 font-body text-[13px] text-on-surface"
+    >
+      <option value="customer">Customer warehouse (Offer A)</option>
+      <option value="managed">Que managed plane (Offer B)</option>
+      <option value="que">Que runner only</option>
+    </select>
+  </label>
+  <div className="mb-md grid max-w-xl gap-sm sm:grid-cols-3">
+    <label className="block font-label text-[12px] text-on-surface-variant">
+      Max datasets
+      <input
+        type="number"
+        min={1}
+        max={200}
+        value={draft.managedMaxDatasets ?? 25}
+        disabled={!canAdmin}
+        onChange={(e) =>
+          setDraft((d) =>
+            d
+              ? {
+                  ...d,
+                  managedMaxDatasets: Math.min(
+                    200,
+                    Math.max(1, Number(e.target.value) || 25),
+                  ),
+                }
+              : d,
+          )
+        }
+        className="mt-1 w-full rounded-lg border border-outline-variant/40 px-md py-1.5 font-body text-[13px] text-on-surface"
+      />
+    </label>
+    <label className="block font-label text-[12px] text-on-surface-variant">
+      Max rows / dataset
+      <input
+        type="number"
+        min={100}
+        max={100000}
+        value={draft.managedMaxRowsPerDataset ?? 50000}
+        disabled={!canAdmin}
+        onChange={(e) =>
+          setDraft((d) =>
+            d
+              ? {
+                  ...d,
+                  managedMaxRowsPerDataset: Math.min(
+                    100000,
+                    Math.max(100, Number(e.target.value) || 50000),
+                  ),
+                }
+              : d,
+          )
+        }
+        className="mt-1 w-full rounded-lg border border-outline-variant/40 px-md py-1.5 font-body text-[13px] text-on-surface"
+      />
+    </label>
+    <label className="block font-label text-[12px] text-on-surface-variant">
+      Retention days
+      <input
+        type="number"
+        min={1}
+        max={365}
+        value={draft.managedRetentionDays ?? 90}
+        disabled={!canAdmin}
+        onChange={(e) =>
+          setDraft((d) =>
+            d
+              ? {
+                  ...d,
+                  managedRetentionDays: Math.min(
+                    365,
+                    Math.max(1, Number(e.target.value) || 90),
+                  ),
+                }
+              : d,
+          )
+        }
+        className="mt-1 w-full rounded-lg border border-outline-variant/40 px-md py-1.5 font-body text-[13px] text-on-surface"
+      />
+    </label>
+  </div>
+  <Toggle
     label="Infer cross-source joins on sync"
     hint="Creates suggested edges for review (Promote / Reject)"
     checked={draft.inferJoinsOnSync}
@@ -1564,6 +2089,85 @@ function PolicyAndAiBlocks({
     disabled={!canAdmin}
     onChange={(v) =>
       setDraft((d) => (d ? { ...d, databricksQueryJoinAssist: v } : d))
+    }
+  />
+  <Toggle
+    label="Snowflake query-history join assist"
+    hint="On live Snowflake sync, mine ACCOUNT_USAGE QUERY_HISTORY for JOINs"
+    checked={draft.snowflakeQueryJoinAssist !== false}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, snowflakeQueryJoinAssist: v } : d))
+    }
+  />
+  <Toggle
+    label="Enable Stitch Agent"
+    hint="Activates /agent — NL plan → tools → checkpoint → Promote → draft job"
+    checked={draft.enableStitchAgent === true}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, enableStitchAgent: v } : d))
+    }
+  />
+  <Toggle
+    label="Auto-promote low-risk joins"
+    hint="Phase 3 — only exact/FK-style suggestions ≥0.92 confidence. Default off (HITL)."
+    checked={draft.enableAutoPromoteLowRisk === true}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, enableAutoPromoteLowRisk: v } : d))
+    }
+  />
+  <Toggle
+    label="Enable catalog governance"
+    hint="Phase 4 — Catalog, Glossary, Steward pages (optional Atlan-style expansion)"
+    checked={draft.enableCatalogGovernance === true}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, enableCatalogGovernance: v } : d))
+    }
+  />
+  <Toggle
+    label="Steward UX mode"
+    hint="Prefer steward-oriented defaults (certify queues, glossary) without removing DE tools"
+    checked={draft.stewardUxMode === true}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, stewardUxMode: v } : d))
+    }
+  />
+  <label className="mt-md block max-w-xl">
+    <span className="mb-xs block font-label text-[11px] uppercase tracking-widest text-on-surface-variant">
+      Governance ticket webhook (Jira / ServiceNow / generic)
+    </span>
+    <input
+      value={draft.ticketWebhookUrl ?? ''}
+      disabled={!canAdmin}
+      onChange={(e) =>
+        setDraft((d) =>
+          d ? { ...d, ticketWebhookUrl: e.target.value } : d,
+        )
+      }
+      placeholder="https://hooks.example/que-tickets"
+      className="w-full rounded-lg border border-outline-variant/40 px-md py-sm font-body text-[13px]"
+    />
+  </label>
+  <Toggle
+    label="Enable live validate"
+    hint="Allow Jobs → Validate (read-only ~20 rows from sources)"
+    checked={draft.enableLiveValidate !== false}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, enableLiveValidate: v } : d))
+    }
+  />
+  <Toggle
+    label="Enable materialize"
+    hint="Allow Jobs → Deploy → create VIEW/table in customer warehouse"
+    checked={draft.enableMaterialize !== false}
+    disabled={!canAdmin}
+    onChange={(v) =>
+      setDraft((d) => (d ? { ...d, enableMaterialize: v } : d))
     }
   />
   <Toggle
@@ -2026,6 +2630,15 @@ function PolicyAndAiBlocks({
       placeholder="main"
     />
     <Field
+      label="Allowed deploy branches"
+      value={draft.githubAllowedBranches ?? 'main'}
+      disabled={!canAdmin}
+      onChange={(v) =>
+        setDraft((d) => (d ? { ...d, githubAllowedBranches: v } : d))
+      }
+      placeholder="main, develop"
+    />
+    <Field
       label="dbt models path"
       value={draft.dbtModelsPath ?? 'models/que'}
       disabled={!canAdmin}
@@ -2035,6 +2648,33 @@ function PolicyAndAiBlocks({
       placeholder="models/que"
     />
   </div>
+  <label className="mt-md block max-w-sm">
+    <span className="mb-xs block font-label text-[11px] tracking-widest text-on-surface-variant uppercase">
+      Min role to open PR to base branch
+    </span>
+    <select
+      disabled={!canAdmin}
+      value={draft.githubPrMinRole ?? 'member'}
+      onChange={(e) =>
+        setDraft((d) =>
+          d
+            ? {
+                ...d,
+                githubPrMinRole: e.target.value as
+                  | 'member'
+                  | 'admin'
+                  | 'owner',
+              }
+            : d,
+        )
+      }
+      className="w-full rounded-lg border border-outline-variant/40 bg-white px-sm py-2 font-body text-[13px]"
+    >
+      <option value="member">member+</option>
+      <option value="admin">admin+</option>
+      <option value="owner">owner only</option>
+    </select>
+  </label>
   <p className="mt-md font-body text-[12px] text-on-surface-variant">
     GitHub token:{' '}
     <Flag on={Boolean(data.capabilities.github?.tokenConfigured)} />

@@ -3,6 +3,10 @@
  * Queue of suggested (HITL) joins with evidence for Promote / Reject.
  */
 import { query } from './db.js'
+import {
+  getPinnedColumnValues,
+  scorePinnedOverlap,
+} from './pinnedSamples.js'
 
 /**
  * @param {string} workspaceId
@@ -73,13 +77,50 @@ export async function listJoinReviews(workspaceId, opts = {}) {
     params,
   )
 
-  const items = rows.map((r) => {
+  const items = []
+  for (const r of rows) {
     const evidence =
       r.evidence_json && typeof r.evidence_json === 'object'
         ? r.evidence_json
         : {}
-    const signals = Array.isArray(evidence.signals) ? evidence.signals : []
-    return {
+    const signals = Array.isArray(evidence.signals) ? [...evidence.signals] : []
+    let pinnedOverlap = evidence.pinnedOverlap || null
+    let fromSamples = Array.isArray(r.from_samples)
+      ? r.from_samples.slice(0, 10)
+      : []
+    let toSamples = Array.isArray(r.to_samples) ? r.to_samples.slice(0, 10) : []
+    try {
+      const fromPinned = await getPinnedColumnValues(
+        workspaceId,
+        r.from_table,
+        r.from_column,
+      )
+      const toPinned = await getPinnedColumnValues(
+        workspaceId,
+        r.to_table,
+        r.to_column,
+      )
+      if (fromPinned.length) fromSamples = fromPinned.slice(0, 10)
+      if (toPinned.length) toSamples = toPinned.slice(0, 10)
+      if (fromPinned.length && toPinned.length) {
+        pinnedOverlap = scorePinnedOverlap(fromPinned, toPinned)
+        if (!signals.some((s) => s.code === 'pinned_overlap')) {
+          signals.push({
+            code: 'pinned_overlap',
+            label: pinnedOverlap.label,
+            weight:
+              pinnedOverlap.band === 'high'
+                ? 0.12
+                : pinnedOverlap.band === 'medium'
+                  ? 0.06
+                  : 0.02,
+          })
+        }
+      }
+    } catch {
+      /* pins optional until migrate */
+    }
+    items.push({
       id: r.id,
       status: r.status,
       type: r.relation_type,
@@ -88,9 +129,12 @@ export async function listJoinReviews(workspaceId, opts = {}) {
       label: r.label || null,
       aiNotes: r.ai_notes || null,
       evidence: {
-        summary: evidence.summary || r.ai_notes || null,
+        summary:
+          pinnedOverlap?.label || evidence.summary || r.ai_notes || null,
         signals,
         scoredAt: evidence.scoredAt || null,
+        pinnedOverlap,
+        prePromoteConfidence: evidence.prePromoteConfidence ?? null,
       },
       from: {
         tableId: r.from_table_id,
@@ -98,7 +142,7 @@ export async function listJoinReviews(workspaceId, opts = {}) {
         columnId: r.from_column_id,
         column: r.from_column,
         dataType: r.from_data_type,
-        samples: Array.isArray(r.from_samples) ? r.from_samples.slice(0, 5) : [],
+        samples: fromSamples,
         connection: r.from_connection_name,
         sourceType: r.from_source_type,
         sourceLabel: r.from_source_label,
@@ -109,7 +153,7 @@ export async function listJoinReviews(workspaceId, opts = {}) {
         columnId: r.to_column_id,
         column: r.to_column,
         dataType: r.to_data_type,
-        samples: Array.isArray(r.to_samples) ? r.to_samples.slice(0, 5) : [],
+        samples: toSamples,
         connection: r.to_connection_name,
         sourceType: r.to_source_type,
         sourceLabel: r.to_source_label,
@@ -117,8 +161,8 @@ export async function listJoinReviews(workspaceId, opts = {}) {
       crossSource: r.from_connection_name !== r.to_connection_name,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
-    }
-  })
+    })
+  }
 
   const { rows: counts } = await query(
     `SELECT

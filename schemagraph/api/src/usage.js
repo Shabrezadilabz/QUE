@@ -72,7 +72,8 @@ export async function getWorkspaceUsage(workspaceId) {
            (SELECT COUNT(*)::int FROM connections
               WHERE workspace_id = $1 AND status = 'error') AS connections_error,
            (SELECT COUNT(*)::int FROM connections
-              WHERE workspace_id = $1 AND last_sync_at IS NOT NULL) AS connections_synced`,
+              WHERE workspace_id = $1 AND last_sync_at IS NOT NULL) AS connections_synced,
+           (SELECT COUNT(*)::int FROM managed_datasets WHERE workspace_id = $1) AS managed_datasets`,
         [workspaceId],
       ),
       countAudit(workspaceId, ['connection.sync'], since),
@@ -101,6 +102,7 @@ export async function getWorkspaceUsage(workspaceId) {
     tables: inv.rows[0].tables,
     relationships: inv.rows[0].relationships,
     jobs: inv.rows[0].jobs,
+    managedDatasets: inv.rows[0].managed_datasets || 0,
     members: members.rows[0].n,
   }
 

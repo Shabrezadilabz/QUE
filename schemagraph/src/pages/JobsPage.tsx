@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useSearchParams } from 'react-router-dom'
-import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   JobsMonitorView,
   type LiveLogRow,
 } from '@/components/jobs/JobsMonitorView'
+import { JobTemplatesPanel } from '@/components/jobs/JobTemplatesPanel'
 import { JobDeployPanel } from '@/components/jobs/JobDeployPanel'
 import { JobScheduleControls } from '@/components/jobs/JobScheduleControls'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
@@ -71,9 +71,13 @@ function safeSlug(title: string) {
 export function JobsPage() {
   const { canWrite } = useWorkspaceRole()
   const { workspaceId } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const deepLinkJobId = searchParams.get('job')
-  const jobTab = parseJobTab(searchParams.get('tab'))
+  const navigate = useNavigate()
+  const { jobId: routeJobId, tab: routeTab } = useParams<{
+    jobId?: string
+    tab?: string
+  }>()
+  const deepLinkJobId = routeJobId ?? null
+  const jobTab = parseJobTab(routeTab ?? null)
   const [jobs, setJobs] = useState<StitchJob[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(deepLinkJobId)
   const [activeCellId, setActiveCellId] = useState<string | null>(null)
@@ -107,11 +111,11 @@ export function JobsPage() {
   } | null>(null)
 
   function goJobView(jobId: string, tab: JobViewTab = 'notebook') {
-    setSearchParams({ job: jobId, tab })
+    navigate(`/jobs/${jobId}/${tab}`)
   }
 
   function goJobsList() {
-    setSearchParams({})
+    navigate('/jobs')
   }
 
   async function reload() {
@@ -658,8 +662,7 @@ export function JobsPage() {
           : 'text-on-surface-variant'
 
   return (
-    <QueAppChrome eyebrow="JOBS · VALIDATE ≤20 · SAMPLES ≤10">
-      <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
+    <>
         {!selected ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {error ? (
@@ -679,6 +682,7 @@ export function JobsPage() {
               </button>
             </p>
           ) : null}
+            <JobTemplatesPanel canWrite={canWrite} />
             <JobsMonitorView
               jobs={jobs}
               filtered={filtered}
@@ -1377,7 +1381,6 @@ export function JobsPage() {
             </main>
           </>
         )}
-      </div>
 
       {createOpen
         ? createPortal(
@@ -1485,7 +1488,7 @@ export function JobsPage() {
             document.body,
           )
         : null}
-    </QueAppChrome>
+    </>
   )
 }
 

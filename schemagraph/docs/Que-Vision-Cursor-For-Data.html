@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Vision, Market Strategy &amp; Cursor-for-Data Build Plan</title>
+  <style>
+    @page { size: A4; margin: 13mm 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.4;
+      color: #1a1a1a;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    h1 { font-size: 17pt; margin: 0 0 6px; letter-spacing: -0.02em; color: #2c1a14; }
+    h2 {
+      font-size: 12pt;
+      margin: 20px 0 7px;
+      padding-bottom: 3px;
+      border-bottom: 2px solid #5c3a2e;
+      page-break-after: avoid;
+      color: #3d241c;
+    }
+    h3 { font-size: 10.5pt; margin: 13px 0 5px; page-break-after: avoid; color: #4a3028; }
+    h4 { font-size: 9.5pt; margin: 10px 0 4px; color: #5c3a2e; }
+    p, li { margin: 0 0 4px; }
+    ul, ol { margin: 0 0 8px; padding-left: 1.2em; }
+    .meta { color: #555; font-size: 8.5pt; margin-bottom: 10px; }
+    .cover {
+      border: 2px solid #5c3a2e;
+      padding: 20px 18px;
+      margin-bottom: 14px;
+      background: linear-gradient(165deg, #faf6f1 0%, #f0e4d8 100%);
+    }
+    .cover .brand {
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #8b4a34;
+    }
+    .verdict {
+      border: 2px solid #8b4a34;
+      background: #fff8f3;
+      padding: 10px 12px;
+      margin: 8px 0 0;
+      font-size: 9pt;
+    }
+    .toc { page-break-after: always; }
+    .toc a { color: #1a1a1a; text-decoration: none; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0 11px;
+      font-size: 8pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #c9b8a8;
+      padding: 3px 5px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #efe4d8; font-weight: 600; }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 7.5pt;
+      background: #f3ebe3;
+      padding: 1px 3px;
+    }
+    .ok { border-left: 3px solid #2f6b4f; background: #f1f7f3; padding: 7px 10px; margin: 6px 0; font-size: 8.5pt; }
+    .warn { border-left: 3px solid #b8860b; background: #fff8e8; padding: 7px 10px; margin: 6px 0; font-size: 8.5pt; }
+    .bad { border-left: 3px solid #a33; background: #fdf0ee; padding: 7px 10px; margin: 6px 0; font-size: 8.5pt; }
+    .note { border-left: 3px solid #c4a574; background: #f8f4ec; padding: 7px 10px; margin: 6px 0; font-size: 8.5pt; }
+    .phase {
+      border: 1px solid #d9c9b8;
+      padding: 10px 12px;
+      margin: 10px 0 14px;
+      background: #fffefb;
+      page-break-inside: avoid;
+    }
+    .phase > h3 { margin-top: 0; }
+    .badge {
+      display: inline-block;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      margin-right: 4px;
+      border-radius: 2px;
+    }
+    .b-now { background: #d8ebe1; color: #1f5c3f; }
+    .b-next { background: #f5e6c8; color: #6a4a00; }
+    .b-mid { background: #e4dcc8; color: #5c3a2e; }
+    .b-later { background: #dde4f2; color: #2c3d66; }
+    .b-no { background: #f0d4d0; color: #7a2424; }
+    .page-break { page-break-before: always; }
+    .footer-note { margin-top: 22px; font-size: 7.5pt; color: #666; }
+    .flow {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 7.8pt;
+      background: #2a211c;
+      color: #f0e6dc;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      margin: 8px 0 12px;
+      page-break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que · Founder Strategy Document</div>
+  <h1>Vision, Market Strategy &amp; Cursor-for-Data Build Plan</h1>
+  <p class="meta">
+    Product: <strong>Que</strong> (SchemaGraph) · Codebase: <code>adc/schemagraph</code><br />
+    Document version: <strong>1.0</strong> · Date: 9 Aug 2026<br />
+    Audience: founders, investors, product, sales engineers · Companion:
+    <code>Que-Problems-And-User-Guide.pdf</code>, <code>Que-Built-Roadmap-Compete.pdf</code>
+  </p>
+  <div class="verdict">
+    <strong>Long-term motive:</strong> Become the <em>AI copilot + workflow OS</em> for data engineers
+    and analytics — so connecting sources, discovering joins, building models, validating,
+    shipping to warehouse/BI, and keeping things from drifting becomes as fluid as coding in
+    <strong>Cursor</strong> — for the <em>whole</em> DE/DA team, not only senior DEs.<br /><br />
+    <strong>Today’s honest product:</strong> Schema + HITL join truth + attested delivery into
+    <em>their</em> systems — not Que-as-warehouse, not “replace Databricks,” not full catalog yet.<br /><br />
+    <strong>Rule:</strong> Sell the wedge now. Roadmap the Cursor-for-data category. Never sell Phase-4 language with Phase-0 software.
+  </div>
+</div>
+
+<nav class="toc">
+  <h2>Table of contents</h2>
+  <ol>
+    <li><a href="#aim">Aim, motive &amp; north star</a></li>
+    <li><a href="#today">What Que has today (features)</a></li>
+    <li><a href="#diff">How we are different in the market</a></li>
+    <li><a href="#comp">Competitors &amp; positioning</a></li>
+    <li><a href="#sell">How to sell Que (story, buyers, POC)</a></li>
+    <li><a href="#dbx">Competing with Databricks (realistic path)</a></li>
+    <li><a href="#cursor">Cursor for data teams — what that means</a></li>
+    <li><a href="#phases">Phased build plan (0 → 5)</a></li>
+    <li><a href="#build">What more to build (detailed backlog)</a></li>
+    <li><a href="#metrics">Success metrics &amp; claim gates</a></li>
+    <li><a href="#risks">Risks &amp; what never to claim early</a></li>
+  </ol>
+</nav>
+
+<!-- 1 -->
+<h2 id="aim">1. Aim, motive &amp; north star</h2>
+
+<h3>1.1 Aim (what we exist to do)</h3>
+<p>
+  Remove the hardest, most tribal, most error-prone work in modern data teams:
+  <strong>understanding how systems connect, approving those connections, and shipping trusted
+  work into the warehouse / BI / orchestrator</strong> — without forcing the company to give a
+  vendor custody of their data lake.
+</p>
+
+<h3>1.2 Motive (why we build Que)</h3>
+<ul>
+  <li><strong>Senior DEs are bottlenecks</strong> — keys, joins, and “how we stitch finance ↔ CRM” live in their heads.</li>
+  <li><strong>Catalogs inventory; pipelines still break</strong> — knowing a table exists ≠ shipping a correct join.</li>
+  <li><strong>AI is blocked by security</strong> — CISOs will not “send the lake” to a chatbot.</li>
+  <li><strong>Platforms are silos</strong> — Databricks/Snowflake are excellent <em>inside</em> one lakehouse; real companies are multi-source.</li>
+  <li><strong>Teams deserve Cursor-like leverage</strong> — analysts and junior DEs should move as fast as senior people, with guardrails.</li>
+</ul>
+
+<h3>1.3 North star (Cursor for data teams)</h3>
+<div class="ok">
+  Become the <strong>AI copilot + workflow OS</strong> for data engineers and analytics — so
+  connecting sources, discovering joins, building models, validating, shipping to warehouse/BI,
+  and keeping things from drifting becomes as fluid as coding in Cursor — for the whole DE/DA team,
+  not only senior DEs.
+</div>
+
+<div class="flow">Cursor (software engineers)          Que (data engineers + analysts)
+─────────────────────────────          ─────────────────────────────────────
+Edit code with AI assist               Edit stitch / models with AI assist
+Human reviews before merge             Human Promotes joins / freezes contracts
+Git is source of truth                 Warehouse + dbt + Airflow stay SoR
+IDE is not the production runtime      Que is not the data lake
+Whole team ships faster                Whole DE/DA team ships trusted data faster</div>
+
+<p class="note">
+  <strong>Analogy discipline:</strong> Cursor accelerates writing code <em>with review</em>.
+  Que must accelerate data work <em>with Promote / freeze</em> — a wrong join is worse than a wrong autocomplete.
+</p>
+
+<!-- 2 -->
+<div class="page-break"></div>
+<h2 id="today">2. What Que has today (features)</h2>
+<p>Everything below is implemented and demoable in the current stack (Vite SPA + Express API + Postgres).</p>
+
+<table>
+  <thead>
+    <tr><th>Area</th><th>What users can do</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Access &amp; tenancy</strong></td>
+      <td>Sign up / sign in; optional OIDC SSO; create/switch workspaces; invite members; roles viewer → member → admin → owner; onboarding roadmap</td>
+      <td><span class="badge b-now">Built</span></td>
+    </tr>
+    <tr>
+      <td><strong>Sources</strong></td>
+      <td>PostgreSQL, MongoDB, Excel/CSV, Snowflake, Databricks, BigQuery, Salesforce; encrypted credentials; sync schema (+ capped samples); connection health; source sync schedules (hourly/daily)</td>
+      <td><span class="badge b-now">Built</span></td>
+    </tr>
+    <tr>
+      <td><strong>Schema canvas</strong></td>
+      <td>Interactive graph; filters (relationship type, confidence, source type); search; Promote/Reject on edges; stitch session; export PDF/PNG/JSON</td>
+      <td><span class="badge b-now">Built</span></td>
+    </tr>
+    <tr>
+      <td><strong>Join Review</strong></td>
+      <td>Inbox Pending/Accepted/Rejected; re-run inference; mapping-assist Suggest mappings + Accept/Reject/Dismiss</td>
+      <td><span class="badge b-now">Built</span></td>
+    </tr>
+    <tr>
+      <td><strong>AI Chat</strong></td>
+      <td>Schema-only skills (/list, /describe, /joins, /sql, /job, /diff, /privacy…); RAG reindex; draft job → Save to Jobs</td>
+      <td><span class="badge b-now">Built</span></td>
+    </tr>
+    <tr>
+      <td><strong>Jobs</strong></td>
+      <td>Notebook cells; dry-run (~10 sample rows); live validate (~20 read-only); contract freeze; drift ack; attested export JSON/SQL/dbt; optional GitHub PR; signed download URLs; materialize VIEW/table in customer warehouse; job schedules + retries; private-runner execution target</td>
+      <td><span class="badge b-now">Built</span></td>
+    </tr>
+    <tr>
+      <td><strong>Lineage lite</strong></td>
+      <td>Metadata path Sources → joins → job → export/materialize</td>
+      <td><span class="badge b-now">Built</span></td>
+    </tr>
+    <tr>
+      <td><strong>Trust &amp; ops</strong></td>
+      <td>Audit log; drift alerts; attestation verify (/verify); policy gates (block export on unreviewed joins / high drift); orchestrator webhook (Airflow/Dagster); soft seat billing; usage bars</td>
+      <td><span class="badge b-now">Built</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  <strong>Product truth:</strong> Que stores schema + optional capped/scrubbed samples — not full tables.
+  Promote is the join gate. Warehouse remains system of record for result rows.
+</div>
+
+<h3>2.1 Problems we solve now (buyer language)</h3>
+<ol>
+  <li><strong>“We can’t safely stitch across systems”</strong> — schema sync + suggest + human Promote.</li>
+  <li><strong>“Catalogs inventory; nobody ships a stitch job”</strong> — freeze → notebook → attested export / materialize.</li>
+  <li><strong>“Security won’t let AI touch our lake”</strong> — schema-first + capped/scrubbed samples.</li>
+  <li><strong>“Who changed what / can we prove this export?”</strong> — roles, audit, drift, HMAC attestation.</li>
+  <li><strong>“Schema drifts and joins break silently”</strong> — drift surfaces + export blocks.</li>
+  <li><strong>“Paste into Airflow? Then what?”</strong> — signed artifacts, webhooks, private runner, customer CTAS/VIEW.</li>
+</ol>
+
+<!-- 3 -->
+<div class="page-break"></div>
+<h2 id="diff">3. How we are different in the market</h2>
+
+<table>
+  <thead>
+    <tr><th>Dimension</th><th>Typical market</th><th>Que difference</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Core loop</td><td>Search / catalog / chat SQL</td>
+      <td><strong>Suggest → Promote → Freeze → Attested ship</strong></td>
+    </tr>
+    <tr>
+      <td>Data custody</td><td>Often wants broad row access or lives in one platform</td>
+      <td><strong>Schema-first; capped samples; no Que lake</strong></td>
+    </tr>
+    <tr>
+      <td>Cross-source</td><td>Strong inside one lakehouse</td>
+      <td><strong>Multi-source by design</strong> (ops DB + files + CRM + warehouse)</td>
+    </tr>
+    <tr>
+      <td>AI posture</td><td>Auto-answer / auto-SQL</td>
+      <td><strong>HITL mandatory</strong> where trust matters (joins/contracts)</td>
+    </tr>
+    <tr>
+      <td>Delivery</td><td>Stops at diagram or Slack dump</td>
+      <td><strong>Artifact / PR / materialize / orchestrator handoff</strong></td>
+    </tr>
+    <tr>
+      <td>Who wins day-1</td><td>Platforms win if already all-in on them</td>
+      <td>Que wins when reality is <strong>messy and multi-system</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="ok">
+  <strong>Wedge sentence:</strong> We don’t replace your warehouse. We make cross-source stitch
+  <em>correct, reviewable, and shippable</em> — then deliver into systems you already trust.
+</p>
+
+<!-- 4 -->
+<h2 id="comp">4. Competitors &amp; positioning</h2>
+
+<table>
+  <thead>
+    <tr><th>Layer</th><th>Players</th><th>vs Que (today)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Catalog / governance</td>
+      <td>Atlan, Alation, Collibra, DataHub</td>
+      <td>They inventory &amp; steward. Que ships <strong>approved join contracts</strong>. Do not claim catalog replacement this quarter.</td>
+    </tr>
+    <tr>
+      <td>Lakehouse / platform</td>
+      <td><strong>Databricks</strong>, Snowflake</td>
+      <td>Where data lives &amp; runs. Que sits <strong>in front / beside</strong> — stitch + handoff into them.</td>
+    </tr>
+    <tr>
+      <td>ELT / transform</td>
+      <td>Fivetran, Airbyte, dbt</td>
+      <td>They move/transform. Que decides <strong>which joins are trusted</strong> before/alongside transforms.</td>
+    </tr>
+    <tr>
+      <td>Orchestration</td>
+      <td>Airflow, Dagster, Prefect</td>
+      <td>They run DAGs. Que <strong>triggers / packs</strong> work for them; does not host Airflow.</td>
+    </tr>
+    <tr>
+      <td>AI for data</td>
+      <td>Platform AI/BI, text-to-SQL tools</td>
+      <td>Often one-platform or chat-only. Que = <strong>cross-source + HITL + attestation</strong>.</td>
+    </tr>
+    <tr>
+      <td>Future “Cursor for data”</td>
+      <td>Notebook copilots, agent startups</td>
+      <td>Overlap with endgame. Win by shipping the <strong>trusted loop</strong> first.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>4.1 Competing now vs later</h3>
+<table>
+  <tr><th>Competing now (wedge)</th><th>Not competing yet</th></tr>
+  <tr>
+    <td>
+      Manual join discovery across systems<br />
+      Tribal knowledge of keys in spreadsheets<br />
+      Hand-written dbt joins with no attestation<br />
+      Catalogs that stop at “search” without a ship path
+    </td>
+    <td>
+      Atlan/Collibra as catalog of record<br />
+      Unity Catalog / Horizon as control plane<br />
+      Full BI semantic layer platforms<br />
+      Big-4-audited unattended multi-tenant SaaS
+    </td>
+  </tr>
+</table>
+
+<!-- 5 -->
+<div class="page-break"></div>
+<h2 id="sell">5. How to sell Que</h2>
+
+<h3>5.1 Pain narrative (open with this)</h3>
+<p>
+  “Our DE and analytics time dies in three places: finding keys across systems, wrong joins reaching
+  production, and security blocking AI from the lake. Catalogs tell us what exists. Platforms store
+  the data. Nobody owns <em>trusted stitch → ship</em>.”
+</p>
+
+<h3>5.2 Offer (what you sell this quarter)</h3>
+<ul>
+  <li>Paid design-partner / technical POC with <strong>fixed SOW</strong> (2–3 of <em>their</em> sources)</li>
+  <li>Success = <strong>N promoted joins</strong> + <strong>1 attested export</strong> (or materialize) + precision/recall on <em>their</em> golden join pairs</li>
+  <li><strong>Not</strong> success = “catalog coverage %” or “replace Atlan”</li>
+</ul>
+
+<h3>5.3 Buyer map</h3>
+<table>
+  <thead><tr><th>Persona</th><th>What they care about</th><th>What to show</th></tr></thead>
+  <tbody>
+    <tr><td>Head of Data / DE lead</td><td>Wrong joins, hours wasted, ship path</td><td>Promote → freeze → export/PR/materialize</td></tr>
+    <tr><td>CISO / Security</td><td>No lake custody; auditability</td><td>Schema-only, scrub, roles, attestation verify</td></tr>
+    <tr><td>Analytics lead</td><td>Trusted metrics paths without waiting months</td><td>Chat draft + reviewed job → warehouse object</td></tr>
+    <tr><td>Platform owner (DBX/SF)</td><td>Don’t rip-and-replace</td><td>“We deliver into your warehouse”</td></tr>
+  </tbody>
+</table>
+
+<h3>5.4 Ideal first customers</h3>
+<ul>
+  <li>Mid-market / growth companies with <strong>multi-source mess</strong> (ops DB + warehouse + files + CRM)</li>
+  <li>Teams already on Databricks <em>or</em> Snowflake but still stitching from Postgres/Mongo/Excel/Salesforce</li>
+  <li><strong>Avoid first:</strong> “100% Unity Catalog, everything already inside one platform, wants full Collibra replacement”</li>
+</ul>
+
+<!-- 6 -->
+<h2 id="dbx">6. Competing with Databricks (realistic path)</h2>
+<div class="bad">
+  You do <strong>not</strong> out-compute Databricks. You out-workflow the multi-source stitch + team productivity layer.
+</div>
+
+<table>
+  <thead><tr><th>Don’t</th><th>Do</th></tr></thead>
+  <tbody>
+    <tr><td>Claim “replace Databricks / Unity Catalog”</td><td>Be the best <strong>connector + join HITL + attested ship into Databricks</strong></td></tr>
+    <tr><td>Host their lake</td><td>Materialize / dbt / webhook <strong>into</strong> Databricks</td></tr>
+    <tr><td>Auto-accept joins</td><td>Prove human gate + evidence beats silent AI mistakes</td></tr>
+    <tr><td>Vague “AI platform”</td><td>Ship measurable <strong>DE hours saved</strong> on stitch → validate → deploy</td></tr>
+  </tbody>
+</table>
+
+<h3>6.1 Databricks-specific build priorities</h3>
+<ul>
+  <li>Deepen Unity / metastore schema introspect quality</li>
+  <li>Expand query-history join mining (already a wedge signal)</li>
+  <li>First-class materialize + dbt ship into Databricks SQL warehouses</li>
+  <li>Orchestrator webhook examples for Databricks Workflows / Airflow-on-DBX</li>
+  <li>Case study: “Postgres + Salesforce + Databricks → promoted joins → attested model in DBX”</li>
+</ul>
+
+<!-- 7 -->
+<div class="page-break"></div>
+<h2 id="cursor">7. Cursor for data teams — product vision in detail</h2>
+
+<h3>7.1 The full loop we eventually own</h3>
+<div class="flow">1. Connect sources          (schema sync, health, schedules)
+2. Discover relationships  (AI/heuristic + evidence)
+3. Human approve           (Promote / Reject / mapping assist)
+4. Build models / jobs     (notebook, SQL, dbt draft — AI assisted)
+5. Validate                (dry-run samples, live validate, tests)
+6. Ship                    (export, PR, materialize, webhook)
+7. Observe drift           (schema/join/contract drift alerts)
+8. Fix with assist         (suggested remaps, PRs, re-freeze)
+        ↑_________________ team memory of accepted joins / mappings _______|</div>
+
+<p>
+  Today Que strongly covers <strong>1–3 and parts of 4–7</strong>.
+  The Cursor-level product completes <strong>4–8 as an agentic, team-wide OS</strong> —
+  still with HITL checkpoints, still without hosting the lake.
+</p>
+
+<h3>7.2 Who the product is for (whole team)</h3>
+<table>
+  <thead><tr><th>Role</th><th>Cursor-like experience they should get</th></tr></thead>
+  <tbody>
+    <tr><td>Senior DE</td><td>Agent proposes stitch plans; they Promote/freeze; less tribal firefighting</td></tr>
+    <tr><td>Junior DE</td><td>Guided join review + notebook drafts with guardrails; learn by approving evidence</td></tr>
+    <tr><td>Analytics engineer</td><td>dbt model drafts from approved contracts; CI shows attestation</td></tr>
+    <tr><td>Analyst</td><td>“Ask → trusted path → BI object” without writing brittle cross-DB SQL alone</td></tr>
+    <tr><td>Data lead / steward</td><td>Audit, drift, who approved what; policy gates</td></tr>
+  </tbody>
+</table>
+
+<h3>7.3 Non-negotiable DNA (even at Cursor scale)</h3>
+<ul>
+  <li>Que is <strong>not</strong> the system of record for production rows</li>
+  <li>Joins that become contracts require <strong>human Promote</strong> (or explicit policy exception)</li>
+  <li>AI may draft; humans (or policy) gate ship</li>
+  <li>Delivery lands in <strong>customer</strong> warehouse / git / orchestrator</li>
+  <li>Schema-first defaults; samples capped/scrubbed</li>
+</ul>
+
+<!-- 8 -->
+<div class="page-break"></div>
+<h2 id="phases">8. Phased build plan (how to get there)</h2>
+<p class="note">
+  Each phase has an <strong>honest claim unlock</strong>. Do not market the next phase’s claim until exit criteria pass.
+</p>
+
+<!-- Phase 0 -->
+<div class="phase">
+  <h3><span class="badge b-now">Phase 0</span> Harden the wedge (now → ~1–2 quarters)</h3>
+  <p><strong>Goal:</strong> Paid POCs close reliably. Join trust is demo-proof. Ship path is boring.</p>
+  <p><strong>Claim unlock:</strong> “Controlled paid POC for cross-source join HITL → attested export/materialize.”</p>
+  <h4>Build</h4>
+  <ul>
+    <li>Join <strong>evidence UX</strong> on every suggested edge (signals, samples overlap, optional SQL)</li>
+    <li>Customer <strong>golden-set eval</strong> → printable POC report (precision/recall)</li>
+    <li>One-click POC pack (fixtures, migrate, verify attestation)</li>
+    <li>Hide billing/upgrade stubs outside DEV; polish Settings credibility</li>
+    <li>Audit log export, session revoke, basic rate limits</li>
+    <li>Snowflake query-history join mining (parity with Databricks assist)</li>
+    <li>Deeper dbt manifest round-trip; GitHub check with attestation fingerprint + approved join IDs</li>
+    <li>Live connector quality: BigQuery, Salesforce, Databricks, Snowflake hardening</li>
+  </ul>
+  <h4>Exit criteria</h4>
+  <ul>
+    <li>≥3 design partners run golden-set POC with documented join quality</li>
+    <li>SE can demo Promote → freeze → attested artifact without apology</li>
+    <li>Materialize or dbt PR works on at least one customer warehouse end-to-end</li>
+  </ul>
+</div>
+
+<!-- Phase 1 -->
+<div class="phase">
+  <h3><span class="badge b-next">Phase 1</span> Copilot that drafts the stitch (Cursor Step 1)</h3>
+  <p><strong>Goal:</strong> Multi-step agent proposes work; humans approve at checkpoints — like Cursor proposing an edit.</p>
+  <p><strong>Claim unlock:</strong> “AI proposes cross-source stitch plans; humans Promote; Que drafts the job.”</p>
+  <h4>Build</h4>
+  <ul>
+    <li><strong>Stitch Agent:</strong> “Connect domain X (orders ↔ customers ↔ payments)” → plan → suggest joins → wait for Promote → draft notebook/dbt</li>
+    <li>Checkpoint UI: Accept plan / edit plan / reject step (never silent auto-ship)</li>
+    <li>Org <strong>join memory</strong>: accepted joins &amp; mappings reusable across jobs/workspaces</li>
+    <li>Better Chat → Jobs quality (tests, assumptions, cited tables)</li>
+    <li>Side-by-side evidence panel while agent runs</li>
+    <li>Analyst-safe mode: limited skills, no credential access, read-oriented</li>
+  </ul>
+  <h4>Exit criteria</h4>
+  <ul>
+    <li>Agent completes a 2-source stitch to drafted job with ≥1 human checkpoint in &lt;30 minutes in POC</li>
+    <li>Junior DE can Promote with evidence without senior sitting beside them</li>
+  </ul>
+</div>
+
+<!-- Phase 2 -->
+<div class="phase">
+  <h3><span class="badge b-mid">Phase 2</span> Workflow OS for the whole DE/DA team</h3>
+  <p><strong>Goal:</strong> Que becomes daily home for stitch → model → ship → drift — not a one-time POC tool.</p>
+  <p><strong>Claim unlock:</strong> “Team workflow OS for trusted stitch-to-ship across sources.”</p>
+  <h4>Build</h4>
+  <ul>
+    <li>Shared workspaces by <strong>domain / data product</strong> (orders, finance, growth)</li>
+    <li>Review queues: joins, mappings, contract freezes, drift fixes (Slack/Teams notify)</li>
+    <li>Metrics &amp; semantic stubs: approved metrics linked to frozen contracts</li>
+    <li>BI handoff: create/update dbt models or warehouse views that analysts query in Looker/PowerBI/Tableau</li>
+    <li>Job templates library (“SCD2 dim”, “fact orders stitch”, “CRM enrich”)</li>
+    <li>Permissions: who can Promote vs who can only propose</li>
+    <li>Usage analytics: hours saved, joins promoted, exports shipped</li>
+  </ul>
+  <h4>Exit criteria</h4>
+  <ul>
+    <li>Paying teams use Que weekly (not only during POC)</li>
+    <li>Both DE and analytics roles have distinct happy paths in the same workspace</li>
+  </ul>
+</div>
+
+<!-- Phase 3 -->
+<div class="page-break"></div>
+<div class="phase">
+  <h3><span class="badge b-later">Phase 3</span> Full Cursor-like loop (automate the bottleneck end-to-end)</h3>
+  <p><strong>Goal:</strong> From NL intent to warehouse/BI object with continuous drift repair — still HITL at trust gates.</p>
+  <p><strong>Claim unlock:</strong> “Cursor for data teams: intent → reviewed stitch → ship → auto-detect drift → assisted fix.”</p>
+  <h4>Build</h4>
+  <ul>
+    <li>Natural language: “Build trusted customer 360 from SF + Postgres + Databricks” → multi-agent plan</li>
+    <li>Validation suite generator: uniqueness, referential checks, row-count sanity (run in customer warehouse)</li>
+    <li>Drift agent: schema change → impact on contracts → suggested remap PR → re-freeze</li>
+    <li>Private runner / BYOC agent maturity (VPC) beyond callback MVP</li>
+    <li>Eval harnesses for hallucination; contractual schema-only guarantees</li>
+    <li>Grounded answers with citations to lineage edges + owners</li>
+    <li>Optional auto-Promote only for <em>low-risk</em> joins under explicit policy (default still HITL)</li>
+  </ul>
+  <h4>Exit criteria</h4>
+  <ul>
+    <li>Design partners report measurable reduction in DE cycle time for new domain stitches</li>
+    <li>Drift-to-fix PR path used in production by ≥1 customer</li>
+  </ul>
+</div>
+
+<!-- Phase 4 -->
+<div class="phase">
+  <h3><span class="badge b-later">Phase 4</span> Optional expansion — catalog / governance (only after wedge revenue)</h3>
+  <p><strong>Goal:</strong> Compete with Atlan/Collibra <em>if</em> strategy expands — not required for Cursor-for-data.</p>
+  <p><strong>Claim unlock:</strong> “Catalog + governance platform” — only when built.</p>
+  <h4>Build (if pursuing)</h4>
+  <ul>
+    <li>Connector breadth at scale; dashboards/metrics/pipelines as first-class assets</li>
+    <li>Business glossary; stewardship workflows; certify/expire</li>
+    <li>Automated multi-hop column lineage across SQL + dbt + BI</li>
+    <li>Policy packs, Jira/ServiceNow, steward UX mode</li>
+  </ul>
+  <div class="warn">Do not let Phase 4 steal focus from Phases 0–3. Catalog parity is expensive and slower to monetize than the Cursor wedge.</div>
+</div>
+
+<!-- Phase 5 -->
+<div class="phase">
+  <h3><span class="badge b-later">Phase 5</span> Enterprise control plane (Big-4 bar)</h3>
+  <p><strong>Goal:</strong> Unattended multi-tenant SaaS sellable into heavily audited enterprises.</p>
+  <h4>Build</h4>
+  <ul>
+    <li>SCIM 2.0; enforced SSO; CMK; fine-grained RBAC/ABAC</li>
+    <li>SOC 2 Type II evidence pack; pen-test; contractual SLAs</li>
+    <li>Multi-region / tenant isolation story; SIEM export</li>
+  </ul>
+</div>
+
+<!-- 9 -->
+<div class="page-break"></div>
+<h2 id="build">9. What more to build (detailed backlog)</h2>
+<p>Organized by layer. Priority = Phase 0 first, then Cursor path (1–3), then optional category (4–5).</p>
+
+<h3>9.1 Trust &amp; join quality <span class="badge b-next">P0</span></h3>
+<table>
+  <thead><tr><th>Item</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Evidence panel on every edge (name match, type match, sample overlap, FK declaration, query-history hit)</td><td>Trust hinge</td></tr>
+    <tr><td>Golden-set upload + score report PDF</td><td>POC proof</td></tr>
+    <tr><td>False-positive review workflow (“why rejected” memory)</td><td>Model improves with team</td></tr>
+    <tr><td>Composite / multi-column join support UX</td><td>Real-world keys</td></tr>
+    <tr><td>Conflict UI when two promoted joins disagree</td><td>Avoid silent wrong truth</td></tr>
+  </tbody>
+</table>
+
+<h3>9.2 Agent / Cursor core <span class="badge b-next">P1</span></h3>
+<table>
+  <thead><tr><th>Item</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Multi-step Stitch Agent with checkpoints</td><td>Cursor-like flow</td></tr>
+    <tr><td>Plan editor (reorder/remove steps before run)</td><td>Human control</td></tr>
+    <tr><td>Tool use: sync, infer, promote request, draft SQL, open PR (permissions gated)</td><td>Real automation</td></tr>
+    <tr><td>Session transcript + replay for audits</td><td>Enterprise trust</td></tr>
+    <tr><td>“Ask → job” for analysts with restricted tools</td><td>Whole-team product</td></tr>
+  </tbody>
+</table>
+
+<h3>9.3 Ship &amp; runtime <span class="badge b-mid">P1–P2</span></h3>
+<table>
+  <thead><tr><th>Item</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>dbt project round-trip (read existing models, write only delta)</td><td>Lives in their repo</td></tr>
+    <tr><td>CI GitHub Action: attestation + approved join IDs</td><td>Non-repudiation</td></tr>
+    <tr><td>Warehouse test runner (customer-side checks)</td><td>Validate for real</td></tr>
+    <tr><td>OpenLineage / Airflow richer payloads</td><td>Orchestrator depth</td></tr>
+    <tr><td>BYOC private agent (beyond callback MVP)</td><td>VPC customers</td></tr>
+    <tr><td>Idempotent materialize + rollback notes</td><td>Ops safety</td></tr>
+  </tbody>
+</table>
+
+<h3>9.4 Team OS <span class="badge b-mid">P2</span></h3>
+<table>
+  <thead><tr><th>Item</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Domain spaces + ownership</td><td>Scale beyond one canvas</td></tr>
+    <tr><td>Slack/Teams: “join needs Promote”, drift digests</td><td>Meet teams where they work</td></tr>
+    <tr><td>Template gallery + org private templates</td><td>Speed for juniors</td></tr>
+    <tr><td>Propose vs Promote permissions</td><td>Analyst vs DE roles</td></tr>
+    <tr><td>Saved “data products” with versioned contracts</td><td>Product thinking</td></tr>
+  </tbody>
+</table>
+
+<h3>9.5 Analytics experience <span class="badge b-later">P2–P3</span></h3>
+<table>
+  <thead><tr><th>Item</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Metric definitions bound to frozen contracts</td><td>Trusted numbers</td></tr>
+    <tr><td>NL → reviewed SQL against approved graph only</td><td>Safer than open text-to-SQL</td></tr>
+    <tr><td>Explain “why this join” in plain language</td><td>Analyst literacy</td></tr>
+    <tr><td>BI tool deep links (Looker explore / Power BI dataset)</td><td>Close the loop to consumption</td></tr>
+  </tbody>
+</table>
+
+<h3>9.6 Platform &amp; enterprise <span class="badge b-later">P3–P5</span></h3>
+<table>
+  <thead><tr><th>Item</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>More connectors: Redshift, Synapse, Glue, Kafka, S3 tables…</td><td>Coverage</td></tr>
+    <tr><td>SCIM, CMK, SOC2, SIEM export</td><td>Enterprise buy</td></tr>
+    <tr><td>Optional glossary / stewardship (only if category expand)</td><td>Catalog competition</td></tr>
+    <tr><td>Multi-region tenancy evidence</td><td>Big-4 bar</td></tr>
+  </tbody>
+</table>
+
+<h3>9.7 Explicitly do <em>not</em> build early</h3>
+<div class="bad">
+  <ul>
+    <li>Que-hosted data lake / scratch warehouse as SoR</li>
+    <li>Auto-accept all joins by default</li>
+    <li>AI “clean the whole lake” row mutation inside Que</li>
+    <li>Full Airflow/Databricks clone</li>
+    <li>Full Collibra/Atlan replacement before wedge revenue</li>
+  </ul>
+</div>
+
+<!-- 10 -->
+<div class="page-break"></div>
+<h2 id="metrics">10. Success metrics &amp; claim gates</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>North-star metric</th><th>You may claim when…</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>0 Wedge</td>
+      <td>POC win rate; join precision/recall on golden set; time-to-first attested export</td>
+      <td>Paid POC SOW with fixed sources succeeds repeatedly</td>
+    </tr>
+    <tr>
+      <td>1 Copilot</td>
+      <td>% of jobs that started from agent draft; human checkpoint rate; junior DE success</td>
+      <td>Agent drafts used in real POCs without senior babysitting</td>
+    </tr>
+    <tr>
+      <td>2 Team OS</td>
+      <td>Weekly active DE+analyst seats; joins promoted / week; exports shipped / week</td>
+      <td>Customers renew because Que is in the weekly workflow</td>
+    </tr>
+    <tr>
+      <td>3 Cursor loop</td>
+      <td>Cycle time for new domain stitch; drift MTTR; % fixes via assisted PR</td>
+      <td>Customers measure hours saved on stitch→ship→repair</td>
+    </tr>
+    <tr>
+      <td>4 Catalog (opt)</td>
+      <td>Asset coverage; steward adoption</td>
+      <td>Only after intentional strategy expand + feature parity</td>
+    </tr>
+    <tr>
+      <td>5 Enterprise</td>
+      <td>SOC2; SCIM customers; uptime SLA</td>
+      <td>Evidence pack exists — not slideware</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- 11 -->
+<h2 id="risks">11. Risks &amp; what never to claim early</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Overclaim vs Atlan/Databricks</td><td>Wedge language only; “alongside” not “replace”</td></tr>
+    <tr><td>AI wrong joins in production</td><td>Mandatory Promote; block export on unreviewed; evidence UX</td></tr>
+    <tr><td>CISO kills deal</td><td>Schema-only defaults; scrub; no lake custody; attestation</td></tr>
+    <tr><td>Becoming a catalog science project</td><td>Phases 0–3 before Phase 4</td></tr>
+    <tr><td>“Cursor” hype without checkpoints</td><td>Agent always pauses at trust gates</td></tr>
+    <tr><td>Trying to host compute</td><td>Materialize + webhook + BYOC; never Que-as-warehouse</td></tr>
+  </tbody>
+</table>
+
+<div class="verdict">
+  <strong>Final line for stakeholders:</strong><br />
+  Que’s <em>motive</em> is to become the Cursor-like OS for data engineering and analytics.
+  Que’s <em>current product</em> is the sharp first chapter: cross-source join truth + safe AI +
+  attested delivery into systems customers already own — especially beside Databricks and Snowflake,
+  not instead of them.<br /><br />
+  <strong>Build order:</strong> Harden wedge → Stitch agent with HITL → Team workflow OS →
+  Full intent→ship→drift loop → (optional) catalog/enterprise control plane.
+</div>
+
+<p class="footer-note">
+  Que Vision, Market Strategy &amp; Cursor-for-Data Build Plan v1.0 · 9 Aug 2026 ·
+  HTML: <code>docs/Que-Vision-Cursor-For-Data.html</code> ·
+  Companions: <code>Que-Problems-And-User-Guide.pdf</code>,
+  <code>Que-Built-Roadmap-Compete.pdf</code>,
+  <code>Que-Tech-Diligence-Investor.pdf</code>.
+</p>
+
+</body>
+</html>

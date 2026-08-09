@@ -138,8 +138,26 @@ export function TopBar({
             <NavLink to="/sources" className={primaryNavLinkClass}>
               Sources
             </NavLink>
+            <NavLink to="/joins" className={primaryNavLinkClass}>
+              Joins
+            </NavLink>
+            <NavLink to="/domains" className={primaryNavLinkClass}>
+              Domains
+            </NavLink>
+            <NavLink to="/catalog" className={primaryNavLinkClass}>
+              Catalog
+            </NavLink>
             <NavLink to="/jobs" className={primaryNavLinkClass}>
               Jobs
+            </NavLink>
+            <NavLink to="/lineage" className={primaryNavLinkClass}>
+              Lineage
+            </NavLink>
+            <NavLink to="/steward" className={primaryNavLinkClass}>
+              Steward
+            </NavLink>
+            <NavLink to="/agent" className={primaryNavLinkClass}>
+              Agent
             </NavLink>
             <NavLink to="/settings" className={primaryNavLinkClass}>
               Settings

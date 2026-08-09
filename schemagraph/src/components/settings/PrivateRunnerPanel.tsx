@@ -65,9 +65,11 @@ export function PrivateRunnerPanel({
         Private runner
       </h2>
       <p className="mt-xs max-w-[36rem] font-body text-[12px] text-on-surface-variant">
-        Wave 4.5 — Que POSTs a signed work order to your URL; your runner
-        callbacks <code className="text-[11px]">/runner/callback</code>. Not a
-        full VPC agent image.
+        Phase 3 — signed work order (schema v2, idempotency key, one retry) to
+        your URL; runner callbacks{' '}
+        <code className="text-[11px]">/runner/callback</code> (incl. heartbeat{' '}
+        <code className="text-[11px]">running</code>). VPC agent image still
+        optional later.
       </p>
       {err ? (
         <p className="mt-sm font-body text-[12px] text-error">{err}</p>

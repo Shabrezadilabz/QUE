@@ -138,6 +138,8 @@ export async function enqueuePrivateRunnerJob(workspaceId, jobId, opts = {}) {
     `http://localhost:${process.env.PORT || 8787}`
   const workOrder = {
     event: 'que.private_runner.work_order',
+    schemaVersion: 2,
+    agentHint: 'vpc_callback',
     workspaceId,
     jobId,
     runId,
@@ -147,23 +149,40 @@ export async function enqueuePrivateRunnerJob(workspaceId, jobId, opts = {}) {
     notebook: job.notebook,
     schemaSnapshotId: job.schemaSnapshotId,
     callbackUrl: `${callbackBase.replace(/\/$/, '')}/runner/callback`,
+    heartbeatHint: 'POST callback with status=running to avoid soft timeout',
     ts: new Date().toISOString(),
   }
   const bodyText = JSON.stringify(workOrder)
   const secret = row.private_runner_secret || ''
   const sig = secret ? sign(secret, bodyText) : ''
 
-  try {
-    const res = await fetch(row.private_runner_url, {
+  async function postWorkOrder() {
+    return fetch(row.private_runner_url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Que-Signature': sig ? `sha256=${sig}` : '',
-        'User-Agent': 'Que-Private-Runner/4.5',
+        'X-Que-Idempotency-Key': runId,
+        'User-Agent': 'Que-Private-Runner/3.0',
       },
       body: bodyText,
       signal: AbortSignal.timeout(15000),
     })
+  }
+
+  try {
+    let res
+    try {
+      res = await postWorkOrder()
+    } catch (firstErr) {
+      // One retry on transient network failure (Phase 3 maturity)
+      await new Promise((r) => setTimeout(r, 400))
+      try {
+        res = await postWorkOrder()
+      } catch {
+        throw firstErr
+      }
+    }
     if (!res.ok) {
       await failRun(runId, `Private runner HTTP ${res.status}`)
       const err = new Error(`Private runner rejected work order (${res.status})`)

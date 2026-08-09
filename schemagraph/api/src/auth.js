@@ -96,6 +96,37 @@ export async function login(email, password) {
     throw err
   }
 
+  // Phase 5 — enforced SSO: block password login for workspaces with enforceSso
+  // unless an active break-glass window exists for this user.
+  await acceptPendingInvites(user.id, user.email)
+  const workspaces = await listWorkspacesForUser(user.id)
+  const enforced = []
+  for (const ws of workspaces) {
+    const { rows: wsRows } = await query(
+      `SELECT settings_json FROM workspaces WHERE id = $1`,
+      [ws.id],
+    )
+    const settings = wsRows[0]?.settings_json || {}
+    if (settings.enforceSso === true) {
+      let glass = false
+      try {
+        const { hasActiveBreakGlass } = await import('./breakGlass.js')
+        glass = await hasActiveBreakGlass(ws.id, user.id)
+      } catch {
+        glass = false
+      }
+      if (!glass) enforced.push(ws.name || ws.id)
+    }
+  }
+  if (enforced.length) {
+    const err = new Error(
+      `SSO required for workspace(s): ${enforced.join(', ')}. Use IdP sign-in or ask an owner to open break-glass.`,
+    )
+    err.status = 403
+    err.code = 'SSO_ENFORCED'
+    throw err
+  }
+
   const token = randomBytes(32).toString('hex')
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000)
   await query(
@@ -104,8 +135,6 @@ export async function login(email, password) {
     [user.id, hashToken(token), expires.toISOString()],
   )
 
-  await acceptPendingInvites(user.id, user.email)
-  const workspaces = await listWorkspacesForUser(user.id)
   return {
     token,
     expiresAt: expires.toISOString(),
@@ -232,6 +261,46 @@ export async function logout(token) {
   await query(`DELETE FROM sessions WHERE token_hash = $1`, [hashToken(token)])
 }
 
+/** List active sessions for the current user (for Settings → Security revoke UI). */
+export async function listUserSessions(userId, currentToken) {
+  const currentHash = currentToken ? hashToken(currentToken) : null
+  const { rows } = await query(
+    `SELECT id, created_at, expires_at, token_hash
+     FROM sessions
+     WHERE user_id = $1 AND expires_at > now()
+     ORDER BY created_at DESC
+     LIMIT 40`,
+    [userId],
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+    current: currentHash ? r.token_hash === currentHash : false,
+  }))
+}
+
+export async function revokeUserSession(userId, sessionId) {
+  const { rowCount } = await query(
+    `DELETE FROM sessions WHERE id = $1 AND user_id = $2`,
+    [sessionId, userId],
+  )
+  return rowCount > 0
+}
+
+export async function revokeOtherUserSessions(userId, currentToken) {
+  const currentHash = currentToken ? hashToken(currentToken) : null
+  if (!currentHash) {
+    await query(`DELETE FROM sessions WHERE user_id = $1`, [userId])
+    return { revoked: true }
+  }
+  const { rowCount } = await query(
+    `DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2`,
+    [userId, currentHash],
+  )
+  return { revoked: rowCount }
+}
+
 export async function resolveSession(token) {
   if (!token) return null
   const { rows } = await query(
@@ -299,11 +368,51 @@ export async function optionalAuth(req, _res, next) {
     }
     const token = extractBearer(req)
     req.authToken = token
+    if (token?.startsWith('que_') || token?.startsWith('scim_')) {
+      const ok = await attachServiceToken(req, token)
+      if (ok) return next()
+    }
     req.user = token ? await resolveSession(token) : null
     next()
   } catch (err) {
     next(err)
   }
+}
+
+async function attachServiceToken(req, token) {
+  try {
+    if (token.startsWith('que_')) {
+      const { resolveApiKey } = await import('./apiKeys.js')
+      const key = await resolveApiKey(token)
+      if (key) {
+        req.apiKey = key
+        req.user = {
+          id: null,
+          email: `apikey:${key.keyId}`,
+          displayName: 'API Key',
+          isApiKey: true,
+        }
+        return true
+      }
+    }
+    if (token.startsWith('scim_')) {
+      const { resolveScimToken } = await import('./scim.js')
+      const scim = await resolveScimToken(token)
+      if (scim) {
+        req.scim = scim
+        req.user = {
+          id: null,
+          email: `scim:${scim.tokenId}`,
+          displayName: 'SCIM',
+          isScim: true,
+        }
+        return true
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return false
 }
 
 /** Require authenticated user */
@@ -319,6 +428,10 @@ export async function requireAuth(req, res, next) {
     }
     const token = extractBearer(req)
     req.authToken = token
+    if (token?.startsWith('que_') || token?.startsWith('scim_')) {
+      const ok = await attachServiceToken(req, token)
+      if (ok) return next()
+    }
     const user = token ? await resolveSession(token) : null
     if (!user) {
       res.status(401).json({ error: 'unauthorized' })
@@ -346,6 +459,27 @@ export async function requireWorkspaceMember(req, res, next) {
     if (!req.user) {
       res.status(401).json({ error: 'unauthorized' })
       return
+    }
+    // Phase 5 — API keys / SCIM tokens are workspace-scoped
+    if (req.apiKey) {
+      if (req.apiKey.workspaceId !== workspaceId) {
+        res.status(403).json({ error: 'forbidden — API key workspace mismatch' })
+        return
+      }
+      req.workspaceRole = req.apiKey.scopes?.includes('admin')
+        ? 'admin'
+        : req.apiKey.scopes?.includes('write')
+          ? 'member'
+          : 'viewer'
+      return next()
+    }
+    if (req.scim) {
+      if (req.scim.workspaceId !== workspaceId) {
+        res.status(403).json({ error: 'forbidden — SCIM token workspace mismatch' })
+        return
+      }
+      req.workspaceRole = 'admin'
+      return next()
     }
     const role = await userCanAccessWorkspace(req.user.id, workspaceId)
     if (!role) {

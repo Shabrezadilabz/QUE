@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Que — Problems We Solve &amp; Complete User Guide</title>
+  <style>
+    @page { size: A4; margin: 14mm 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.4;
+      color: #1a1a1a;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+    h1 { font-size: 18pt; margin: 0 0 6px; letter-spacing: -0.02em; }
+    h2 {
+      font-size: 12.5pt;
+      margin: 22px 0 8px;
+      padding-bottom: 3px;
+      border-bottom: 2px solid #5c3a2e;
+      page-break-after: avoid;
+      color: #3d241c;
+    }
+    h3 { font-size: 10.5pt; margin: 14px 0 5px; page-break-after: avoid; color: #4a3028; }
+    h4 { font-size: 9.5pt; margin: 10px 0 4px; color: #5c3a2e; }
+    p, li { margin: 0 0 4px; }
+    ul, ol { margin: 0 0 8px; padding-left: 1.2em; }
+    .meta { color: #555; font-size: 8.5pt; margin-bottom: 12px; }
+    .cover {
+      border: 2px solid #5c3a2e;
+      padding: 22px 18px;
+      margin-bottom: 16px;
+      background: linear-gradient(165deg, #faf6f1 0%, #f0e4d8 100%);
+    }
+    .cover .brand {
+      font-size: 9.5pt;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8b4a34;
+    }
+    .toc { page-break-after: always; }
+    .toc a { color: #1a1a1a; text-decoration: none; }
+    .toc ol { columns: 1; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0 12px;
+      font-size: 8pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #c9b8a8;
+      padding: 3px 5px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #efe4d8; font-weight: 600; }
+    code {
+      font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+      font-size: 7.5pt;
+      background: #f3ebe3;
+      padding: 1px 3px;
+    }
+    .ok {
+      border-left: 3px solid #4a7c59;
+      background: #eef6f0;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 8.5pt;
+    }
+    .note {
+      border-left: 3px solid #c4a574;
+      background: #f8f4ec;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 8.5pt;
+    }
+    .warn {
+      border-left: 3px solid #b45309;
+      background: #fff7ed;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 8.5pt;
+    }
+    .out {
+      border-left: 3px solid #a33;
+      background: #faf0f0;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-size: 8.5pt;
+    }
+    .card {
+      border: 1px solid #d9c9b8;
+      padding: 10px 12px;
+      margin: 10px 0 14px;
+      background: #fffefb;
+      page-break-inside: avoid;
+    }
+    .card > h3 { margin-top: 0; }
+    .page-break { page-break-before: always; }
+    .footer-note { margin-top: 24px; font-size: 7.5pt; color: #666; }
+    .role { font-weight: 600; color: #8b4a34; }
+    .ctrl { font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">Que · Stakeholder &amp; End-User Brief</div>
+  <h1>Problems We Solve + Complete User Guide</h1>
+  <p class="meta">
+    Product: <strong>Que</strong> (SchemaGraph) — schema + HITL decision + attested delivery into <em>your</em> systems<br />
+    Codebase: <code>adc/schemagraph</code> · App <code>http://localhost:5173</code> · API <code>http://localhost:8787</code><br />
+    Document version: <strong>1.0</strong> · Date: 5 Aug 2026 · Audience: buyers, pilots, end users, demos
+  </p>
+  <p class="ok" style="margin-bottom:8px">
+    <strong>One-liner:</strong> Que is the schema + human-in-the-loop decision + attested delivery plane into customer systems —
+    <em>not</em> where the cleaned data lake lives.
+  </p>
+  <p class="note" style="margin-bottom:0">
+    This PDF combines (1) real-world problems Que solves today, (2) how the product actually works
+    (roles, sync, joins, samples, jobs, handoff), and (3) a screen-by-screen user guide —
+    every major button, filter, and action.
+  </p>
+</div>
+
+<nav class="toc">
+  <h2>Table of contents</h2>
+  <ol>
+    <li><a href="#problems">Part A — Real-world problems Que solves now</a></li>
+    <li><a href="#how-it-works">Part B — How Que works (product facts)</a></li>
+    <li><a href="#roles">Part B.1 — Roles: Viewer / Member / Admin / Owner</a></li>
+    <li><a href="#sync">Part B.2 — Sync, joins, samples, jobs, schedules</a></li>
+    <li><a href="#out">Part B.3 — Explicitly out of v1</a></li>
+    <li><a href="#guide">Part C — Complete user guide (every screen)</a></li>
+    <li><a href="#login">C.1 Login &amp; account</a></li>
+    <li><a href="#shell">C.2 App chrome &amp; navigation</a></li>
+    <li><a href="#workspace">C.3 Workspace (schema canvas)</a></li>
+    <li><a href="#sources">C.4 Sources (connectors)</a></li>
+    <li><a href="#joins">C.5 Join Review + mapping assist</a></li>
+    <li><a href="#chat">C.6 AI Chat</a></li>
+    <li><a href="#jobs">C.7 Jobs (notebook → deploy)</a></li>
+    <li><a href="#lineage">C.8 Lineage</a></li>
+    <li><a href="#settings">C.9 Settings (people, policy, ops, billing)</a></li>
+    <li><a href="#verify">C.10 Attestation verify (public)</a></li>
+    <li><a href="#journey">Part D — Typical end-to-end journey</a></li>
+    <li><a href="#wave4">Part E — What’s newly built (Wave 4 features)</a></li>
+  </ol>
+</nav>
+
+<!-- ========== PART A ========== -->
+<h2 id="problems">Part A — Real-world problems Que solves now</h2>
+
+<div class="card">
+  <h3>1. “We can’t safely stitch data across systems”</h3>
+  <p>Teams have Postgres + Mongo + Excel + Databricks / Snowflake / BigQuery / Salesforce with
+  <strong>no trusted join map</strong>. Wrong keys silently poison pipelines.</p>
+  <p><strong>What Que does:</strong> Syncs <em>schemas only</em>, suggests joins with scores/evidence,
+  and forces human <span class="ctrl">Promote</span> before those joins become job truth.</p>
+</div>
+
+<div class="card">
+  <h3>2. “Catalogs inventory; nobody ships a correct stitch job”</h3>
+  <p>Catalog tools describe what exists. Data engineers still hand-write joins and hope.</p>
+  <p><strong>What Que does:</strong> Reviewed schema + joins → <strong>frozen contract</strong> →
+  notebook job → <strong>attested export</strong> / optional CTAS or VIEW in <em>their</em> warehouse —
+  something a DE can actually use.</p>
+</div>
+
+<div class="card">
+  <h3>3. “Security won’t let AI (or a vendor) touch our lake”</h3>
+  <p>CISOs block “send us the lake” for AI copilots and SaaS vendors.</p>
+  <p><strong>What Que does:</strong> Schema-first + optional <strong>capped / scrubbed samples</strong>.
+  Assist stays off full row dumps. That unblocks evaluation and enterprise conversation.</p>
+</div>
+
+<div class="card">
+  <h3>4. “Who changed what, and can we prove this export?”</h3>
+  <p>Multi-person workspaces need accountability for diligence and compliance.</p>
+  <p><strong>What Que does:</strong> Roles (viewer / member / admin / owner), audit log, drift alerts,
+  and HMAC-attested exports so “this stitch was reviewed and frozen” is defensible.</p>
+</div>
+
+<div class="card">
+  <h3>5. “Schema drifts and yesterday’s joins break silently”</h3>
+  <p>After upstream schema change, old joins keep shipping until someone notices in production.</p>
+  <p><strong>What Que does:</strong> Surfaces drift after sync; policy can <strong>block export</strong>
+  when contracts / joins are stale or unreviewed.</p>
+</div>
+
+<div class="card">
+  <h3>6. “Paste into Airflow? Then what?”</h3>
+  <p>Discovery tools dump SQL into chat; ops still owns delivery.</p>
+  <p><strong>What Que does:</strong> Hands off — signed artifacts, webhook to Airflow/Dagster,
+  optional private runner, optional materialize in customer warehouse.
+  Que does <em>not</em> become the warehouse or Airflow clone.</p>
+</div>
+
+<p class="warn">
+  <strong>Do not claim yet:</strong> cleaning the data lake, hosting their warehouse,
+  auto-accepting joins, or Que as system of record for production rows.
+</p>
+
+<!-- ========== PART B ========== -->
+<div class="page-break"></div>
+<h2 id="how-it-works">Part B — How Que works (product facts)</h2>
+
+<h3 id="roles">B.1 Roles — Viewer &lt; Member &lt; Admin &lt; Owner</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Action</th>
+      <th>Viewer</th>
+      <th>Member</th>
+      <th>Admin / Owner</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>View sources, schema, joins, jobs, lineage, settings (read)</td>
+      <td>Yes</td><td>Yes</td><td>Yes</td>
+    </tr>
+    <tr>
+      <td>Create / edit connections, sync</td>
+      <td>No</td><td>Yes (sync)</td><td>Yes (full connector admin)</td>
+    </tr>
+    <tr>
+      <td>Promote / reject joins, mapping-assist accept</td>
+      <td>No</td><td>Yes</td><td>Yes</td>
+    </tr>
+    <tr>
+      <td>Create / edit / run jobs, freeze, export, materialize</td>
+      <td>No</td><td>Yes</td><td>Yes</td>
+    </tr>
+    <tr>
+      <td>Chat / stitch session</td>
+      <td>No</td><td>Yes</td><td>Yes</td>
+    </tr>
+    <tr>
+      <td>Invites, roles, secrets, orchestrator / private-runner config, “run due schedules”, billing checkout</td>
+      <td>No</td><td>No</td><td>Yes</td>
+    </tr>
+  </tbody>
+</table>
+<p><span class="role">Viewer</span> = look only ·
+<span class="role">Member</span> = do the stitch work ·
+<span class="role">Admin/Owner</span> = people / billing / platform knobs.</p>
+
+<h3 id="sync">B.2 Sync, joins, samples, jobs, schedules</h3>
+
+<div class="card">
+  <h4>2. After sync — full data or schema?</h4>
+  <p><strong>Only schema + optional capped samples</strong> in Que’s metadata DB.
+  Sync does <em>not</em> copy full tables into Que.</p>
+</div>
+
+<div class="card">
+  <h4>3. How PK/FK / joins are “proven”</h4>
+  <p>Today it’s a <strong>trust ladder</strong>, not automatic truth:</p>
+  <ol>
+    <li>Declared keys / FKs from connectors when available</li>
+    <li>Heuristic / AI suggestions (scores + evidence)</li>
+    <li>Human <span class="ctrl">Promote</span> → accepted join</li>
+  </ol>
+  <p>We do <em>not</em> require “10 matching sample rows → auto-trust.”
+  Samples support review; <strong>Promote is the gate</strong>.
+  Export can block on unreviewed joins if that setting is on.</p>
+</div>
+
+<div class="card">
+  <h4>4. Samples — where, how many, who sees</h4>
+  <ul>
+    <li>Live in Que metadata (<code>sample_values</code> on columns), usually ≤5 per column on sync</li>
+    <li>Job dry-run preview uses up to ~10 illustrative rows from those samples</li>
+    <li>Live validate pulls up to ~20 rows read-only from the source for that run (not stored as a Que lake)</li>
+    <li>Scrubbing can tokenize PII</li>
+    <li>Anyone with workspace access who can open schema/job UI can see what’s stored
+      (subject to scrub settings) — not “samples never leave the source” once sync-with-samples is enabled</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>5. “AI clean the whole data lake”</h4>
+  <p><strong>Out of scope.</strong> Que assists schema / mapping / job drafts (HITL).
+  Row cleaning / lake transforms belong in the customer warehouse + their orchestrator.</p>
+</div>
+
+<div class="card">
+  <h4>6. “Make a new table” with joins — where is it created?</h4>
+  <ul>
+    <li>Usually: SQL / dbt / JSON artifact (and optional GitHub PR) first</li>
+    <li>Optionally: CTAS / VIEW in the <strong>customer warehouse</strong> via materialize (<code>confirm:true</code>)</li>
+    <li><strong>Not</strong> created as a permanent table inside Que</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>7. Job “produces a new table” — where is data stored / retained?</h4>
+  <table>
+    <thead><tr><th>Path</th><th>Storage</th></tr></thead>
+    <tbody>
+      <tr><td>Dry-run / live validate</td><td>Logs + tiny preview in <code>job_runs</code> — not a result table</td></tr>
+      <tr><td>Export / signed artifact</td><td>File / token download — schema/SQL/bundle, not a warehouse</td></tr>
+      <tr><td>Materialize</td><td>Customer warehouse object; Que keeps metadata audit only</td></tr>
+    </tbody>
+  </table>
+  <p>Que is <strong>not</strong> the system of record for result rows.</p>
+</div>
+
+<div class="card">
+  <h4>8. How do they “see validated data”?</h4>
+  <ul>
+    <li><strong>Que UI:</strong> capped sample / live-validate preview on the job</li>
+    <li><strong>Real table:</strong> warehouse BI / SQL against the materialized object</li>
+    <li><strong>Artifact:</strong> download attested export</li>
+  </ul>
+  <p>Not: a general Que “query the cleaned lake” API.</p>
+</div>
+
+<div class="card">
+  <h4>9. Schedule daily to “pull data from connectors”</h4>
+  <p>Two different schedules:</p>
+  <ul>
+    <li><strong>Source schedule:</strong> re-introspect schema (not full ETL into Que)</li>
+    <li><strong>Job schedule:</strong> re-run notebook dry_run or live validate (read-only), with retries</li>
+  </ul>
+  <p>Not “pull all connector data into Que daily.” Warehouse refresh = materialize / external orchestrator.</p>
+</div>
+
+<div class="card">
+  <h4>10. Where does the job run?</h4>
+  <ul>
+    <li><strong>Default:</strong> Que API process (in-process ticker / request)</li>
+    <li><strong>Optional:</strong> private runner (customer callback) if execution target = private_runner</li>
+    <li><strong>Airflow / Dagster:</strong> Que only POSTs a signed webhook; they run the DAG — Que does not host Airflow</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>11. How another backend accesses “cleaned / job” outputs</h4>
+  <ul>
+    <li>Customer warehouse (after materialize) with their own credentials</li>
+    <li>Signed artifact URL (download export pack)</li>
+    <li>Orchestrator webhook payload (ids / status / refs — not full tables)</li>
+  </ul>
+  <p>There is no “query Que workspace for cleaned row datasets” product API.</p>
+</div>
+
+<h3 id="out">B.3 Explicitly out of v1 product</h3>
+<div class="out">
+  <ul>
+    <li>Que-hosted data lake / scratch warehouse</li>
+    <li>Auto-accepted joins (no HITL)</li>
+    <li>AI “clean the lake” / bulk row mutation in Que</li>
+    <li>Que as system of record for production row data</li>
+    <li>Full Airflow clone / full VPC BYOC agent (callback MVP only)</li>
+    <li>Full daily ETL of all connector data into Que</li>
+  </ul>
+</div>
+
+<!-- ========== PART C ========== -->
+<div class="page-break"></div>
+<h2 id="guide">Part C — Complete user guide (what you can do in the app)</h2>
+<p class="note">
+  Below is a screen-by-screen map of controls. Role hints:
+  <span class="role">V</span>=viewer ok ·
+  <span class="role">M</span>=member+ ·
+  <span class="role">A</span>=admin+ ·
+  <span class="role">O</span>=owner where noted.
+</p>
+
+<h3 id="login">C.1 Login &amp; account (<code>/login</code>)</h3>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">SIGN IN / CREATE ACCOUNT tabs</td><td>Switch between login and registration</td><td>—</td></tr>
+    <tr><td>EMAIL, PASSWORD</td><td>Credentials (password min 8 on register)</td><td>—</td></tr>
+    <tr><td>DISPLAY NAME, FIRST WORKSPACE NAME</td><td>On create account — names you and your first workspace</td><td>—</td></tr>
+    <tr><td class="ctrl">SIGN IN / CREATE ACCOUNT</td><td>Submit; lands on Workspace</td><td>—</td></tr>
+    <tr><td class="ctrl">Continue with SSO</td><td>OIDC start (when SSO is configured)</td><td>—</td></tr>
+    <tr><td>Dev demo buttons (Owner / Member / Viewer)</td><td>Local-only quick-fill credentials</td><td>—</td></tr>
+  </tbody>
+</table>
+<p><strong>Auth callback</strong> (<code>/auth/callback</code>): finishes SSO; on error use <span class="ctrl">BACK TO SIGN IN</span>.</p>
+
+<h3 id="shell">C.2 App chrome &amp; navigation</h3>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">Que brand</td><td>Go to Workspace canvas</td></tr>
+    <tr><td class="ctrl">Menu</td><td>Mobile drawer: workspaces + all nav links</td></tr>
+    <tr><td class="ctrl">Workspace switcher</td><td>Pick another workspace; create workspace (name + CREATE); open canvas</td></tr>
+    <tr><td>Nav links</td><td><strong>Workspace</strong>, <strong>AI Chat</strong>, <strong>Sources</strong>, <strong>Joins</strong>, <strong>Jobs</strong>, <strong>Lineage</strong>, <strong>Settings</strong></td></tr>
+    <tr><td class="ctrl">?</td><td>Open onboarding roadmap dialog (SKIP / BACK / NEXT / DONE; optional deep-links)</td></tr>
+    <tr><td>Avatar / role chip</td><td>See your role; sign out → Login</td></tr>
+  </tbody>
+</table>
+
+<!-- Workspace -->
+<div class="page-break"></div>
+<h3 id="workspace">C.3 Workspace — schema canvas (<code>/workspace</code>)</h3>
+<p><strong>Purpose:</strong> See tables as a graph, filter relationships, Promote/Reject suggested joins on edges, start a stitch session, export a filtered schema snapshot.</p>
+
+<h4>Top bar filters &amp; export</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>Search (+ ⌘K / Ctrl+K)</td><td>Filter tables/columns on the canvas by name</td><td>V</td></tr>
+    <tr><td class="ctrl">Tools</td><td>On smaller screens: open filters + export + counts</td><td>V</td></tr>
+    <tr><td>Relationship type</td><td>Filter edges: <strong>All</strong> / <strong>Explicit</strong> / <strong>AI-inferred</strong></td><td>V</td></tr>
+    <tr><td>Min confidence</td><td>Any / ≥50% / ≥70% / ≥85%</td><td>V</td></tr>
+    <tr><td>Source type</td><td>All, PostgreSQL, MongoDB, Snowflake, Databricks, SQL, MySQL, Excel, CSV, Kafka</td><td>V</td></tr>
+    <tr><td class="ctrl">Export PDF / PNG / JSON</td><td>Download or print the filtered schema view</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<h4>Canvas toolbar &amp; graph</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>Hand / Select</td><td>Pan mode vs select mode</td><td>V</td></tr>
+    <tr><td>Zoom + / − / %</td><td>Zoom in/out; see zoom level</td><td>V</td></tr>
+    <tr><td class="ctrl">Snap</td><td>Toggle snap-to-grid</td><td>V</td></tr>
+    <tr><td class="ctrl">Layout</td><td>Auto-arrange nodes (write toast if viewer)</td><td>M</td></tr>
+    <tr><td><strong>VIEW</strong> badge</td><td>Shows when you are read-only</td><td>V</td></tr>
+    <tr><td class="ctrl">STITCH SESSION</td><td>Open stitch dialog (≥2 sources, live API)</td><td>M</td></tr>
+    <tr><td>Stats</td><td>See Total Nodes / Relationships counts</td><td>V</td></tr>
+    <tr><td>Table nodes</td><td>Select, expand/collapse columns; drag to reposition</td><td>V / M drag</td></tr>
+    <tr><td>Relationship edges</td><td>Hover for confidence/evidence; <span class="ctrl">Promote</span> / <span class="ctrl">Reject</span> on suggested joins</td><td>M</td></tr>
+    <tr><td>MiniMap</td><td>Overview + pan viewport</td><td>V</td></tr>
+    <tr><td>Wheel / space-drag</td><td>Zoom / pan</td><td>V</td></tr>
+    <tr><td>Sync-drift banner</td><td>Notice schema changed; dismiss</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<h4>Right sidebar (table selected)</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>Close ×</td><td>Deselect table</td><td>V</td></tr>
+    <tr><td>Column pills</td><td>Focus a column</td><td>V</td></tr>
+    <tr><td class="ctrl">Refresh preview</td><td>Placeholder toast (samples coming soon in this panel)</td><td>V</td></tr>
+    <tr><td class="ctrl">Show lineage</td><td>Placeholder toast → use Lineage page</td><td>V</td></tr>
+    <tr><td class="ctrl">Save Changes</td><td>Create a stitch job from this table + neighbors → Jobs</td><td>M</td></tr>
+  </tbody>
+</table>
+
+<h4>Stitch Session dialog</h4>
+<ol>
+  <li>Pick Source A and Source B</li>
+  <li><span class="ctrl">1 · INFER JOINS</span> — generate suggestions</li>
+  <li>Per suggestion: <span class="ctrl">PROMOTE</span> / <span class="ctrl">REJECT</span></li>
+  <li>Enter job title → <span class="ctrl">2 · CREATE JOB</span></li>
+  <li>Optional <span class="ctrl">3 · SHIP DBT PR</span></li>
+  <li><span class="ctrl">CLOSE</span></li>
+</ol>
+
+<!-- Sources -->
+<div class="page-break"></div>
+<h3 id="sources">C.4 Sources — connectors (<code>/sources</code>)</h3>
+<p><strong>Purpose:</strong> Connect databases / warehouses / files / CRM; sync schema metadata; watch health; schedule re-introspect.</p>
+
+<h4>List view</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>Filter sources…</td><td>Filter connector tiles by name</td><td>V</td></tr>
+    <tr><td class="ctrl">+ Add connector</td><td>Start create wizard</td><td>A</td></tr>
+    <tr><td class="ctrl">Install POC pack</td><td>Install Snowflake + Databricks demo fixtures</td><td>A</td></tr>
+    <tr><td>Source tiles</td><td>Open connection detail</td><td>V</td></tr>
+    <tr><td>Dashed Add tile</td><td>Same as Add connector</td><td>A</td></tr>
+  </tbody>
+</table>
+
+<h4>Connection health panel</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>Healthy %</td><td>See workspace connector health summary</td><td>V</td></tr>
+    <tr><td>Needs attention list</td><td>See failing / stale connections</td><td>V</td></tr>
+    <tr><td class="ctrl">Re-auth / Fix</td><td>Jump to detail to fix credentials</td><td>A</td></tr>
+    <tr><td class="ctrl">Sync now</td><td>Re-introspect schema for that source</td><td>M</td></tr>
+    <tr><td class="ctrl">Open Workspace</td><td>Go to canvas</td><td>V</td></tr>
+    <tr><td>Join Review link</td><td>When healthy — go review joins</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<h4>Create wizard</h4>
+<ul>
+  <li><strong>Category chips:</strong> All, Databases, Warehouses, Files, CRM, Custom</li>
+  <li><strong>Search</strong> connectors by name</li>
+  <li><strong>Pick a type:</strong> PostgreSQL, MongoDB, Snowflake, Databricks, Excel, CSV,
+    <strong>BigQuery</strong>, <strong>Salesforce</strong> (plus request-only S3 / Custom API)</li>
+  <li><span class="ctrl">Request connector</span> / <span class="ctrl">Use CSV / Excel</span></li>
+  <li><span class="ctrl">Continue to setup</span> → fill form → <span class="ctrl">Create connection</span> or <span class="ctrl">Upload &amp; sync</span></li>
+  <li>Warehouse / CRM types often offer <strong>One-click fixture</strong> vs <strong>Live credentials</strong></li>
+</ul>
+
+<h4>Connection form fields (by type)</h4>
+<table>
+  <thead><tr><th>Type</th><th>Fields you fill</th></tr></thead>
+  <tbody>
+    <tr><td>Common</td><td>Name, Description; Type locked when editing</td></tr>
+    <tr><td>PostgreSQL</td><td>Host, Port, Database, Schema, User, Password</td></tr>
+    <tr><td>MongoDB</td><td>URI, Database</td></tr>
+    <tr><td>Databricks (live)</td><td>Host, Warehouse ID, Token, Catalog, Schema</td></tr>
+    <tr><td>Snowflake (live)</td><td>Account, Warehouse, Database, Schema, User, Token, Password</td></tr>
+    <tr><td>BigQuery (live)</td><td>Project id, Dataset, Location, OAuth access token</td></tr>
+    <tr><td>Salesforce (live)</td><td>Instance URL, Access token</td></tr>
+    <tr><td>Excel / CSV</td><td>File upload, Table names, Mapped files JSON</td></tr>
+  </tbody>
+</table>
+
+<h4>Detail view actions</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">← Back to Sources</td><td>Return to list</td><td>V</td></tr>
+    <tr><td>Edit connection fields</td><td>Update credentials / config (fieldset disabled if not admin)</td><td>A</td></tr>
+    <tr><td>Sync schedule</td><td><strong>Off</strong> / <strong>Hourly</strong> / <strong>Daily</strong> re-introspect</td><td>A</td></tr>
+    <tr><td class="ctrl">Save</td><td>Persist connection + schedule</td><td>A</td></tr>
+    <tr><td class="ctrl">Sync Schema</td><td>Pull schema (+ capped samples if policy allows)</td><td>M</td></tr>
+    <tr><td class="ctrl">Delete</td><td>Remove connection</td><td>A</td></tr>
+    <tr><td class="ctrl">Retry sync / Update credentials</td><td>Recover from error banner</td><td>M / A</td></tr>
+    <tr><td class="ctrl">Open Workspace</td><td>See synced tables on canvas</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<!-- Joins -->
+<h3 id="joins">C.5 Join Review + mapping assist (<code>/joins</code>)</h3>
+<p><strong>Purpose:</strong> Inbox for suggested joins and column rename suggestions — HITL gate before jobs trust them.</p>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">Re-run inference</td><td>Rescan and refresh join suggestions</td><td>M</td></tr>
+    <tr><td class="ctrl">Suggest mappings</td><td>Run mapping assist; fill rename queue</td><td>M</td></tr>
+    <tr><td class="ctrl">Open Workspace</td><td>See joins on canvas</td><td>V</td></tr>
+    <tr><td>Status filters</td><td><strong>Pending</strong> / <strong>Accepted</strong> / <strong>Rejected</strong> / <strong>All</strong></td><td>V</td></tr>
+    <tr><td>List item</td><td>Select to see evidence / scores in detail</td><td>V</td></tr>
+    <tr><td class="ctrl">Promote / Reject</td><td>Accept join into workspace truth, or reject</td><td>M</td></tr>
+    <tr><td>Rename: Accept / Reject / Dismiss</td><td>HITL on column alias suggestions (intent only)</td><td>M</td></tr>
+  </tbody>
+</table>
+
+<!-- Chat -->
+<div class="page-break"></div>
+<h3 id="chat">C.6 AI Chat (<code>/chat</code>)</h3>
+<p><strong>Purpose:</strong> Schema-only assistant — list tables, describe, suggest joins, draft SQL / jobs. Does <em>not</em> clean your lake.</p>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">Skills</td><td>Show/hide skill chips</td><td>V</td></tr>
+    <tr><td class="ctrl">Reindex</td><td>Rebuild schema embeddings for RAG</td><td>M</td></tr>
+    <tr><td class="ctrl">Stop / Clear</td><td>Abort generation / clear thread</td><td>M / V</td></tr>
+    <tr><td>Skill chips</td><td>Insert or run: <code>/list</code> <code>/describe</code> <code>/joins</code> <code>/suggested</code> <code>/sql</code> <code>/job</code> <code>/diff</code> <code>/privacy</code> <code>/help</code></td><td>M</td></tr>
+    <tr><td>Empty quick chips</td><td>One-click List / Suggested / Diff / Help</td><td>M</td></tr>
+    <tr><td>Mention chips ×</td><td>Remove @table focus from context</td><td>M</td></tr>
+    <tr><td class="ctrl">Generate SQL / Explain table / Visualize joins / Regen</td><td>Shortcut actions on assistant messages</td><td>M</td></tr>
+    <tr><td>Composer</td><td>Type question; Enter to send; @ and / autocomplete</td><td>M</td></tr>
+    <tr><td>Attach / @ / / / Mic</td><td>Files, mention tables, skills, voice</td><td>M</td></tr>
+    <tr><td>Model select</td><td>Pick generation model</td><td>M</td></tr>
+    <tr><td class="ctrl">Send</td><td>Ask the assistant</td><td>M</td></tr>
+    <tr><td>Copy / +1 / −1</td><td>Copy answer; thumbs feedback</td><td>M</td></tr>
+    <tr><td class="ctrl">Save job</td><td>If assistant drafted a job — create it in Jobs</td><td>M</td></tr>
+    <tr><td>Sidebar: Refresh, Filter tables, expand, click/drag</td><td>Browse schema; add @table / @column context</td><td>V / M</td></tr>
+  </tbody>
+</table>
+<p class="warn">Viewers see a read-only composer and “viewer cannot chat” messaging.</p>
+
+<!-- Jobs -->
+<h3 id="jobs">C.7 Jobs — notebook → deploy (<code>/jobs</code>)</h3>
+<p><strong>Purpose:</strong> Turn reviewed stitch into a notebook job; dry-run / live-validate; freeze contract; export attested pack; optionally materialize in customer warehouse; schedule re-runs.</p>
+
+<h4>Monitor list</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>Filter…</td><td>Filter job cards by title</td><td>V</td></tr>
+    <tr><td class="ctrl">↻ Refresh</td><td>Reload jobs</td><td>V</td></tr>
+    <tr><td class="ctrl">+ New Job</td><td>Open create dialog</td><td>M</td></tr>
+    <tr><td>Job cards</td><td>Open job editor</td><td>V</td></tr>
+    <tr><td>Empty: Create manually / Draft in AI Chat</td><td>Start from scratch or go to Chat</td><td>M</td></tr>
+    <tr><td>Run history</td><td>See past runs; click title to open job</td><td>V</td></tr>
+    <tr><td>Live Stream ▶/⏸</td><td>Pause/resume log stream</td><td>V</td></tr>
+    <tr><td>Search logs…</td><td>Filter streaming log lines</td><td>V</td></tr>
+    <tr><td>FAB + (mobile)</td><td>New job</td><td>M</td></tr>
+  </tbody>
+</table>
+
+<h4>New Job modal</h4>
+<p>Title; optional table chips; <span class="ctrl">CANCEL</span> / <span class="ctrl">CREATE</span> (member+).</p>
+
+<h4>Job editor — header</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">← back</td><td>Return to monitor</td><td>V</td></tr>
+    <tr><td class="ctrl">Run Test</td><td>Execute notebook in selected mode</td><td>M</td></tr>
+    <tr><td>Mode: Dry-run ≤10</td><td>Illustrative preview from capped samples (~10 rows)</td><td>M</td></tr>
+    <tr><td>Mode: Validate ≤20</td><td>Live read-only pull ~20 rows from sources for this run</td><td>M</td></tr>
+    <tr><td class="ctrl">Commit</td><td>Save notebook edits</td><td>M</td></tr>
+    <tr><td class="ctrl">Deploy →</td><td>Jump to Deploy tab</td><td>M</td></tr>
+    <tr><td>Tabs: Notebook | Results | Deploy</td><td>Switch editor surfaces</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<h4>Notebook tab</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">+ SQL / + Markdown</td><td>Add cells</td><td>M</td></tr>
+    <tr><td class="ctrl">Run cell</td><td>Run one cell</td><td>M</td></tr>
+    <tr><td class="ctrl">Discard</td><td>Revert unsaved cell edits</td><td>M</td></tr>
+    <tr><td>Cell kind / title / editor</td><td>Edit cell content</td><td>M</td></tr>
+    <tr><td>↑ ↓ Run Delete</td><td>Reorder, run, remove cells</td><td>M</td></tr>
+    <tr><td>Process / Output / Logs + Expand</td><td>Inspect cell run detail</td><td>V</td></tr>
+    <tr><td class="ctrl">View results / Open results</td><td>Jump to Results tab</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<h4>Results tab</h4>
+<ul>
+  <li>See capped sample or live-validate preview</li>
+  <li><span class="ctrl">Run again</span> to re-execute</li>
+</ul>
+
+<h4>Deploy tab — what you can ship</h4>
+<table>
+  <thead><tr><th>Control / panel</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Schedule &amp; retries</strong></td><td>Off / Hourly / Daily; run mode dry or live; execution Que vs Private runner; max retries; retry delay; <span class="ctrl">Save schedule</span></td><td>M</td></tr>
+    <tr><td>Drift Acknowledge</td><td>Ack open drift so deploy can proceed when required</td><td>M</td></tr>
+    <tr><td><strong>Contract freeze</strong></td><td><span class="ctrl">Freeze</span> / Re-freeze snapshot; Validate; Open Joins</td><td>M</td></tr>
+    <tr><td>Deploy destination</td><td>Choose File/PR vs Customer warehouse</td><td>M</td></tr>
+    <tr><td class="ctrl">Mark ready</td><td>Mark job ready for export</td><td>M</td></tr>
+    <tr><td class="ctrl">Open dbt PR</td><td>Open GitHub PR with attested dbt (when GitHub configured)</td><td>M</td></tr>
+    <tr><td class="ctrl">Export dbt bundle</td><td>Download attested pack</td><td>M</td></tr>
+    <tr><td class="ctrl">Download SQL / JSON</td><td>Download artifacts</td><td>M</td></tr>
+    <tr><td class="ctrl">Mint signed URL</td><td>Time-limited download link for another system</td><td>M</td></tr>
+    <tr><td>Per-file Download</td><td>Download individual export files</td><td>M</td></tr>
+    <tr><td><strong>Materialize</strong></td><td>Pick connection; view vs table; schema; name; replace checkbox; confirm checkbox; <span class="ctrl">Create view/table</span> in <em>customer</em> warehouse</td><td>M</td></tr>
+    <tr><td>Links</td><td>Join Review, Verify attestation, Lineage, Workspace</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<!-- Lineage -->
+<h3 id="lineage">C.8 Lineage (<code>/lineage</code>)</h3>
+<p><strong>Purpose:</strong> See the metadata path Sources → joins → job → export / materialize.</p>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">Refresh</td><td>Reload lineage paths</td><td>V</td></tr>
+    <tr><td>Job path list</td><td>Select a path to inspect stages</td><td>V</td></tr>
+    <tr><td class="ctrl">Open Deploy</td><td>Jump to that job’s Deploy tab</td><td>V</td></tr>
+    <tr><td>Stage links</td><td>Navigate to Sources, Join Review, Verify</td><td>V</td></tr>
+    <tr><td>GitHub PR URL</td><td>Open external PR if present</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<!-- Settings -->
+<div class="page-break"></div>
+<h3 id="settings">C.9 Settings (<code>/settings</code>)</h3>
+<p><strong>Purpose:</strong> People, secrets, AI/export policy, ops panels (drift, schedules, orchestrator, private runner, billing), audit.</p>
+
+<h4>Members &amp; invites</h4>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="ctrl">Invite Member</td><td>Open invite modal (email + role)</td><td>A</td></tr>
+    <tr><td>Member search</td><td>Filter member registry</td><td>V</td></tr>
+    <tr><td>Role &lt;select&gt;</td><td>Change member role (not self / last owner); owner option if you are owner</td><td>A / O</td></tr>
+    <tr><td class="ctrl">Remove</td><td>Remove member from workspace</td><td>A</td></tr>
+    <tr><td class="ctrl">Revoke</td><td>Cancel pending invite</td><td>A</td></tr>
+  </tbody>
+</table>
+
+<h4>Always-visible strips</h4>
+<ul>
+  <li>API Keys: <span class="ctrl">View all</span> / <span class="ctrl">Generate New Key</span></li>
+  <li>Env: <span class="ctrl">+</span> opens advanced</li>
+  <li>Stats: Connections / Tables / Relations / Jobs</li>
+  <li>Footer: <span class="ctrl">Manage Billing</span> / <span class="ctrl">Upgrade Plan</span></li>
+  <li><span class="ctrl">Show/Hide policy, BYOK &amp; AI settings</span></li>
+</ul>
+
+<h4>Ops &amp; platform panels</h4>
+<table>
+  <thead><tr><th>Panel</th><th>What you can do</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>SSO</td><td>See SSO readiness status</td><td>V</td></tr>
+    <tr><td>Usage</td><td>See soft-limit bars (seats / usage)</td><td>V</td></tr>
+    <tr><td>Drift alerts</td><td><span class="ctrl">Refresh</span>; <span class="ctrl">Send test alert</span>; <span class="ctrl">Ack</span>; <span class="ctrl">Re-notify</span></td><td>Ack any; test/re-notify A</td></tr>
+    <tr><td>Scheduled sync</td><td><span class="ctrl">Run due now</span>; Refresh — fire due source schema syncs</td><td>A</td></tr>
+    <tr><td>Scheduled jobs</td><td><span class="ctrl">Run due now</span>; Refresh — fire due job schedules</td><td>A</td></tr>
+    <tr><td>External orchestrator</td><td>Webhook URL; Kind (generic / Airflow / Dagster); Enabled; Save; Rotate secret; Test ping</td><td>A</td></tr>
+    <tr><td>Private runner</td><td>Runner URL; Enabled; Save; Rotate secret</td><td>A</td></tr>
+    <tr><td>Billing</td><td>Seats; Upgrade Checkout; Manage Portal; Refresh</td><td>A</td></tr>
+    <tr><td>Export attestations</td><td>Open verify page; Refresh; download Attestation / Verify pack</td><td>V</td></tr>
+    <tr><td>Signed artifacts</td><td>Refresh; <span class="ctrl">Revoke</span> a signed URL</td><td>Revoke A</td></tr>
+    <tr><td>Audit log</td><td>Refresh and read who did what</td><td>V</td></tr>
+  </tbody>
+</table>
+
+<h4>Advanced policy toggles (admin edits)</h4>
+<ul>
+  <li>Include samples · Scrub samples</li>
+  <li>Infer joins on sync · Databricks query-history join assist</li>
+  <li>Prefer LLM chat · Include docs in RAG</li>
+  <li><strong>Block export on high drift</strong> · Block dbt PR on column drift · <strong>Block export on unreviewed joins</strong></li>
+  <li>Emit contract events · Contract webhook URL</li>
+  <li>Drift alerts enable / high-only · Drift webhook · Alert emails</li>
+  <li>Default model · RAG top-K</li>
+  <li><span class="ctrl">RESET</span> / <span class="ctrl">SAVE</span> · <span class="ctrl">RE-RUN JOIN INFERENCE</span> (member+)</li>
+</ul>
+
+<h4>BYOK &amp; dbt GitHub</h4>
+<ul>
+  <li>OpenAI / Anthropic key: save / clear</li>
+  <li>GitHub: owner, repo, base branch, dbt path, token</li>
+  <li>Reindex schema + docs</li>
+</ul>
+
+<!-- Verify -->
+<h3 id="verify">C.10 Attestation verify — public (<code>/verify</code>)</h3>
+<p><strong>Purpose:</strong> Anyone (no login) can paste attestation JSON and check the HMAC signature.</p>
+<table>
+  <thead><tr><th>Control</th><th>What you can do</th></tr></thead>
+  <tbody>
+    <tr><td>Textarea</td><td>Paste attestation JSON from an export</td></tr>
+    <tr><td class="ctrl">Verify signature</td><td>See valid/invalid + fingerprint / policy / algorithm</td></tr>
+    <tr><td class="ctrl">Clear</td><td>Reset form</td></tr>
+    <tr><td>Links</td><td>Settings / Sign in</td></tr>
+  </tbody>
+</table>
+
+<!-- Journey -->
+<div class="page-break"></div>
+<h2 id="journey">Part D — Typical end-to-end journey (what a member actually does)</h2>
+<ol>
+  <li><strong>Admin</strong> invites people; sets policy (samples/scrub/block-on-unreviewed).</li>
+  <li><strong>Admin</strong> adds connectors on Sources (Postgres, Mongo, Excel, Snowflake, Databricks, BigQuery, Salesforce…); optional sync schedule.</li>
+  <li><strong>Member</strong> clicks <span class="ctrl">Sync Schema</span> — schema (+ capped samples) land in Que metadata.</li>
+  <li>Open <strong>Workspace</strong>: filter by source/confidence; review edges; <span class="ctrl">Promote</span> / <span class="ctrl">Reject</span>
+    (or use <strong>Joins</strong> inbox + <span class="ctrl">Suggest mappings</span>).</li>
+  <li>Optional: <strong>AI Chat</strong> to describe tables / draft SQL / save a job.</li>
+  <li>Or <span class="ctrl">STITCH SESSION</span> / sidebar <span class="ctrl">Save Changes</span> → create job.</li>
+  <li>In <strong>Jobs</strong>: edit notebook → <span class="ctrl">Run Test</span> (dry-run or live validate) → see tiny preview.</li>
+  <li><strong>Deploy:</strong> Freeze contract → Export attested pack / open dbt PR / mint signed URL —
+    and/or <span class="ctrl">Materialize</span> VIEW/table in <em>their</em> warehouse.</li>
+  <li>Optional: schedule job re-validate; wire Airflow webhook / private runner in Settings.</li>
+  <li>Use <strong>Lineage</strong> + <strong>/verify</strong> to show the path and prove the export.</li>
+</ol>
+
+<!-- Wave 4 -->
+<h2 id="wave4">Part E — What’s newly built (user-level)</h2>
+<table>
+  <thead><tr><th>Feature</th><th>Where in the app</th><th>What you can do</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>BigQuery connector</strong></td>
+      <td>Sources → Add → Warehouses</td>
+      <td>Fixture or live project/dataset/token; sync schema into canvas</td>
+    </tr>
+    <tr>
+      <td><strong>Salesforce connector</strong></td>
+      <td>Sources → Add → CRM</td>
+      <td>Fixture or live instance URL + token; sync object schema</td>
+    </tr>
+    <tr>
+      <td><strong>Job schedules &amp; retries</strong></td>
+      <td>Jobs → Deploy; Settings → Scheduled jobs</td>
+      <td>Hourly/daily dry-run or live validate; retries; admin “run due now”</td>
+    </tr>
+    <tr>
+      <td><strong>Orchestrator webhook</strong></td>
+      <td>Settings → External orchestrator</td>
+      <td>Point Que at Airflow/Dagster/generic; rotate secret; test ping</td>
+    </tr>
+    <tr>
+      <td><strong>Mapping assist</strong></td>
+      <td>Joins → Suggest mappings</td>
+      <td>Review column-alias suggestions; Accept / Reject / Dismiss</td>
+    </tr>
+    <tr>
+      <td><strong>Private runner</strong></td>
+      <td>Settings + Jobs schedule execution target</td>
+      <td>Customer callback MVP so jobs can target private_runner</td>
+    </tr>
+    <tr>
+      <td><strong>Soft seat billing</strong></td>
+      <td>Settings → Billing</td>
+      <td>Seats, Stripe checkout / portal (when keys configured)</td>
+    </tr>
+    <tr>
+      <td><strong>Materialize</strong></td>
+      <td>Jobs → Deploy → Customer warehouse</td>
+      <td>Create VIEW/table in their warehouse with explicit confirm</td>
+    </tr>
+    <tr>
+      <td><strong>Attestation + signed artifacts</strong></td>
+      <td>Jobs export; Settings; /verify</td>
+      <td>Prove export integrity; mint/revoke signed download URLs</td>
+    </tr>
+    <tr>
+      <td><strong>Drift + contract freeze</strong></td>
+      <td>Workspace banners; Jobs Deploy; Settings policy</td>
+      <td>Ack drift; freeze contracts; block bad exports via policy</td>
+    </tr>
+    <tr>
+      <td><strong>Connector health + source schedules</strong></td>
+      <td>Sources list + detail</td>
+      <td>See health %; Sync now; Hourly/Daily schema re-introspect</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="ok">
+  <strong>Buyer sentence:</strong> Que solves cross-source stitch correctness + safe AI + attested handoff —
+  getting messy multi-system schemas to a human-approved, exportable job — without taking custody of the lake.
+</p>
+
+<p class="footer-note">
+  Que Problems We Solve &amp; Complete User Guide v1.0 · 5 Aug 2026 ·
+  Companion docs: <code>Que-Feature-Guide.pdf</code>, <code>Que-Manual-Tester-Guide.pdf</code>,
+  <code>Que-Local-Setup-Guide.pdf</code>, <code>Que-Tech-Diligence-Investor.pdf</code>.
+  HTML source: <code>docs/Que-Problems-And-User-Guide.html</code>.
+</p>
+
+</body>
+</html>

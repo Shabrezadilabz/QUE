@@ -248,21 +248,34 @@ export async function saveWorkspaceLayout(
   }
 }
 
-export type RelationshipReviewAction = 'promote' | 'reject'
+export type RelationshipReviewAction = 'promote' | 'reject' | 'edit'
 
 /**
- * Promote (accept as explicit) or reject an inferred Stitch Relation.
+ * Promote (accept as explicit), reject, or edit join columns.
  */
 export async function reviewRelationship(
   relationshipId: string,
   action: RelationshipReviewAction,
-  workspaceId: string = getActiveWorkspaceId(),
+  opts: {
+    fromColumnId?: string
+    toColumnId?: string
+    workspaceId?: string
+  } = {},
 ): Promise<SchemaRelationship | null> {
+  const workspaceId = opts.workspaceId ?? getActiveWorkspaceId()
   const res = await apiFetch(
     `/workspaces/${workspaceId}/relationships/${relationshipId}`,
     {
       method: 'PATCH',
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({
+        action,
+        ...(action === 'edit'
+          ? {
+              fromColumnId: opts.fromColumnId,
+              toColumnId: opts.toColumnId,
+            }
+          : {}),
+      }),
     },
   )
   const body = (await res.json().catch(() => ({}))) as {
@@ -273,6 +286,243 @@ export async function reviewRelationship(
     throw new Error(body.error ?? `review ${res.status}`)
   }
   return body.relationship ?? null
+}
+
+export async function fetchTableColumns(
+  schemaObjectId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ id: string; name: string; dataType: string; keyKind: string }[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/tables/${schemaObjectId}/columns`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    columns?: { id: string; name: string; dataType: string; keyKind: string }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `columns ${res.status}`)
+  return body.columns ?? []
+}
+
+export async function fetchPinnedSamples(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<unknown[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/pinned-samples`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: unknown[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `pinned ${res.status}`)
+  return body.items ?? []
+}
+
+export async function rePinTableSamples(
+  schemaObjectId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<unknown> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/pinned-samples/${schemaObjectId}`,
+    { method: 'POST', body: JSON.stringify({ rePin: true }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: unknown
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `re-pin ${res.status}`)
+  return body.item
+}
+
+export interface ManagedDataset {
+  id: string
+  name: string
+  slug: string
+  description: string
+  jobId: string | null
+  status: string
+  columns: { name: string; dataType?: string }[]
+  rowCount: number
+  certified: boolean
+  aiAccess: string
+  updatedAt: string
+}
+
+export interface ManagedPlaneQuotas {
+  maxDatasets: number
+  maxRowsPerDataset: number
+  retentionDays: number
+  usedDatasets: number
+  usedRows: number
+}
+
+export async function fetchManagedDatasets(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  enabled: boolean
+  items: ManagedDataset[]
+  quotas?: ManagedPlaneQuotas
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/managed-datasets`)
+  const body = (await res.json().catch(() => ({}))) as {
+    enabled?: boolean
+    items?: ManagedDataset[]
+    quotas?: ManagedPlaneQuotas
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `managed ${res.status}`)
+  return {
+    enabled: Boolean(body.enabled),
+    items: body.items ?? [],
+    quotas: body.quotas,
+  }
+}
+
+export async function fetchManagedDatasetRows(
+  datasetId: string,
+  opts: { limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ rows: { id: string; data: Record<string, unknown> }[] }> {
+  const q = new URLSearchParams()
+  if (opts.limit != null) q.set('limit', String(opts.limit))
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/managed-datasets/${datasetId}/rows?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    rows?: { id: string; data: Record<string, unknown> }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `rows ${res.status}`)
+  return { rows: body.rows ?? [] }
+}
+
+export async function certifyManagedDatasetApi(
+  datasetId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ManagedDataset> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/managed-datasets/${datasetId}/certify`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: ManagedDataset
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `certify ${res.status}`)
+  if (!body.item) throw new Error('certify missing item')
+  return body.item
+}
+
+export async function reportExternalJobStatusApi(
+  input: {
+    jobId?: string
+    runId?: string
+    status: string
+    summary?: string
+    externalRef?: string
+    executionTarget?: string
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<unknown> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/external-status`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    run?: unknown
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `external-status ${res.status}`)
+  return body.run
+}
+
+export interface BiChart {
+  id: string
+  title: string
+  description: string
+  chartType: string
+  datasetId: string | null
+  config: Record<string, unknown>
+  certified: boolean
+  updatedAt: string
+}
+
+export async function fetchBiCharts(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BiChart[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/bi/charts`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: BiChart[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `bi ${res.status}`)
+  return body.items ?? []
+}
+
+export async function createBiChartApi(
+  input: {
+    title: string
+    chartType?: string
+    datasetId?: string | null
+    config?: Record<string, unknown>
+    certify?: boolean
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BiChart> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/bi/charts`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: BiChart
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `bi create ${res.status}`)
+  if (!body.item) throw new Error('bi create missing item')
+  return body.item
+}
+
+export async function updateBiChartApi(
+  chartId: string,
+  patch: Partial<BiChart> & {
+    certified?: boolean
+    chartType?: string
+    datasetId?: string | null
+    config?: Record<string, unknown>
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BiChart> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/bi/charts/${chartId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: BiChart
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `bi update ${res.status}`)
+  if (!body.item) throw new Error('bi update missing item')
+  return body.item
+}
+
+export async function mintBiEmbedTokenApi(
+  chartId: string,
+  opts: { label?: string; expiresInDays?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ token: string; tokenId: string; expiresAt: string }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/charts/${chartId}/embed-token`,
+    { method: 'POST', body: JSON.stringify(opts) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    token?: string
+    tokenId?: string
+    expiresAt?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `embed ${res.status}`)
+  return {
+    token: body.token || '',
+    tokenId: body.tokenId || '',
+    expiresAt: body.expiresAt || '',
+  }
 }
 
 export interface JoinReviewEndpoint {
@@ -299,6 +549,13 @@ export interface JoinReviewItem {
     summary: string | null
     signals: { code?: string; label?: string; weight?: number }[]
     scoredAt: string | null
+    pinnedOverlap?: {
+      ratio: number | null
+      band: string
+      label: string
+      confidenceHint?: number | null
+    } | null
+    prePromoteConfidence?: number | null
   }
   from: JoinReviewEndpoint
   to: JoinReviewEndpoint
@@ -1462,6 +1719,15 @@ export interface DbtGithubResult {
 export interface WorkspaceSettingsFlags {
   includeSamplesDefault: boolean
   scrubSamples?: boolean
+  /** Production — AI may use pinned scrubbed 5–10 row samples (default ON) */
+  aiMayUsePinnedSamples?: boolean
+  pinnedSampleRows?: number
+  /** Offer B — Que-hosted job outputs */
+  enableManagedDataPlane?: boolean
+  defaultExecutionPlane?: 'customer' | 'managed' | 'que'
+  managedMaxDatasets?: number
+  managedMaxRowsPerDataset?: number
+  managedRetentionDays?: number
   inferJoinsOnSync: boolean
   preferLlmChat: boolean
   aiModelId: string
@@ -1471,6 +1737,29 @@ export interface WorkspaceSettingsFlags {
   blockPrOnColumnDrift?: boolean
   blockExportOnUnreviewedJoins: boolean
   databricksQueryJoinAssist?: boolean
+  snowflakeQueryJoinAssist?: boolean
+  enableStitchAgent?: boolean
+  enableLiveValidate?: boolean
+  enableMaterialize?: boolean
+  /** Phase 3 — optional low-risk auto-Promote (default false / HITL) */
+  enableAutoPromoteLowRisk?: boolean
+  /** Phase 4 — catalog / governance */
+  enableCatalogGovernance?: boolean
+  stewardUxMode?: boolean
+  ticketProvider?: 'webhook' | 'jira' | 'servicenow'
+  ticketWebhookUrl?: string
+  ticketWebhookAuthHeader?: string
+  jiraWebhookUrl?: string
+  serviceNowWebhookUrl?: string
+  /** Phase 5 — enterprise */
+  enforceSso?: boolean
+  siemExportEnabled?: boolean
+  siemWebhookUrl?: string
+  dataRegion?: string
+  dataResidency?: string
+  slaUptimeTarget?: string
+  slaRpoHours?: number
+  slaRtoHours?: number
   emitContractEvents: boolean
   contractWebhookUrl: string
   driftAlertsEnabled?: boolean
@@ -1480,6 +1769,15 @@ export interface WorkspaceSettingsFlags {
   githubOwner: string
   githubRepo: string
   githubBaseBranch: string
+  githubAllowedBranches?: string
+  githubPrMinRole?: 'member' | 'admin' | 'owner'
+  joinProposeMinRole?: 'member' | 'admin' | 'owner'
+  joinPromoteMinRole?: 'member' | 'admin' | 'owner'
+  joinReviewNotifyEnabled?: boolean
+  joinReviewWebhookUrl?: string
+  joinPromoteNotify?: boolean
+  driftDigestEnabled?: boolean
+  driftDigestWebhookUrl?: string
   dbtModelsPath: string
 }
 
@@ -2364,5 +2662,1546 @@ export async function loadWorkspaceData(
       fromApi: false,
       loadError: 'offline',
     }
+  }
+}
+
+/* ─── Phase 0 / 1 APIs ───────────────────────────────────────────────────── */
+
+export interface AgentCheckpoint {
+  id: string
+  type: string
+  status: string
+  message?: string
+  meta?: Record<string, unknown>
+}
+
+export interface AgentSession {
+  id: string
+  title: string
+  status: string
+  plan: {
+    goal?: string
+    intent?: string
+    sourceIds?: string[]
+    tools?: { id: string; label: string }[]
+    steps?: { id: string; label: string; status: string; error?: string }[]
+  }
+  checkpoints: AgentCheckpoint[]
+  result: Record<string, unknown>
+  toolCalls?: {
+    id: string
+    tool: string
+    ok?: boolean
+    output?: Record<string, unknown>
+    startedAt?: string
+    finishedAt?: string
+  }[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ValidationCheck {
+  id: string
+  kind: string
+  title: string
+  sql: string
+  status: string
+  lastRunId?: string | null
+  lastRunAt?: string | null
+}
+
+export interface DriftFixSuggestion {
+  id: string
+  driftEventId?: string | null
+  jobId?: string | null
+  kind: string
+  status: string
+  summary: string
+  proposal?: Record<string, unknown>
+  createdAt?: string
+}
+
+export async function fetchAgentSessions(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<AgentSession[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/agent/sessions`)
+  const body = (await res.json().catch(() => ({}))) as {
+    sessions?: AgentSession[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `agent sessions ${res.status}`)
+  return body.sessions || []
+}
+
+export async function createAgentSessionApi(
+  input: { title?: string; goal?: string; sourceIds?: string[] } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<AgentSession> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/agent/sessions`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    session?: AgentSession
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `create agent ${res.status}`)
+  if (!body.session) throw new Error('missing session')
+  return body.session
+}
+
+export async function agentCheckpointApi(
+  sessionId: string,
+  body: Record<string, unknown>,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<AgentSession> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/agent/sessions/${sessionId}/checkpoint`,
+    { method: 'POST', body: JSON.stringify(body) },
+  )
+  const data = (await res.json().catch(() => ({}))) as {
+    session?: AgentSession
+    error?: string
+  }
+  if (!res.ok) throw new Error(data.error || `checkpoint ${res.status}`)
+  if (!data.session) throw new Error('missing session')
+  return data.session
+}
+
+export async function fetchValidationSuite(
+  jobId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ValidationCheck[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/validation-suite`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    checks?: ValidationCheck[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `validation-suite ${res.status}`)
+  return body.checks || []
+}
+
+export async function generateValidationSuiteApi(
+  jobId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ checks: ValidationCheck[]; cellCount?: number }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/validation-suite/generate`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    checks?: ValidationCheck[]
+    cellCount?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `generate suite ${res.status}`)
+  return { checks: body.checks || [], cellCount: body.cellCount }
+}
+
+export async function runValidationSuiteApi(
+  jobId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ checks: ValidationCheck[]; run?: Record<string, unknown> }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/jobs/${jobId}/validation-suite/run`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    checks?: ValidationCheck[]
+    run?: Record<string, unknown>
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `run suite ${res.status}`)
+  return { checks: body.checks || [], run: body.run }
+}
+
+export async function fetchDriftFixes(
+  status: string = 'proposed',
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<DriftFixSuggestion[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/drift-fixes?status=${encodeURIComponent(status)}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    suggestions?: DriftFixSuggestion[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `drift-fixes ${res.status}`)
+  return body.suggestions || []
+}
+
+export async function proposeDriftFixesApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ created: number; scannedDrift?: number }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/drift-fixes/propose`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    created?: number
+    scannedDrift?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `propose drift ${res.status}`)
+  return { created: body.created || 0, scannedDrift: body.scannedDrift }
+}
+
+export async function resolveDriftFixApi(
+  suggestionId: string,
+  action: 'accept' | 'reject' | 'dismiss' = 'accept',
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/drift-fixes/${suggestionId}/resolve`,
+    { method: 'POST', body: JSON.stringify({ action }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `resolve drift ${res.status}`)
+}
+
+export async function runGoldenSetEvalApi(
+  pairs: {
+    fromTable: string
+    fromColumn: string
+    toTable: string
+    toColumn: string
+  }[],
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ report: Record<string, unknown>; markdown: string }> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/joins/golden-eval`, {
+    method: 'POST',
+    body: JSON.stringify({ pairs }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    report?: Record<string, unknown>
+    markdown?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `golden-eval ${res.status}`)
+  return { report: body.report || {}, markdown: body.markdown || '' }
+}
+
+export async function exportAuditCsv(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<Blob> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/audit-events/export`,
+  )
+  if (!res.ok) throw new Error(`audit export ${res.status}`)
+  return res.blob()
+}
+
+export async function fetchAuthSessions(): Promise<
+  { id: string; createdAt: string; expiresAt: string; current: boolean }[]
+> {
+  const res = await apiFetch('/auth/sessions')
+  const body = (await res.json().catch(() => ({}))) as {
+    sessions?: {
+      id: string
+      createdAt: string
+      expiresAt: string
+      current: boolean
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `sessions ${res.status}`)
+  return body.sessions || []
+}
+
+export async function revokeAuthSession(sessionId: string): Promise<void> {
+  const res = await apiFetch(`/auth/sessions/${sessionId}`, { method: 'DELETE' })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || `revoke ${res.status}`)
+  }
+}
+
+export async function revokeOtherAuthSessions(): Promise<void> {
+  const res = await apiFetch('/auth/sessions/revoke-others', { method: 'POST' })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || `revoke-others ${res.status}`)
+  }
+}
+
+/* ─── Phase 2 Team OS ────────────────────────────────────────────────────── */
+
+export interface WorkspaceDomain {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  ownerUserId?: string | null
+  ownerEmail?: string | null
+  ownerDisplayName?: string | null
+  connectionIds: string[]
+  tableGlobs: string[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface JobTemplate {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  kind: string
+  notebook: unknown[]
+  defaultTables: string[]
+  isSystem: boolean
+}
+
+export async function fetchDomains(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceDomain[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/domains`)
+  const body = (await res.json().catch(() => ({}))) as {
+    domains?: WorkspaceDomain[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `domains ${res.status}`)
+  return body.domains || []
+}
+
+export async function createDomainApi(
+  input: {
+    name: string
+    description?: string
+    connectionIds?: string[]
+    tableGlobs?: string[]
+    ownerUserId?: string | null
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceDomain> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/domains`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    domain?: WorkspaceDomain
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `create domain ${res.status}`)
+  if (!body.domain) throw new Error('missing domain')
+  return body.domain
+}
+
+export async function updateDomainApi(
+  domainId: string,
+  patch: Partial<WorkspaceDomain> & { connectionIds?: string[]; tableGlobs?: string[] },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceDomain> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/domains/${domainId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    domain?: WorkspaceDomain
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `update domain ${res.status}`)
+  if (!body.domain) throw new Error('missing domain')
+  return body.domain
+}
+
+export async function deleteDomainApi(
+  domainId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/domains/${domainId}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || `delete domain ${res.status}`)
+  }
+}
+
+export async function fetchJobTemplates(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<JobTemplate[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/job-templates`)
+  const body = (await res.json().catch(() => ({}))) as {
+    templates?: JobTemplate[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `templates ${res.status}`)
+  return body.templates || []
+}
+
+export async function applyJobTemplateApi(
+  templateId: string,
+  input: { title?: string; tableNames?: string[] } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<StitchJob> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/job-templates/${templateId}/apply`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    job?: StitchJob
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `apply template ${res.status}`)
+  if (!body.job) throw new Error('missing job')
+  return body.job
+}
+
+export async function sendDriftDigestApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<Record<string, unknown>> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/notify/drift-digest`, {
+    method: 'POST',
+    body: '{}',
+  })
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `drift digest ${res.status}`)
+  return body
+}
+
+export async function sendJoinReviewTestNotify(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<Record<string, unknown>> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/notify/join-review-test`,
+    { method: 'POST', body: JSON.stringify({ created: 1 }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `join notify ${res.status}`)
+  return body
+}
+
+/** Phase 4 — Catalog / glossary / stewardship */
+export interface CatalogAsset {
+  id: string
+  kind: string
+  name: string
+  description?: string
+  depCount?: number
+  status?: string
+}
+
+export interface GlossaryTerm {
+  id: string
+  name: string
+  slug: string
+  definition: string
+  status: string
+  linkCount: number
+}
+
+export interface StewardCertification {
+  id: string
+  targetKind: string
+  targetId: string
+  targetLabel: string
+  status: string
+  expiresAt?: string | null
+  expired?: boolean
+}
+
+export interface StewardQueue {
+  needsCertification: {
+    targetKind: string
+    targetId: string
+    targetLabel: string
+    reason: string
+  }[]
+  expiringSoon: StewardCertification[]
+  certifiedCount: number
+}
+
+export interface ColumnLineageResult {
+  ok?: boolean
+  note?: string
+  start?: { table?: string | null; column?: string | null; key: string } | null
+  summary?: Record<string, number>
+  downstream?: {
+    nodes: { key: string; table?: string; column?: string; hop?: number }[]
+    pathEdges: { kind: string; from: { key: string }; to: { key: string }; hop?: number }[]
+  }
+  upstream?: {
+    nodes: { key: string; table?: string; column?: string; hop?: number }[]
+    pathEdges: { kind: string; from: { key: string }; to: { key: string }; hop?: number }[]
+  }
+}
+
+export async function fetchCatalogAssets(
+  kind?: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<CatalogAsset[]> {
+  const q = kind ? `?kind=${encodeURIComponent(kind)}` : ''
+  const res = await apiFetch(`/workspaces/${workspaceId}/catalog/assets${q}`)
+  const body = (await res.json().catch(() => ({}))) as {
+    assets?: CatalogAsset[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `catalog ${res.status}`)
+  return body.assets || []
+}
+
+export async function createCatalogAssetApi(
+  input: {
+    name: string
+    kind?: string
+    description?: string
+    dependsOn?: string[]
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<CatalogAsset> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/catalog/assets`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    asset?: CatalogAsset
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `create asset ${res.status}`)
+  if (!body.asset) throw new Error('missing asset')
+  return body.asset
+}
+
+export async function fetchGlossaryTerms(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<GlossaryTerm[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/glossary`)
+  const body = (await res.json().catch(() => ({}))) as {
+    terms?: GlossaryTerm[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `glossary ${res.status}`)
+  return body.terms || []
+}
+
+export async function createGlossaryTermApi(
+  input: { name: string; definition?: string; status?: string },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<GlossaryTerm> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/glossary`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    term?: GlossaryTerm
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `create term ${res.status}`)
+  if (!body.term) throw new Error('missing term')
+  return body.term
+}
+
+export async function linkGlossaryTermApi(
+  termId: string,
+  input: { tableName: string; columnName?: string },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/glossary/${termId}/links`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `link term ${res.status}`)
+}
+
+export async function fetchStewardQueue(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<StewardQueue> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/stewardship/queue`)
+  const body = (await res.json().catch(() => ({}))) as StewardQueue & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `steward queue ${res.status}`)
+  return {
+    needsCertification: body.needsCertification || [],
+    expiringSoon: body.expiringSoon || [],
+    certifiedCount: body.certifiedCount || 0,
+  }
+}
+
+export async function fetchCertifications(
+  status: string = 'all',
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<StewardCertification[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/stewardship/certs?status=${encodeURIComponent(status)}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    certifications?: StewardCertification[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `certs ${res.status}`)
+  return body.certifications || []
+}
+
+export async function certifyTargetApi(
+  input: {
+    targetKind: string
+    targetId: string
+    targetLabel?: string
+    expiresInDays?: number
+    note?: string
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<StewardCertification> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/stewardship/certify`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    certification?: StewardCertification
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `certify ${res.status}`)
+  if (!body.certification) throw new Error('missing certification')
+  return body.certification
+}
+
+export async function expireCertificationApi(
+  certId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/stewardship/certs/${certId}/expire`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `expire ${res.status}`)
+}
+
+export async function fetchColumnLineage(
+  opts: {
+    table?: string
+    column?: string
+    maxHops?: number
+    direction?: string
+  } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ColumnLineageResult> {
+  const q = new URLSearchParams()
+  if (opts.table) q.set('table', opts.table)
+  if (opts.column) q.set('column', opts.column)
+  if (opts.maxHops) q.set('maxHops', String(opts.maxHops))
+  if (opts.direction) q.set('direction', opts.direction)
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/column-lineage?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as ColumnLineageResult & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `column-lineage ${res.status}`)
+  return body
+}
+
+export async function ensurePolicyPacksApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/policy-packs?ensureDefaults=1`,
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `policy packs ${res.status}`)
+}
+
+export async function applyPiiPolicyApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ scannedColumns: number; tagged: number }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/policy-packs/apply-pii`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    scannedColumns?: number
+    tagged?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `apply pii ${res.status}`)
+  return {
+    scannedColumns: body.scannedColumns || 0,
+    tagged: body.tagged || 0,
+  }
+}
+
+export async function createGovernanceTicketApi(
+  input: {
+    title: string
+    body?: string
+    kind?: string
+    provider?: string
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  id: string
+  status: string
+  externalKey?: string | null
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/governance/tickets`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    ticket?: { id: string; status: string; externalKey?: string | null }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `ticket ${res.status}`)
+  if (!body.ticket) throw new Error('missing ticket')
+  return body.ticket
+}
+
+/** Phase 5 — Enterprise control plane */
+export interface ApiKeyRow {
+  id: string
+  name: string
+  tokenPrefix: string
+  scopes: string[]
+  revokedAt?: string | null
+  token?: string
+}
+
+export interface ScimTokenRow {
+  id: string
+  name: string
+  tokenPrefix: string
+  revokedAt?: string | null
+  token?: string
+}
+
+export interface CmkStatus {
+  enabled: boolean
+  keyId?: string | null
+  hasDek?: boolean
+  rotatedAt?: string | null
+}
+
+export interface BreakGlassEvent {
+  id: string
+  reason: string
+  status: string
+  expiresAt?: string
+}
+
+export async function fetchApiKeys(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ApiKeyRow[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/api-keys`)
+  const body = (await res.json().catch(() => ({}))) as {
+    keys?: ApiKeyRow[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `api-keys ${res.status}`)
+  return body.keys || []
+}
+
+export async function createApiKeyApi(
+  input: { name?: string; scopes?: string[]; expiresInDays?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ApiKeyRow> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/api-keys`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    key?: ApiKeyRow
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `create key ${res.status}`)
+  if (!body.key) throw new Error('missing key')
+  return body.key
+}
+
+export async function revokeApiKeyApi(
+  keyId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/api-keys/${keyId}`,
+    { method: 'DELETE' },
+  )
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || `revoke key ${res.status}`)
+  }
+}
+
+export async function fetchScimTokens(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ScimTokenRow[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/scim-tokens`)
+  const body = (await res.json().catch(() => ({}))) as {
+    tokens?: ScimTokenRow[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `scim tokens ${res.status}`)
+  return body.tokens || []
+}
+
+export async function createScimTokenApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ScimTokenRow> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/scim-tokens`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    token?: ScimTokenRow
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `scim token ${res.status}`)
+  if (!body.token) throw new Error('missing token')
+  return body.token
+}
+
+export async function fetchCmkStatus(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<CmkStatus> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/cmk`)
+  const body = (await res.json().catch(() => ({}))) as {
+    cmk?: CmkStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `cmk ${res.status}`)
+  return body.cmk || { enabled: false }
+}
+
+export async function enableCmkApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<CmkStatus> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/cmk/enable`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    cmk?: CmkStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `cmk enable ${res.status}`)
+  return body.cmk || { enabled: true }
+}
+
+export async function disableCmkApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<CmkStatus> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/cmk/disable`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    cmk?: CmkStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `cmk disable ${res.status}`)
+  return body.cmk || { enabled: false }
+}
+
+export async function fetchBreakGlass(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BreakGlassEvent[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/break-glass`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    events?: BreakGlassEvent[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `break-glass ${res.status}`)
+  return body.events || []
+}
+
+export async function openBreakGlassApi(
+  input: { reason: string; hours?: number },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/break-glass`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `open break-glass ${res.status}`)
+}
+
+export async function closeBreakGlassApi(
+  eventId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/break-glass/${eventId}/close`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `close break-glass ${res.status}`)
+}
+
+export async function fetchSiemConfig(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ enabled: boolean; webhookUrl: string }> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/siem`)
+  const body = (await res.json().catch(() => ({}))) as {
+    siem?: { enabled?: boolean; webhookUrl?: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `siem ${res.status}`)
+  return {
+    enabled: body.siem?.enabled === true,
+    webhookUrl: body.siem?.webhookUrl || '',
+  }
+}
+
+export async function updateSiemConfigApi(
+  patch: { enabled?: boolean; webhookUrl?: string },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/siem`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `siem update ${res.status}`)
+}
+
+export async function pushSiemApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ pushed: number }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/siem/push`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    pushed?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `siem push ${res.status}`)
+  return { pushed: body.pushed || 0 }
+}
+
+export async function exportSoc2EvidenceApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ markdown: string; pack: Record<string, unknown> }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/soc2-evidence`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    markdown?: string
+    pack?: Record<string, unknown>
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `evidence ${res.status}`)
+  return { markdown: body.markdown || '', pack: body.pack || {} }
+}
+
+export async function runIsolationTestApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ status: string; summary: string }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/isolation-test`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    result?: { status?: string; summary?: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `isolation ${res.status}`)
+  return {
+    status: body.result?.status || 'unknown',
+    summary: body.result?.summary || '',
+  }
+}
+
+export async function fetchAbacPolicies(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ id: string; name: string }[]> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/abac`)
+  const body = (await res.json().catch(() => ({}))) as {
+    policies?: { id: string; name: string }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `abac ${res.status}`)
+  return body.policies || []
+}
+
+export async function createAbacPolicyApi(
+  input: {
+    name: string
+    effect?: string
+    actions?: string[]
+    resourceTypes?: string[]
+    conditions?: Record<string, unknown>
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/abac`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `abac create ${res.status}`)
+}
+
+// -- Gap close: rules, transforms, proposals, metrics, eval, comments --
+
+export async function fetchWorkspaceRules(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<
+  {
+    id: string
+    kind: string
+    title: string
+    body: string
+    enabled: boolean
+    source: string
+    priority: number
+  }[]
+> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/rules`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      kind: string
+      title: string
+      body: string
+      enabled: boolean
+      source: string
+      priority: number
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `rules ${res.status}`)
+  return body.items || []
+}
+
+export async function createWorkspaceRuleApi(
+  input: { kind?: string; title: string; body: string; priority?: number },
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/rules`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as { item?: unknown; error?: string }
+  if (!res.ok) throw new Error(body.error || `rule create ${res.status}`)
+  return body.item
+}
+
+export async function fetchJoinComments(
+  relationshipId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/relationships/${relationshipId}/comments`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      body: string
+      authorName?: string
+      authorEmail?: string
+      createdAt: string
+      parentId?: string | null
+      replies?: {
+        id: string
+        body: string
+        authorName?: string
+        authorEmail?: string
+        createdAt: string
+      }[]
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `comments ${res.status}`)
+  return body.items || []
+}
+
+export async function addJoinCommentApi(
+  relationshipId: string,
+  text: string,
+  opts: { parentId?: string | null; workspaceId?: string } = {},
+) {
+  const ws = opts.workspaceId || getActiveWorkspaceId()
+  const res = await apiFetch(
+    `/workspaces/${ws}/relationships/${relationshipId}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ body: text, parentId: opts.parentId || null }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `comment ${res.status}`)
+}
+
+export async function fetchTransforms(
+  opts: { status?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = opts.status ? `?status=${encodeURIComponent(opts.status)}` : ''
+  const res = await apiFetch(`/workspaces/${workspaceId}/transforms${q}`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      title: string
+      prompt: string
+      sqlText: string
+      status: string
+      jobId?: string | null
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `transforms ${res.status}`)
+  return body.items || []
+}
+
+export async function createTransformApi(
+  input: { prompt: string; title?: string },
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/transforms`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: { id: string; sqlText: string; status: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `transform ${res.status}`)
+  return body.item!
+}
+
+export async function reviewTransformApi(
+  draftId: string,
+  action: 'approve' | 'reject' | 'apply',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/transforms/${draftId}/review`,
+    { method: 'POST', body: JSON.stringify({ action }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `review ${res.status}`)
+}
+
+export async function fetchProposals(
+  opts: { status?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.status) q.set('status', opts.status)
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/proposals?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      kind: string
+      title: string
+      summary: string
+      before: Record<string, unknown>
+      after: Record<string, unknown>
+      unifiedDiff?: string
+      status: string
+      resourceType?: string | null
+      resourceId?: string | null
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `proposals ${res.status}`)
+  return body.items || []
+}
+
+export async function reviewProposalApi(
+  diffId: string,
+  action: 'approve' | 'reject',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/proposals/${diffId}/review`,
+    { method: 'POST', body: JSON.stringify({ action }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `proposal ${res.status}`)
+}
+
+export async function fetchMetricsDefs(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/metrics-defs`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      name: string
+      expressionSql: string
+      datasetId: string | null
+      certified: boolean
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `metrics ${res.status}`)
+  return body.items || []
+}
+
+export async function createMetricApi(
+  input: {
+    name: string
+    expressionSql?: string
+    datasetId?: string | null
+    description?: string
+    certify?: boolean
+    sourceColumnName?: string
+    sourceObjectId?: string | null
+    lineage?: Record<string, unknown>
+    tags?: string[]
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/metrics-defs`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: { id: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `metric ${res.status}`)
+  return body.item!
+}
+
+export async function publishMetricBiApi(
+  metricId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/metrics-defs/${metricId}/publish-bi`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `publish ${res.status}`)
+}
+
+export async function fetchEvalDashboard(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/eval-dashboard`)
+  const body = (await res.json().catch(() => ({}))) as {
+    dashboard?: Record<string, unknown>
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `eval ${res.status}`)
+  return body.dashboard || {}
+}
+
+export async function fetchIndustryTemplates() {
+  const res = await apiFetch(`/industry-templates`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      industry: string
+      title: string
+      description: string
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `templates ${res.status}`)
+  return body.items || []
+}
+
+export async function applyIndustryTemplateApi(
+  packId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/industry-templates/${packId}/apply`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    job?: { id: string; title: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `apply ${res.status}`)
+  return body.job!
+}
+
+export async function fetchPublicStatus() {
+  const res = await fetch(`${getApiBase()}/status`)
+  return res.json()
+}
+
+export async function fetchSaasOps(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/saas-ops`)
+  const body = (await res.json().catch(() => ({}))) as {
+    progressPct?: number
+    checklist?: {
+      id: string
+      title: string
+      done: boolean
+      evidence: string
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `saas-ops ${res.status}`)
+  return {
+    progressPct: body.progressPct ?? 0,
+    checklist: body.checklist || [],
+  }
+}
+
+export async function createBackupApi(
+  label?: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/backups`, {
+    method: 'POST',
+    body: JSON.stringify({ label }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: { id: string; label: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `backup ${res.status}`)
+  return body.item!
+}
+
+export async function runDrDrillApi(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/dr-drills/run`, {
+    method: 'POST',
+    body: '{}',
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    summary?: string
+    status?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `dr-drill ${res.status}`)
+  return { summary: body.summary || '', status: body.status || '' }
+}
+
+export async function fetchWarehouseDigests(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/warehouse-digests`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      summary: string
+      failedCount: number
+      createdAt: string
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `digests ${res.status}`)
+  return body.items || []
+}
+
+export async function buildWarehouseDigestApi(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/warehouse-digests/build`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    digest?: { summary: string; failedCount: number }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `digest build ${res.status}`)
+  return body.digest || { summary: '', failedCount: 0 }
+}
+
+export async function fetchConnectorReliability(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/connector-reliability`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    summary?: Record<string, number>
+    connections?: unknown[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `reliability ${res.status}`)
+  return {
+    summary: body.summary || {},
+    connections: body.connections || [],
+  }
+}
+
+export async function fetchGoldenEvalSchedule(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/golden-eval/schedule`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    schedule?: {
+      enabled: boolean
+      intervalHours: number
+      pairs: unknown[]
+      lastRunAt?: string | null
+      lastRecall?: number | null
+      nextRunAt?: string | null
+    }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `golden schedule ${res.status}`)
+  return (
+    body.schedule || {
+      enabled: false,
+      intervalHours: 24,
+      pairs: [],
+    }
+  )
+}
+
+export async function upsertGoldenEvalScheduleApi(
+  input: {
+    enabled?: boolean
+    intervalHours?: number
+    pairs?: unknown[]
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/golden-eval/schedule`,
+    { method: 'PUT', body: JSON.stringify(input) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    schedule?: {
+      enabled: boolean
+      intervalHours: number
+      pairs: unknown[]
+      lastRunAt?: string | null
+      lastRecall?: number | null
+      nextRunAt?: string | null
+    }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `golden upsert ${res.status}`)
+  return body.schedule!
+}
+
+export async function runGoldenEvalScheduleApi(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/golden-eval/run`, {
+    method: 'POST',
+    body: '{}',
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    recall?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `golden run ${res.status}`)
+  return body
+}
+
+export async function fetchMarketplaceCatalog(opts: {
+  industry?: string
+  tag?: string
+  q?: string
+} = {}) {
+  const q = new URLSearchParams()
+  if (opts.industry) q.set('industry', opts.industry)
+  if (opts.tag) q.set('tag', opts.tag)
+  if (opts.q) q.set('q', opts.q)
+  const res = await apiFetch(`/marketplace/packs?${q.toString()}`)
+  const body = (await res.json().catch(() => ({}))) as {
+    packs?: {
+      id: string
+      industry: string
+      title: string
+      description: string
+      tablesHint: string[]
+      tags: string[]
+      difficulty: string
+      featured: boolean
+    }[]
+    industries?: string[]
+    tags?: string[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `marketplace ${res.status}`)
+  return {
+    packs: body.packs || [],
+    industries: body.industries || [],
+    tags: body.tags || [],
+  }
+}
+
+export async function fetchMarketplaceInstalls(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/marketplace/installs`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      packId: string
+      jobId: string
+      createdAt: string
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `installs ${res.status}`)
+  return body.items || []
+}
+
+export async function fetchPresence(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/presence`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      userId: string
+      displayName: string
+      pagePath: string
+      status: string
+      active: boolean
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `presence ${res.status}`)
+  return body.items || []
+}
+
+export async function heartbeatPresenceApi(
+  input: { pagePath?: string; status?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/presence/heartbeat`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      userId: string
+      displayName: string
+      pagePath: string
+      status: string
+      active: boolean
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `heartbeat ${res.status}`)
+  return body.items || []
+}
+
+export async function fetchMetricLineage(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/metrics-lineage`)
+  const body = (await res.json().catch(() => ({}))) as {
+    nodes?: { id: string; kind: string; label: string }[]
+    edges?: { from: string; to: string; type: string }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `metric lineage ${res.status}`)
+  return {
+    nodes: body.nodes || [],
+    edges: body.edges || [],
   }
 }

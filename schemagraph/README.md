@@ -40,7 +40,8 @@ npx tsc --noEmit -p tsconfig.app.json
 ```
 
 **Manual checklist:** [`docs/MANUAL_TEST_PLAN.md`](./docs/MANUAL_TEST_PLAN.md)  
-**Prod env template:** [`api/.env.production.example`](./api/.env.production.example)  
+**Free deploy (Vercel + Neon + Render):** [`docs/DEPLOY-FREE.md`](./docs/DEPLOY-FREE.md)  
+**Prod env templates:** [`api/.env.production.example`](./api/.env.production.example), [`.env.production.example`](./.env.production.example)  
 **CI:** `../.github/workflows/que-diligence.yml`
 
 ## Layout regions

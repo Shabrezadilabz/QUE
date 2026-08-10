@@ -11,7 +11,9 @@ COPY api/eval ./eval
 COPY db /db
 
 ENV STITCH_PG_HOST=stitch-pg
+ENV QUE_DB_DIR=/db
 ENV PORT=8787
 
 EXPOSE 8787
-CMD ["node", "src/index.js"]
+# Migrate metadata schema, then serve (Neon/Render: set DATABASE_URL)
+CMD ["sh", "-c", "node scripts/migrate.js && node src/index.js"]

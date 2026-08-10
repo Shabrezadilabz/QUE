@@ -1,0 +1,27 @@
+# Que API — free pilot Blueprint (Render)
+# In the Render dashboard: New → Blueprint → this repo, or set Root Directory to `schemagraph`.
+# Docs: docs/DEPLOY-FREE.md
+
+services:
+  - type: web
+    name: que-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: STITCH_AUTH_DISABLED
+        value: 'false'
+      - key: QUE_SEED_DEMO_USERS
+        value: 'true'
+      - key: DATABASE_URL
+        sync: false
+      - key: QUE_SECRETS_KEY
+        generateValue: true
+      - key: QUE_ATTESTATION_HMAC_SECRET
+        generateValue: true
+      - key: QUE_CORS_ORIGINS
+        sync: false

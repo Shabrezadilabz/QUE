@@ -1,0 +1,16 @@
+# Express API runs on Render — never package as Vercel Serverless Functions
+# (Hobby plan limit: 12 functions; api/ has hundreds of .js files)
+api
+
+# Non-UI / local-only paths
+e2e
+docs
+db
+scripts
+test-results
+playwright-report
+stitch_que_production_training_manual
+docker-compose.yml
+playwright.config.ts
+render.yaml
+api/Dockerfile

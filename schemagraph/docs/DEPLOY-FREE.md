@@ -68,6 +68,8 @@ Generate secrets (PowerShell):
 | `VITE_STITCH_API_URL` | `https://<your-api>.onrender.com` |
 
 5. Deploy. SPA rewrites are in `vercel.json`.
+   `.vercelignore` excludes `api/` so Vercel does not treat Express as Serverless Functions
+   (Hobby plan max 12 — without the ignore, deploy fails after a successful Vite build).
 
 If you created Vercel before knowing the Render URL, set the env and **redeploy**.
 

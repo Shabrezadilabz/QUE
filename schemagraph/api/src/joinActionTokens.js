@@ -67,7 +67,11 @@ export function verifyJoinActionToken(token) {
   }
 }
 
+export function joinActionToken(action, workspaceId, relationshipId) {
+  return signJoinActionToken({ workspaceId, relationshipId, action })
+}
+
 export function joinActionLink(action, workspaceId, relationshipId) {
-  const token = signJoinActionToken({ workspaceId, relationshipId, action })
+  const token = joinActionToken(action, workspaceId, relationshipId)
   return `${apiPublicUrl()}/webhooks/join-action?token=${encodeURIComponent(token)}`
 }

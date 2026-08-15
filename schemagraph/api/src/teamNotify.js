@@ -1,6 +1,7 @@
 /**
  * Phase 2 / CEO P1 — Slack/Teams notifications for join review + digests.
- * Slack Block Kit includes Approve / Reject action links (signed tokens).
+ * Prefer interactive Block Kit (value= tokens) when SLACK_BOT_TOKEN + channel;
+ * fall back to Incoming Webhook URL buttons otherwise.
  */
 import { query } from './db.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
@@ -8,7 +9,9 @@ import { recordAuditEvent } from './auditLog.js'
 import {
   appPublicUrl,
   joinActionLink,
+  joinActionToken,
 } from './joinActionTokens.js'
+import { postSlackMessage, slackBotToken } from './slackPost.js'
 
 function isSlackWebhook(url) {
   return /hooks\.slack\.com/i.test(String(url || ''))
@@ -37,28 +40,18 @@ function slackText(text) {
 }
 
 /**
- * @param {object} meta
- * @param {number} [meta.created]
- * @param {number} [meta.pending]
- * @param {{ id: string, label?: string }[]} [meta.joins]
+ * Build Approve / Reject action block.
+ * Interactive (value) when bot mode; URL buttons for Incoming Webhooks.
  */
-export async function notifyJoinReviewPending(workspaceId, meta = {}) {
-  const settingsPayload = await getWorkspaceSettings(workspaceId)
-  const settings = settingsPayload?.settings || {}
-  if (settings.joinReviewNotifyEnabled === false) return { skipped: true }
-  const url = String(
-    settings.joinReviewWebhookUrl || settings.driftAlertWebhookUrl || '',
-  ).trim()
-  if (!url) return { skipped: 'no_webhook' }
-
-  const wsName = settingsPayload?.workspace?.name || workspaceId
-  const count = Number(meta.created || meta.pending || 0)
-  const joins = Array.isArray(meta.joins) ? meta.joins.slice(0, 3) : []
-  const primary = joins[0]
+function joinActionBlocks({
+  workspaceId,
+  primary,
+  count,
+  wsName,
+  interactive,
+}) {
   const joinsUrl = `${appPublicUrl()}/joins`
   const outcomeUrl = `${appPublicUrl()}/outcome`
-  const text = `Que · Join Review\n*${count} join suggestion(s)* need Promote in workspace *${wsName}*\nOpen Join Review — or Approve/Reject from chat (Yellow/HITL). Schema-first; no lake custody.`
-
   const blocks = [
     {
       type: 'header',
@@ -78,30 +71,51 @@ export async function notifyJoinReviewPending(workspaceId, meta = {}) {
       elements: [
         {
           type: 'mrkdwn',
-          text: 'HITL · schema-first · Green only auto-Promotes when eval gate allows',
+          text: interactive
+            ? 'Interactive HITL · schema-first · buttons post back to Que'
+            : 'HITL · schema-first · Open links Approve/Reject (webhook mode)',
         },
       ],
     },
   ]
 
   if (primary?.id) {
-    blocks.push({
-      type: 'actions',
-      elements: [
-        {
+    const promote = interactive
+      ? {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Approve (Promote)', emoji: true },
+          style: 'primary',
+          action_id: 'que_promote',
+          value: joinActionToken('promote', workspaceId, primary.id),
+        }
+      : {
           type: 'button',
           text: { type: 'plain_text', text: 'Approve (Promote)', emoji: true },
           style: 'primary',
           url: joinActionLink('promote', workspaceId, primary.id),
           action_id: 'que_promote',
-        },
-        {
+        }
+    const reject = interactive
+      ? {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Reject', emoji: true },
+          style: 'danger',
+          action_id: 'que_reject',
+          value: joinActionToken('reject', workspaceId, primary.id),
+        }
+      : {
           type: 'button',
           text: { type: 'plain_text', text: 'Reject', emoji: true },
           style: 'danger',
           url: joinActionLink('reject', workspaceId, primary.id),
           action_id: 'que_reject',
-        },
+        }
+    blocks.push({
+      type: 'actions',
+      block_id: `que_join_${primary.id}`,
+      elements: [
+        promote,
+        reject,
         {
           type: 'button',
           text: { type: 'plain_text', text: 'Open Joins', emoji: true },
@@ -129,6 +143,45 @@ export async function notifyJoinReviewPending(workspaceId, meta = {}) {
       ],
     })
   }
+  return blocks
+}
+
+/**
+ * @param {object} meta
+ * @param {number} [meta.created]
+ * @param {number} [meta.pending]
+ * @param {{ id: string, label?: string }[]} [meta.joins]
+ */
+export async function notifyJoinReviewPending(workspaceId, meta = {}) {
+  const settingsPayload = await getWorkspaceSettings(workspaceId)
+  const settings = settingsPayload?.settings || {}
+  if (settings.joinReviewNotifyEnabled === false) return { skipped: true }
+  const url = String(
+    settings.joinReviewWebhookUrl || settings.driftAlertWebhookUrl || '',
+  ).trim()
+  const channel = String(
+    settings.slackNotifyChannel ||
+      process.env.SLACK_DEFAULT_CHANNEL ||
+      '',
+  ).trim()
+  const botMode = Boolean(slackBotToken() && channel)
+
+  if (!url && !botMode) return { skipped: 'no_webhook' }
+
+  const wsName = settingsPayload?.workspace?.name || workspaceId
+  const count = Number(meta.created || meta.pending || 0)
+  const joins = Array.isArray(meta.joins) ? meta.joins.slice(0, 3) : []
+  const primary = joins[0]
+  const joinsUrl = `${appPublicUrl()}/joins`
+  const text = `Que · Join Review\n*${count} join suggestion(s)* need Promote in workspace *${wsName}*\nOpen Join Review — or Approve/Reject from chat (Yellow/HITL). Schema-first; no lake custody.`
+
+  const blocks = joinActionBlocks({
+    workspaceId,
+    primary,
+    count,
+    wsName,
+    interactive: botMode,
+  })
 
   const teamsCard = {
     '@type': 'MessageCard',
@@ -181,13 +234,18 @@ export async function notifyJoinReviewPending(workspaceId, meta = {}) {
   }
 
   try {
-    let payload
-    if (isSlackWebhook(url)) {
-      payload = { text, blocks }
+    let mode = 'generic'
+    if (botMode) {
+      await postSlackMessage({ channel, text, blocks })
+      mode = 'slack_bot_interactive'
+    } else if (isSlackWebhook(url)) {
+      await postWebhook(url, { text, blocks })
+      mode = 'slack_webhook_url_buttons'
     } else if (isTeamsWebhook(url)) {
-      payload = teamsCard
-    } else {
-      payload = {
+      await postWebhook(url, teamsCard)
+      mode = 'teams'
+    } else if (url) {
+      await postWebhook(url, {
         eventType: 'join.review_pending',
         workspaceId,
         workspaceName: wsName,
@@ -201,16 +259,16 @@ export async function notifyJoinReviewPending(workspaceId, meta = {}) {
           : null,
         joinsUrl,
         emittedAt: new Date().toISOString(),
-      }
+      })
+      mode = 'generic'
     }
-    await postWebhook(url, payload)
     void recordAuditEvent({
       workspaceId,
       action: 'notify.join_review',
       summary: `Join review notify (${count})`,
-      meta: { count, withActions: Boolean(primary?.id) },
+      meta: { count, withActions: Boolean(primary?.id), mode },
     })
-    return { ok: true }
+    return { ok: true, mode }
   } catch (err) {
     return { ok: false, error: String(err.message || err) }
   }

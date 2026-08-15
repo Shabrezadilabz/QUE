@@ -288,6 +288,11 @@ export async function refreshOutcome(workspaceId, outcomeId, userId = null) {
     throw err
   }
   const plan = await buildOutcomePlan(workspaceId, current.prompt)
+  // Preserve linked agent session across plan rebuilds
+  if (current.plan?.agentSessionId) {
+    plan.agentSessionId = current.plan.agentSessionId
+    plan.agentHref = current.plan.agentHref || '/agent'
+  }
   await query(
     `UPDATE workspace_outcomes
      SET plan_json = $3::jsonb, updated_at = now()
@@ -458,6 +463,209 @@ export async function runOutcomeStep(
     actions,
     custody:
       'Schema-first: tools never pull full lake rows; Promote remains HITL for Yellow/Red.',
+  }
+}
+
+/**
+ * Advance the linked Stitch Agent from Outcome (explicit HITL).
+ * - approvePlan=true: approve_plan checkpoint → run tools
+ * - promote_joins open + no suggested joins left → continue after Promote
+ * Never auto-approves without the flag.
+ */
+export async function advanceOutcomeAgent(
+  workspaceId,
+  outcomeId,
+  { userId = null, approvePlan = false } = {},
+) {
+  let outcome = await getOutcome(workspaceId, outcomeId)
+  if (!outcome) {
+    const err = new Error('outcome not found')
+    err.status = 404
+    throw err
+  }
+
+  let sessionId = outcome.plan?.agentSessionId || null
+  const actions = []
+
+  if (!sessionId) {
+    try {
+      const { getWorkspaceSettings } = await import('./workspaceSettings.js')
+      const settings = (await getWorkspaceSettings(workspaceId))?.settings
+      if (settings?.enableStitchAgent !== true) {
+        const err = new Error(
+          'Stitch Agent disabled — enable in Settings → AI & Policy',
+        )
+        err.status = 403
+        throw err
+      }
+      const { createAgentSession } = await import('./agentSessions.js')
+      const sourceIds = (outcome.plan?.steps || [])
+        .find((s) => s.kind === 'sources')
+        ?.connections?.map((c) => c.id)
+        .filter(Boolean)
+      const session = await createAgentSession(workspaceId, userId, {
+        goal: outcome.prompt,
+        title: `Outcome · ${outcome.prompt.slice(0, 60)}`,
+        sourceIds: sourceIds?.length ? sourceIds : undefined,
+      })
+      sessionId = session?.id || null
+      const plan = {
+        ...(outcome.plan || {}),
+        agentSessionId: sessionId,
+        agentHref: '/agent',
+      }
+      await query(
+        `UPDATE workspace_outcomes
+         SET plan_json = $3::jsonb, updated_at = now()
+         WHERE workspace_id = $1 AND id = $2`,
+        [workspaceId, outcomeId, JSON.stringify(plan)],
+      )
+      actions.push({
+        tool: 'agent_create',
+        sessionId,
+        href: '/agent',
+        hint: 'Approve the plan (HITL) then advance again',
+      })
+      outcome = await getOutcome(workspaceId, outcomeId)
+    } catch (e) {
+      if (e.status) throw e
+      actions.push({ tool: 'agent_create', error: String(e.message || e) })
+      return { outcome, actions, needsHitl: true }
+    }
+  }
+
+  const {
+    getAgentSession,
+    advanceAgentCheckpoint,
+    continueAgentAfterPromote,
+  } = await import('./agentSessions.js')
+
+  let session = await getAgentSession(workspaceId, sessionId)
+  if (!session) {
+    const err = new Error('linked agent session not found')
+    err.status = 404
+    throw err
+  }
+
+  const open = (session.checkpoints || []).find((c) => c.status === 'open')
+
+  if (!open) {
+    actions.push({
+      tool: 'agent_idle',
+      status: session.status,
+      href: '/agent',
+      hint:
+        session.status === 'completed'
+          ? 'Agent finished — continue Outcome steps / Ship'
+          : 'No open checkpoint',
+    })
+    outcome = await refreshOutcome(workspaceId, outcomeId, userId)
+    return { outcome, session, actions, needsHitl: false }
+  }
+
+  if (open.type === 'approve_plan') {
+    if (!approvePlan) {
+      actions.push({
+        tool: 'agent_awaiting_plan_approve',
+        checkpointId: open.id,
+        href: '/agent',
+        hint: 'HITL required — click “Approve agent plan & run tools” or open /agent',
+      })
+      return {
+        outcome,
+        session,
+        actions,
+        needsHitl: true,
+        checkpoint: open,
+      }
+    }
+    session = await advanceAgentCheckpoint(workspaceId, sessionId, userId, {
+      action: 'approve',
+      checkpointId: open.id,
+    })
+    actions.push({
+      tool: 'agent_approve_plan',
+      status: session.status,
+      toolCalls: (session.toolCalls || []).length,
+      href: '/agent',
+    })
+  } else if (open.type === 'promote_joins') {
+    const reviews = await listJoinReviews(workspaceId, {
+      status: 'suggested',
+      limit: 40,
+    })
+    const pending = reviews.items || []
+    if (pending.length > 0) {
+      actions.push({
+        tool: 'agent_awaiting_promote',
+        pendingJoins: pending.length,
+        href: '/joins',
+        hint: `Promote or Reject ${pending.length} suggested join(s), then advance again`,
+      })
+      return {
+        outcome,
+        session,
+        actions,
+        needsHitl: true,
+        checkpoint: open,
+      }
+    }
+    session = await continueAgentAfterPromote(
+      workspaceId,
+      sessionId,
+      userId,
+      {},
+    )
+    actions.push({
+      tool: 'agent_continue_after_promote',
+      status: session.status,
+      jobId: session.result?.jobId || null,
+      href: '/agent',
+    })
+  } else {
+    actions.push({
+      tool: 'agent_unknown_checkpoint',
+      type: open.type,
+      href: '/agent',
+      hint: 'Resolve checkpoint on /agent',
+    })
+    return { outcome, session, actions, needsHitl: true, checkpoint: open }
+  }
+
+  outcome = await refreshOutcome(workspaceId, outcomeId, userId)
+  // Re-attach agent id after refresh (already preserved, but keep explicit)
+  if (sessionId && outcome.plan && !outcome.plan.agentSessionId) {
+    const plan = {
+      ...outcome.plan,
+      agentSessionId: sessionId,
+      agentHref: '/agent',
+    }
+    await query(
+      `UPDATE workspace_outcomes
+       SET plan_json = $3::jsonb, updated_at = now()
+       WHERE workspace_id = $1 AND id = $2`,
+      [workspaceId, outcomeId, JSON.stringify(plan)],
+    )
+    outcome = await getOutcome(workspaceId, outcomeId)
+  }
+
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId: userId,
+    action: 'outcome.advance_agent',
+    resourceType: 'outcome',
+    resourceId: outcomeId,
+    summary: `Outcome advanced agent ${sessionId}`,
+    meta: { actions, sessionStatus: session?.status },
+  })
+
+  return {
+    outcome,
+    session,
+    actions,
+    needsHitl: session?.status === 'awaiting_checkpoint',
+    custody:
+      'Agent tools are schema-first; Yellow/Red joins still require human Promote.',
   }
 }
 

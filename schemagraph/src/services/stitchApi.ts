@@ -1791,6 +1791,8 @@ export interface WorkspaceSettingsFlags {
   joinPromoteMinRole?: 'member' | 'admin' | 'owner'
   joinReviewNotifyEnabled?: boolean
   joinReviewWebhookUrl?: string
+  /** Slack channel for interactive Block Kit (needs SLACK_BOT_TOKEN) */
+  slackNotifyChannel?: string
   joinPromoteNotify?: boolean
   driftDigestEnabled?: boolean
   driftDigestWebhookUrl?: string
@@ -4325,6 +4327,32 @@ export async function runOutcomeStepApi(
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `run-step ${res.status}`)
+  return body
+}
+
+export async function advanceOutcomeAgentApi(
+  outcomeId: string,
+  opts: { approvePlan?: boolean } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/outcomes/${outcomeId}/advance-agent`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        approvePlan: opts.approvePlan === true,
+      }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    outcome?: OutcomeRecord
+    session?: { id?: string; status?: string }
+    actions?: unknown[]
+    needsHitl?: boolean
+    custody?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `advance-agent ${res.status}`)
   return body
 }
 

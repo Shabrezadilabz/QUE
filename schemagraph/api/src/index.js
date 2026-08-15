@@ -125,6 +125,7 @@ import {
   refreshOutcome,
   patchOutcomeStatus,
   runOutcomeStep,
+  advanceOutcomeAgent,
 } from './outcomes.js'
 import {
   listShipEvents,
@@ -479,6 +480,10 @@ app.post(
       }
       const params = new URLSearchParams(raw)
       const out = await handleSlackInteractionPayload(params.get('payload'))
+      if (out.slackResponse) {
+        res.json(out.slackResponse)
+        return
+      }
       res.json({
         response_type: 'ephemeral',
         text: out.message || `Que: ${out.action} · ${out.status}`,
@@ -2561,6 +2566,26 @@ app.post(
           stepId: req.body?.stepId || 'auto',
           inferJoins: req.body?.inferJoins === true,
           userId: req.user?.id,
+        },
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/outcomes/:outcomeId/advance-agent',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await advanceOutcomeAgent(
+        req.params.workspaceId,
+        req.params.outcomeId,
+        {
+          userId: req.user?.id,
+          approvePlan: req.body?.approvePlan === true,
         },
       )
       res.json({ ok: true, ...out })

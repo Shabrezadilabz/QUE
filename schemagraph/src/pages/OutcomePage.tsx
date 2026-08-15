@@ -9,6 +9,7 @@ import {
   fetchOutcomes,
   refreshOutcomeApi,
   runOutcomeStepApi,
+  advanceOutcomeAgentApi,
   type OutcomeRecord,
 } from '@/services/stitchApi'
 
@@ -98,6 +99,37 @@ export function OutcomePage() {
         window.location.href = shipAction.href
         return
       }
+      await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function advanceAgent(opts?: { approvePlan?: boolean }) {
+    if (!active || !canWrite) return
+    setBusy(true)
+    setError(null)
+    try {
+      const out = await advanceOutcomeAgentApi(active.id, {
+        approvePlan: opts?.approvePlan === true,
+      })
+      if (out.outcome) setActive(out.outcome)
+      const hint =
+        (out.actions || [])
+          .map((a) =>
+            a && typeof a === 'object'
+              ? String((a as { hint?: string; tool?: string }).hint || (a as { tool?: string }).tool || '')
+              : '',
+          )
+          .filter(Boolean)
+          .join(' · ') || 'Agent advanced'
+      setToast(
+        out.needsHitl
+          ? `HITL · ${hint}`
+          : `Agent · ${out.session?.status || 'ok'} · ${hint}`,
+      )
       await reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -204,6 +236,24 @@ export function OutcomePage() {
                   onClick={() => void runNext({ stepId: 'auto' })}
                 >
                   Run next step
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-outline-variant/40 px-sm py-xs text-[12px]"
+                  disabled={busy || !canWrite}
+                  onClick={() => void advanceAgent({ approvePlan: true })}
+                  title="HITL: approve linked agent plan and run schema-first tools"
+                >
+                  Approve agent plan & run
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-outline-variant/40 px-sm py-xs text-[12px]"
+                  disabled={busy || !canWrite}
+                  onClick={() => void advanceAgent()}
+                  title="Continue after Promote, or report next HITL gate"
+                >
+                  Advance agent
                 </button>
                 <button
                   type="button"

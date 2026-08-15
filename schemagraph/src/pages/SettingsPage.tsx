@@ -158,8 +158,9 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
           joinPromoteMinRole: payload.settings.joinPromoteMinRole ?? 'member',
           joinReviewNotifyEnabled:
             payload.settings.joinReviewNotifyEnabled !== false,
-          joinReviewWebhookUrl: payload.settings.joinReviewWebhookUrl ?? '',
-          joinPromoteNotify: payload.settings.joinPromoteNotify === true,
+                      joinReviewWebhookUrl: payload.settings.joinReviewWebhookUrl ?? '',
+                      slackNotifyChannel: payload.settings.slackNotifyChannel ?? '',
+                      joinPromoteNotify: payload.settings.joinPromoteNotify === true,
           driftDigestEnabled: payload.settings.driftDigestEnabled !== false,
           driftDigestWebhookUrl: payload.settings.driftDigestWebhookUrl ?? '',
           dbtModelsPath: payload.settings.dbtModelsPath ?? 'models/que',
@@ -289,6 +290,8 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
         (data.settings.joinPromoteNotify === true) ||
       draft.joinReviewWebhookUrl !==
         (data.settings.joinReviewWebhookUrl ?? '') ||
+      draft.slackNotifyChannel !==
+        (data.settings.slackNotifyChannel ?? '') ||
       draft.driftDigestEnabled !==
         (data.settings.driftDigestEnabled !== false) ||
       draft.driftDigestWebhookUrl !==
@@ -933,12 +936,28 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                       }
                       placeholder="https://hooks.slack.com/services/… or Teams webhook"
                     />
+                    <Field
+                      label="Slack channel (interactive buttons)"
+                      value={draft.slackNotifyChannel ?? ''}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, slackNotifyChannel: v } : d,
+                        )
+                      }
+                      placeholder="#data-ops or C0123ABCD (needs SLACK_BOT_TOKEN)"
+                    />
                     <p className="text-[11px] text-on-surface-variant">
-                      Slack/Teams cards include <strong>Approve</strong> /{' '}
-                      <strong>Reject</strong> links (signed, schema-first HITL).
-                      Set <code className="font-mono">QUE_APP_URL</code> /{' '}
-                      <code className="font-mono">QUE_PUBLIC_API_URL</code> so
-                      buttons resolve in production.
+                      With <code className="font-mono">SLACK_BOT_TOKEN</code> +
+                      channel, Que posts interactive Approve/Reject (value
+                      tokens →{' '}
+                      <code className="font-mono">
+                        /webhooks/slack/interactions
+                      </code>
+                      ). Webhook-only mode uses signed URL buttons. Set{' '}
+                      <code className="font-mono">QUE_APP_URL</code>,{' '}
+                      <code className="font-mono">QUE_PUBLIC_API_URL</code>,{' '}
+                      <code className="font-mono">SLACK_SIGNING_SECRET</code>.
                     </p>
                     <Toggle
                       label="Drift digest enabled"

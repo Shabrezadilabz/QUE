@@ -4,8 +4,9 @@
 import { query } from './db.js'
 import { recordAuditEvent } from './auditLog.js'
 import { learnRuleFromPromote } from './workspaceRules.js'
-import { verifyJoinActionToken } from './joinActionTokens.js'
+import { verifyJoinActionToken, appPublicUrl } from './joinActionTokens.js'
 import { notifyJoinPromoted } from './teamNotify.js'
+import { postSlackResponseUrl } from './slackPost.js'
 
 export async function applyJoinActionFromToken(token, { actorLabel = 'slack' } = {}) {
   const parsed = verifyJoinActionToken(token)
@@ -142,8 +143,50 @@ export async function applyJoinActionFromToken(token, { actorLabel = 'slack' } =
   }
 }
 
+function slackResultBlocks(out) {
+  const joinsUrl = `${appPublicUrl()}/joins`
+  const verb =
+    out.action === 'promote'
+      ? out.already
+        ? 'Already promoted'
+        : 'Promoted'
+      : out.already
+        ? 'Already rejected'
+        : 'Rejected'
+  return [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Que · ${verb}*\n${out.join || out.message || out.status}`,
+      },
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: 'Schema-first HITL · no lake custody',
+        },
+      ],
+    },
+    {
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Open Join Review', emoji: true },
+          url: joinsUrl,
+          action_id: 'que_open_joins_done',
+        },
+      ],
+    },
+  ]
+}
+
 /**
  * Slack interactive payload handler (form field `payload`).
+ * Supports Block Kit buttons with value= signed tokens.
  */
 export async function handleSlackInteractionPayload(rawPayload) {
   let data
@@ -154,12 +197,47 @@ export async function handleSlackInteractionPayload(rawPayload) {
     err.status = 400
     throw err
   }
+
+  // URL-button clicks never hit this endpoint; ignore non-block_actions quietly
+  const type = data?.type
+  if (type && type !== 'block_actions') {
+    return {
+      ok: true,
+      skipped: true,
+      message: `ignored Slack type ${type}`,
+      slackResponse: { text: 'OK' },
+    }
+  }
+
   const action = data?.actions?.[0]
-  const token = action?.value || data?.token
+  // Link buttons (url) have no value — Open Joins etc.
+  if (action && !action.value && action.url) {
+    return {
+      ok: true,
+      skipped: true,
+      message: 'link button',
+      slackResponse: { text: 'OK' },
+    }
+  }
+
+  const token = action?.value
   if (!token) {
     const err = new Error('missing action token')
     err.status = 400
     throw err
   }
-  return applyJoinActionFromToken(token, { actorLabel: 'slack' })
+
+  const out = await applyJoinActionFromToken(token, { actorLabel: 'slack' })
+  const slackResponse = {
+    replace_original: true,
+    text: out.message || `Que: ${out.action} · ${out.status}`,
+    blocks: slackResultBlocks(out),
+  }
+
+  // Best-effort update (Slack also accepts the HTTP response body)
+  if (data.response_url) {
+    void postSlackResponseUrl(data.response_url, slackResponse)
+  }
+
+  return { ...out, slackResponse }
 }

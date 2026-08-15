@@ -106,6 +106,8 @@ const DEFAULT_SETTINGS = {
   /** Slack/Teams webhooks */
   joinReviewNotifyEnabled: true,
   joinReviewWebhookUrl: '',
+  /** Slack channel ID/name for interactive Block Kit (requires SLACK_BOT_TOKEN) */
+  slackNotifyChannel: '',
   joinPromoteNotify: false,
   driftDigestEnabled: true,
   driftDigestWebhookUrl: '',
@@ -458,6 +460,9 @@ function pickAllowed(patch) {
   }
   if (typeof patch.joinReviewWebhookUrl === 'string') {
     out.joinReviewWebhookUrl = patch.joinReviewWebhookUrl.trim().slice(0, 500)
+  }
+  if (typeof patch.slackNotifyChannel === 'string') {
+    out.slackNotifyChannel = patch.slackNotifyChannel.trim().slice(0, 80)
   }
   if (typeof patch.driftDigestWebhookUrl === 'string') {
     out.driftDigestWebhookUrl = patch.driftDigestWebhookUrl.trim().slice(0, 500)

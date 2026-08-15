@@ -68,6 +68,13 @@ export interface RelationshipLineProps {
   onPromote?: (relationshipId: string) => void | Promise<void>
   /** Reject inferred (remove from canvas) */
   onReject?: (relationshipId: string) => void | Promise<void>
+  /** Show endpoint handles for pull-thread edit */
+  editMode?: boolean
+  onEndpointPointerDown?: (
+    e: ReactMouseEvent,
+    relationshipId: string,
+    end: 'from' | 'to',
+  ) => void
 }
 
 export interface RelationshipLineStyle {
@@ -440,6 +447,8 @@ export function RelationshipLine({
   onRelationshipHover,
   onPromote,
   onReject,
+  editMode = false,
+  onEndpointPointerDown,
 }: RelationshipLineProps) {
   const reactId = useId()
   const markerId = `rl-arrow-${relationship.id}-${reactId.replace(/:/g, '')}`
@@ -690,6 +699,45 @@ export function RelationshipLine({
               'Suggested by AI inference. Review join criteria before promoting to an explicit key.'
             : 'Declared relationship between schema columns.'}
         </desc>
+
+        {editMode ? (
+          <>
+            <circle
+              cx={fromX}
+              cy={fromY}
+              r={6}
+              fill="#7bd0ff"
+              stroke="#031427"
+              strokeWidth={2}
+              style={{ cursor: 'grab', pointerEvents: 'all' }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onEndpointPointerDown?.(
+                  e as unknown as ReactMouseEvent,
+                  relationship.id,
+                  'from',
+                )
+              }}
+            />
+            <circle
+              cx={toX}
+              cy={toY}
+              r={6}
+              fill="#7bd0ff"
+              stroke="#031427"
+              strokeWidth={2}
+              style={{ cursor: 'grab', pointerEvents: 'all' }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onEndpointPointerDown?.(
+                  e as unknown as ReactMouseEvent,
+                  relationship.id,
+                  'to',
+                )
+              }}
+            />
+          </>
+        ) : null}
       </EdgeGroup>
 
       <RelationshipTooltipPortal

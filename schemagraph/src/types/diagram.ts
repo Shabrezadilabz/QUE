@@ -51,6 +51,15 @@ export interface MainDiagramLayoutProps extends MainDiagramLayoutSlots {
   readOnly?: boolean
   onPromoteRelationship?: (relationshipId: string) => void | Promise<void>
   onRejectRelationship?: (relationshipId: string) => void | Promise<void>
+  onCreateJoin?: (
+    from: { tableId: string; columnId: string },
+    to: { tableId: string; columnId: string },
+  ) => void | Promise<void>
+  onEditJoinEndpoints?: (
+    relationshipId: string,
+    fromColumnId: string,
+    toColumnId: string,
+  ) => void | Promise<void>
   onSyncSource?: (sourceId: string) => void | Promise<void>
   /** Canvas → stitch job one-click */
   onCreateStitchJob?: (tableNames: string[]) => void | Promise<void>

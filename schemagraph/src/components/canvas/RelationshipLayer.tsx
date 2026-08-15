@@ -32,6 +32,12 @@ interface RelationshipLayerProps {
   onRelationshipHover?: (event: RelationshipHoverEvent) => void
   onPromoteRelationship?: (relationshipId: string) => void | Promise<void>
   onRejectRelationship?: (relationshipId: string) => void | Promise<void>
+  editMode?: boolean
+  onEndpointPointerDown?: (
+    e: React.MouseEvent,
+    relationshipId: string,
+    end: 'from' | 'to',
+  ) => void
 }
 
 function findColumnIndex(table: SchemaTable, columnId: string): number {
@@ -63,6 +69,8 @@ export function RelationshipLayer({
   onRelationshipHover,
   onPromoteRelationship,
   onRejectRelationship,
+  editMode = false,
+  onEndpointPointerDown,
 }: RelationshipLayerProps) {
   const byId = new Map(tables.map((t) => [t.id, t]))
 
@@ -120,6 +128,8 @@ export function RelationshipLayer({
               onRelationshipHover={onRelationshipHover}
               onPromote={onPromoteRelationship}
               onReject={onRejectRelationship}
+              editMode={editMode}
+              onEndpointPointerDown={onEndpointPointerDown}
             />
           )
         })}

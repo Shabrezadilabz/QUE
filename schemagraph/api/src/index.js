@@ -249,6 +249,7 @@ import { listJoinReviews } from './joinReviews.js'
 import {
   editRelationshipColumns,
   listTableColumns,
+  createManualRelationship,
 } from './relationshipEdit.js'
 import {
   pinTableSamples,
@@ -998,7 +999,16 @@ app.get('/workspaces/:workspaceId/schema', async (req, res) => {
       }
     })
 
-    const relationships = rels.rows.map((r) => ({
+    const { evidenceHasSampleMatch } = await import('./inferJoins.js')
+    const relationships = rels.rows
+      .filter((r) => {
+        // Hide AI suggestions that never proved sample overlap (legacy + noise)
+        if (r.relation_type === 'ai-inferred' && r.status === 'suggested') {
+          return evidenceHasSampleMatch(r.evidence_json)
+        }
+        return true
+      })
+      .map((r) => ({
       id: r.id,
       fromTableId: r.from_object_id,
       fromColumnId: r.from_column_id,
@@ -1043,6 +1053,33 @@ app.get('/workspaces/:workspaceId/join-reviews', async (req, res) => {
     res.status(500).json({ error: String(err.message || err) })
   }
 })
+
+/**
+ * Create a join from Workspace Edit mode (drag column → column).
+ * Body: { fromColumnId, toColumnId }
+ */
+app.post(
+  '/workspaces/:workspaceId/relationships',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const relationship = await createManualRelationship(
+        req.params.workspaceId,
+        {
+          fromColumnId: req.body?.fromColumnId,
+          toColumnId: req.body?.toColumnId,
+          userId: req.user?.id ?? null,
+        },
+      )
+      res.status(201).json({ ok: true, relationship })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        relationshipId: err.relationshipId || undefined,
+      })
+    }
+  },
+)
 
 /**
  * Promote, reject, or edit join columns on a Stitch Relation.

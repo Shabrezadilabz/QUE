@@ -288,6 +288,25 @@ export async function reviewRelationship(
   return body.relationship ?? null
 }
 
+/** Create a join by dragging columns in Workspace Edit mode. */
+export async function createManualRelationshipApi(
+  fromColumnId: string,
+  toColumnId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<SchemaRelationship> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/relationships`, {
+    method: 'POST',
+    body: JSON.stringify({ fromColumnId, toColumnId }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    relationship?: SchemaRelationship
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `create join ${res.status}`)
+  if (!body.relationship) throw new Error('create join returned empty')
+  return body.relationship
+}
+
 export async function fetchTableColumns(
   schemaObjectId: string,
   workspaceId: string = getActiveWorkspaceId(),

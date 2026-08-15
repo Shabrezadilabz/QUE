@@ -9,6 +9,7 @@ Schema-first HITL loop. No lake custody.
 | `/outcome` | NL → plan; **Run next step** / Infer joins; optional `/agent` link |
 | `/ship` | Draft → Approve → embed / Rollback (+ optional warehouse DROP) |
 | `/joins` | Green / Yellow / Red + Promote |
+| `/workspace` | **Edit** tool — drag column→column or pull endpoint handles; AI edges need sample match |
 | `/eval` | Green eligibility scoreboard |
 | `/marketplace` | CEO packs seed Rules + Outcome |
 | `/rules` | Promote + marketplace memory |

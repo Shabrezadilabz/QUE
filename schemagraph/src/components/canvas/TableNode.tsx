@@ -21,6 +21,12 @@ export interface TableNodeProps {
   isSelected: boolean
   onExpand: (tableId: string, expanded: boolean) => void
   onSelectColumn: (tableId: string, columnId: string) => void
+  /** Edit mode: start dragging a join wire from this column */
+  onColumnJoinPointerDown?: (
+    e: ReactPointerEvent,
+    tableId: string,
+    columnId: string,
+  ) => void
   isExpanded?: boolean
   selectedColumnId?: string | null
   isSearchMatch?: boolean
@@ -28,6 +34,8 @@ export interface TableNodeProps {
   onSelect?: (tableId: string) => void
   dragging?: boolean
   onPointerDownDrag?: (e: ReactPointerEvent, tableId: string) => void
+  /** Highlight columns as join drop targets */
+  joinEditActive?: boolean
   className?: string
 }
 
@@ -276,6 +284,7 @@ export function TableNode({
   isSelected,
   onExpand,
   onSelectColumn,
+  onColumnJoinPointerDown,
   isExpanded: isExpandedProp,
   selectedColumnId = null,
   isSearchMatch = false,
@@ -283,6 +292,7 @@ export function TableNode({
   onSelect,
   dragging = false,
   onPointerDownDrag,
+  joinEditActive = false,
   className,
 }: TableNodeProps) {
   const [uncontrolledExpanded, setUncontrolledExpanded] = useState(
@@ -346,17 +356,29 @@ export function TableNode({
             <ColumnRow
               key={col.id}
               data-column-id={col.id}
+              data-join-target={joinEditActive ? '1' : undefined}
               $selected={
                 selectedColumnId === col.id ||
                 Boolean(matchedColumnIds?.has(col.id))
               }
               onMouseEnter={() => setHoveredColumnId(col.id)}
               onMouseLeave={() => setHoveredColumnId(null)}
+              onPointerDown={(e) => {
+                if (!joinEditActive || !onColumnJoinPointerDown) return
+                e.stopPropagation()
+                e.preventDefault()
+                onColumnJoinPointerDown(e, table.id, col.id)
+              }}
               onClick={(e) => {
                 e.stopPropagation()
                 onSelect?.(table.id)
                 onSelectColumn(table.id, col.id)
               }}
+              style={
+                joinEditActive
+                  ? { cursor: 'crosshair' }
+                  : undefined
+              }
             >
               <ColLeft>
                 <KeyWrap>

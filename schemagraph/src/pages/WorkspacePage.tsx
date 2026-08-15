@@ -4,7 +4,7 @@ import { DiagramProvider } from '@/context/DiagramContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useToast } from '@/context/ToastContext'
 import { StitchSessionDialog } from '@/components/StitchSessionDialog'
-import { createStitchJobFromCanvas, loadWorkspaceData, reviewRelationship, syncConnection, type WorkspaceLoadError } from '@/services/stitchApi'
+import { createStitchJobFromCanvas, loadWorkspaceData, reviewRelationship, createManualRelationshipApi, syncConnection, type WorkspaceLoadError } from '@/services/stitchApi'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 import type { DataSource } from '@/types/dataSource'
 import type { SchemaRelationship, SchemaTable } from '@/types/schema'
@@ -116,6 +116,55 @@ export function WorkspacePage() {
       notifySchemaChanged('reject')
     },
     [fromApi, applyLocalReview, canWrite, pushToast],
+  )
+
+  const handleCreateJoin = useCallback(
+    async (
+      from: { tableId: string; columnId: string },
+      to: { tableId: string; columnId: string },
+    ) => {
+      if (!canWrite) return
+      if (!fromApi) {
+        pushToast('Create join requires a live API connection', 'error')
+        return
+      }
+      const created = await createManualRelationshipApi(
+        from.columnId,
+        to.columnId,
+      )
+      setRelationships((prev) => [...prev, created])
+      pushToast('Join drawn — Promote when ready (HITL)', 'success')
+      notifySchemaChanged('promote')
+    },
+    [canWrite, fromApi, pushToast],
+  )
+
+  const handleEditJoinEndpoints = useCallback(
+    async (
+      relationshipId: string,
+      fromColumnId: string,
+      toColumnId: string,
+    ) => {
+      if (!canWrite) return
+      if (!fromApi) {
+        pushToast('Edit join requires a live API connection', 'error')
+        return
+      }
+      const updated = await reviewRelationship(relationshipId, 'edit', {
+        fromColumnId,
+        toColumnId,
+      })
+      if (!updated) {
+        pushToast('Edit join failed', 'error')
+        return
+      }
+      setRelationships((prev) =>
+        prev.map((r) => (r.id === relationshipId ? { ...r, ...updated } : r)),
+      )
+      pushToast('Join endpoints updated', 'success')
+      notifySchemaChanged('promote')
+    },
+    [canWrite, fromApi, pushToast],
   )
 
   const handleSyncSource = useCallback(
@@ -230,6 +279,8 @@ export function WorkspacePage() {
           onDismissBanner={() => setBanner(null)}
           onPromoteRelationship={canWrite ? handlePromote : undefined}
           onRejectRelationship={canWrite ? handleReject : undefined}
+          onCreateJoin={canWrite ? handleCreateJoin : undefined}
+          onEditJoinEndpoints={canWrite ? handleEditJoinEndpoints : undefined}
           onSyncSource={canWrite ? handleSyncSource : undefined}
           onCreateStitchJob={canWrite ? handleCreateStitchJob : undefined}
           onOpenStitchSession={

@@ -7,6 +7,7 @@ import {
   getPinnedColumnValues,
   scorePinnedOverlap,
 } from './pinnedSamples.js'
+import { evidenceHasSampleMatch } from './inferJoins.js'
 
 /**
  * @param {string} workspaceId
@@ -120,6 +121,20 @@ export async function listJoinReviews(workspaceId, opts = {}) {
     } catch {
       /* pins optional until migrate */
     }
+
+    // Inbox: only surface AI suggestions with proven sample overlap
+    if (
+      r.status === 'suggested' &&
+      r.relation_type === 'ai-inferred' &&
+      !evidenceHasSampleMatch({ ...evidence, signals, pinnedOverlap }) &&
+      !(
+        pinnedOverlap &&
+        (pinnedOverlap.band === 'high' || pinnedOverlap.band === 'medium')
+      )
+    ) {
+      continue
+    }
+
     items.push({
       id: r.id,
       status: r.status,

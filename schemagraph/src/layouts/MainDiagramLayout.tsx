@@ -32,6 +32,8 @@ export function MainDiagramLayout({
   onDismissBanner,
   onPromoteRelationship,
   onRejectRelationship,
+  onCreateJoin,
+  onEditJoinEndpoints,
   onSyncSource: _onSyncSource,
   onCreateStitchJob,
   onOpenStitchSession,
@@ -211,6 +213,8 @@ export function MainDiagramLayout({
       onDiagramAction={handleDiagramAction}
       onPromoteRelationship={onPromoteRelationship}
       onRejectRelationship={onRejectRelationship}
+      onCreateJoin={onCreateJoin}
+      onEditJoinEndpoints={onEditJoinEndpoints}
       onOpenStitchSession={onOpenStitchSession}
       stitchSessionLabel={stitchSessionLabel}
     />

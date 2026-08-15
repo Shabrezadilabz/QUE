@@ -27,6 +27,10 @@ import { useTableNodeDrag } from '@/hooks/useTableNodeDrag'
 import type { DragPhase } from '@/hooks/useTableNodeDrag'
 import { saveWorkspaceLayout } from '@/services/stitchApi'
 import { useToast } from '@/context/ToastContext'
+import {
+  TABLE_NODE_WIDTH,
+  columnAnchorY,
+} from '@/components/canvas/layoutMetrics'
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * MainCanvas
@@ -60,6 +64,17 @@ export interface MainCanvasProps {
   onRelationshipHover?: (event: RelationshipHoverEvent) => void
   onPromoteRelationship?: (relationshipId: string) => void | Promise<void>
   onRejectRelationship?: (relationshipId: string) => void | Promise<void>
+  /** Create join by dragging column → column (Edit mode) */
+  onCreateJoin?: (
+    from: { tableId: string; columnId: string },
+    to: { tableId: string; columnId: string },
+  ) => void | Promise<void>
+  /** Retarget an existing join endpoint (Edit mode pull-thread) */
+  onEditJoinEndpoints?: (
+    relationshipId: string,
+    fromColumnId: string,
+    toColumnId: string,
+  ) => void | Promise<void>
   /** Disable drag / auto-layout / layout persist (viewers) */
   readOnly?: boolean
   /** Open two-source stitch session (top-right canvas action) */
@@ -105,6 +120,8 @@ export function MainCanvas({
   onRelationshipHover,
   onPromoteRelationship,
   onRejectRelationship,
+  onCreateJoin,
+  onEditJoinEndpoints,
   readOnly = false,
   onOpenStitchSession,
   stitchSessionLabel = 'STITCH SESSION · 2 SOURCES',
@@ -131,10 +148,33 @@ export function MainCanvas({
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 })
   /** Hand tool — grab-drag pans the screen (Space holds temporary hand) */
   const [handTool, setHandTool] = useState(true)
+  /** Edit joins — drag column wires / pull endpoints */
+  const [editJoins, setEditJoins] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
   const [internalTableId, setInternalTableId] = useState<string | null>(null)
   const [internalColumnId, setInternalColumnId] = useState<string | null>(null)
+  type JoinWireDrag =
+    | {
+        kind: 'create'
+        fromTableId: string
+        fromColumnId: string
+        startX: number
+        startY: number
+        curX: number
+        curY: number
+      }
+    | {
+        kind: 'retarget'
+        relationshipId: string
+        end: 'from' | 'to'
+        fixedColumnId: string
+        startX: number
+        startY: number
+        curX: number
+        curY: number
+      }
+  const [joinWire, setJoinWire] = useState<JoinWireDrag | null>(null)
 
   /** Merge context position store onto table records for render + SVG edges */
   const tables = useMemo(
@@ -309,7 +349,166 @@ export function MainCanvas({
 
   /* ── Canvas pan (hand tool / Space / middle-mouse / background) ───────── */
 
-  const panModeActive = handTool || spaceHeld
+  const panModeActive = (handTool || spaceHeld) && !editJoins
+
+  function clientToWorld(clientX: number, clientY: number) {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return { x: 0, y: 0 }
+    const vp = viewportRef.current
+    return {
+      x: (clientX - rect.left - vp.x) / vp.zoom,
+      y: (clientY - rect.top - vp.y) / vp.zoom,
+    }
+  }
+
+  function columnWorldPoint(tableId: string, columnId: string) {
+    const table = tables.find((t) => t.id === tableId)
+    if (!table) return { x: 0, y: 0 }
+    const idx = table.columns.findIndex((c) => c.id === columnId)
+    const y =
+      (expandedMap[tableId] ?? true) && idx >= 0
+        ? columnAnchorY(idx)
+        : 28
+    return {
+      x: table.position.x + TABLE_NODE_WIDTH / 2,
+      y: table.position.y + y,
+    }
+  }
+
+  function hitTestColumn(clientX: number, clientY: number) {
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null
+    const colEl = el?.closest?.('[data-column-id]') as HTMLElement | null
+    const tableEl = el?.closest?.('[data-table-id]') as HTMLElement | null
+    const columnId = colEl?.getAttribute('data-column-id')
+    const tableId = tableEl?.getAttribute('data-table-id')
+    if (!columnId || !tableId) return null
+    return { tableId, columnId }
+  }
+
+  const finishJoinWire = useCallback(
+    async (clientX: number, clientY: number) => {
+      const wire = joinWire
+      setJoinWire(null)
+      if (!wire || readOnly) return
+      const hit = hitTestColumn(clientX, clientY)
+      if (!hit) {
+        pushToast('Drop on a column to connect the join', 'info')
+        return
+      }
+      try {
+        if (wire.kind === 'create') {
+          if (
+            wire.fromTableId === hit.tableId &&
+            wire.fromColumnId === hit.columnId
+          ) {
+            return
+          }
+          if (wire.fromTableId === hit.tableId) {
+            pushToast('Join must connect two different tables', 'error')
+            return
+          }
+          await onCreateJoin?.(
+            { tableId: wire.fromTableId, columnId: wire.fromColumnId },
+            { tableId: hit.tableId, columnId: hit.columnId },
+          )
+          return
+        }
+        // retarget
+        const rel = relationships.find((r) => r.id === wire.relationshipId)
+        if (!rel) return
+        const fromColumnId =
+          wire.end === 'from' ? hit.columnId : rel.fromColumnId
+        const toColumnId = wire.end === 'to' ? hit.columnId : rel.toColumnId
+        if (fromColumnId === toColumnId) {
+          pushToast('Endpoints must differ', 'error')
+          return
+        }
+        await onEditJoinEndpoints?.(rel.id, fromColumnId, toColumnId)
+      } catch (err) {
+        pushToast(
+          err instanceof Error ? err.message : 'Join edit failed',
+          'error',
+        )
+      }
+    },
+    [
+      joinWire,
+      readOnly,
+      onCreateJoin,
+      onEditJoinEndpoints,
+      relationships,
+      pushToast,
+    ],
+  )
+
+  useEffect(() => {
+    if (!joinWire) return
+    const onMove = (e: PointerEvent) => {
+      const w = clientToWorld(e.clientX, e.clientY)
+      setJoinWire((prev) =>
+        prev ? { ...prev, curX: w.x, curY: w.y } : null,
+      )
+    }
+    const onUp = (e: PointerEvent) => {
+      void finishJoinWire(e.clientX, e.clientY)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [joinWire, finishJoinWire])
+
+  const beginColumnJoin = useCallback(
+    (e: ReactPointerEvent, tableId: string, columnId: string) => {
+      if (readOnly || !editJoins) return
+      const start = columnWorldPoint(tableId, columnId)
+      setHandTool(false)
+      setJoinWire({
+        kind: 'create',
+        fromTableId: tableId,
+        fromColumnId: columnId,
+        startX: start.x,
+        startY: start.y,
+        curX: start.x,
+        curY: start.y,
+      })
+      e.currentTarget.setPointerCapture?.(e.pointerId)
+    },
+    [readOnly, editJoins, tables, expandedMap],
+  )
+
+  const beginEndpointRetarget = useCallback(
+    (
+      e: { clientX: number; clientY: number; stopPropagation: () => void },
+      relationshipId: string,
+      end: 'from' | 'to',
+    ) => {
+      if (readOnly || !editJoins) return
+      e.stopPropagation()
+      const rel = relationships.find((r) => r.id === relationshipId)
+      if (!rel) return
+      const fixedColumnId = end === 'from' ? rel.toColumnId : rel.fromColumnId
+      const movingTableId = end === 'from' ? rel.fromTableId : rel.toTableId
+      const movingColumnId = end === 'from' ? rel.fromColumnId : rel.toColumnId
+      const start = columnWorldPoint(movingTableId, movingColumnId)
+      setJoinWire({
+        kind: 'retarget',
+        relationshipId,
+        end,
+        fixedColumnId,
+        startX: start.x,
+        startY: start.y,
+        curX: start.x,
+        curY: start.y,
+      })
+      void fixedColumnId
+    },
+    [readOnly, editJoins, relationships, tables, expandedMap],
+  )
   const spaceHeldRef = useRef(spaceHeld)
   spaceHeldRef.current = spaceHeld
   const handToolRef = useRef(handTool)
@@ -531,17 +730,45 @@ export function MainCanvas({
               ? 'Hand tool on — drag to pan'
               : 'Hand tool off — click to enable grab-pan'
           }
-          onClick={() => setHandTool((v) => !v)}
-          active={handTool || spaceHeld}
+          onClick={() => {
+            setHandTool((v) => !v)
+            setEditJoins(false)
+          }}
+          active={(handTool || spaceHeld) && !editJoins}
         >
           <HandIcon />
         </ToolbarButton>
         <ToolbarButton
           label="Select / navigate"
-          onClick={() => setHandTool(false)}
-          active={!handTool && !spaceHeld}
+          onClick={() => {
+            setHandTool(false)
+            setEditJoins(false)
+          }}
+          active={!handTool && !spaceHeld && !editJoins}
         >
           <SelectIcon />
+        </ToolbarButton>
+        <ToolbarButton
+          label={
+            readOnly
+              ? 'Edit joins (read-only)'
+              : 'Edit joins — drag column to column, or pull endpoint handles'
+          }
+          onClick={() => {
+            if (readOnly) {
+              pushToast('Edit joins requires member+', 'error')
+              return
+            }
+            setEditJoins((v) => {
+              const next = !v
+              if (next) setHandTool(false)
+              return next
+            })
+          }}
+          active={editJoins}
+          wide
+        >
+          Edit
         </ToolbarButton>
         <div className="mx-xs h-6 w-px self-center bg-outline-variant/30" />
         <ToolbarButton
@@ -641,7 +868,39 @@ export function MainCanvas({
           onRelationshipHover={onRelationshipHover}
           onPromoteRelationship={onPromoteRelationship}
           onRejectRelationship={onRejectRelationship}
+          editMode={editJoins && !readOnly}
+          onEndpointPointerDown={beginEndpointRetarget}
         />
+
+        {joinWire ? (
+          <svg
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              overflow: 'visible',
+              pointerEvents: 'none',
+              zIndex: 40,
+            }}
+          >
+            <line
+              x1={joinWire.startX}
+              y1={joinWire.startY}
+              x2={joinWire.curX}
+              y2={joinWire.curY}
+              stroke="#7bd0ff"
+              strokeWidth={2}
+              strokeDasharray="5 4"
+            />
+            <circle
+              cx={joinWire.curX}
+              cy={joinWire.curY}
+              r={5}
+              fill="#7bd0ff"
+            />
+          </svg>
+        ) : null}
 
         {visibleTables.map((table) => (
           <TableNode
@@ -655,12 +914,18 @@ export function MainCanvas({
               selectedTableId === table.id ? selectedColumnId : null
             }
             dragging={draggingTableId === table.id}
+            joinEditActive={editJoins && !readOnly}
             onPointerDownDrag={
-              readOnly || panModeActive ? () => undefined : beginDrag
+              readOnly || panModeActive || editJoins
+                ? () => undefined
+                : beginDrag
             }
             onExpand={toggleExpand}
             onSelect={panModeActive ? () => undefined : selectTable}
             onSelectColumn={panModeActive ? () => undefined : selectColumn}
+            onColumnJoinPointerDown={
+              editJoins && !readOnly ? beginColumnJoin : undefined
+            }
           />
         ))}
       </div>

@@ -125,6 +125,36 @@ function sampleOverlap(aSamples, bSamples) {
   }
 }
 
+/** Min Jaccard overlap (0–1) required to suggest an AI join. Default 0.5. */
+export function sampleMatchMinRatio() {
+  const n = Number(process.env.QUE_JOIN_SAMPLE_MIN_RATIO)
+  if (Number.isFinite(n) && n >= 0 && n <= 1) return n
+  return 0.5
+}
+
+/**
+ * Whether AI-inferred evidence proves sample match (for canvas filter of legacy rows).
+ */
+export function evidenceHasSampleMatch(evidence) {
+  if (!evidence || typeof evidence !== 'object') return false
+  const signals = Array.isArray(evidence.signals) ? evidence.signals : []
+  if (signals.some((s) => s && s.code === 'sample_no_overlap')) return false
+  if (
+    signals.some(
+      (s) =>
+        s &&
+        (s.code === 'sample_overlap' ||
+          s.code === 'sample_unique_overlap' ||
+          s.code === 'pinned_overlap'),
+    )
+  ) {
+    const pinned = evidence.pinnedOverlap
+    if (pinned && (pinned.band === 'none' || pinned.band === 'low')) return false
+    return true
+  }
+  return false
+}
+
 /** Levenshtein distance for short column names */
 function levenshtein(a, b) {
   const s = String(a)
@@ -342,54 +372,56 @@ export function scoreJoinCandidate({
     score += 0.08
   }
 
-  // Sample overlap (capped metadata only)
+  // Sample overlap — HARD GATE for AI suggestions (schema-first, capped samples only).
+  // Require both sides to have samples and a strong Jaccard match before suggesting.
   const ov = sampleOverlap(fromSamples, toSamples)
-  if (ov && ov.inter > 0) {
-    const w = Math.min(0.22, 0.08 + ov.ratio * 0.14)
+  const minRatio = sampleMatchMinRatio()
+  if (!ov) {
+    // Missing samples on either side → do not invent a join
+    return null
+  }
+  if (ov.inter <= 0 || ov.ratio < minRatio) {
+    // Samples present but do not match well enough
+    return null
+  }
+
+  const w = Math.min(0.22, 0.08 + ov.ratio * 0.14)
+  signals.push({
+    code: 'sample_overlap',
+    label: `Sample overlap ${Math.round(ov.ratio * 100)}% (${ov.inter} shared of ${ov.aSize}/${ov.bSize}) · gate ≥${Math.round(minRatio * 100)}%`,
+    weight: Number(w.toFixed(3)),
+  })
+  score += w
+  if (ov.ratio >= 0.5 && (ov.aUnique || ov.bUnique)) {
     signals.push({
-      code: 'sample_overlap',
-      label: `Sample overlap ${Math.round(ov.ratio * 100)}% (${ov.inter} shared of ${ov.aSize}/${ov.bSize})`,
-      weight: Number(w.toFixed(3)),
+      code: 'sample_unique_overlap',
+      label: 'High overlap with distinct samples (1:1-ish proxy)',
+      weight: 0.1,
     })
-    score += w
-    if (ov.ratio >= 0.5 && (ov.aUnique || ov.bUnique)) {
-      signals.push({
-        code: 'sample_unique_overlap',
-        label: 'High overlap with distinct samples (1:1-ish proxy)',
-        weight: 0.1,
-      })
-      score += 0.1
-    }
-    // Cardinality hint from capped samples (not warehouse counts)
-    if (ov.aUnique && !ov.bUnique && ov.inter > 0) {
-      signals.push({
-        code: 'cardinality_hint',
-        label: `Likely 1:N (${fromTable}.${fromCol} unique-ish → ${toTable}.${toCol})`,
-        weight: 0.04,
-      })
-      score += 0.04
-    } else if (!ov.aUnique && ov.bUnique && ov.inter > 0) {
-      signals.push({
-        code: 'cardinality_hint',
-        label: `Likely N:1 (${fromTable}.${fromCol} → unique-ish ${toTable}.${toCol})`,
-        weight: 0.04,
-      })
-      score += 0.04
-    } else if (ov.aUnique && ov.bUnique && ov.ratio >= 0.5) {
-      signals.push({
-        code: 'cardinality_hint',
-        label: 'Likely 1:1 (both sides distinct in capped samples)',
-        weight: 0.05,
-      })
-      score += 0.05
-    }
-  } else if (ov) {
+    score += 0.1
+  }
+  // Cardinality hint from capped samples (not warehouse counts)
+  if (ov.aUnique && !ov.bUnique && ov.inter > 0) {
     signals.push({
-      code: 'sample_no_overlap',
-      label: 'Samples present but no overlap (review carefully)',
-      weight: -0.05,
+      code: 'cardinality_hint',
+      label: `Likely 1:N (${fromTable}.${fromCol} unique-ish → ${toTable}.${toCol})`,
+      weight: 0.04,
     })
-    score -= 0.05
+    score += 0.04
+  } else if (!ov.aUnique && ov.bUnique && ov.inter > 0) {
+    signals.push({
+      code: 'cardinality_hint',
+      label: `Likely N:1 (${fromTable}.${fromCol} → unique-ish ${toTable}.${toCol})`,
+      weight: 0.04,
+    })
+    score += 0.04
+  } else if (ov.aUnique && ov.bUnique && ov.ratio >= 0.5) {
+    signals.push({
+      code: 'cardinality_hint',
+      label: 'Likely 1:1 (both sides distinct in capped samples)',
+      weight: 0.05,
+    })
+    score += 0.05
   }
 
   // Composite-key hint: shared multi-token stems (e.g. org_id+user_id pairs deferred;

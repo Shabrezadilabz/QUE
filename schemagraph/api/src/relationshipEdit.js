@@ -8,6 +8,7 @@ import {
   getPinnedColumnValues,
   scorePinnedOverlap,
 } from './pinnedSamples.js'
+import { sampleMatchMinRatio } from './inferJoins.js'
 
 function mapRelationship(r) {
   return {
@@ -57,12 +58,103 @@ async function loadColumns(workspaceId, fromColumnId, toColumnId) {
 }
 
 /**
+ * Assess whether a join looks correct from capped/pinned samples.
+ * ok=false → FE must ask user to confirm before create/edit proceeds.
+ */
+export async function assessJoinSampleMatch(
+  workspaceId,
+  fromColumnId,
+  toColumnId,
+) {
+  const { fromCol, toCol } = await loadColumns(
+    workspaceId,
+    fromColumnId,
+    toColumnId,
+  )
+  const fromPinned = await getPinnedColumnValues(
+    workspaceId,
+    fromCol.table_name,
+    fromCol.name,
+  )
+  const toPinned = await getPinnedColumnValues(
+    workspaceId,
+    toCol.table_name,
+    toCol.name,
+  )
+  const fromSamples = fromPinned.length
+    ? fromPinned
+    : Array.isArray(fromCol.sample_values)
+      ? fromCol.sample_values
+      : []
+  const toSamples = toPinned.length
+    ? toPinned
+    : Array.isArray(toCol.sample_values)
+      ? toCol.sample_values
+      : []
+  const overlap = scorePinnedOverlap(fromSamples, toSamples)
+  const minRatio = sampleMatchMinRatio()
+  const label = `${fromCol.table_name}.${fromCol.name} → ${toCol.table_name}.${toCol.name}`
+
+  let ok = true
+  let reason = overlap.label || 'Sample overlap looks acceptable'
+  if (overlap.band === 'unknown') {
+    ok = false
+    reason =
+      'No sample values on one or both columns — cannot verify this join from samples'
+  } else if (overlap.band === 'none' || overlap.inter === 0) {
+    ok = false
+    reason =
+      'Sample values do not overlap — this join looks incorrect'
+  } else if (
+    overlap.band === 'low' ||
+    (overlap.ratio != null && overlap.ratio < minRatio)
+  ) {
+    ok = false
+    reason = `Weak sample match (${Math.round((overlap.ratio || 0) * 100)}% < ${Math.round(minRatio * 100)}%) — this join may be incorrect`
+  }
+
+  return {
+    ok,
+    incorrect: !ok,
+    label,
+    reason,
+    band: overlap.band,
+    ratio: overlap.ratio,
+    inter: overlap.inter ?? 0,
+    minRatio,
+    from: {
+      table: fromCol.table_name,
+      column: fromCol.name,
+      columnId: fromCol.id,
+      tableId: fromCol.schema_object_id,
+      samples: fromSamples.slice(0, 8),
+    },
+    to: {
+      table: toCol.table_name,
+      column: toCol.name,
+      columnId: toCol.id,
+      tableId: toCol.schema_object_id,
+      samples: toSamples.slice(0, 8),
+    },
+    overlap,
+  }
+}
+
+function throwNeedsConfirm(assessment) {
+  const err = new Error(assessment.reason || 'Incorrect join — confirm to proceed')
+  err.status = 409
+  err.code = 'INCORRECT_JOIN'
+  err.assessment = assessment
+  throw err
+}
+
+/**
  * Retarget join endpoints (any tables/columns in workspace) — canvas pull-thread edit.
  */
 export async function editRelationshipColumns(
   workspaceId,
   relationshipId,
-  { fromColumnId, toColumnId, userId = null } = {},
+  { fromColumnId, toColumnId, userId = null, confirmIncorrect = false } = {},
 ) {
   if (!fromColumnId || !toColumnId) {
     const err = new Error('fromColumnId and toColumnId required')
@@ -85,23 +177,22 @@ export async function editRelationshipColumns(
     throw err
   }
   const rel = rels[0]
+
+  const assessment = await assessJoinSampleMatch(
+    workspaceId,
+    fromColumnId,
+    toColumnId,
+  )
+  if (assessment.incorrect && !confirmIncorrect) {
+    throwNeedsConfirm(assessment)
+  }
+
   const { fromCol, toCol } = await loadColumns(
     workspaceId,
     fromColumnId,
     toColumnId,
   )
-
-  const fromPinned = await getPinnedColumnValues(
-    workspaceId,
-    fromCol.table_name,
-    fromCol.name,
-  )
-  const toPinned = await getPinnedColumnValues(
-    workspaceId,
-    toCol.table_name,
-    toCol.name,
-  )
-  const overlap = scorePinnedOverlap(fromPinned, toPinned)
+  const overlap = assessment.overlap
 
   const prevEvidence =
     rel.evidence_json && typeof rel.evidence_json === 'object'
@@ -123,9 +214,18 @@ export async function editRelationshipColumns(
         overlap.band === 'high' ? 0.12 : overlap.band === 'medium' ? 0.06 : 0.02,
     })
   }
+  if (assessment.incorrect && confirmIncorrect) {
+    signals.push({
+      code: 'human_override_incorrect',
+      label: `User confirmed proceed despite: ${assessment.reason}`,
+      weight: -0.1,
+    })
+  }
 
   let confidence = Number(rel.confidence) || 0.5
-  if (overlap.confidenceHint != null) {
+  if (assessment.incorrect && confirmIncorrect) {
+    confidence = Math.min(confidence, 0.45)
+  } else if (overlap.confidenceHint != null) {
     confidence = Math.min(
       0.95,
       Math.max(confidence, overlap.confidenceHint),
@@ -138,9 +238,12 @@ export async function editRelationshipColumns(
   const joinCriteria = `${label} (human-edited)`
   const evidence = {
     ...prevEvidence,
-    summary: overlap.label || prevEvidence.summary || 'Human-edited join columns',
+    summary: assessment.incorrect
+      ? `Human override · ${assessment.reason}`
+      : overlap.label || prevEvidence.summary || 'Human-edited join columns',
     signals,
     pinnedOverlap: overlap,
+    sampleAssessment: assessment,
     editedAt: new Date().toISOString(),
     scoredAt: new Date().toISOString(),
   }
@@ -172,7 +275,9 @@ export async function editRelationshipColumns(
       joinCriteria,
       confidence,
       JSON.stringify(evidence),
-      `Edited join · ${overlap.label || 'review samples before Promote'}`,
+      assessment.incorrect
+        ? `Edited with override · ${assessment.reason}`
+        : `Edited join · ${overlap.label || 'review samples before Promote'}`,
       userId,
     ],
   )
@@ -184,7 +289,13 @@ export async function editRelationshipColumns(
     resourceType: 'relationship',
     resourceId: relationshipId,
     summary: `Edited join columns → ${label}`,
-    meta: { fromColumnId, toColumnId, overlapBand: overlap.band },
+    meta: {
+      fromColumnId,
+      toColumnId,
+      overlapBand: overlap.band,
+      confirmIncorrect: Boolean(confirmIncorrect),
+      incorrect: assessment.incorrect,
+    },
   })
 
   return mapRelationship(rows[0])
@@ -193,10 +304,16 @@ export async function editRelationshipColumns(
 /**
  * Create a join from canvas Edit mode (drag column → column).
  * Status suggested; Promote still HITL unless caller promotes later.
+ * If samples look incorrect, requires confirmIncorrect=true.
  */
 export async function createManualRelationship(
   workspaceId,
-  { fromColumnId, toColumnId, userId = null } = {},
+  {
+    fromColumnId,
+    toColumnId,
+    userId = null,
+    confirmIncorrect = false,
+  } = {},
 ) {
   if (!fromColumnId || !toColumnId) {
     const err = new Error('fromColumnId and toColumnId required')
@@ -233,21 +350,16 @@ export async function createManualRelationship(
     throw err
   }
 
-  const fromPinned = await getPinnedColumnValues(
+  const assessment = await assessJoinSampleMatch(
     workspaceId,
-    fromCol.table_name,
-    fromCol.name,
+    fromColumnId,
+    toColumnId,
   )
-  const toPinned = await getPinnedColumnValues(
-    workspaceId,
-    toCol.table_name,
-    toCol.name,
-  )
-  const overlap = scorePinnedOverlap(
-    fromPinned.length ? fromPinned : fromCol.sample_values,
-    toPinned.length ? toPinned : toCol.sample_values,
-  )
+  if (assessment.incorrect && !confirmIncorrect) {
+    throwNeedsConfirm(assessment)
+  }
 
+  const overlap = assessment.overlap
   const label = `${fromCol.table_name}.${fromCol.name} → ${toCol.table_name}.${toCol.name}`
   const signals = [
     {
@@ -264,16 +376,27 @@ export async function createManualRelationship(
         overlap.band === 'high' ? 0.12 : overlap.band === 'medium' ? 0.06 : 0.02,
     })
   }
+  if (assessment.incorrect && confirmIncorrect) {
+    signals.push({
+      code: 'human_override_incorrect',
+      label: `User confirmed proceed despite: ${assessment.reason}`,
+      weight: -0.1,
+    })
+  }
 
   let confidence = 0.55
   if (overlap.band === 'high') confidence = 0.88
   else if (overlap.band === 'medium') confidence = 0.72
   else if (overlap.band === 'low' || overlap.band === 'none') confidence = 0.4
+  if (assessment.incorrect && confirmIncorrect) confidence = 0.35
 
   const evidence = {
-    summary: `Human-drawn join · ${overlap.label || 'verify samples before Promote'}`,
+    summary: assessment.incorrect
+      ? `Human override · ${assessment.reason}`
+      : `Human-drawn join · ${overlap.label || 'verify samples before Promote'}`,
     signals,
     pinnedOverlap: overlap,
+    sampleAssessment: assessment,
     drawnAt: new Date().toISOString(),
     scoredAt: new Date().toISOString(),
   }
@@ -298,7 +421,9 @@ export async function createManualRelationship(
       confidence,
       `${label} (canvas)`,
       label,
-      `Canvas Edit · ${overlap.label || 'HITL Promote required'}`,
+      assessment.incorrect
+        ? `Canvas override · ${assessment.reason}`
+        : `Canvas Edit · ${overlap.label || 'HITL Promote required'}`,
       JSON.stringify(evidence),
     ],
   )
@@ -310,7 +435,13 @@ export async function createManualRelationship(
     resourceType: 'relationship',
     resourceId: id,
     summary: `Canvas join → ${label}`,
-    meta: { fromColumnId, toColumnId, overlapBand: overlap.band },
+    meta: {
+      fromColumnId,
+      toColumnId,
+      overlapBand: overlap.band,
+      confirmIncorrect: Boolean(confirmIncorrect),
+      incorrect: assessment.incorrect,
+    },
   })
 
   return mapRelationship(rows[0])

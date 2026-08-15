@@ -250,6 +250,28 @@ export async function saveWorkspaceLayout(
 
 export type RelationshipReviewAction = 'promote' | 'reject' | 'edit'
 
+export type JoinSampleAssessment = {
+  ok: boolean
+  incorrect: boolean
+  label: string
+  reason: string
+  band?: string
+  ratio?: number | null
+  inter?: number
+  minRatio?: number
+  from?: { table: string; column: string; samples?: unknown[] }
+  to?: { table: string; column: string; samples?: unknown[] }
+}
+
+export class IncorrectJoinError extends Error {
+  code = 'INCORRECT_JOIN' as const
+  assessment: JoinSampleAssessment
+  constructor(message: string, assessment: JoinSampleAssessment) {
+    super(message)
+    this.assessment = assessment
+  }
+}
+
 /**
  * Promote (accept as explicit), reject, or edit join columns.
  */
@@ -260,6 +282,7 @@ export async function reviewRelationship(
     fromColumnId?: string
     toColumnId?: string
     workspaceId?: string
+    confirmIncorrect?: boolean
   } = {},
 ): Promise<SchemaRelationship | null> {
   const workspaceId = opts.workspaceId ?? getActiveWorkspaceId()
@@ -273,6 +296,7 @@ export async function reviewRelationship(
           ? {
               fromColumnId: opts.fromColumnId,
               toColumnId: opts.toColumnId,
+              confirmIncorrect: opts.confirmIncorrect === true,
             }
           : {}),
       }),
@@ -281,8 +305,16 @@ export async function reviewRelationship(
   const body = (await res.json().catch(() => ({}))) as {
     relationship?: SchemaRelationship
     error?: string
+    code?: string
+    assessment?: JoinSampleAssessment
   }
   if (!res.ok) {
+    if (body.code === 'INCORRECT_JOIN' && body.assessment) {
+      throw new IncorrectJoinError(
+        body.error || 'Incorrect join',
+        body.assessment,
+      )
+    }
     throw new Error(body.error ?? `review ${res.status}`)
   }
   return body.relationship ?? null
@@ -292,17 +324,35 @@ export async function reviewRelationship(
 export async function createManualRelationshipApi(
   fromColumnId: string,
   toColumnId: string,
-  workspaceId: string = getActiveWorkspaceId(),
+  opts: {
+    workspaceId?: string
+    confirmIncorrect?: boolean
+  } = {},
 ): Promise<SchemaRelationship> {
+  const workspaceId = opts.workspaceId ?? getActiveWorkspaceId()
   const res = await apiFetch(`/workspaces/${workspaceId}/relationships`, {
     method: 'POST',
-    body: JSON.stringify({ fromColumnId, toColumnId }),
+    body: JSON.stringify({
+      fromColumnId,
+      toColumnId,
+      confirmIncorrect: opts.confirmIncorrect === true,
+    }),
   })
   const body = (await res.json().catch(() => ({}))) as {
     relationship?: SchemaRelationship
     error?: string
+    code?: string
+    assessment?: JoinSampleAssessment
   }
-  if (!res.ok) throw new Error(body.error ?? `create join ${res.status}`)
+  if (!res.ok) {
+    if (body.code === 'INCORRECT_JOIN' && body.assessment) {
+      throw new IncorrectJoinError(
+        body.error || 'Incorrect join',
+        body.assessment,
+      )
+    }
+    throw new Error(body.error ?? `create join ${res.status}`)
+  }
   if (!body.relationship) throw new Error('create join returned empty')
   return body.relationship
 }

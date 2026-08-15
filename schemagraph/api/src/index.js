@@ -1069,12 +1069,15 @@ app.post(
           fromColumnId: req.body?.fromColumnId,
           toColumnId: req.body?.toColumnId,
           userId: req.user?.id ?? null,
+          confirmIncorrect: req.body?.confirmIncorrect === true,
         },
       )
       res.status(201).json({ ok: true, relationship })
     } catch (err) {
       res.status(err.status || 500).json({
         error: String(err.message || err),
+        code: err.code || undefined,
+        assessment: err.assessment || undefined,
         relationshipId: err.relationshipId || undefined,
       })
     }
@@ -1106,6 +1109,7 @@ app.patch(
             fromColumnId: req.body?.fromColumnId,
             toColumnId: req.body?.toColumnId,
             userId: req.user?.id ?? null,
+            confirmIncorrect: req.body?.confirmIncorrect === true,
           },
         )
         res.json({ ok: true, relationship })
@@ -1317,7 +1321,11 @@ app.patch(
         },
       })
     } catch (err) {
-      res.status(500).json({ error: String(err.message || err) })
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || undefined,
+        assessment: err.assessment || undefined,
+      })
     }
   },
 )

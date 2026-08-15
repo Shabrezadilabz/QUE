@@ -4,10 +4,35 @@ import { DiagramProvider } from '@/context/DiagramContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useToast } from '@/context/ToastContext'
 import { StitchSessionDialog } from '@/components/StitchSessionDialog'
-import { createStitchJobFromCanvas, loadWorkspaceData, reviewRelationship, createManualRelationshipApi, syncConnection, type WorkspaceLoadError } from '@/services/stitchApi'
+import { IncorrectJoinConfirmDialog } from '@/components/IncorrectJoinConfirmDialog'
+import {
+  createStitchJobFromCanvas,
+  loadWorkspaceData,
+  reviewRelationship,
+  createManualRelationshipApi,
+  IncorrectJoinError,
+  syncConnection,
+  type JoinSampleAssessment,
+  type WorkspaceLoadError,
+} from '@/services/stitchApi'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 import type { DataSource } from '@/types/dataSource'
 import type { SchemaRelationship, SchemaTable } from '@/types/schema'
+
+type PendingIncorrectJoin =
+  | {
+      mode: 'create'
+      fromColumnId: string
+      toColumnId: string
+      assessment: JoinSampleAssessment
+    }
+  | {
+      mode: 'edit'
+      relationshipId: string
+      fromColumnId: string
+      toColumnId: string
+      assessment: JoinSampleAssessment
+    }
 
 /**
  * Workspace page — loads schema from stitch-api, falls back to dummy only when offline.
@@ -24,6 +49,9 @@ export function WorkspacePage() {
   const [syncing, setSyncing] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
   const [stitchOpen, setStitchOpen] = useState(false)
+  const [pendingIncorrect, setPendingIncorrect] =
+    useState<PendingIncorrectJoin | null>(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
 
   const hydrate = useCallback(async () => {
     const data = await loadWorkspaceData(workspaceId)
@@ -128,13 +156,30 @@ export function WorkspacePage() {
         pushToast('Create join requires a live API connection', 'error')
         return
       }
-      const created = await createManualRelationshipApi(
-        from.columnId,
-        to.columnId,
-      )
-      setRelationships((prev) => [...prev, created])
-      pushToast('Join drawn — Promote when ready (HITL)', 'success')
-      notifySchemaChanged('promote')
+      try {
+        const created = await createManualRelationshipApi(
+          from.columnId,
+          to.columnId,
+        )
+        setRelationships((prev) => [...prev, created])
+        pushToast('Join drawn — Promote when ready (HITL)', 'success')
+        notifySchemaChanged('promote')
+      } catch (err) {
+        if (err instanceof IncorrectJoinError) {
+          setPendingIncorrect({
+            mode: 'create',
+            fromColumnId: from.columnId,
+            toColumnId: to.columnId,
+            assessment: err.assessment,
+          })
+          pushToast('Stopped — this join looks incorrect', 'error')
+          return
+        }
+        pushToast(
+          err instanceof Error ? err.message : 'Create join failed',
+          'error',
+        )
+      }
     },
     [canWrite, fromApi, pushToast],
   )
@@ -150,22 +195,85 @@ export function WorkspacePage() {
         pushToast('Edit join requires a live API connection', 'error')
         return
       }
-      const updated = await reviewRelationship(relationshipId, 'edit', {
-        fromColumnId,
-        toColumnId,
-      })
-      if (!updated) {
-        pushToast('Edit join failed', 'error')
-        return
+      try {
+        const updated = await reviewRelationship(relationshipId, 'edit', {
+          fromColumnId,
+          toColumnId,
+        })
+        if (!updated) {
+          pushToast('Edit join failed', 'error')
+          return
+        }
+        setRelationships((prev) =>
+          prev.map((r) => (r.id === relationshipId ? { ...r, ...updated } : r)),
+        )
+        pushToast('Join endpoints updated', 'success')
+        notifySchemaChanged('promote')
+      } catch (err) {
+        if (err instanceof IncorrectJoinError) {
+          setPendingIncorrect({
+            mode: 'edit',
+            relationshipId,
+            fromColumnId,
+            toColumnId,
+            assessment: err.assessment,
+          })
+          pushToast('Stopped — this join looks incorrect', 'error')
+          return
+        }
+        pushToast(
+          err instanceof Error ? err.message : 'Edit join failed',
+          'error',
+        )
       }
-      setRelationships((prev) =>
-        prev.map((r) => (r.id === relationshipId ? { ...r, ...updated } : r)),
-      )
-      pushToast('Join endpoints updated', 'success')
-      notifySchemaChanged('promote')
     },
     [canWrite, fromApi, pushToast],
   )
+
+  const confirmIncorrectJoin = useCallback(async () => {
+    if (!pendingIncorrect || !canWrite) return
+    setConfirmBusy(true)
+    try {
+      if (pendingIncorrect.mode === 'create') {
+        const created = await createManualRelationshipApi(
+          pendingIncorrect.fromColumnId,
+          pendingIncorrect.toColumnId,
+          { confirmIncorrect: true },
+        )
+        setRelationships((prev) => [...prev, created])
+        pushToast('Join saved with override — Promote carefully', 'info')
+      } else {
+        const updated = await reviewRelationship(
+          pendingIncorrect.relationshipId,
+          'edit',
+          {
+            fromColumnId: pendingIncorrect.fromColumnId,
+            toColumnId: pendingIncorrect.toColumnId,
+            confirmIncorrect: true,
+          },
+        )
+        if (updated) {
+          setRelationships((prev) =>
+            prev.map((r) =>
+              r.id === pendingIncorrect.relationshipId
+                ? { ...r, ...updated }
+                : r,
+            ),
+          )
+        }
+        pushToast('Join updated with override — Promote carefully', 'info')
+      }
+      notifySchemaChanged('promote')
+      setPendingIncorrect(null)
+    } catch (err) {
+      pushToast(
+        err instanceof Error ? err.message : 'Could not save join',
+        'error',
+      )
+    } finally {
+      setConfirmBusy(false)
+    }
+  }, [pendingIncorrect, canWrite, pushToast])
 
   const handleSyncSource = useCallback(
     async (sourceId: string) => {
@@ -268,6 +376,12 @@ export function WorkspacePage() {
             await hydrate()
             setStitchOpen(false)
           }}
+        />
+        <IncorrectJoinConfirmDialog
+          pending={pendingIncorrect}
+          busy={confirmBusy}
+          onCancel={() => setPendingIncorrect(null)}
+          onConfirm={confirmIncorrectJoin}
         />
         <MainDiagramLayout
           tables={tables}

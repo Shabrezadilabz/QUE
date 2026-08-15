@@ -21,14 +21,16 @@ interface QueAppChromeProps {
 }
 
 const PRIMARY_LINKS = [
+  { to: '/outcome', label: 'Outcome' },
   { to: '/workspace', label: 'Workspace' },
   { to: '/chat', label: 'Chat' },
   { to: '/sources', label: 'Sources' },
   { to: '/joins', label: 'Joins' },
-  { to: '/jobs', label: 'Jobs' },
+  { to: '/ship', label: 'Ship' },
 ] as const
 
 const SIDE_LINKS = [
+  { to: '/jobs', label: 'Jobs' },
   { to: '/proposals', label: 'Proposals' },
   { to: '/transforms', label: 'Transforms' },
   { to: '/rules', label: 'Rules' },

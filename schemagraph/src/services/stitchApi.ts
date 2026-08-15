@@ -557,6 +557,12 @@ export interface JoinReviewItem {
     } | null
     prePromoteConfidence?: number | null
   }
+  risk?: {
+    tier: 'green' | 'yellow' | 'red' | string
+    effectiveTier?: string
+    rationale?: string
+    greenEligible?: boolean
+  } | null
   from: JoinReviewEndpoint
   to: JoinReviewEndpoint
   crossSource: boolean
@@ -1743,6 +1749,16 @@ export interface WorkspaceSettingsFlags {
   enableMaterialize?: boolean
   /** Phase 3 — optional low-risk auto-Promote (default false / HITL) */
   enableAutoPromoteLowRisk?: boolean
+  /** CEO P0 — golden recall gate (0–1) for Green auto-Promote */
+  autoPromoteMinRecall?: number
+  lastGoldenEval?: {
+    recall: number | null
+    precision: number | null
+    at?: string
+    pairCount?: number | null
+  } | null
+  yellowPromoteMinRole?: 'member' | 'admin' | 'owner'
+  redPromoteMinRole?: 'member' | 'admin' | 'owner'
   /** Phase 4 — catalog / governance */
   enableCatalogGovernance?: boolean
   stewardUxMode?: boolean
@@ -3917,10 +3933,14 @@ export async function applyIndustryTemplateApi(
   )
   const body = (await res.json().catch(() => ({}))) as {
     job?: { id: string; title: string }
+    outcome?: { id: string; prompt?: string } | null
+    seededRules?: string[]
+    next?: { href?: string; hint?: string }
+    pack?: { ceoReady?: boolean; title?: string }
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `apply ${res.status}`)
-  return body.job!
+  return body
 }
 
 export async function fetchPublicStatus() {
@@ -4204,4 +4224,163 @@ export async function fetchMetricLineage(
     nodes: body.nodes || [],
     edges: body.edges || [],
   }
+}
+
+/** CEO P0 — Outcome plans */
+export type OutcomePlan = {
+  prompt: string
+  custody?: string
+  steps?: {
+    id: string
+    kind: string
+    title: string
+    status: string
+    href?: string
+    detail?: string
+    connections?: unknown[]
+    joins?: unknown[]
+    metrics?: unknown[]
+    chartHint?: { title?: string; chartType?: string }
+  }[]
+  summary?: Record<string, number>
+  riskContext?: Record<string, unknown>
+}
+
+export type OutcomeRecord = {
+  id: string
+  workspaceId: string
+  prompt: string
+  status: string
+  plan: OutcomePlan
+  createdAt: string
+  updatedAt: string
+}
+
+export async function fetchOutcomes(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/outcomes`)
+  const body = (await res.json().catch(() => ({}))) as {
+    outcomes?: OutcomeRecord[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `outcomes ${res.status}`)
+  return body.outcomes || []
+}
+
+export async function createOutcomeApi(
+  prompt: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/outcomes`, {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    outcome?: OutcomeRecord
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `create outcome ${res.status}`)
+  return body.outcome!
+}
+
+export async function refreshOutcomeApi(
+  outcomeId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/outcomes/${outcomeId}/refresh`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    outcome?: OutcomeRecord
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `refresh outcome ${res.status}`)
+  return body.outcome!
+}
+
+/** CEO P0 — Ship to BI */
+export type ShipEvent = {
+  id: string
+  outcomeId?: string | null
+  chartId?: string | null
+  embedTokenId?: string | null
+  status: string
+  title: string
+  attestation: Record<string, unknown>
+  config: Record<string, unknown>
+  rolledBackAt?: string | null
+  createdAt: string
+}
+
+export async function fetchShipEvents(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/ship-events`)
+  const body = (await res.json().catch(() => ({}))) as {
+    ships?: ShipEvent[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `ships ${res.status}`)
+  return body.ships || []
+}
+
+export async function createShipDraftApi(
+  input: {
+    title: string
+    outcomeId?: string | null
+    datasetId?: string | null
+    chartType?: string
+    description?: string
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/ship-events`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    ship?: ShipEvent
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `ship draft ${res.status}`)
+  return body.ship!
+}
+
+export async function approveShipApi(
+  shipId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/ship-events/${shipId}/approve`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    ship?: ShipEvent
+    embedUrl?: string | null
+    embedToken?: string | null
+    certifyError?: string | null
+    verifyHint?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `ship approve ${res.status}`)
+  return body
+}
+
+export async function rollbackShipApi(
+  shipId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/ship-events/${shipId}/rollback`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    ship?: ShipEvent
+    already?: boolean
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `ship rollback ${res.status}`)
+  return body
 }

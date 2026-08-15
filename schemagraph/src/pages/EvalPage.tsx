@@ -68,6 +68,47 @@ export function EvalPage() {
           <p className="mt-md text-[12px] text-secondary">{toast}</p>
         ) : null}
 
+        {(() => {
+          const board = (dash?.scoreboard || {}) as Record<string, unknown>
+          const tiers = (joins.pendingByTier || {}) as Record<string, number>
+          return (
+            <section className="mt-lg rounded-xl border border-secondary/30 bg-secondary/10 p-md">
+              <h2 className="font-headline text-base font-semibold">
+                Green eligibility scoreboard
+              </h2>
+              <p className="mt-xs text-[13px] text-on-surface">
+                {String(board.headline || '—')}
+              </p>
+              <div className="mt-md grid gap-md sm:grid-cols-4 text-[13px]">
+                <Card
+                  label="Golden recall"
+                  value={
+                    board.lastGoldenRecall != null
+                      ? `${(Number(board.lastGoldenRecall) * 100).toFixed(1)}%`
+                      : '—'
+                  }
+                />
+                <Card
+                  label="Min recall gate"
+                  value={
+                    board.autoPromoteMinRecall != null
+                      ? `${(Number(board.autoPromoteMinRecall) * 100).toFixed(0)}%`
+                      : '—'
+                  }
+                />
+                <Card
+                  label="Green eligible"
+                  value={board.greenEligible ? 'yes' : 'no'}
+                />
+                <Card
+                  label="Pending G/Y/R"
+                  value={`${tiers.green ?? 0}/${tiers.yellow ?? 0}/${tiers.red ?? 0}`}
+                />
+              </div>
+            </section>
+          )
+        })()}
+
         <div className="mt-lg grid gap-md sm:grid-cols-3">
           <Card
             label="Suggested joins"
@@ -224,8 +265,12 @@ export function EvalPage() {
                   type="button"
                   onClick={() =>
                     void applyIndustryTemplateApi(t.id)
-                      .then((job) =>
-                        setToast(`Created job “${job.title}” → /jobs`),
+                      .then((out) =>
+                        setToast(
+                          `Created job “${out.job?.title || t.title}”${
+                            out.outcome?.id ? ' · Outcome seeded' : ''
+                          } → /jobs`,
+                        ),
                       )
                       .catch((e) =>
                         setError(e instanceof Error ? e.message : String(e)),

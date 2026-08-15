@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { SchemaCustodyBanner } from '@/components/SchemaCustodyBanner'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
   createWorkspaceRuleApi,
   fetchWorkspaceRules,
 } from '@/services/stitchApi'
 
-/** Cursor-like always-on org rules. */
+/** Cursor-like always-on org rules + Promote / marketplace memory. */
 export function RulesPage() {
   const { canWrite } = useWorkspaceRole()
   const [items, setItems] = useState<
@@ -34,6 +36,11 @@ export function RulesPage() {
     )
   }, [])
 
+  const learned = useMemo(
+    () => items.filter((r) => r.source === 'promote' || r.source === 'marketplace'),
+    [items],
+  )
+
   async function create() {
     if (!canWrite || !title.trim() || !body.trim()) return
     await createWorkspaceRuleApi({ kind, title: title.trim(), body: body.trim() })
@@ -47,12 +54,40 @@ export function RulesPage() {
       <div className="mx-auto min-h-0 flex-1 overflow-y-auto px-md py-lg md:max-w-3xl md:px-lg">
         <h1 className="font-headline text-xl font-semibold">Workspace rules</h1>
         <p className="mt-xs text-[13px] text-on-surface-variant">
-          Always-on guidance for AI chat, joins, and transforms — learned from
-          Promote and written by admins (like Cursor rules).
+          Org memory so CEOs never invent keys — learned from Promote, marketplace
+          packs, and admin edits (like Cursor rules).
+        </p>
+        <SchemaCustodyBanner className="mt-md" />
+        <p className="mt-sm text-[12px] text-on-surface-variant">
+          <Link to="/marketplace" className="text-secondary underline">
+            Install a CEO pack
+          </Link>{' '}
+          to seed rules + Outcome, or{' '}
+          <Link to="/joins" className="text-secondary underline">
+            Promote a join
+          </Link>{' '}
+          to learn one automatically.
         </p>
         {error ? (
           <p className="mt-md text-[13px] text-error">{error}</p>
         ) : null}
+
+        {learned.length ? (
+          <section className="mt-lg rounded-xl border border-secondary/30 bg-secondary/10 p-md">
+            <h2 className="font-headline text-sm font-semibold">
+              Memory from Promote / packs ({learned.length})
+            </h2>
+            <ul className="mt-sm space-y-xs text-[12px]">
+              {learned.slice(0, 8).map((r) => (
+                <li key={r.id}>
+                  <span className="text-secondary">{r.source}</span> · [{r.kind}]{' '}
+                  {r.title}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {canWrite ? (
           <div className="mt-lg space-y-sm rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
             <select

@@ -46,6 +46,8 @@ import { ProposalsPage } from '@/pages/ProposalsPage'
 import { MetricsPage } from '@/pages/MetricsPage'
 import { EvalPage } from '@/pages/EvalPage'
 import { MarketplacePage } from '@/pages/MarketplacePage'
+import { OutcomePage } from '@/pages/OutcomePage'
+import { ShipPage } from '@/pages/ShipPage'
 import { StatusPage } from '@/pages/StatusPage'
 import { SalesPage } from '@/pages/SalesPage'
 import { BiEmbedPage } from '@/pages/BiEmbedPage'
@@ -263,6 +265,22 @@ export default function App() {
               element={
                 <RequireAuth>
                   <JoinReviewPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/outcome"
+              element={
+                <RequireAuth>
+                  <OutcomePage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/ship"
+              element={
+                <RequireAuth>
+                  <ShipPage />
                 </RequireAuth>
               }
             />

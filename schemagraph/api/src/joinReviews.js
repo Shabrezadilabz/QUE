@@ -136,6 +136,7 @@ export async function listJoinReviews(workspaceId, opts = {}) {
         pinnedOverlap,
         prePromoteConfidence: evidence.prePromoteConfidence ?? null,
       },
+      risk: null, // filled below with workspace risk context
       from: {
         tableId: r.from_table_id,
         table: r.from_table,
@@ -162,6 +163,21 @@ export async function listJoinReviews(workspaceId, opts = {}) {
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     })
+  }
+
+  const { classifyRiskTier, effectiveTier, riskContextForWorkspace } =
+    await import('./riskTiers.js')
+  const riskCtx = await riskContextForWorkspace(workspaceId)
+  for (const item of items) {
+    const classified = classifyRiskTier(item.evidence, item.confidence, {
+      crossSource: item.crossSource,
+      lastGoldenRecall: riskCtx.lastGoldenRecall,
+      autoPromoteMinRecall: riskCtx.autoPromoteMinRecall,
+    })
+    item.risk = {
+      ...classified,
+      effectiveTier: effectiveTier(classified),
+    }
   }
 
   const { rows: counts } = await query(

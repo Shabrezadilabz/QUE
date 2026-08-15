@@ -33,15 +33,64 @@ export const INDUSTRY_TEMPLATE_PACKS = [
     title: 'Ledger reconciliation',
     description: 'Stitch ledger lines to bank feeds with HITL join review.',
     tablesHint: ['ledger', 'bank_feed', 'entities'],
-    tags: ['finance', 'reconciliation', 'featured'],
+    tags: ['finance', 'reconciliation', 'featured', 'ceo'],
     difficulty: 'intermediate',
     featured: true,
+    ceoReady: true,
+    outcomePrompt:
+      'Reconcile ledger to bank feed by region and show unmatched revenue lines',
+    seedRules: [
+      {
+        kind: 'join',
+        title: 'Prefer ledger.external_ref → bank_feed.ref',
+        body: 'Finance pack: prefer external_ref = ref for ledger↔bank_feed. Never invent keys.',
+      },
+      {
+        kind: 'privacy',
+        title: 'Scrub account numbers in samples',
+        body: 'Keep pinned samples scrubbed; never send full ledger rows to AI.',
+      },
+    ],
     notebookMarkdown:
       '# Finance reconciliation\nValidate keys before materializing.',
     sqlCells: [
       {
         title: 'Unmatched ledger',
         sql: `SELECT l.*\nFROM ledger l\nLEFT JOIN bank_feed b ON l.external_ref = b.ref\nWHERE b.ref IS NULL\nLIMIT 100;`,
+      },
+    ],
+  },
+  {
+    id: 'ceo-ops-revenue-region',
+    industry: 'Ops',
+    title: 'CEO · Revenue by region',
+    description:
+      'CEO-ready Outcome pack: Salesforce/CRM + Postgres ops → revenue by region → Ship to BI.',
+    tablesHint: ['accounts', 'opportunities', 'orders'],
+    tags: ['ceo', 'ops', 'revenue', 'featured'],
+    difficulty: 'starter',
+    featured: true,
+    ceoReady: true,
+    outcomePrompt:
+      'I want revenue by region from Salesforce + Postgres',
+    seedRules: [
+      {
+        kind: 'join',
+        title: 'Prefer accounts.id → opportunities.account_id',
+        body: 'CEO ops pack: prefer account id keys across CRM ↔ warehouse. Promote with evidence.',
+      },
+      {
+        kind: 'general',
+        title: 'Ship via Outcome → Ship to BI',
+        body: 'Prefer /outcome then /ship for non-technical operators. Keep Jobs as Advanced.',
+      },
+    ],
+    notebookMarkdown:
+      '# CEO revenue by region\nPromote joins, then Ship to BI — no notebook required for CEO path.',
+    sqlCells: [
+      {
+        title: 'Revenue by region draft',
+        sql: `-- Review promoted joins before running\nSELECT region, SUM(amount) AS revenue\nFROM opportunities\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 100;`,
       },
     ],
   },
@@ -205,6 +254,9 @@ function summarizePack(p) {
     tags: p.tags || [],
     difficulty: p.difficulty || 'starter',
     featured: Boolean(p.featured),
+    ceoReady: Boolean(p.ceoReady),
+    hasOutcome: Boolean(p.outcomePrompt),
+    seedRuleCount: (p.seedRules || []).length,
     sqlCellCount: (p.sqlCells || []).length,
   }
 }
@@ -256,7 +308,7 @@ export function listMarketplaceCatalog(opts = {}) {
 }
 
 /**
- * Apply pack → job + install record.
+ * Apply pack → job + optional rules + Outcome + install record.
  */
 export async function applyIndustryTemplatePack(
   workspaceId,
@@ -285,6 +337,37 @@ export async function applyIndustryTemplatePack(
     notes: pack.description,
     tables: pack.tablesHint || [],
   })
+
+  const seededRules = []
+  if (Array.isArray(pack.seedRules) && pack.seedRules.length) {
+    const { createWorkspaceRule } = await import('./workspaceRules.js')
+    for (const rule of pack.seedRules.slice(0, 12)) {
+      try {
+        const created = await createWorkspaceRule(workspaceId, {
+          kind: rule.kind || 'join',
+          title: rule.title,
+          body: rule.body,
+          source: 'marketplace',
+          priority: 50,
+          userId,
+        })
+        if (created) seededRules.push(created.id)
+      } catch {
+        /* duplicate title ok */
+      }
+    }
+  }
+
+  let outcome = null
+  if (pack.outcomePrompt) {
+    try {
+      const { createOutcome } = await import('./outcomes.js')
+      outcome = await createOutcome(workspaceId, pack.outcomePrompt, userId)
+    } catch {
+      /* outcomes table may be missing pre-migrate */
+    }
+  }
+
   const installId = randomUUID()
   await query(
     `INSERT INTO industry_pack_installs (
@@ -299,9 +382,24 @@ export async function applyIndustryTemplatePack(
     resourceType: 'job',
     resourceId: job.id,
     summary: `Installed pack ${pack.id} → job “${job.title}”`,
-    meta: { packId: pack.id },
+    meta: {
+      packId: pack.id,
+      seededRules: seededRules.length,
+      outcomeId: outcome?.id || null,
+      ceoReady: Boolean(pack.ceoReady),
+    },
   })
-  return { job, pack: summarizePack(pack), installId }
+  return {
+    job,
+    pack: summarizePack(pack),
+    installId,
+    seededRules,
+    outcome,
+    next:
+      outcome?.id != null
+        ? { href: `/outcome`, hint: 'Open Outcome to review the CEO plan' }
+        : { href: `/jobs/${job.id}`, hint: 'Review draft job' },
+  }
 }
 
 export async function listPackInstalls(workspaceId, { limit = 30 } = {}) {

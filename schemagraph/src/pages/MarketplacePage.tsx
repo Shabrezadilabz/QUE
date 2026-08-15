@@ -17,6 +17,9 @@ type Pack = {
   tags: string[]
   difficulty: string
   featured: boolean
+  ceoReady?: boolean
+  hasOutcome?: boolean
+  seedRuleCount?: number
 }
 
 /**
@@ -65,8 +68,8 @@ export function MarketplacePage() {
       <div className="mx-auto min-h-0 flex-1 overflow-y-auto px-md py-lg md:max-w-4xl md:px-lg">
         <h1 className="font-headline text-xl font-semibold">Marketplace</h1>
         <p className="mt-xs text-[13px] text-on-surface-variant">
-          Install industry job packs — creates a draft job you review before
-          ship. Schema-first; no lake copy.
+          Install industry packs — CEO packs seed Rules + an Outcome plan
+          (schema-first; no lake copy). Review joins before Ship to BI.
         </p>
         {error ? (
           <p className="mt-md text-[13px] text-error">{error}</p>
@@ -131,8 +134,16 @@ export function MarketplacePage() {
                   onInstall={() => {
                     setBusy(true)
                     void applyIndustryTemplateApi(p.id)
-                      .then(() => {
-                        setToast(`Installed “${p.title}” → job`)
+                      .then((out) => {
+                        const parts = [`Installed “${p.title}”`]
+                        if (out.seededRules?.length)
+                          parts.push(`${out.seededRules.length} rules`)
+                        if (out.outcome?.id) parts.push('Outcome plan')
+                        setToast(parts.join(' · '))
+                        if (out.outcome?.id) {
+                          window.location.href = '/outcome'
+                          return
+                        }
                         return reload()
                       })
                       .catch((e) =>
@@ -160,8 +171,16 @@ export function MarketplacePage() {
                   onInstall={() => {
                     setBusy(true)
                     void applyIndustryTemplateApi(p.id)
-                      .then(() => {
-                        setToast(`Installed “${p.title}” → /jobs`)
+                      .then((out) => {
+                        const parts = [`Installed “${p.title}”`]
+                        if (out.seededRules?.length)
+                          parts.push(`${out.seededRules.length} rules`)
+                        if (out.outcome?.id) parts.push('Outcome → opening')
+                        setToast(parts.join(' · '))
+                        if (out.outcome?.id) {
+                          window.location.href = '/outcome'
+                          return
+                        }
                         return reload()
                       })
                       .catch((e) =>
@@ -235,6 +254,7 @@ function PackCard({
           <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
             {pack.industry} · {pack.difficulty}
             {pack.featured ? ' · featured' : ''}
+            {pack.ceoReady ? ' · CEO' : ''}
           </p>
           <p className="mt-1 font-label text-[14px] font-semibold">
             {pack.title}
@@ -244,6 +264,10 @@ function PackCard({
           </p>
           <p className="mt-sm text-[11px] text-on-surface-variant">
             {(pack.tags || []).join(' · ')}
+            {pack.hasOutcome ? ' · seeds Outcome' : ''}
+            {pack.seedRuleCount
+              ? ` · ${pack.seedRuleCount} rules`
+              : ''}
           </p>
         </div>
         {canWrite ? (
@@ -253,7 +277,7 @@ function PackCard({
             onClick={onInstall}
             className="shrink-0 rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
           >
-            Install
+            {pack.ceoReady ? 'Install CEO pack' : 'Install'}
           </button>
         ) : null}
       </div>

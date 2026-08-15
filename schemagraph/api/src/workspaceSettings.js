@@ -67,6 +67,17 @@ const DEFAULT_SETTINGS = {
    * Default false: HITL Promote remains required.
    */
   enableAutoPromoteLowRisk: false,
+  /**
+   * CEO P0 — minimum golden-set recall (0–1) before Green auto-Promote runs.
+   * Default 0.9. Set 0 to skip the recall gate (still needs enableAutoPromoteLowRisk).
+   */
+  autoPromoteMinRecall: 0.9,
+  /** Last golden eval snapshot { recall, precision, at, pairCount } */
+  lastGoldenEval: null,
+  /** CEO Yellow one-click Promote min role */
+  yellowPromoteMinRole: 'member',
+  /** Red tier Promote min role (DE/admin) */
+  redPromoteMinRole: 'admin',
   /** Phase 4 — catalog / governance expansion (optional) */
   enableCatalogGovernance: false,
   /** Prefer steward-oriented nav copy / default landings when true */
@@ -351,6 +362,31 @@ function pickAllowed(patch) {
   }
   if (typeof patch.enableAutoPromoteLowRisk === 'boolean') {
     out.enableAutoPromoteLowRisk = patch.enableAutoPromoteLowRisk
+  }
+  if (
+    typeof patch.autoPromoteMinRecall === 'number' &&
+    Number.isFinite(patch.autoPromoteMinRecall)
+  ) {
+    out.autoPromoteMinRecall = Math.min(
+      1,
+      Math.max(0, Number(patch.autoPromoteMinRecall)),
+    )
+  }
+  if (patch.lastGoldenEval && typeof patch.lastGoldenEval === 'object') {
+    const recall = Number(patch.lastGoldenEval.recall)
+    const precision = Number(patch.lastGoldenEval.precision)
+    out.lastGoldenEval = {
+      recall: Number.isFinite(recall) ? recall : null,
+      precision: Number.isFinite(precision) ? precision : null,
+      at: String(patch.lastGoldenEval.at || new Date().toISOString()),
+      pairCount: patch.lastGoldenEval.pairCount ?? null,
+    }
+  }
+  for (const key of ['yellowPromoteMinRole', 'redPromoteMinRole']) {
+    if (typeof patch[key] === 'string') {
+      const role = patch[key].trim().toLowerCase()
+      if (['member', 'admin', 'owner'].includes(role)) out[key] = role
+    }
   }
   if (typeof patch.enableCatalogGovernance === 'boolean') {
     out.enableCatalogGovernance = patch.enableCatalogGovernance

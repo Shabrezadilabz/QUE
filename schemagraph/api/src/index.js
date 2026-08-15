@@ -113,7 +113,25 @@ import {
   proposeDriftFixes,
   resolveDriftFix,
 } from './driftAgent.js'
-import { maybeAutoPromoteLowRisk } from './autoPromote.js'
+import {
+  applyJoinActionFromToken,
+  handleSlackInteractionPayload,
+} from './joinActionWebhook.js'
+import { maybeAutoPromoteLowRisk, recordGoldenEvalScore } from './autoPromote.js'
+import {
+  listOutcomes,
+  getOutcome,
+  createOutcome,
+  refreshOutcome,
+  patchOutcomeStatus,
+} from './outcomes.js'
+import {
+  listShipEvents,
+  getShipEvent,
+  createShipDraft,
+  approveShip,
+  rollbackShip,
+} from './shipToBi.js'
 import {
   listGlossaryTerms,
   createGlossaryTerm,
@@ -436,6 +454,7 @@ app.post(
   },
 )
 app.use(express.json({ limit: '4mb' }))
+app.use(express.urlencoded({ extended: true }))
 app.use(requestLogMiddleware)
 app.use(rateLimitMiddleware({ windowMs: 60_000, max: 180 }))
 
@@ -594,6 +613,66 @@ app.post('/auth/attestation/verify', express.json(), (req, res) => {
     policy: attestation?.policy || null,
     alg: attestation?.signature?.alg || null,
   })
+})
+
+/**
+ * CEO P1 — Slack/Teams Approve·Reject via signed link (no session).
+ * Button URLs hit GET; optional POST { token }.
+ */
+app.get('/webhooks/join-action', async (req, res) => {
+  try {
+    const out = await applyJoinActionFromToken(req.query.token, {
+      actorLabel: 'chat_link',
+    })
+    const appUrl =
+      process.env.QUE_APP_URL ||
+      process.env.QUE_PUBLIC_URL ||
+      'http://localhost:5174'
+    const wantsHtml = String(req.headers.accept || '').includes('text/html')
+    if (wantsHtml) {
+      res
+        .status(200)
+        .type('html')
+        .send(
+          `<!doctype html><html><body style="font-family:system-ui;padding:2rem;background:#031427;color:#e8f4ff">
+          <h1>Que · ${out.action}</h1>
+          <p>${out.message}${out.join ? ` · <code>${out.join}</code>` : ''}</p>
+          <p><a href="${String(appUrl).replace(/\/$/, '')}/joins" style="color:#7bd0ff">Open Join Review</a></p>
+          </body></html>`,
+        )
+      return
+    }
+    res.json(out)
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post('/webhooks/join-action', async (req, res) => {
+  try {
+    const token = req.body?.token || req.query.token
+    const out = await applyJoinActionFromToken(token, {
+      actorLabel: req.body?.actor || 'webhook',
+    })
+    res.json(out)
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Slack interactive fallback (if using interactive components instead of URL buttons). */
+app.post('/webhooks/slack/interactions', async (req, res) => {
+  try {
+    const out = await handleSlackInteractionPayload(
+      req.body?.payload || req.body,
+    )
+    res.json({
+      response_type: 'ephemeral',
+      text: out.message || `Que: ${out.action} · ${out.status}`,
+    })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
 })
 
 /**
@@ -971,13 +1050,47 @@ app.patch(
       }
       if (action === 'promote') {
         const settings = (await getWorkspaceSettings(workspaceId))?.settings
-        const minRole = settings?.joinPromoteMinRole || 'member'
+        const { rows: riskRows } = await query(
+          `SELECT r.confidence, r.evidence_json,
+                  c_from.name AS from_c, c_to.name AS to_c
+           FROM relationships r
+           JOIN schema_objects fo ON fo.id = r.from_object_id
+           JOIN schema_objects tto ON tto.id = r.to_object_id
+           JOIN connections c_from ON c_from.id = fo.connection_id
+           JOIN connections c_to ON c_to.id = tto.connection_id
+           WHERE r.id = $1 AND r.workspace_id = $2`,
+          [relationshipId, workspaceId],
+        )
+        const rr = riskRows[0]
+        const { classifyRiskTier, effectiveTier, riskContextForWorkspace } =
+          await import('./riskTiers.js')
+        const riskCtx = await riskContextForWorkspace(workspaceId)
+        const classified = classifyRiskTier(
+          rr?.evidence_json,
+          rr?.confidence,
+          {
+            crossSource: rr ? rr.from_c !== rr.to_c : false,
+            lastGoldenRecall: riskCtx.lastGoldenRecall,
+            autoPromoteMinRecall: riskCtx.autoPromoteMinRecall,
+          },
+        )
+        const tier = effectiveTier(classified)
+        const minRole =
+          tier === 'red'
+            ? settings?.redPromoteMinRole || 'admin'
+            : tier === 'yellow'
+              ? settings?.yellowPromoteMinRole ||
+                settings?.joinPromoteMinRole ||
+                'member'
+              : settings?.joinPromoteMinRole || 'member'
         if (
           !authDisabled() &&
           !roleMeetsMin(req.workspaceRole, minRole, ROLE_RANK)
         ) {
           res.status(403).json({
-            error: `forbidden — promote requires ${minRole}+ (Settings → AI & Policy)`,
+            error: `forbidden — ${tier} tier promote requires ${minRole}+ (Settings → AI & Policy)`,
+            riskTier: tier,
+            rationale: classified.rationale,
           })
           return
         }
@@ -1183,8 +1296,23 @@ app.post(
         console.warn('[Que] reindex after join-inference:', err.message || err),
       )
       if ((result.created || 0) > 0) {
+        let joins = []
+        try {
+          const inbox = await listJoinReviews(workspaceId, {
+            status: 'suggested',
+            limit: 5,
+          })
+          joins = (inbox.items || []).slice(0, 3).map((j) => ({
+            id: j.id,
+            label: `${j.from?.table}.${j.from?.column} → ${j.to?.table}.${j.to?.column}`,
+            tier: j.risk?.effectiveTier || j.risk?.tier || 'yellow',
+          }))
+        } catch {
+          joins = []
+        }
         void notifyJoinReviewPending(workspaceId, {
           created: result.created,
+          joins,
         })
       }
       res.json({ ok: true, ...result })
@@ -2304,8 +2432,174 @@ app.post(
         req.params.workspaceId,
         req.body?.pairs || [],
       )
+      try {
+        await recordGoldenEvalScore(req.params.workspaceId, {
+          ...report,
+          pairCount: Array.isArray(req.body?.pairs) ? req.body.pairs.length : null,
+        })
+      } catch {
+        /* settings write optional */
+      }
       const markdown = formatGoldenSetMarkdown(report)
       res.json({ ok: true, report, markdown })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** CEO P0 — Outcome plans */
+app.get('/workspaces/:workspaceId/outcomes', async (req, res) => {
+  try {
+    const outcomes = await listOutcomes(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, outcomes })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/outcomes',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const outcome = await createOutcome(
+        req.params.workspaceId,
+        req.body?.prompt,
+        req.user?.id,
+      )
+      res.status(201).json({ ok: true, outcome })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/outcomes/:outcomeId', async (req, res) => {
+  try {
+    const outcome = await getOutcome(
+      req.params.workspaceId,
+      req.params.outcomeId,
+    )
+    if (!outcome) {
+      res.status(404).json({ error: 'outcome not found' })
+      return
+    }
+    res.json({ ok: true, outcome })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/outcomes/:outcomeId/refresh',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const outcome = await refreshOutcome(
+        req.params.workspaceId,
+        req.params.outcomeId,
+        req.user?.id,
+      )
+      res.json({ ok: true, outcome })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/outcomes/:outcomeId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const outcome = await patchOutcomeStatus(
+        req.params.workspaceId,
+        req.params.outcomeId,
+        req.body?.status,
+        req.user?.id,
+      )
+      res.json({ ok: true, outcome })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** CEO P0 — Ship to BI */
+app.get('/workspaces/:workspaceId/ship-events', async (req, res) => {
+  try {
+    const ships = await listShipEvents(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, ships })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/ship-events',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const ship = await createShipDraft(req.params.workspaceId, {
+        ...(req.body || {}),
+        userId: req.user?.id,
+      })
+      res.status(201).json({ ok: true, ship })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/ship-events/:shipId', async (req, res) => {
+  try {
+    const ship = await getShipEvent(
+      req.params.workspaceId,
+      req.params.shipId,
+    )
+    if (!ship) {
+      res.status(404).json({ error: 'ship event not found' })
+      return
+    }
+    res.json({ ok: true, ship })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/ship-events/:shipId/approve',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await approveShip(
+        req.params.workspaceId,
+        req.params.shipId,
+        req.user?.id,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/ship-events/:shipId/rollback',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await rollbackShip(
+        req.params.workspaceId,
+        req.params.shipId,
+        req.user?.id,
+      )
+      res.json({ ok: true, ...out })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
     }
@@ -4686,6 +4980,16 @@ app.post(
         req.params.workspaceId,
         req.body?.pairs || [],
       )
+      try {
+        await recordGoldenEvalScore(req.params.workspaceId, {
+          ...(out.report || {}),
+          pairCount: Array.isArray(req.body?.pairs)
+            ? req.body.pairs.length
+            : null,
+        })
+      } catch {
+        /* optional */
+      }
       res.json({ ok: true, ...out })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })

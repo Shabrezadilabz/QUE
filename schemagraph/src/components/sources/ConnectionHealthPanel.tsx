@@ -28,6 +28,42 @@ function kindLabel(kind?: DataSource['lastSyncErrorKind']): string {
   return 'Attention'
 }
 
+/** Plain-language heal CTA for CEO / ops (no stack traces). */
+function healMessage(s: DataSource): { title: string; detail: string; cta: string } {
+  const name = s.name || 'This source'
+  if (s.needsReauth || s.lastSyncErrorKind === 'auth') {
+    return {
+      title: `Reconnect ${name}`,
+      detail:
+        'Sign-in expired or was revoked. Update credentials — Que retries sync automatically after.',
+      cta: 'Reconnect',
+    }
+  }
+  if (s.lastSyncErrorKind === 'network') {
+    return {
+      title: `Can't reach ${name}`,
+      detail:
+        'Network or VPN issue. Check connectivity, then Sync now — Que already retries transient failures.',
+      cta: 'Retry sync',
+    }
+  }
+  if (s.lastSyncErrorKind === 'config') {
+    return {
+      title: `Fix settings for ${name}`,
+      detail:
+        'Warehouse, database, or schema name looks wrong. Update the connection form — no DE required for the edit.',
+      cta: 'Fix settings',
+    }
+  }
+  return {
+    title: `${name} needs a check`,
+    detail:
+      s.lastSyncError?.slice(0, 160) ||
+      'Last sync failed. Open the source, confirm credentials, then Sync now.',
+    cta: 'Open & fix',
+  }
+}
+
 type Props = {
   sources: DataSource[]
   onSelect: (id: string) => void
@@ -105,11 +141,17 @@ export function ConnectionHealthPanel({
 
       <div className="rounded-lg border border-primary-container/20 bg-secondary/10 p-lg">
         <h4 className="mb-xs font-headline text-base font-semibold text-secondary">
-          {needsAttention.length ? 'Needs attention' : 'All clear'}
+          {needsAttention.length ? 'Fix without a DE' : 'All clear'}
         </h4>
+        <p className="mb-md font-body text-[12px] text-on-surface-variant">
+          Que retries transient sync failures. Auth/config issues need one click
+          below — schema-first, no lake copy.
+        </p>
         {needsAttention.length ? (
           <ul className="mb-md space-y-sm">
-            {needsAttention.slice(0, 5).map((s) => (
+            {needsAttention.slice(0, 5).map((s) => {
+              const heal = healMessage(s)
+              return (
               <li
                 key={s.id}
                 className="flex flex-wrap items-center justify-between gap-sm rounded-lg bg-surface-container-low/70 px-md py-sm"
@@ -124,9 +166,12 @@ export function ConnectionHealthPanel({
                   />
                   <span className="min-w-0">
                     <span className="block truncate font-label text-sm font-semibold text-on-surface">
-                      {s.name}
+                      {heal.title}
                     </span>
                     <span className="block truncate font-body text-[11px] text-on-surface-variant">
+                      {heal.detail}
+                    </span>
+                    <span className="block truncate font-body text-[10px] text-on-surface-variant/80">
                       {sourceTypeLabel(s.type)} ·{' '}
                       {relativeSyncLabel(s.lastSyncAt || s.updatedAt)}
                       {s.lastSyncErrorKind
@@ -136,23 +181,13 @@ export function ConnectionHealthPanel({
                   </span>
                 </button>
                 <div className="flex gap-sm">
-                  {s.needsReauth || s.lastSyncErrorKind === 'auth' ? (
-                    <button
-                      type="button"
-                      onClick={() => onSelect(s.id)}
-                      className="rounded-md bg-error/10 px-sm py-1 font-label text-xs font-bold text-error"
-                    >
-                      Re-auth
-                    </button>
-                  ) : s.status === 'error' ? (
-                    <button
-                      type="button"
-                      onClick={() => onSelect(s.id)}
-                      className="rounded-md bg-error/10 px-sm py-1 font-label text-xs font-bold text-error"
-                    >
-                      Fix
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => onSelect(s.id)}
+                    className="rounded-md bg-error/10 px-sm py-1 font-label text-xs font-bold text-error"
+                  >
+                    {heal.cta}
+                  </button>
                   {canSync && s.syncable && onSync ? (
                     <button
                       type="button"
@@ -164,23 +199,27 @@ export function ConnectionHealthPanel({
                   ) : null}
                 </div>
               </li>
-            ))}
+              )
+            })}
           </ul>
         ) : (
           <p className="mb-md font-body text-[13px] text-on-surface-variant">
-            All connectors look healthy. Next: open{' '}
+            All connectors look healthy. Next:{' '}
+            <Link to="/outcome" className="font-semibold text-secondary hover:underline">
+              Outcome
+            </Link>{' '}
+            or{' '}
             <Link to="/joins" className="font-semibold text-secondary hover:underline">
               Join Review
-            </Link>
-            , Promote a suggested join, then save a job — never auto-accept AI
-            joins.
+            </Link>{' '}
+            — never auto-accept AI joins without the Green eval gate.
           </p>
         )}
         <Link
-          to="/workspace"
+          to="/outcome"
           className="inline-flex items-center gap-xs font-label text-sm font-bold text-secondary hover:underline"
         >
-          Open Workspace ↗
+          Open Outcome ↗
         </Link>
       </div>
     </div>

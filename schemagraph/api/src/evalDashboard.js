@@ -12,6 +12,8 @@ export async function getEvalDashboard(workspaceId) {
     recentRuns,
     rules,
     contractRuns,
+    settingsPack,
+    tierRows,
   ] = await Promise.all([
     query(
       `SELECT
@@ -40,6 +42,12 @@ export async function getEvalDashboard(workspaceId) {
        GROUP BY status`,
       [workspaceId],
     ).catch(() => ({ rows: [] })),
+    import('./workspaceSettings.js').then((m) =>
+      m.getWorkspaceSettings(workspaceId),
+    ),
+    import('./joinReviews.js').then((m) =>
+      m.listJoinReviews(workspaceId, { status: 'suggested', limit: 100 }),
+    ),
   ])
 
   const jc = joinCounts.rows[0] || {}
@@ -54,6 +62,21 @@ export async function getEvalDashboard(workspaceId) {
     (contractRuns.rows || []).map((r) => [r.status, r.n]),
   )
 
+  const settings = settingsPack?.settings || {}
+  const last = settings.lastGoldenEval || null
+  const minRecall = Number(settings.autoPromoteMinRecall ?? 0.9)
+  const recall = last?.recall != null ? Number(last.recall) : null
+  const greenEligible =
+    settings.enableAutoPromoteLowRisk === true &&
+    recall != null &&
+    (!Number.isFinite(minRecall) || minRecall <= 0 || recall >= minRecall)
+
+  const tierCounts = { green: 0, yellow: 0, red: 0 }
+  for (const item of tierRows?.items || []) {
+    const t = item.risk?.effectiveTier || item.risk?.tier || 'yellow'
+    if (tierCounts[t] != null) tierCounts[t] += 1
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     joins: {
@@ -62,6 +85,21 @@ export async function getEvalDashboard(workspaceId) {
       rejected: jc.rejected || 0,
       promoteRatePct: promoteRate,
       promotesLast30d: promoteEvents.rows[0]?.n || 0,
+      pendingByTier: tierCounts,
+    },
+    scoreboard: {
+      lastGoldenRecall: recall,
+      lastGoldenPrecision: last?.precision != null ? Number(last.precision) : null,
+      lastGoldenAt: last?.at || null,
+      autoPromoteMinRecall: minRecall,
+      autoPromoteEnabled: settings.enableAutoPromoteLowRisk === true,
+      greenEligible,
+      headline:
+        recall != null
+          ? `Golden-set recall ${(recall * 100).toFixed(1)}% · Green auto-Promote ${
+              greenEligible ? 'eligible' : 'blocked'
+            }`
+          : 'Run a golden-set eval to unlock Green auto-Promote eligibility',
     },
     jobs: {
       last30d: runsByStatus,
@@ -81,7 +119,8 @@ export async function getEvalDashboard(workspaceId) {
     },
     guidance: [
       'Run golden-set eval regularly against known true joins',
-      'Keep enableAutoPromoteLowRisk off until promoteRate is stable',
+      'Keep enableAutoPromoteLowRisk off until scoreboard shows Green eligible',
+      'Yellow = CEO one-click Promote; Red = DE/admin only',
       'Grow join rules from Promote — they steer AI like Cursor rules',
     ],
   }

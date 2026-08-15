@@ -1,12 +1,23 @@
 /**
- * Phase 2 — Slack/Teams (or generic) notifications for join review + digests.
+ * Phase 2 / CEO P1 — Slack/Teams notifications for join review + digests.
+ * Slack Block Kit includes Approve / Reject action links (signed tokens).
  */
 import { query } from './db.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { recordAuditEvent } from './auditLog.js'
+import {
+  appPublicUrl,
+  joinActionLink,
+} from './joinActionTokens.js'
 
 function isSlackWebhook(url) {
   return /hooks\.slack\.com/i.test(String(url || ''))
+}
+
+function isTeamsWebhook(url) {
+  return /webhook\.office\.com|office365\.com|outlook\.office/i.test(
+    String(url || ''),
+  )
 }
 
 async function postWebhook(url, payload) {
@@ -26,7 +37,10 @@ function slackText(text) {
 }
 
 /**
- * Notify when a join is suggested (infer) or needs review.
+ * @param {object} meta
+ * @param {number} [meta.created]
+ * @param {number} [meta.pending]
+ * @param {{ id: string, label?: string }[]} [meta.joins]
  */
 export async function notifyJoinReviewPending(workspaceId, meta = {}) {
   const settingsPayload = await getWorkspaceSettings(workspaceId)
@@ -39,50 +53,162 @@ export async function notifyJoinReviewPending(workspaceId, meta = {}) {
 
   const wsName = settingsPayload?.workspace?.name || workspaceId
   const count = Number(meta.created || meta.pending || 0)
-  const text = `Que · Join Review\n*${count} join suggestion(s)* need Promote in workspace *${wsName}*\nOpen Join Review to approve — Que never auto-accepts.`
+  const joins = Array.isArray(meta.joins) ? meta.joins.slice(0, 3) : []
+  const primary = joins[0]
+  const joinsUrl = `${appPublicUrl()}/joins`
+  const outcomeUrl = `${appPublicUrl()}/outcome`
+  const text = `Que · Join Review\n*${count} join suggestion(s)* need Promote in workspace *${wsName}*\nOpen Join Review — or Approve/Reject from chat (Yellow/HITL). Schema-first; no lake custody.`
 
-  try {
-    await postWebhook(
-      url,
-      isSlackWebhook(url)
-        ? {
-            text,
-            blocks: [
+  const blocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: 'Que · Approve this stitch', emoji: true },
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${count}* suggested join(s) in \`${wsName}\`${
+          primary?.label ? `\n• ${primary.label}` : ''
+        }`,
+      },
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: 'HITL · schema-first · Green only auto-Promotes when eval gate allows',
+        },
+      ],
+    },
+  ]
+
+  if (primary?.id) {
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Approve (Promote)', emoji: true },
+          style: 'primary',
+          url: joinActionLink('promote', workspaceId, primary.id),
+          action_id: 'que_promote',
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Reject', emoji: true },
+          style: 'danger',
+          url: joinActionLink('reject', workspaceId, primary.id),
+          action_id: 'que_reject',
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Open Joins', emoji: true },
+          url: joinsUrl,
+          action_id: 'que_open_joins',
+        },
+      ],
+    })
+  } else {
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Open Join Review', emoji: true },
+          url: joinsUrl,
+          action_id: 'que_open_joins',
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Outcome mode', emoji: true },
+          url: outcomeUrl,
+          action_id: 'que_outcome',
+        },
+      ],
+    })
+  }
+
+  const teamsCard = {
+    '@type': 'MessageCard',
+    '@context': 'http://schema.org/extensions',
+    themeColor: '7BD0FF',
+    summary: 'Que · Approve this stitch',
+    sections: [
+      {
+        activityTitle: 'Que · Join Review',
+        text: `**${count}** suggested join(s) in **${wsName}**${
+          primary?.label ? `<br/>${primary.label}` : ''
+        }<br/><i>Schema-first · HITL Promote</i>`,
+      },
+    ],
+    potentialAction: primary?.id
+      ? [
+          {
+            '@type': 'OpenUri',
+            name: 'Approve (Promote)',
+            targets: [
               {
-                type: 'header',
-                text: { type: 'plain_text', text: 'Que · Join Review', emoji: true },
-              },
-              {
-                type: 'section',
-                text: {
-                  type: 'mrkdwn',
-                  text: `*${count}* suggested join(s) waiting for human Promote in \`${wsName}\`.`,
-                },
-              },
-              {
-                type: 'context',
-                elements: [
-                  {
-                    type: 'mrkdwn',
-                    text: 'HITL required · schema-only · /joins',
-                  },
-                ],
+                os: 'default',
+                uri: joinActionLink('promote', workspaceId, primary.id),
               },
             ],
-          }
-        : {
-            eventType: 'join.review_pending',
-            workspaceId,
-            workspaceName: wsName,
-            created: count,
-            emittedAt: new Date().toISOString(),
           },
-    )
+          {
+            '@type': 'OpenUri',
+            name: 'Reject',
+            targets: [
+              {
+                os: 'default',
+                uri: joinActionLink('reject', workspaceId, primary.id),
+              },
+            ],
+          },
+          {
+            '@type': 'OpenUri',
+            name: 'Open Joins',
+            targets: [{ os: 'default', uri: joinsUrl }],
+          },
+        ]
+      : [
+          {
+            '@type': 'OpenUri',
+            name: 'Open Join Review',
+            targets: [{ os: 'default', uri: joinsUrl }],
+          },
+        ],
+  }
+
+  try {
+    let payload
+    if (isSlackWebhook(url)) {
+      payload = { text, blocks }
+    } else if (isTeamsWebhook(url)) {
+      payload = teamsCard
+    } else {
+      payload = {
+        eventType: 'join.review_pending',
+        workspaceId,
+        workspaceName: wsName,
+        created: count,
+        joins,
+        approveUrl: primary?.id
+          ? joinActionLink('promote', workspaceId, primary.id)
+          : null,
+        rejectUrl: primary?.id
+          ? joinActionLink('reject', workspaceId, primary.id)
+          : null,
+        joinsUrl,
+        emittedAt: new Date().toISOString(),
+      }
+    }
+    await postWebhook(url, payload)
     void recordAuditEvent({
       workspaceId,
       action: 'notify.join_review',
       summary: `Join review notify (${count})`,
-      meta: { count },
+      meta: { count, withActions: Boolean(primary?.id) },
     })
     return { ok: true }
   } catch (err) {
@@ -90,9 +216,6 @@ export async function notifyJoinReviewPending(workspaceId, meta = {}) {
   }
 }
 
-/**
- * Notify when someone promotes a join (optional team awareness).
- */
 export async function notifyJoinPromoted(workspaceId, meta = {}) {
   const settingsPayload = await getWorkspaceSettings(workspaceId)
   const settings = settingsPayload?.settings || {}
@@ -118,9 +241,6 @@ export async function notifyJoinPromoted(workspaceId, meta = {}) {
   }
 }
 
-/**
- * Drift digest — summarize open high/warn events since last digest.
- */
 export async function sendDriftDigest(workspaceId, { force = false } = {}) {
   const settingsPayload = await getWorkspaceSettings(workspaceId)
   const settings = settingsPayload?.settings || {}
@@ -226,7 +346,6 @@ export async function sendDriftDigest(workspaceId, { force = false } = {}) {
   }
 }
 
-/** Role helpers for propose vs promote */
 export function roleMeetsMin(role, minRole, ROLE_RANK) {
   return (ROLE_RANK[role] || 0) >= (ROLE_RANK[minRole] || 99)
 }

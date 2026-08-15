@@ -131,6 +131,10 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
           enableMaterialize: payload.settings.enableMaterialize !== false,
           enableAutoPromoteLowRisk:
             payload.settings.enableAutoPromoteLowRisk === true,
+          autoPromoteMinRecall: payload.settings.autoPromoteMinRecall ?? 0.9,
+          yellowPromoteMinRole:
+            payload.settings.yellowPromoteMinRole ?? 'member',
+          redPromoteMinRole: payload.settings.redPromoteMinRole ?? 'admin',
           enableCatalogGovernance:
             payload.settings.enableCatalogGovernance === true,
           stewardUxMode: payload.settings.stewardUxMode === true,
@@ -293,6 +297,12 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
         (data.settings.enableStitchAgent === true) ||
       draft.enableAutoPromoteLowRisk !==
         (data.settings.enableAutoPromoteLowRisk === true) ||
+      draft.autoPromoteMinRecall !==
+        (data.settings.autoPromoteMinRecall ?? 0.9) ||
+      draft.yellowPromoteMinRole !==
+        (data.settings.yellowPromoteMinRole ?? 'member') ||
+      draft.redPromoteMinRole !==
+        (data.settings.redPromoteMinRole ?? 'admin') ||
       draft.enableCatalogGovernance !==
         (data.settings.enableCatalogGovernance === true) ||
       draft.stewardUxMode !== (data.settings.stewardUxMode === true) ||
@@ -913,7 +923,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                       }
                     />
                     <Field
-                      label="Join review webhook URL (Slack or generic)"
+                      label="Join review webhook URL (Slack / Teams / generic)"
                       value={draft.joinReviewWebhookUrl ?? ''}
                       disabled={!canAdmin}
                       onChange={(v) =>
@@ -921,8 +931,15 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                           d ? { ...d, joinReviewWebhookUrl: v } : d,
                         )
                       }
-                      placeholder="https://hooks.slack.com/services/…"
+                      placeholder="https://hooks.slack.com/services/… or Teams webhook"
                     />
+                    <p className="text-[11px] text-on-surface-variant">
+                      Slack/Teams cards include <strong>Approve</strong> /{' '}
+                      <strong>Reject</strong> links (signed, schema-first HITL).
+                      Set <code className="font-mono">QUE_APP_URL</code> /{' '}
+                      <code className="font-mono">QUE_PUBLIC_API_URL</code> so
+                      buttons resolve in production.
+                    </p>
                     <Toggle
                       label="Drift digest enabled"
                       hint="Summarize open high/warn drift to a webhook"
@@ -2111,13 +2128,81 @@ function PolicyAndAiBlocks({
   />
   <Toggle
     label="Auto-promote low-risk joins"
-    hint="Phase 3 — only exact/FK-style suggestions ≥0.92 confidence. Default off (HITL)."
+    hint="CEO P0 — Green tier only, after golden-set recall ≥ gate. Default off (HITL)."
     checked={draft.enableAutoPromoteLowRisk === true}
     disabled={!canAdmin}
     onChange={(v) =>
       setDraft((d) => (d ? { ...d, enableAutoPromoteLowRisk: v } : d))
     }
   />
+  <label className="block text-[12px] text-on-surface-variant">
+    Auto-Promote min golden recall (0–1)
+    <input
+      type="number"
+      min={0}
+      max={1}
+      step={0.01}
+      className="mt-xs w-full rounded-lg border border-outline-variant/40 bg-surface px-sm py-sm text-[13px]"
+      disabled={!canAdmin}
+      value={draft.autoPromoteMinRecall ?? 0.9}
+      onChange={(e) =>
+        setDraft((d) =>
+          d
+            ? {
+                ...d,
+                autoPromoteMinRecall: Number(e.target.value),
+              }
+            : d,
+        )
+      }
+    />
+  </label>
+  <label className="block text-[12px] text-on-surface-variant">
+    Yellow Promote min role
+    <select
+      className="mt-xs w-full rounded-lg border border-outline-variant/40 bg-surface px-sm py-sm text-[13px]"
+      disabled={!canAdmin}
+      value={draft.yellowPromoteMinRole ?? 'member'}
+      onChange={(e) =>
+        setDraft((d) =>
+          d
+            ? {
+                ...d,
+                yellowPromoteMinRole: e.target
+                  .value as WorkspaceSettingsFlags['yellowPromoteMinRole'],
+              }
+            : d,
+        )
+      }
+    >
+      <option value="member">member</option>
+      <option value="admin">admin</option>
+      <option value="owner">owner</option>
+    </select>
+  </label>
+  <label className="block text-[12px] text-on-surface-variant">
+    Red Promote min role
+    <select
+      className="mt-xs w-full rounded-lg border border-outline-variant/40 bg-surface px-sm py-sm text-[13px]"
+      disabled={!canAdmin}
+      value={draft.redPromoteMinRole ?? 'admin'}
+      onChange={(e) =>
+        setDraft((d) =>
+          d
+            ? {
+                ...d,
+                redPromoteMinRole: e.target
+                  .value as WorkspaceSettingsFlags['redPromoteMinRole'],
+              }
+            : d,
+        )
+      }
+    >
+      <option value="member">member</option>
+      <option value="admin">admin</option>
+      <option value="owner">owner</option>
+    </select>
+  </label>
   <Toggle
     label="Enable catalog governance"
     hint="Phase 4 — Catalog, Glossary, Steward pages (optional Atlan-style expansion)"

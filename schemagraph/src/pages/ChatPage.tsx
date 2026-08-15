@@ -1416,7 +1416,11 @@ export function ChatPage() {
             <p className="font-body text-sm leading-relaxed text-[#1f4f3c]">
               {context?.stats?.suggestedJoins
                 ? `You have ${context.stats.suggestedJoins} suggested join(s) waiting for review. Promote accepted joins before shipping a dbt PR.`
-                : 'Ask about joins with /suggested, or mention tables with @name for schema-only answers — never raw warehouse rows.'}
+                : 'Ask about joins with /suggested, or mention tables with @name for schema-only answers — never raw warehouse rows.'}{' '}
+              <a href="/outcome" className="underline">
+                Outcome mode
+              </a>{' '}
+              for CEO-style plans → Ship to BI.
             </p>
           </div>
         </aside>

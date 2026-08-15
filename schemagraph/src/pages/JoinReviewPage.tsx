@@ -574,6 +574,31 @@ export function JoinReviewPage() {
 
                 {selected.status === 'suggested' && canWrite ? (
                   <div className="flex flex-wrap gap-sm">
+                    {selected.risk ? (
+                      <div className="mb-sm w-full rounded-lg border border-outline-variant/30 bg-surface-container-low px-md py-sm text-[12px]">
+                        <span
+                          className={
+                            (selected.risk.effectiveTier || selected.risk.tier) ===
+                            'green'
+                              ? 'font-semibold text-emerald-400'
+                              : (selected.risk.effectiveTier ||
+                                    selected.risk.tier) === 'red'
+                                ? 'font-semibold text-error'
+                                : 'font-semibold text-amber-300'
+                          }
+                        >
+                          {(
+                            selected.risk.effectiveTier ||
+                            selected.risk.tier ||
+                            'yellow'
+                          ).toUpperCase()}{' '}
+                          tier
+                        </span>
+                        {selected.risk.rationale
+                          ? ` — ${selected.risk.rationale}`
+                          : ''}
+                      </div>
+                    ) : null}
                     <button
                       type="button"
                       disabled={busy || !canPromote}
@@ -585,7 +610,15 @@ export function JoinReviewPage() {
                           : `Requires ${promoteMinRole}+`
                       }
                     >
-                      {busy ? 'Working…' : 'Promote'}
+                      {busy
+                        ? 'Working…'
+                        : (selected.risk?.effectiveTier ||
+                              selected.risk?.tier) === 'yellow'
+                          ? 'Promote (Yellow · one-click)'
+                          : (selected.risk?.effectiveTier ||
+                                selected.risk?.tier) === 'red'
+                            ? 'Promote (Red · DE/admin)'
+                            : 'Promote'}
                     </button>
                     <button
                       type="button"

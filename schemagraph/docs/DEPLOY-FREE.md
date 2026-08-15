@@ -39,7 +39,8 @@ Migrations run automatically on API boot (`scripts/migrate.js`).
 | `STITCH_AUTH_DISABLED` | `false` |
 | `QUE_SEED_DEMO_USERS` | `true` (demo logins for pilot) |
 
-Optional: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `QUE_PUBLIC_URL` / `QUE_PUBLIC_API_URL` = your Render URL.
+Optional: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `QUE_PUBLIC_URL` / `QUE_PUBLIC_API_URL` = your Render URL,
+`QUE_APP_URL` = Vercel URL (Slack/Teams Approve buttons), `SLACK_SIGNING_SECRET` (interactive webhook).
 
 Generate secrets (PowerShell):
 

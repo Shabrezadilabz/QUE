@@ -124,6 +124,7 @@ import {
   createOutcome,
   refreshOutcome,
   patchOutcomeStatus,
+  runOutcomeStep,
 } from './outcomes.js'
 import {
   listShipEvents,
@@ -131,6 +132,7 @@ import {
   createShipDraft,
   approveShip,
   rollbackShip,
+  linkShipMaterialization,
 } from './shipToBi.js'
 import {
   listGlossaryTerms,
@@ -357,6 +359,7 @@ import {
 import {
   materializeJob,
   listMaterializations,
+  dropMaterialization,
 } from './materialize.js'
 import { getWorkspaceLineageLite } from './lineageLite.js'
 import {
@@ -453,6 +456,39 @@ app.post(
     }
   },
 )
+
+/** Slack interactive — raw body required for signing secret verify */
+app.post(
+  '/webhooks/slack/interactions',
+  express.raw({ type: '*/*' }),
+  async (req, res) => {
+    try {
+      const { verifySlackSignature } = await import('./slackSigning.js')
+      const raw = Buffer.isBuffer(req.body)
+        ? req.body.toString('utf8')
+        : String(req.body || '')
+      const requireSecret =
+        String(process.env.NODE_ENV || '').toLowerCase() === 'production' ||
+        String(process.env.QUE_ENV || '').toLowerCase() === 'production'
+      const verified = verifySlackSignature(raw, req.headers, {
+        requireSecret: requireSecret && Boolean(process.env.SLACK_SIGNING_SECRET),
+      })
+      if (!verified.ok) {
+        res.status(401).json({ error: verified.reason || 'unauthorized' })
+        return
+      }
+      const params = new URLSearchParams(raw)
+      const out = await handleSlackInteractionPayload(params.get('payload'))
+      res.json({
+        response_type: 'ephemeral',
+        text: out.message || `Que: ${out.action} · ${out.status}`,
+      })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.use(express.json({ limit: '4mb' }))
 app.use(express.urlencoded({ extended: true }))
 app.use(requestLogMiddleware)
@@ -655,21 +691,6 @@ app.post('/webhooks/join-action', async (req, res) => {
       actorLabel: req.body?.actor || 'webhook',
     })
     res.json(out)
-  } catch (err) {
-    res.status(err.status || 500).json({ error: String(err.message || err) })
-  }
-})
-
-/** Slack interactive fallback (if using interactive components instead of URL buttons). */
-app.post('/webhooks/slack/interactions', async (req, res) => {
-  try {
-    const out = await handleSlackInteractionPayload(
-      req.body?.payload || req.body,
-    )
-    res.json({
-      response_type: 'ephemeral',
-      text: out.message || `Que: ${out.action} · ${out.status}`,
-    })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
   }
@@ -2528,6 +2549,27 @@ app.patch(
   },
 )
 
+app.post(
+  '/workspaces/:workspaceId/outcomes/:outcomeId/run-step',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await runOutcomeStep(
+        req.params.workspaceId,
+        req.params.outcomeId,
+        {
+          stepId: req.body?.stepId || 'auto',
+          inferJoins: req.body?.inferJoins === true,
+          userId: req.user?.id,
+        },
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 /** CEO P0 — Ship to BI */
 app.get('/workspaces/:workspaceId/ship-events', async (req, res) => {
   try {
@@ -2598,6 +2640,47 @@ app.post(
         req.params.workspaceId,
         req.params.shipId,
         req.user?.id,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/ship-events/:shipId/link-materialization',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const ship = await linkShipMaterialization(
+        req.params.workspaceId,
+        req.params.shipId,
+        {
+          jobId: req.body?.jobId || null,
+          materializationId: req.body?.materializationId || null,
+          userId: req.user?.id,
+        },
+      )
+      res.json({ ok: true, ship })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/materializations/:materializationId/drop',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const out = await dropMaterialization(
+        req.params.workspaceId,
+        req.params.materializationId,
+        {
+          confirm: req.body?.confirm === true,
+          actorUserId: req.user?.id,
+        },
       )
       res.json({ ok: true, ...out })
     } catch (err) {

@@ -4230,6 +4230,8 @@ export async function fetchMetricLineage(
 export type OutcomePlan = {
   prompt: string
   custody?: string
+  agentSessionId?: string | null
+  agentHref?: string | null
   steps?: {
     id: string
     kind: string
@@ -4298,6 +4300,32 @@ export async function refreshOutcomeApi(
   }
   if (!res.ok) throw new Error(body.error || `refresh outcome ${res.status}`)
   return body.outcome!
+}
+
+export async function runOutcomeStepApi(
+  outcomeId: string,
+  opts: { stepId?: string; inferJoins?: boolean } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/outcomes/${outcomeId}/run-step`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        stepId: opts.stepId || 'auto',
+        inferJoins: opts.inferJoins === true,
+      }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    outcome?: OutcomeRecord
+    stepId?: string
+    actions?: unknown[]
+    custody?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `run-step ${res.status}`)
+  return body
 }
 
 /** CEO P0 — Ship to BI */
@@ -4379,8 +4407,26 @@ export async function rollbackShipApi(
   const body = (await res.json().catch(() => ({}))) as {
     ship?: ShipEvent
     already?: boolean
+    warehouseRollback?: Record<string, unknown>
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `ship rollback ${res.status}`)
   return body
+}
+
+export async function linkShipMaterializationApi(
+  shipId: string,
+  input: { jobId?: string | null; materializationId?: string | null },
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/ship-events/${shipId}/link-materialization`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    ship?: ShipEvent
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `link mat ${res.status}`)
+  return body.ship!
 }

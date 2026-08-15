@@ -7,6 +7,7 @@ import {
   approveShipApi,
   createShipDraftApi,
   fetchShipEvents,
+  linkShipMaterializationApi,
   rollbackShipApi,
   type ShipEvent,
 } from '@/services/stitchApi'
@@ -26,6 +27,9 @@ export function ShipPage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [certifyError, setCertifyError] = useState<string | null>(null)
+  const [jobIdLink, setJobIdLink] = useState('')
+  const [matIdLink, setMatIdLink] = useState('')
+  const [warehouseNote, setWarehouseNote] = useState<string | null>(null)
 
   async function reload() {
     const list = await fetchShipEvents()
@@ -88,12 +92,39 @@ export function ShipPage() {
   async function rollback() {
     if (!selected || !canWrite) return
     setBusy(true)
+    setWarehouseNote(null)
     try {
       const out = await rollbackShipApi(selected.id)
       setSelected(out.ship || selected)
       setEmbedUrl(null)
+      const wr = out.warehouseRollback
+      if (wr && wr.ok) {
+        setWarehouseNote(
+          `Warehouse DROP: ${String(wr.qualifiedName || wr.materializationId || 'ok')}`,
+        )
+      } else if (wr && wr.error) {
+        setWarehouseNote(`Warehouse DROP skipped/failed: ${String(wr.error)}`)
+      }
       setToast('Rolled back — embed revoked, chart uncertified')
       await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function linkMat() {
+    if (!selected || !canWrite) return
+    if (!jobIdLink.trim() && !matIdLink.trim()) return
+    setBusy(true)
+    try {
+      const ship = await linkShipMaterializationApi(selected.id, {
+        jobId: jobIdLink.trim() || null,
+        materializationId: matIdLink.trim() || null,
+      })
+      setSelected(ship)
+      setToast('Linked job/materialization for warehouse rollback')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -184,6 +215,37 @@ export function ShipPage() {
                 .
               </p>
             ) : null}
+            {warehouseNote ? (
+              <p className="mt-sm text-[12px] text-secondary">{warehouseNote}</p>
+            ) : null}
+            <div className="mt-md space-y-sm rounded-lg border border-outline-variant/20 p-sm">
+              <p className="text-[11px] text-on-surface-variant">
+                Optional: link a materialized job object so Rollback also DROP
+                VIEW/TABLE in the customer warehouse.
+              </p>
+              <div className="flex flex-wrap gap-sm">
+                <input
+                  className="min-w-[140px] flex-1 rounded border border-outline-variant/40 bg-surface px-sm py-1 text-[12px]"
+                  placeholder="jobId"
+                  value={jobIdLink}
+                  onChange={(e) => setJobIdLink(e.target.value)}
+                />
+                <input
+                  className="min-w-[140px] flex-1 rounded border border-outline-variant/40 bg-surface px-sm py-1 text-[12px]"
+                  placeholder="materializationId"
+                  value={matIdLink}
+                  onChange={(e) => setMatIdLink(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="rounded border border-outline-variant/40 px-sm py-1 text-[12px]"
+                  disabled={busy || !canWrite}
+                  onClick={() => void linkMat()}
+                >
+                  Link
+                </button>
+              </div>
+            </div>
             <div className="mt-md flex flex-wrap gap-sm">
               <button
                 type="button"

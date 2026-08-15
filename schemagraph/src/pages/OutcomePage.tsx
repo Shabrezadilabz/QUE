@@ -8,6 +8,7 @@ import {
   createShipDraftApi,
   fetchOutcomes,
   refreshOutcomeApi,
+  runOutcomeStepApi,
   type OutcomeRecord,
 } from '@/services/stitchApi'
 
@@ -66,6 +67,37 @@ export function OutcomePage() {
       const outcome = await refreshOutcomeApi(active.id)
       setActive(outcome)
       setToast('Plan refreshed from live schema')
+      await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function runNext(opts?: { inferJoins?: boolean; stepId?: string }) {
+    if (!active || !canWrite) return
+    setBusy(true)
+    setError(null)
+    try {
+      const out = await runOutcomeStepApi(active.id, {
+        stepId: opts?.stepId || 'auto',
+        inferJoins: opts?.inferJoins,
+      })
+      if (out.outcome) setActive(out.outcome)
+      const n = Array.isArray(out.actions) ? out.actions.length : 0
+      setToast(`Ran step “${out.stepId}” · ${n} tool action(s)`)
+      const shipAction = (out.actions || []).find(
+        (a) =>
+          a &&
+          typeof a === 'object' &&
+          (a as { tool?: string }).tool === 'ship_draft' &&
+          (a as { href?: string }).href,
+      ) as { href?: string } | undefined
+      if (shipAction?.href) {
+        window.location.href = shipAction.href
+        return
+      }
       await reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -159,6 +191,22 @@ export function OutcomePage() {
                 </button>
                 <button
                   type="button"
+                  className="rounded-lg border border-secondary/50 px-sm py-xs text-[12px] text-secondary"
+                  disabled={busy || !canWrite}
+                  onClick={() => void runNext({ inferJoins: true, stepId: 'joins' })}
+                >
+                  Infer joins (HITL)
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-secondary/50 px-sm py-xs text-[12px] text-secondary"
+                  disabled={busy || !canWrite}
+                  onClick={() => void runNext({ stepId: 'auto' })}
+                >
+                  Run next step
+                </button>
+                <button
+                  type="button"
                   className="rounded-lg bg-primary px-sm py-xs text-[12px] font-medium text-on-primary disabled:opacity-50"
                   disabled={busy || !canWrite}
                   onClick={() => void shipFromPlan()}
@@ -167,6 +215,15 @@ export function OutcomePage() {
                 </button>
               </div>
             </div>
+            {active.plan?.agentSessionId ? (
+              <p className="text-[12px] text-on-surface-variant">
+                Linked agent session —{' '}
+                <Link to="/agent" className="text-secondary underline">
+                  open /agent
+                </Link>{' '}
+                to approve the multi-step tool plan (HITL).
+              </p>
+            ) : null}
             <p className="text-[12px] text-on-surface-variant">{active.prompt}</p>
             <ol className="space-y-sm">
               {steps.map((s, i) => (

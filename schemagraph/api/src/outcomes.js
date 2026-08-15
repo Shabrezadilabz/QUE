@@ -236,6 +236,31 @@ export async function getOutcome(workspaceId, outcomeId) {
 
 export async function createOutcome(workspaceId, prompt, userId = null) {
   const plan = await buildOutcomePlan(workspaceId, prompt)
+
+  // Optional: attach Stitch Agent session when enabled (multi-step HITL tools)
+  let agentSessionId = null
+  try {
+    const { getWorkspaceSettings } = await import('./workspaceSettings.js')
+    const settings = (await getWorkspaceSettings(workspaceId))?.settings
+    if (settings?.enableStitchAgent === true) {
+      const { createAgentSession } = await import('./agentSessions.js')
+      const sourceIds = (plan.steps || [])
+        .find((s) => s.kind === 'sources')
+        ?.connections?.map((c) => c.id)
+        .filter(Boolean)
+      const session = await createAgentSession(workspaceId, userId, {
+        goal: plan.prompt,
+        title: `Outcome · ${plan.prompt.slice(0, 60)}`,
+        sourceIds: sourceIds?.length ? sourceIds : undefined,
+      })
+      agentSessionId = session?.id || null
+      plan.agentSessionId = agentSessionId
+      plan.agentHref = agentSessionId ? `/agent` : null
+    }
+  } catch {
+    /* agent optional */
+  }
+
   const id = randomUUID()
   await query(
     `INSERT INTO workspace_outcomes (
@@ -250,6 +275,7 @@ export async function createOutcome(workspaceId, prompt, userId = null) {
     resourceType: 'outcome',
     resourceId: id,
     summary: `Outcome: ${plan.prompt.slice(0, 120)}`,
+    meta: { agentSessionId },
   })
   return getOutcome(workspaceId, id)
 }
@@ -306,6 +332,133 @@ export async function patchOutcomeStatus(
     summary: `Outcome status → ${status}`,
   })
   return getOutcome(workspaceId, outcomeId)
+}
+
+/**
+ * Run / advance the next Outcome step (schema-first tool loop).
+ * stepId: sources | joins | metrics | chart | auto
+ */
+export async function runOutcomeStep(
+  workspaceId,
+  outcomeId,
+  { stepId = 'auto', userId = null, inferJoins = false } = {},
+) {
+  let outcome = await getOutcome(workspaceId, outcomeId)
+  if (!outcome) {
+    const err = new Error('outcome not found')
+    err.status = 404
+    throw err
+  }
+
+  const steps = outcome.plan?.steps || []
+  let target = stepId
+  if (target === 'auto') {
+    const next = steps.find(
+      (s) => s.status === 'pending' || s.status === 'needs_approve' || s.status === 'blocked',
+    )
+    target = next?.id || next?.kind || 'joins'
+  }
+
+  const actions = []
+
+  if (target === 'sources') {
+    actions.push({
+      tool: 'list_sources',
+      result: 'Refreshed connection match from live schema',
+    })
+  }
+
+  if (target === 'joins' && inferJoins) {
+    try {
+      const { inferJoinsForWorkspace } = await import('./inferJoins.js')
+      const result = await inferJoinsForWorkspace(workspaceId, {})
+      actions.push({
+        tool: 'infer_joins',
+        result: `Created ${result.created || 0} suggestions (HITL Promote still required for Yellow/Red)`,
+        created: result.created || 0,
+      })
+    } catch (e) {
+      actions.push({
+        tool: 'infer_joins',
+        error: String(e.message || e),
+      })
+    }
+  }
+
+  if (target === 'metrics') {
+    try {
+      const { createMetric } = await import('./metricDefinitions.js')
+      const metrics =
+        steps.find((s) => s.kind === 'metrics')?.metrics || metricHints(outcome.prompt)
+      for (const m of metrics.slice(0, 3)) {
+        try {
+          await createMetric(workspaceId, {
+            name: m.label || m.id,
+            description: m.expressionHint || outcome.prompt,
+            expressionSql: m.expressionHint || m.label || '',
+            userId,
+          })
+          actions.push({ tool: 'create_metric', name: m.label || m.id })
+        } catch {
+          /* duplicate ok */
+        }
+      }
+    } catch (e) {
+      actions.push({ tool: 'create_metric', error: String(e.message || e) })
+    }
+  }
+
+  if (target === 'chart') {
+    try {
+      const { createShipDraft } = await import('./shipToBi.js')
+      const hint = steps.find((s) => s.kind === 'chart')?.chartHint
+      const ship = await createShipDraft(workspaceId, {
+        title: hint?.title || outcome.prompt.slice(0, 80),
+        outcomeId,
+        chartType: hint?.chartType || 'bar',
+        description: outcome.prompt,
+        userId,
+      })
+      actions.push({
+        tool: 'ship_draft',
+        shipId: ship.id,
+        href: `/ship?id=${ship.id}`,
+      })
+    } catch (e) {
+      actions.push({ tool: 'ship_draft', error: String(e.message || e) })
+    }
+  }
+
+  // Always refresh plan after tools
+  outcome = await refreshOutcome(workspaceId, outcomeId, userId)
+
+  // Agent session is linked for HITL on /agent — do not auto-approve checkpoints here.
+  if (outcome.plan?.agentSessionId) {
+    actions.push({
+      tool: 'agent_linked',
+      sessionId: outcome.plan.agentSessionId,
+      href: '/agent',
+      hint: 'Approve the agent plan on /agent when ready (HITL)',
+    })
+  }
+
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId: userId,
+    action: 'outcome.run_step',
+    resourceType: 'outcome',
+    resourceId: outcomeId,
+    summary: `Outcome step “${target}”`,
+    meta: { target, actions },
+  })
+
+  return {
+    outcome,
+    stepId: target,
+    actions,
+    custody:
+      'Schema-first: tools never pull full lake rows; Promote remains HITL for Yellow/Red.',
+  }
 }
 
 /** @deprecated unused helper kept for tests */

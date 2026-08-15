@@ -255,7 +255,7 @@ export async function approveShip(workspaceId, shipId, userId = null) {
 }
 
 /**
- * Rollback: revoke embed, uncertify chart, mark ship rolled_back.
+ * Rollback: revoke embed, uncertify chart, optional warehouse DROP, mark rolled_back.
  */
 export async function rollbackShip(workspaceId, shipId, userId = null) {
   const ship = await getShipEvent(workspaceId, shipId)
@@ -289,11 +289,46 @@ export async function rollbackShip(workspaceId, shipId, userId = null) {
     }
   }
 
+  let warehouseRollback = null
+  const matId =
+    ship.config?.materializationId ||
+    ship.attestation?.materializationId ||
+    null
+  const jobId = ship.config?.jobId || null
+  try {
+    const { dropMaterialization, listMaterializations } = await import(
+      './materialize.js'
+    )
+    let targetId = matId
+    if (!targetId && jobId) {
+      const mats = await listMaterializations(workspaceId, {
+        jobId,
+        limit: 5,
+      })
+      const hit = mats.find((m) => m.status === 'succeeded' && !m.meta?.rolledBackAt)
+      targetId = hit?.id || null
+    }
+    if (targetId) {
+      warehouseRollback = await dropMaterialization(workspaceId, targetId, {
+        confirm: true,
+        actorUserId: userId,
+      })
+    }
+  } catch (e) {
+    warehouseRollback = {
+      ok: false,
+      error: String(e.message || e),
+      note: 'BI rollback still applied; warehouse DROP failed or unsupported',
+    }
+  }
+
   const attestationBody = {
     kind: 'que.ship_to_bi.rollback',
     workspaceId,
     shipId,
     chartId: ship.chartId,
+    materializationId: warehouseRollback?.materializationId || matId,
+    warehouseQualifiedName: warehouseRollback?.qualifiedName || null,
     priorFingerprint: ship.attestation?.fingerprint || null,
     custody: 'schema_first',
     at: new Date().toISOString(),
@@ -320,7 +355,52 @@ export async function rollbackShip(workspaceId, shipId, userId = null) {
     resourceType: 'ship_event',
     resourceId: shipId,
     summary: `Ship rolled back “${ship.title}”`,
+    meta: {
+      warehouseRollback: Boolean(warehouseRollback?.ok),
+      materializationId: warehouseRollback?.materializationId || null,
+    },
   })
 
-  return { ship: await getShipEvent(workspaceId, shipId), already: false }
+  return {
+    ship: await getShipEvent(workspaceId, shipId),
+    already: false,
+    warehouseRollback,
+  }
+}
+
+/**
+ * Link a job/materialization to a ship event for warehouse rollback.
+ */
+export async function linkShipMaterialization(
+  workspaceId,
+  shipId,
+  { jobId = null, materializationId = null, userId = null } = {},
+) {
+  const ship = await getShipEvent(workspaceId, shipId)
+  if (!ship) {
+    const err = new Error('ship event not found')
+    err.status = 404
+    throw err
+  }
+  const nextConfig = {
+    ...ship.config,
+    ...(jobId ? { jobId } : {}),
+    ...(materializationId ? { materializationId } : {}),
+  }
+  await query(
+    `UPDATE workspace_ship_events
+     SET config_json = $3::jsonb, updated_at = now()
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, shipId, JSON.stringify(nextConfig)],
+  )
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId: userId,
+    action: 'ship.link_materialization',
+    resourceType: 'ship_event',
+    resourceId: shipId,
+    summary: 'Linked materialization/job for warehouse rollback',
+    meta: { jobId, materializationId },
+  })
+  return getShipEvent(workspaceId, shipId)
 }

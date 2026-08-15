@@ -607,3 +607,104 @@ export async function listMaterializations(workspaceId, opts = {}) {
     createdAt: r.created_at,
   }))
 }
+
+/**
+ * Drop a previously materialized view/table in the customer warehouse (metadata + DDL).
+ * Que still does not store rows — only issues DROP and audits.
+ */
+export async function dropMaterialization(
+  workspaceId,
+  materializationId,
+  { confirm = false, actorUserId = null } = {},
+) {
+  if (confirm !== true) {
+    const err = new Error('Drop materialization requires confirm:true')
+    err.status = 400
+    err.code = 'CONFIRM_REQUIRED'
+    throw err
+  }
+  const { rows } = await query(
+    `SELECT m.*, c.source_type, c.config_json, c.id AS conn_id
+     FROM job_materializations m
+     LEFT JOIN connections c ON c.id = m.connection_id
+     WHERE m.workspace_id = $1 AND m.id = $2`,
+    [workspaceId, materializationId],
+  )
+  const row = rows[0]
+  if (!row) {
+    const err = new Error('materialization not found')
+    err.status = 404
+    throw err
+  }
+  if (row.status === 'failed') {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'materialization already failed — nothing to drop in warehouse',
+      materializationId,
+    }
+  }
+  const meta =
+    row.meta_json && typeof row.meta_json === 'object' ? row.meta_json : {}
+  if (meta.rolledBackAt) {
+    return {
+      ok: true,
+      already: true,
+      materializationId,
+      qualifiedName: row.qualified_name,
+    }
+  }
+
+  const connection = await resolveLiveTarget(
+    workspaceId,
+    {},
+    row.connection_id,
+  )
+
+  const kind = row.object_kind === 'table' ? 'TABLE' : 'VIEW'
+  const fq = String(row.qualified_name || '').trim()
+  if (!fq || /;/.test(fq)) {
+    const err = new Error('invalid qualified_name on materialization')
+    err.status = 400
+    throw err
+  }
+  const dropSql = `DROP ${kind} IF EXISTS ${fq}`
+
+  await executeWrite(connection, [dropSql])
+
+  const rolledBackAt = new Date().toISOString()
+  await query(
+    `UPDATE job_materializations
+     SET meta_json = COALESCE(meta_json, '{}'::jsonb) || $3::jsonb
+     WHERE workspace_id = $1 AND id = $2`,
+    [
+      workspaceId,
+      materializationId,
+      JSON.stringify({
+        rolledBackAt,
+        rolledBackBy: actorUserId,
+        dropSql,
+      }),
+    ],
+  )
+
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId,
+    action: 'job.materialize_rollback',
+    resourceType: 'job_materialization',
+    resourceId: materializationId,
+    summary: `Dropped ${kind.toLowerCase()} ${fq} in customer warehouse`,
+    meta: { qualifiedName: fq, kind: row.object_kind },
+  })
+
+  return {
+    ok: true,
+    materializationId,
+    qualifiedName: fq,
+    kind: row.object_kind,
+    dropSql,
+    rolledBackAt,
+    note: 'DROP issued in customer warehouse. Que stores metadata only.',
+  }
+}

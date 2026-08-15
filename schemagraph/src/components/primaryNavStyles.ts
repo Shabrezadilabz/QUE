@@ -2,7 +2,7 @@
 
 export const primaryNavLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
-    'relative inline-flex h-full items-center whitespace-nowrap px-3 font-label text-[11px] font-bold leading-none tracking-[0.05em] uppercase transition-colors',
+    'relative inline-flex h-full items-center whitespace-nowrap px-2 font-label text-[11px] font-bold leading-none tracking-[0.05em] uppercase transition-colors lg:px-3',
     isActive
       ? 'border-b-2 border-secondary text-secondary'
       : 'border-b-2 border-transparent text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface',

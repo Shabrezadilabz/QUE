@@ -20,8 +20,6 @@ export type {
   RightSidebarStatus,
 }
 
-const WIDTH_PX = 320
-
 /**
  * Properties panel — dark IDE inspector.
  */
@@ -55,8 +53,7 @@ export function RightSidebar({
   return (
     <aside
       data-region="right-sidebar"
-      className={`flex h-full shrink-0 flex-col border-l border-outline-variant bg-surface-container ${className}`}
-      style={{ width: WIDTH_PX }}
+      className={`flex h-full w-full max-w-[320px] shrink-0 flex-col border-l border-outline-variant bg-surface-container ${className}`}
       aria-label="Properties"
     >
       <div className="shrink-0 border-b border-outline-variant/20 p-lg">

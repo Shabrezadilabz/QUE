@@ -16,12 +16,22 @@ import type {
 import { DEFAULT_DIAGRAM_FILTERS } from '@/types/topBar'
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * TopBar — workspace chrome
- * Layout: [Brand · Nav] [Search] ····· [Counts] [Tools ▾ / Filters] [Auth]
- * Tools (filters + export) stay in a disclosure until 2xl so the bar never wraps.
+ * TopBar — workspace chrome (aligned with QueAppChrome primary IA)
+ * Layout: [Menu · Brand · Primary] [Search] ····· [Tools ▾] [Auth]
+ * Extra routes live in MobileNav — not a 12-link strip that overflows laptops.
  * ─────────────────────────────────────────────────────────────────────────── */
 
 export type { TopBarProps, DiagramFilters, ExportFormat }
+
+/** Same primary set as QueAppChrome */
+const PRIMARY_LINKS = [
+  { to: '/outcome', label: 'Outcome' },
+  { to: '/workspace', label: 'Workspace' },
+  { to: '/chat', label: 'Chat' },
+  { to: '/sources', label: 'Sources' },
+  { to: '/joins', label: 'Joins' },
+  { to: '/ship', label: 'Ship' },
+] as const
 
 const SOURCE_OPTIONS: { value: SourceTypeFilter; label: string }[] = [
   { value: 'all', label: 'All sources' },
@@ -118,58 +128,35 @@ export function TopBar({
       data-region="top-bar"
       className={`z-50 shrink-0 border-b border-secondary-container/30 bg-background ${className}`}
     >
-      <div className="flex h-14 items-center gap-sm px-lg sm:h-16 sm:gap-md lg:px-lg">
-        {/* Brand + nav */}
-        <div className="flex shrink-0 items-center gap-md sm:gap-lg lg:gap-xl">
-          <MobileNav showBelow="lg" />
+      <div className="flex h-14 min-w-0 items-center gap-sm px-md sm:h-16 sm:gap-md sm:px-lg">
+        <div className="flex min-w-0 shrink items-center gap-sm sm:gap-md">
+          <MobileNav showBelow="md" />
           <QueLogo
-            size={30}
+            size={28}
             withWordmark
-            wordmarkClassName="font-headline text-[1.2rem] font-bold leading-none tracking-tight text-on-surface sm:text-[1.35rem]"
+            wordmarkClassName="hidden font-headline text-[1.2rem] font-bold leading-none tracking-tight text-on-surface min-[420px]:inline sm:text-[1.35rem]"
           />
           <nav
-            className="hidden items-center gap-5 lg:flex lg:gap-7"
+            className="hidden h-14 min-w-0 items-stretch md:flex"
             aria-label="Primary"
           >
-            <WorkspaceSwitcher variant="nav" />
-            <NavLink to="/workspace" className={primaryNavLinkClass}>
-              Workspace
-            </NavLink>
-            <NavLink to="/chat" className={primaryNavLinkClass}>
-              AI Chat
-            </NavLink>
-            <NavLink to="/sources" className={primaryNavLinkClass}>
-              Sources
-            </NavLink>
-            <NavLink to="/joins" className={primaryNavLinkClass}>
-              Joins
-            </NavLink>
-            <NavLink to="/domains" className={primaryNavLinkClass}>
-              Domains
-            </NavLink>
-            <NavLink to="/catalog" className={primaryNavLinkClass}>
-              Catalog
-            </NavLink>
-            <NavLink to="/jobs" className={primaryNavLinkClass}>
-              Jobs
-            </NavLink>
-            <NavLink to="/lineage" className={primaryNavLinkClass}>
-              Lineage
-            </NavLink>
-            <NavLink to="/steward" className={primaryNavLinkClass}>
-              Steward
-            </NavLink>
-            <NavLink to="/agent" className={primaryNavLinkClass}>
-              Agent
-            </NavLink>
-            <NavLink to="/settings" className={primaryNavLinkClass}>
-              Settings
-            </NavLink>
+            <div className="mr-sm flex items-center lg:mr-md">
+              <WorkspaceSwitcher variant="nav" />
+            </div>
+            {PRIMARY_LINKS.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={primaryNavLinkClass}
+                end={l.to === '/workspace' ? false : undefined}
+              >
+                {l.label}
+              </NavLink>
+            ))}
           </nav>
         </div>
 
-        {/* Search — mono filter field (DESIGN.md code-sm) */}
-        <div className="relative mx-sm min-h-9 min-w-[9rem] flex-1 sm:min-h-9 sm:min-w-[14rem] sm:max-w-[16rem] lg:mx-md lg:max-w-[18rem]">
+        <div className="relative mx-xs min-h-9 min-w-0 max-w-[9rem] flex-1 sm:mx-sm sm:max-w-[14rem] lg:max-w-[18rem]">
           <span
             className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 font-mono text-[12px] text-on-surface-variant"
             aria-hidden
@@ -184,17 +171,16 @@ export function TopBar({
             type="search"
             value={searchQuery}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter tables…"
-            className="que-search-input h-9 w-full rounded border border-outline-variant bg-surface-container py-1 pr-14 pl-8 font-mono text-[12px] text-on-surface outline-none transition-all placeholder:text-on-surface-variant/50 focus:border-secondary focus:ring-1 focus:ring-secondary"
+            placeholder="Filter…"
+            className="que-search-input h-9 w-full rounded border border-outline-variant bg-surface-container py-1 pr-3 pl-8 font-mono text-[12px] text-on-surface outline-none transition-all placeholder:text-on-surface-variant/50 focus:border-secondary focus:ring-1 focus:ring-secondary sm:pr-14"
             autoComplete="off"
           />
-          <span className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 font-label text-[10px] font-bold tracking-widest text-on-surface-variant/50 md:inline">
+          <span className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 font-label text-[10px] font-bold tracking-widest text-on-surface-variant/50 lg:inline">
             {isMac ? '⌘K' : 'Ctrl+K'}
           </span>
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-sm" ref={toolsRef}>
-          {/* Wide desktop: inline tools, never wrap */}
           <div className="hidden items-center gap-sm 2xl:flex">
             <FilterControls filters={filters} onChange={patchFilters} />
             <ExportButtons onExport={handleExport} />

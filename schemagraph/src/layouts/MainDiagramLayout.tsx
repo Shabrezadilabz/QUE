@@ -270,11 +270,14 @@ export function MainDiagramLayout({
 
       <div
         data-slot="diagram-body"
-        className="flex min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+        className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden"
       >
-        <div className="flex h-full min-w-[720px] flex-1 md:min-w-[960px]">
+        <div className="flex h-full min-w-0 flex-1">
           {leftSidebar ? (
-            <div data-slot="left-sidebar" className="relative z-10">
+            <div
+              data-slot="left-sidebar"
+              className="relative z-10 hidden shrink-0 sm:block"
+            >
               {leftSidebar}
             </div>
           ) : null}
@@ -287,9 +290,24 @@ export function MainDiagramLayout({
           </div>
 
           {showRight ? (
-            <div data-slot="right-sidebar" className="relative z-20">
-              {rightSidebar ?? defaultRightSidebar}
-            </div>
+            <>
+              {/* Backdrop on narrow viewports — properties overlays canvas */}
+              <button
+                type="button"
+                aria-label="Close properties"
+                className="absolute inset-0 z-[15] bg-black/40 xl:hidden"
+                onClick={() => {
+                  selectTable(null)
+                  setShowRightSidebar(false)
+                }}
+              />
+              <div
+                data-slot="right-sidebar"
+                className="absolute inset-y-0 right-0 z-20 w-[min(100%,320px)] shadow-2xl xl:relative xl:inset-auto xl:z-20 xl:shadow-none"
+              >
+                {rightSidebar ?? defaultRightSidebar}
+              </div>
+            </>
           ) : null}
         </div>
       </div>

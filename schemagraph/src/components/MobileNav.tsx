@@ -14,12 +14,8 @@ const primaryLinks = [
 
 const toolLinks = [
   { to: '/jobs', label: 'Jobs' },
-  { to: '/proposals', label: 'Proposals' },
-  { to: '/transforms', label: 'Transforms' },
-  { to: '/rules', label: 'Rules' },
-  { to: '/metrics', label: 'Metrics' },
-  { to: '/bi', label: 'Certified BI' },
-  { to: '/managed', label: 'Managed' },
+  { to: '/proposals', label: 'Review' },
+  { to: '/bi', label: 'Report Studio' },
   { to: '/marketplace', label: 'Marketplace' },
   { to: '/eval', label: 'Eval' },
   { to: '/lineage', label: 'Lineage' },

@@ -7,7 +7,16 @@ import { query } from './db.js'
 import { recordAuditEvent } from './auditLog.js'
 import { readManagedDatasetRows, getManagedDataset } from './managedDataPlane.js'
 
-const CHART_TYPES = new Set(['bar', 'line', 'pie', 'table', 'kpi'])
+const CHART_TYPES = new Set([
+  'bar',
+  'line',
+  'pie',
+  'table',
+  'kpi',
+  'area',
+  'card',
+  'stacked_bar',
+])
 
 function mapChart(r) {
   return {
@@ -346,5 +355,145 @@ export async function resolveBiEmbed(rawToken) {
       certified: true,
     },
     rows: rowsOut,
+  }
+}
+
+/**
+ * Scaffold a full Report Studio pack from certified managed datasets:
+ * metrics + multi-visual canvas (bar / kpi / table / pie) with layout.
+ * Schema-first HITL — does not send lake rows to AI.
+ */
+export async function scaffoldBiReport(
+  workspaceId,
+  {
+    title = 'Workspace report',
+    datasetId = null,
+    prompt = '',
+    userId = null,
+  } = {},
+) {
+  const { listManagedDatasets } = await import('./managedDataPlane.js')
+  const { createMetric } = await import('./metricDefinitions.js')
+
+  const all = await listManagedDatasets(workspaceId)
+  const certified = all.filter((d) => d.certified)
+  const ds =
+    (datasetId && certified.find((d) => d.id === datasetId)) || certified[0]
+  if (!ds) {
+    const err = new Error(
+      'No certified managed dataset — run a job, certify on Managed, then scaffold',
+    )
+    err.status = 400
+    err.code = 'NO_CERTIFIED_DATASET'
+    throw err
+  }
+
+  const cols = (ds.columns || []).map((c) => c.name).filter(Boolean)
+  const x = cols[0] || null
+  const y = cols[1] || cols[0] || null
+  const reportId = randomUUID()
+  const reportTitle =
+    String(title || '').trim() ||
+    `${ds.name} report` ||
+    'Workspace report'
+  const promptText = String(prompt || '').trim().slice(0, 2000)
+
+  const metric = await createMetric(workspaceId, {
+    name: `${ds.name} · count`,
+    expressionSql: 'COUNT(*)',
+    datasetId: ds.id,
+    certify: true,
+    tags: ['auto-scaffold', 'report-studio'],
+    lineage: x ? { tables: [ds.name], columns: [x] } : {},
+    userId,
+  })
+
+  const layouts = [
+    {
+      chartType: 'kpi',
+      title: `${ds.name} KPI`,
+      layout: { col: 0, row: 0, w: 4, h: 2 },
+      config: { yField: y || undefined, reportId, pageId: 'page1' },
+    },
+    {
+      chartType: 'card',
+      title: `${ds.name} card`,
+      layout: { col: 4, row: 0, w: 4, h: 2 },
+      config: { yField: y || undefined, reportId, pageId: 'page1' },
+    },
+    {
+      chartType: 'bar',
+      title: `${ds.name} by ${x || 'category'}`,
+      layout: { col: 8, row: 0, w: 4, h: 4 },
+      config: {
+        xField: x || undefined,
+        yField: y || undefined,
+        reportId,
+        pageId: 'page1',
+      },
+    },
+    {
+      chartType: 'line',
+      title: `${ds.name} trend`,
+      layout: { col: 0, row: 2, w: 4, h: 4 },
+      config: {
+        xField: x || undefined,
+        yField: y || undefined,
+        reportId,
+        pageId: 'page1',
+      },
+    },
+    {
+      chartType: 'pie',
+      title: `${ds.name} mix`,
+      layout: { col: 4, row: 2, w: 4, h: 4 },
+      config: {
+        xField: x || undefined,
+        yField: y || undefined,
+        reportId,
+        pageId: 'page1',
+      },
+    },
+    {
+      chartType: 'table',
+      title: `${ds.name} detail`,
+      layout: { col: 0, row: 6, w: 12, h: 4 },
+      config: { reportId, pageId: 'page1' },
+    },
+  ]
+
+  const charts = []
+  for (const spec of layouts) {
+    const chart = await createBiChart(workspaceId, {
+      title: spec.title,
+      description: promptText
+        ? `Scaffolded from: ${promptText}`
+        : `Auto report for ${ds.name}`,
+      chartType: spec.chartType,
+      datasetId: ds.id,
+      config: { ...spec.config, layout: spec.layout },
+      certify: false,
+      userId,
+    })
+    charts.push(chart)
+  }
+
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId: userId,
+    action: 'bi_report.scaffold',
+    resourceType: 'bi_report',
+    resourceId: reportId,
+    summary: `Scaffolded report “${reportTitle}” (${charts.length} visuals)`,
+  })
+
+  return {
+    reportId,
+    title: reportTitle,
+    datasetId: ds.id,
+    datasetName: ds.name,
+    metric,
+    charts,
+    note: 'HITL — edit visuals, Run preview, Certify before embed/Ship',
   }
 }

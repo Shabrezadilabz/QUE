@@ -90,7 +90,8 @@ function mergeCitations(...lists) {
 }
 
 function finalizeChatResult(result, pack) {
-  return attachSamplePreviews(result, pack, 3, 5)
+  // UI “Verify rows” shows these — hard-cap 5–10 scrubbed samples (never managed dump)
+  return attachSamplePreviews(result, pack, 4, 10)
 }
 
 /**

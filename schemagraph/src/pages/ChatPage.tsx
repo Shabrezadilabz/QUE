@@ -9,7 +9,12 @@ import {
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { WarehouseRunsStrip } from '@/components/WarehouseRunsStrip'
-import { OutcomePanel } from '@/components/outcome/OutcomePanel'
+import {
+  OutcomePlanCard,
+  detectOutcomeFollowUp,
+  looksLikeOutcomePrompt,
+  stripOutcomeSlash,
+} from '@/components/outcome/OutcomePlanCard'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
@@ -47,9 +52,15 @@ type SpeechRecognitionLike = {
 }
 import {
   createJobFromDraft,
+  scaffoldBiReportApi,
+  createOutcomeApi,
+  createShipDraftApi,
   fetchAiStatus,
   fetchSchemaContext,
   reindexAi,
+  refreshOutcomeApi,
+  runOutcomeStepApi,
+  advanceOutcomeAgentApi,
   sendChatFeedback,
   sendChatMessage,
   type AiStatus,
@@ -57,6 +68,7 @@ import {
   type ChatMessage,
   type ChatReferencedTable,
   type ContextPackSummary,
+  type OutcomeRecord,
   type RetrievedChunk,
   type SamplePreview,
 } from '@/services/stitchApi'
@@ -77,37 +89,24 @@ interface UiMessage {
   at: string
   savedJobId?: string
   feedback?: 1 | -1 | null
+  /** Inline Outcome plan card (same chat thread) */
+  outcome?: OutcomeRecord | null
 }
 
 /**
- * Schema-only AI chat — @mentions, slash skills, sidebar pick, copy/retry/stop.
+ * Single assistant chat — schema Q&A + Outcome plans in one thread.
  */
 export function ChatPage() {
   const { canWrite, canOwner } = useWorkspaceRole()
-  const [searchParams, setSearchParams] = useSearchParams()
-  /** Owner login = CEO persona — default Outcome mode */
   const isCeo = canOwner
-  const modeParam = searchParams.get('mode')
-  const assistantMode: 'outcome' | 'explore' =
-    modeParam === 'outcome'
-      ? 'outcome'
-      : modeParam === 'explore'
-        ? 'explore'
-        : isCeo
-          ? 'outcome'
-          : 'explore'
-
-  function setAssistantMode(next: 'outcome' | 'explore') {
-    const nextParams = new URLSearchParams(searchParams)
-    nextParams.set('mode', next)
-    setSearchParams(nextParams, { replace: true })
-  }
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { workspaceId, workspaces } = useAuth()
   const workspaceName =
     workspaces.find((w) => w.id === workspaceId)?.name || 'Workspace'
   const { pushToast } = useToast()
   const [messages, setMessages] = useState<UiMessage[]>([])
+  const [activeOutcomeId, setActiveOutcomeId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [context, setContext] = useState<ContextPackSummary | null>(null)
@@ -189,10 +188,140 @@ export function ChatPage() {
     setMessages([])
     setFocusTables([])
     setActiveMentions([])
-    setInput('')
+    setActiveOutcomeId(null)
+    const q = searchParams.get('q')
+    setInput(q?.trim() || '')
     void reloadContext()
     void reloadAiStatus()
-  }, [workspaceId, reloadContext, reloadAiStatus])
+  }, [workspaceId, reloadContext, reloadAiStatus, searchParams])
+
+  function stamp() {
+    return new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  function latestOutcomeFromMessages(list: UiMessage[]): OutcomeRecord | null {
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].outcome) return list[i].outcome!
+    }
+    return null
+  }
+
+  function upsertOutcomeMessage(outcome: OutcomeRecord, content: string) {
+    setActiveOutcomeId(outcome.id)
+    setMessages((prev) => {
+      const idx = [...prev]
+        .map((m, i) => (m.outcome?.id === outcome.id ? i : -1))
+        .filter((i) => i >= 0)
+        .pop()
+      const nextMsg: UiMessage = {
+        id: idx != null ? prev[idx].id : `o-${Date.now()}`,
+        role: 'assistant',
+        content,
+        outcome,
+        mode: 'outcome',
+        at: stamp(),
+      }
+      if (idx == null) return [...prev, nextMsg]
+      const copy = [...prev]
+      copy[idx] = nextMsg
+      return copy
+    })
+  }
+
+  async function runOutcomeAction(
+    action: 'refresh' | 'infer' | 'next' | 'approve' | 'advance' | 'ship',
+    outcomeId?: string | null,
+  ) {
+    const id =
+      outcomeId ||
+      activeOutcomeId ||
+      latestOutcomeFromMessages(messages)?.id ||
+      null
+    if (!id || !canWrite) {
+      setBusy(false)
+      return
+    }
+    setBusy(true)
+    try {
+      if (action === 'ship') {
+        const current =
+          latestOutcomeFromMessages(messages) ||
+          (await refreshOutcomeApi(id))
+        const hint = current.plan?.steps?.find((s) => s.kind === 'chart')
+          ?.chartHint
+        const ship = await createShipDraftApi({
+          title: hint?.title || current.prompt.slice(0, 80),
+          outcomeId: id,
+          chartType: hint?.chartType || 'bar',
+          description: current.prompt,
+        })
+        pushToast('Ship draft created', 'success')
+        window.location.href = `/ship?id=${ship.id}`
+        return
+      }
+      if (action === 'refresh') {
+        const outcome = await refreshOutcomeApi(id)
+        upsertOutcomeMessage(outcome, 'Plan refreshed from live schema.')
+        return
+      }
+      if (action === 'infer') {
+        const out = await runOutcomeStepApi(id, {
+          stepId: 'joins',
+          inferJoins: true,
+        })
+        if (out.outcome) {
+          upsertOutcomeMessage(
+            out.outcome,
+            'Inferred joins (HITL Promote still required for Yellow/Red).',
+          )
+        }
+        return
+      }
+      if (action === 'next') {
+        const out = await runOutcomeStepApi(id, { stepId: 'auto' })
+        if (out.outcome) {
+          upsertOutcomeMessage(
+            out.outcome,
+            `Ran step “${out.stepId}”. Continue with Promote / Ship when ready.`,
+          )
+        }
+        const shipAction = (out.actions || []).find(
+          (a) =>
+            a &&
+            typeof a === 'object' &&
+            (a as { tool?: string }).tool === 'ship_draft' &&
+            (a as { href?: string }).href,
+        ) as { href?: string } | undefined
+        if (shipAction?.href) {
+          window.location.href = shipAction.href
+        }
+        return
+      }
+      if (action === 'approve' || action === 'advance') {
+        const out = await advanceOutcomeAgentApi(id, {
+          approvePlan: action === 'approve',
+        })
+        if (out.outcome) {
+          upsertOutcomeMessage(
+            out.outcome,
+            out.needsHitl
+              ? 'HITL gate — Promote joins or approve the agent plan.'
+              : `Agent · ${out.session?.status || 'ok'}`,
+          )
+        }
+      }
+    } catch (err) {
+      pushToast(
+        err instanceof Error ? err.message : 'Outcome action failed',
+        'error',
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
 
   useEffect(() => {
     const onFocus = () => void reloadContext({ quiet: true })
@@ -544,6 +673,109 @@ export function ChatPage() {
     setActiveMentions([])
     setBusy(true)
 
+    // Outcome follow-ups in the same thread
+    const follow = detectOutcomeFollowUp(message)
+    const currentOutcome =
+      (activeOutcomeId
+        ? latestOutcomeFromMessages([...messages, userMsg])
+        : null) || latestOutcomeFromMessages(messages)
+    if (follow && (activeOutcomeId || currentOutcome?.id)) {
+      const map = {
+        run_next: 'next',
+        infer_joins: 'infer',
+        ship: 'ship',
+        approve_agent: 'approve',
+        advance_agent: 'advance',
+      } as const
+      await runOutcomeAction(map[follow], activeOutcomeId || currentOutcome?.id)
+      return
+    }
+
+    // Outcome plan build in the same thread
+    if (looksLikeOutcomePrompt(message)) {
+      try {
+        const promptText =
+          stripOutcomeSlash(message) ||
+          'I want a trusted stitch outcome from connected sources'
+        const outcome = await createOutcomeApi(promptText)
+        upsertOutcomeMessage(
+          outcome,
+          isCeo
+            ? 'CEO Outcome plan ready. Review steps below, Promote Yellow/Red joins, then Ship to BI.'
+            : 'Outcome plan ready. Review steps below — Promote stays HITL for Yellow/Red.',
+        )
+        pushToast('Outcome plan built in chat', 'success')
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `e-${Date.now()}`,
+            role: 'assistant',
+            content: `Outcome failed: ${err instanceof Error ? err.message : String(err)}`,
+            at: stamp(),
+          },
+        ])
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+
+    // Build BI / Report Studio from chat summary — scaffolds real metrics + visuals
+    if (
+      /^\/bi\b/i.test(message) ||
+      /\bbuild\s+(me\s+)?(a\s+)?(bi|report|dashboard|semantic)\b/i.test(
+        message,
+      )
+    ) {
+      try {
+        const promptText = message.replace(/^\/bi\s*/i, '').trim() || message
+        const out = await scaffoldBiReportApi({
+          title: 'Chat report',
+          prompt: promptText.slice(0, 2000),
+        })
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `a-${Date.now()}`,
+            role: 'assistant',
+            content:
+              `Built **Report Studio** pack on **${out.datasetName}**: ${out.charts.length} visuals (KPI, card, bar, line, pie, table) + metric.\n\n` +
+              `Open the canvas, **Run all**, edit axes/layout, **Certify**, then Ship / embed.\n\n` +
+              `Schema-first — preview uses certified managed data only.`,
+            at: stamp(),
+            mode: 'bi',
+          },
+        ])
+        pushToast('Report scaffolded', 'success')
+        navigate(
+          out.reportId
+            ? `/bi?report=${encodeURIComponent(out.reportId)}`
+            : '/bi',
+        )
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `e-${Date.now()}`,
+            role: 'assistant',
+            content:
+              `Could not scaffold BI yet: ${err instanceof Error ? err.message : String(err)}\n\n` +
+              `Run a job → certify a Managed dataset → retry **/bi** or open Report Studio and click **Build full report**.`,
+            at: stamp(),
+            mode: 'bi',
+          },
+        ])
+        pushToast(
+          err instanceof Error ? err.message : 'BI scaffold failed',
+          'error',
+        )
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+
     const historyBase = opts?.replaceLastUser
       ? (() => {
           const lastUserIdx = [...messages]
@@ -712,84 +944,26 @@ export function ChatPage() {
   return (
     <QueAppChrome
       eyebrow={
-        assistantMode === 'outcome'
-          ? isCeo
-            ? 'OUTCOME · CEO MODE'
-            : 'OUTCOME · PLAN → SHIP'
+        isCeo
+          ? 'ASSISTANT · CEO (schema-only)'
           : 'SCHEMA-ONLY · MODEL ASSISTANT'
       }
     >
       <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
-        {/* Mode tabs — left rail */}
-        <nav
-          className="flex w-[4.5rem] shrink-0 flex-col gap-xs border-r border-outline-variant bg-surface-container-low py-md sm:w-36 sm:px-sm"
-          aria-label="Assistant mode"
-        >
-          <p className="hidden px-sm pb-sm font-label text-[9px] tracking-widest text-on-surface-variant uppercase sm:block">
-            Mode
-            {isCeo ? ' · CEO' : ''}
-          </p>
-          <button
-            type="button"
-            onClick={() => setAssistantMode('outcome')}
-            className={[
-              'mx-xs rounded-lg px-sm py-sm text-left font-label text-[11px] font-bold tracking-[0.06em] uppercase transition-colors sm:mx-0',
-              assistantMode === 'outcome'
-                ? 'bg-secondary/20 text-secondary'
-                : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface',
-            ].join(' ')}
-            title="Outcome — business result → plan → Ship"
-          >
-            <span className="sm:hidden">Out</span>
-            <span className="hidden sm:inline">Outcome</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAssistantMode('explore')}
-            className={[
-              'mx-xs rounded-lg px-sm py-sm text-left font-label text-[11px] font-bold tracking-[0.06em] uppercase transition-colors sm:mx-0',
-              assistantMode === 'explore'
-                ? 'bg-secondary/20 text-secondary'
-                : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface',
-            ].join(' ')}
-            title="Explore — schema Q&A, SQL drafts, @mentions"
-          >
-            <span className="sm:hidden">Exp</span>
-            <span className="hidden sm:inline">Explore</span>
-          </button>
-        </nav>
-
-        {assistantMode === 'outcome' ? (
-          <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-sm md:px-lg md:py-md">
-            <WarehouseRunsStrip />
-            <div className="mb-md flex shrink-0 items-end justify-between gap-md">
-              <div>
-                <h1 className="font-headline text-xl font-semibold text-secondary">
-                  Outcome
-                  {isCeo ? (
-                    <span className="ml-sm align-middle font-label text-[10px] tracking-widest text-secondary/80">
-                      CEO
-                    </span>
-                  ) : null}
-                </h1>
-                <p className="font-body text-xs text-on-surface-variant">
-                  Business result → sources → joins → metrics → Ship
-                </p>
-              </div>
-            </div>
-            <OutcomePanel isCeo={isCeo} />
-          </main>
-        ) : (
-          <>
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-sm md:px-lg md:py-md">
           <WarehouseRunsStrip />
           <div className="mb-md flex shrink-0 items-end justify-between gap-md">
             <div>
               <h1 className="font-headline text-xl font-semibold text-secondary sm:text-xl">
-                Model Assistant
+                Assistant
+                {isCeo ? (
+                  <span className="ml-sm align-middle font-label text-[10px] tracking-widest text-secondary/80">
+                    CEO
+                  </span>
+                ) : null}
               </h1>
               <p className="font-body text-xs text-on-surface-variant">
-                Intelligent schema design and query support
+                Schema Q&A, joins, SQL drafts, and Outcome plans in one chat
                 {busy ? ' · thinking…' : ''}
               </p>
             </div>
@@ -881,7 +1055,9 @@ export function ChatPage() {
                       <span className="font-semibold text-secondary">{workspaceName}</span>
                       {context?.stats?.tableCount
                         ? ` — ${context.stats.tableCount} tables and ${context.stats.relationshipCount ?? 0} relationships ready for schema-only answers.`
-                        : '. Sync a source or ask about tables with @mentions.'}
+                        : '. Sync a source or ask about tables with @mentions.'}{' '}
+                      Ask schema questions, or say “I want revenue by region…” for an
+                      Outcome plan in this same thread.
                     </p>
                   </div>
                   <span className="ml-1 font-label text-[12px] text-on-surface-variant/60">
@@ -889,7 +1065,9 @@ export function ChatPage() {
                   </span>
                   <div className="flex flex-wrap gap-sm pt-sm">
                     {CHAT_SKILLS.filter((s) =>
-                      ['list', 'suggested', 'diff', 'help'].includes(s.id),
+                      ['outcome', 'list', 'suggested', 'diff', 'help'].includes(
+                        s.id,
+                      ),
                     ).map((s) => (
                       <button
                         key={s.id}
@@ -914,6 +1092,14 @@ export function ChatPage() {
                 <ChatBubble
                   key={m.id}
                   message={m}
+                  busy={busy}
+                  canWrite={canWrite}
+                  onOutcomeAction={
+                    m.outcome
+                      ? (action) =>
+                          void runOutcomeAction(action, m.outcome?.id)
+                      : undefined
+                  }
                   onSaveJob={
                     canWrite && m.jobDraft && !m.savedJobId
                       ? () => void saveJob(m.id, m.jobDraft!)
@@ -970,6 +1156,18 @@ export function ChatPage() {
             ) : null}
 
             <div className="flex flex-wrap gap-sm">
+              <button
+                type="button"
+                disabled={!canWrite}
+                onClick={() =>
+                  void ask(
+                    '/outcome I want revenue by region from connected sources',
+                  )
+                }
+                className="flex items-center gap-xs rounded-full border border-secondary/40 bg-secondary/10 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
+              >
+                Outcome plan
+              </button>
               <button
                 type="button"
                 disabled={!canWrite}
@@ -1505,22 +1703,22 @@ export function ChatPage() {
               {context?.stats?.suggestedJoins
                 ? `You have ${context.stats.suggestedJoins} suggested join(s) waiting for review. Promote accepted joins before shipping a dbt PR.`
                 : 'Ask about joins with /suggested, or mention tables with @name for schema-only answers — never raw warehouse rows.'}{' '}
-              <a
-                href="#"
+              Type{' '}
+              <button
+                type="button"
                 className="underline"
-                onClick={(e) => {
-                  e.preventDefault()
-                  setAssistantMode('outcome')
+                onClick={() => {
+                  void ask(
+                    '/outcome I want revenue by region from connected sources',
+                  )
                 }}
               >
-                Outcome mode
-              </a>{' '}
-              for CEO-style plans → Ship to BI.
+                /outcome …
+              </button>{' '}
+              in this chat for CEO-style plans → Ship to BI.
             </p>
           </div>
         </aside>
-          </>
-        )}
       </div>
     </QueAppChrome>
   )
@@ -1529,12 +1727,20 @@ export function ChatPage() {
 
 function ChatBubble({
   message,
+  busy,
+  canWrite,
+  onOutcomeAction,
   onSaveJob,
   onCopy,
   onInsertMention,
   onFeedback,
 }: {
   message: UiMessage
+  busy?: boolean
+  canWrite?: boolean
+  onOutcomeAction?: (
+    action: 'refresh' | 'infer' | 'next' | 'approve' | 'advance' | 'ship',
+  ) => void
   onSaveJob?: () => void
   onCopy?: () => void
   onInsertMention?: (token: string) => void
@@ -1599,6 +1805,31 @@ function ChatBubble({
             ) : null}
           </div>
           <AssistantBody text={message.content} />
+          {message.outcome ? (
+            <OutcomePlanCard
+              outcome={message.outcome}
+              busy={busy}
+              canWrite={canWrite}
+              onRefresh={
+                onOutcomeAction ? () => onOutcomeAction('refresh') : undefined
+              }
+              onInferJoins={
+                onOutcomeAction ? () => onOutcomeAction('infer') : undefined
+              }
+              onRunNext={
+                onOutcomeAction ? () => onOutcomeAction('next') : undefined
+              }
+              onApproveAgent={
+                onOutcomeAction ? () => onOutcomeAction('approve') : undefined
+              }
+              onAdvanceAgent={
+                onOutcomeAction ? () => onOutcomeAction('advance') : undefined
+              }
+              onShip={
+                onOutcomeAction ? () => onOutcomeAction('ship') : undefined
+              }
+            />
+          ) : null}
           {message.referencedTables && message.referencedTables.length > 0 ? (
             <div className="my-md flex flex-col items-stretch gap-lg rounded-lg border border-outline-variant bg-surface-container-low/50 p-md md:flex-row md:items-center">
               <div className="flex w-full flex-col items-center gap-sm md:w-1/3">
@@ -1648,27 +1879,6 @@ function ChatBubble({
               </div>
             </div>
           ) : null}
-          {message.samplePreviews && message.samplePreviews.length > 0
-            ? message.samplePreviews.map((p) => (
-                <SamplePreviewTable key={p.table} preview={p} />
-              ))
-            : null}
-          {message.retrievedChunks && message.retrievedChunks.length > 0 ? (
-            <div className="flex flex-wrap gap-xs">
-              <span className="w-full font-label text-[10px] tracking-widest text-on-surface-variant">
-                Retrieved
-              </span>
-              {message.retrievedChunks.slice(0, 8).map((c) => (
-                <span
-                  key={c.sourceRef}
-                  className="rounded-full border border-outline-variant/80 px-sm py-xs font-label text-[11px] text-on-surface-variant"
-                  title={`score ${c.score.toFixed(3)} · ${c.sourceKind}`}
-                >
-                  {c.title}
-                </span>
-              ))}
-            </div>
-          ) : null}
           {message.sql ? (
             <div className="relative overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
               <span className="absolute top-0 right-0 rounded-bl-lg bg-secondary-container px-sm py-xs font-label text-[10px] tracking-widest text-secondary">
@@ -1684,6 +1894,27 @@ function ChatBubble({
               >
                 Copy SQL
               </button>
+            </div>
+          ) : null}
+          <VerifyScrubbedSamples
+            previews={message.samplePreviews}
+            hasSql={Boolean(message.sql)}
+            hasTables={Boolean(message.referencedTables?.length)}
+          />
+          {message.retrievedChunks && message.retrievedChunks.length > 0 ? (
+            <div className="flex flex-wrap gap-xs">
+              <span className="w-full font-label text-[10px] tracking-widest text-on-surface-variant">
+                Retrieved
+              </span>
+              {message.retrievedChunks.slice(0, 8).map((c) => (
+                <span
+                  key={c.sourceRef}
+                  className="rounded-full border border-outline-variant/80 px-sm py-xs font-label text-[11px] text-on-surface-variant"
+                  title={`score ${c.score.toFixed(3)} · ${c.sourceKind}`}
+                >
+                  {c.title}
+                </span>
+              ))}
             </div>
           ) : null}
           {message.jobDraft ? (
@@ -1739,8 +1970,80 @@ function ChatBubble({
 }
 
 
-function SamplePreviewTable({ preview }: { preview: SamplePreview }) {
+function VerifyScrubbedSamples({
+  previews,
+  hasSql,
+  hasTables,
+}: {
+  previews?: SamplePreview[]
+  hasSql?: boolean
+  hasTables?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const list = (previews || [])
+    .map((p) => ({
+      ...p,
+      rows: (p.rows || []).slice(0, 10),
+      rowCount: Math.min(p.rowCount || p.rows?.length || 0, 10),
+    }))
+    .filter((p) => p.columns?.length)
+
+  // Show control after query-ish answers (SQL, tables, or attached samples)
+  if (!list.length && !hasSql && !hasTables) return null
+
+  return (
+    <div className="rounded-lg border border-secondary/30 bg-secondary/5 p-md">
+      <div className="flex flex-wrap items-center justify-between gap-sm">
+        <div>
+          <p className="font-label text-[11px] font-semibold text-secondary">
+            Verify rows
+          </p>
+          <p className="mt-0.5 text-[11px] text-on-surface-variant">
+            Scrubbed samples only (5–10 rows) — not the lake / not full managed
+            data.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="rounded bg-secondary px-md py-1.5 font-label text-[11px] font-semibold text-on-secondary"
+        >
+          {open
+            ? 'Hide samples'
+            : list.length
+              ? 'Show scrubbed samples'
+              : 'Verify data shape'}
+        </button>
+      </div>
+      {open ? (
+        <div className="mt-md space-y-md">
+          {list.length > 0 ? (
+            list.map((p) => (
+              <SamplePreviewTable key={p.table} preview={p} capped />
+            ))
+          ) : (
+            <p className="text-[12px] text-on-surface-variant">
+              No scrubbed sample grid on this reply yet. Mention a table with{' '}
+              <span className="font-mono text-secondary">@table</span> or ask to
+              describe it — Que attaches 5–10 pinned/schema sample rows when
+              available. Full row certify stays on Jobs → Results.
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function SamplePreviewTable({
+  preview,
+  capped = false,
+}: {
+  preview: SamplePreview
+  capped?: boolean
+}) {
   const cols = preview.columns
+  const rows = (preview.rows || []).slice(0, 10)
   return (
     <div className="overflow-hidden border border-outline-variant bg-surface-container-lowest">
       <div className="flex flex-wrap items-center justify-between gap-sm border-b border-outline-variant bg-surface-container px-md py-sm">
@@ -1755,8 +2058,8 @@ function SamplePreviewTable({ preview }: { preview: SamplePreview }) {
           ) : null}
         </div>
         <span className="font-label text-[8px] tracking-widest text-on-surface-variant/70">
-          {preview.rowCount} ROW{preview.rowCount === 1 ? '' : 'S'} · SCHEMA
-          SAMPLES ONLY
+          {rows.length} ROW{rows.length === 1 ? '' : 'S'} · SCRUBBED 5–10 MAX
+          {capped ? ' · VERIFY' : ''}
         </span>
       </div>
       <div className="overflow-x-auto">
@@ -1780,7 +2083,7 @@ function SamplePreviewTable({ preview }: { preview: SamplePreview }) {
             </tr>
           </thead>
           <tbody>
-            {preview.rows.map((row, ri) => (
+            {rows.map((row, ri) => (
               <tr
                 key={ri}
                 className="border-b border-outline-variant/50 last:border-0"
@@ -1800,7 +2103,8 @@ function SamplePreviewTable({ preview }: { preview: SamplePreview }) {
         </table>
       </div>
       <p className="border-t border-outline-variant px-md py-xs font-label text-[8px] tracking-wider text-on-surface-variant/60">
-        {preview.note}
+        {preview.note ||
+          'Pinned / schema scrubbed samples only — never full warehouse or managed custody for AI.'}
       </p>
     </div>
   )

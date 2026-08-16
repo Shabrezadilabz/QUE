@@ -571,6 +571,72 @@ export async function updateBiChartApi(
   return body.item
 }
 
+export async function deleteBiChartApi(
+  chartId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/charts/${chartId}`,
+    { method: 'DELETE' },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error ?? `bi delete ${res.status}`)
+}
+
+export async function previewBiChartApi(
+  chartId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<Record<string, unknown>[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/charts/${chartId}/preview`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    rows?: Record<string, unknown>[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `preview ${res.status}`)
+  return body.rows || []
+}
+
+export async function scaffoldBiReportApi(
+  input: { title?: string; datasetId?: string | null; prompt?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  reportId: string
+  title: string
+  datasetId: string
+  datasetName: string
+  charts: BiChart[]
+  note?: string
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/scaffold-report`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    reportId?: string
+    title?: string
+    datasetId?: string
+    datasetName?: string
+    charts?: BiChart[]
+    note?: string
+    error?: string
+    code?: string
+  }
+  if (!res.ok) throw new Error(body.error || `scaffold ${res.status}`)
+  return {
+    reportId: body.reportId || '',
+    title: body.title || 'Report',
+    datasetId: body.datasetId || '',
+    datasetName: body.datasetName || '',
+    charts: body.charts || [],
+    note: body.note,
+  }
+}
+
 export async function mintBiEmbedTokenApi(
   chartId: string,
   opts: { label?: string; expiresInDays?: number } = {},
@@ -3834,6 +3900,26 @@ export async function fetchTransforms(
       sqlText: string
       status: string
       jobId?: string | null
+      createdBy?: string | null
+      createdByName?: string | null
+      createdByEmail?: string | null
+      createdAt?: string
+      evidence?: {
+        mode?: string
+        model?: string | null
+        proposerKind?: string
+        nature?: string
+        query?: string
+        whyReferred?: string
+        referredTables?: {
+          name: string
+          connection?: string | null
+          reason?: string
+        }[]
+        tableCount?: number
+        rulesApplied?: number
+        ruleTitles?: string[]
+      }
     }[]
     error?: string
   }

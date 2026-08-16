@@ -27,6 +27,8 @@ function mapDraft(r) {
         ? r.evidence_json
         : {},
     createdBy: r.created_by,
+    createdByName: r.creator_display_name || null,
+    createdByEmail: r.creator_email || null,
     reviewedBy: r.reviewed_by,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -42,17 +44,61 @@ function extractSql(text) {
   return String(text || '').trim()
 }
 
+/** Tables named in SQL FROM/JOIN clauses (schema-only references). */
+function tablesReferencedInSql(sql, packTables = []) {
+  const text = String(sql || '')
+  const found = []
+  const re = /\b(?:from|join)\s+([a-zA-Z_][\w.]*)/gi
+  let m
+  while ((m = re.exec(text))) {
+    const raw = m[1]
+    const short = raw.includes('.') ? raw.split('.').pop() : raw
+    if (!found.some((t) => t.name === short)) {
+      const meta = packTables.find(
+        (t) =>
+          t.name === short ||
+          t.name === raw ||
+          String(t.name).toLowerCase() === String(short).toLowerCase(),
+      )
+      found.push({
+        name: short,
+        connection: meta?.connection || null,
+        reason: meta
+          ? 'Appears in draft SQL FROM/JOIN — selected from workspace schema pack'
+          : 'Appears in draft SQL FROM/JOIN',
+      })
+    }
+  }
+  return found
+}
+
+function tablesMentionedInPrompt(prompt, packTables = []) {
+  const p = String(prompt || '').toLowerCase()
+  return (packTables || [])
+    .filter((t) => p.includes(String(t.name || '').toLowerCase()))
+    .slice(0, 12)
+    .map((t) => ({
+      name: t.name,
+      connection: t.connection || null,
+      reason: 'Name mentioned in the user / agent prompt',
+    }))
+}
+
 export async function listTransformDrafts(workspaceId, { status } = {}) {
   const params = [workspaceId]
   let statusSql = ''
   if (status) {
     params.push(String(status))
-    statusSql = ` AND status = $2`
+    statusSql = ` AND t.status = $2`
   }
   const { rows } = await query(
-    `SELECT * FROM transform_drafts
-     WHERE workspace_id = $1 ${statusSql}
-     ORDER BY updated_at DESC
+    `SELECT t.*,
+            u.display_name AS creator_display_name,
+            u.email AS creator_email
+     FROM transform_drafts t
+     LEFT JOIN users u ON u.id = t.created_by
+     WHERE t.workspace_id = $1 ${statusSql}
+     ORDER BY t.updated_at DESC
      LIMIT 100`,
     params,
   )
@@ -61,7 +107,12 @@ export async function listTransformDrafts(workspaceId, { status } = {}) {
 
 export async function getTransformDraft(workspaceId, draftId) {
   const { rows } = await query(
-    `SELECT * FROM transform_drafts WHERE workspace_id = $1 AND id = $2`,
+    `SELECT t.*,
+            u.display_name AS creator_display_name,
+            u.email AS creator_email
+     FROM transform_drafts t
+     LEFT JOIN users u ON u.id = t.created_by
+     WHERE t.workspace_id = $1 AND t.id = $2`,
     [workspaceId, draftId],
   )
   return rows[0] ? mapDraft(rows[0]) : null
@@ -96,6 +147,7 @@ export async function createTransformDraft(
 
   let sql = ''
   let mode = 'heuristic'
+  let modelLabel = null
   const ws = await getWorkspaceSettings(workspaceId)
   const keys = await resolveProviderKeys(workspaceId)
   const model = resolveModel(ws?.settings || {}, null, keys)
@@ -111,6 +163,10 @@ export async function createTransformDraft(
       const text = await callChatModel(model, system, p, [], keys)
       sql = extractSql(text)
       mode = 'llm'
+      modelLabel =
+        typeof model === 'string'
+          ? model
+          : model?.id || model?.model || model?.name || 'llm'
     } catch (err) {
       console.warn('[Que transform] LLM failed:', err.message || err)
     }
@@ -128,6 +184,42 @@ export async function createTransformDraft(
     mode = 'heuristic'
   }
 
+  const mentioned = tablesMentionedInPrompt(p, pack.tables || [])
+  const fromSql = tablesReferencedInSql(sql, pack.tables || [])
+  const referredMap = new Map()
+  for (const t of [...mentioned, ...fromSql]) {
+    if (!referredMap.has(t.name)) referredMap.set(t.name, t)
+  }
+  // Heuristic fallback: if nothing matched, cite first schema table used
+  if (referredMap.size === 0 && pack.tables?.[0]) {
+    const t0 = pack.tables[0]
+    referredMap.set(t0.name, {
+      name: t0.name,
+      connection: t0.connection || null,
+      reason:
+        'Default schema table used for heuristic draft (no named match in prompt)',
+    })
+  }
+  const referredTables = [...referredMap.values()]
+  const ruleTitles = (rules || [])
+    .slice(0, 8)
+    .map((r) => r.title || r.name || r.id)
+    .filter(Boolean)
+
+  const nature =
+    mode === 'llm'
+      ? `Agent (LLM) drafted READ-ONLY SQL from your prompt against the workspace schema pack${
+          modelLabel ? ` using ${modelLabel}` : ''
+        }. Promote stays HITL — SQL is not applied until you Approve + Apply.`
+      : `Heuristic draft (no LLM result). Que picked schema tables to sketch a SELECT from your prompt so a human can review and rewrite before Apply.`
+
+  const whyReferred =
+    referredTables.length === 0
+      ? 'No tables could be linked yet — connect sources or name tables in the prompt.'
+      : referredTables
+          .map((t) => `${t.name}${t.connection ? ` (${t.connection})` : ''}: ${t.reason}`)
+          .join(' · ')
+
   const id = randomUUID()
   const draftTitle =
     String(title || '').trim() || p.slice(0, 80) || 'Transform draft'
@@ -143,8 +235,15 @@ export async function createTransformDraft(
       sql.slice(0, 50000),
       JSON.stringify({
         mode,
+        model: modelLabel,
+        proposerKind: 'user',
+        nature,
+        query: p.slice(0, 2000),
+        referredTables,
+        whyReferred,
         tableCount: pack.stats?.tableCount || 0,
         rulesApplied: rules.length,
+        ruleTitles,
       }),
       userId,
     ],

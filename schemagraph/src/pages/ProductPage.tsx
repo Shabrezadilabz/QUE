@@ -80,16 +80,10 @@ export function ProductPage() {
               Review joins
             </Link>
             <Link
-              to="/transforms"
+              to="/proposals"
               className="rounded-lg border border-outline-variant px-lg py-2 font-label text-[12px]"
             >
-              Transforms
-            </Link>
-            <Link
-              to="/rules"
-              className="rounded-lg border border-outline-variant px-lg py-2 font-label text-[12px]"
-            >
-              Rules
+              Review
             </Link>
             <Link
               to="/compliance"

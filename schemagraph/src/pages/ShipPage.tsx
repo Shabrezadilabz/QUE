@@ -205,12 +205,12 @@ export function ShipPage() {
               <p className="mt-sm text-[12px] text-amber-300">
                 Certify note: {certifyError}. Approve still recorded — certify a
                 managed dataset on{' '}
-                <Link to="/managed" className="underline">
-                  Managed
+                <Link to="/jobs" className="underline">
+                  Jobs → Results
                 </Link>{' '}
                 then re-approve, or use{' '}
                 <Link to="/bi" className="underline">
-                  Certified BI
+                  Report Studio
                 </Link>
                 .
               </p>

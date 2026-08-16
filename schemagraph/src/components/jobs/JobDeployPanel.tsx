@@ -194,6 +194,12 @@ export function JobDeployPanel({
             >
               Open workspace canvas
             </Link>
+            <Link
+              to="/bi"
+              className="inline-flex rounded-lg border border-secondary/40 bg-secondary/5 px-md py-2 font-label text-[12px] text-secondary hover:bg-secondary/10"
+            >
+              Build Report Studio
+            </Link>
           </div>
         </div>
       </div>

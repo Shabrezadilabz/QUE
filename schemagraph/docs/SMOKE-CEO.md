@@ -5,7 +5,7 @@ Schema-first HITL. No lake custody claims.
 ## Local smoke (5–10 min)
 
 1. **API + UI** — `api` on `:8787`, app on `:5174`; migrate includes `038_ceo_outcome_ship.sql`.
-2. **Outcome** — `/outcome` → Build plan → **Infer joins (HITL)** → **Run next step**.
+2. **Outcome** — `/chat` → type `/outcome …` or “I want revenue by region…” → plan card in-thread → **Infer joins** / **Run next** / **Ship**.
 3. **Agent** — Settings → enable Stitch Agent → new Outcome → **Approve agent plan & run** → Promote on `/joins` if Yellow/Red → **Advance agent**.
 4. **Ship** — `/ship` draft → Approve → link `jobId`/`materializationId` → Rollback (optional DROP).
 5. **Slack (optional)**  

@@ -322,6 +322,7 @@ import {
   updateBiChart,
   deleteBiChart,
   previewBiChart,
+  scaffoldBiReport,
   mintBiEmbedToken,
   revokeBiEmbedToken,
   resolveBiEmbed,
@@ -4488,6 +4489,27 @@ app.post(
 )
 
 /* ── Production: certified BI ── */
+app.post(
+  '/workspaces/:workspaceId/bi/scaffold-report',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await scaffoldBiReport(req.params.workspaceId, {
+        title: req.body?.title,
+        datasetId: req.body?.datasetId || null,
+        prompt: req.body?.prompt || '',
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
+    }
+  },
+)
+
 app.get('/workspaces/:workspaceId/bi/charts', async (req, res) => {
   try {
     const items = await listBiCharts(req.params.workspaceId)

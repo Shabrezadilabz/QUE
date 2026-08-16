@@ -90,6 +90,22 @@ export const CHAT_SKILLS: ChatSkill[] = [
       'explain Que schema-only AI policy: what metadata is used, sample caps, and that raw warehouse rows are never centralized',
   },
   {
+    id: 'outcome',
+    slash: '/outcome',
+    label: 'Outcome plan',
+    description: 'CEO-style plan: sources → joins → metrics → Ship to BI',
+    buildPrompt: () =>
+      '/outcome I want revenue by region from connected sources',
+  },
+  {
+    id: 'bi',
+    slash: '/bi',
+    label: 'Build Report Studio',
+    description: 'Open Metrics + BI studio; scaffold after job / managed certify',
+    buildPrompt: () =>
+      '/bi Build a semantic BI report from this workspace summary',
+  },
+  {
     id: 'help',
     slash: '/help',
     label: 'Help',
@@ -135,6 +151,13 @@ export function expandSkillInput(input: string, focusTables: string[]): string {
   )
   if (!skill) return trimmed
   const rest = (m[2] || '').trim()
+  // Keep /outcome and /bi as chat intents — do not rewrite user goal text.
+  if (skill.id === 'outcome') {
+    return rest ? `/outcome ${rest}` : skill.buildPrompt(focusTables)
+  }
+  if (skill.id === 'bi') {
+    return rest ? `/bi ${rest}` : skill.buildPrompt(focusTables)
+  }
   const base = skill.buildPrompt(focusTables)
   return rest ? `${base}\n\nAdditional context: ${rest}` : base
 }

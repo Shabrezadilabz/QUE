@@ -308,7 +308,10 @@ export function listMarketplaceCatalog(opts = {}) {
 }
 
 /**
- * Apply pack → job + optional rules + Outcome + install record.
+ * Apply pack end-to-end (schema-first HITL):
+ * match tables → seed rules → infer join suggestions → draft job →
+ * Outcome plan → Ship draft → optional BI scaffold → playbook links.
+ * Never auto-Promotes joins or sends lake/managed rows to AI.
  */
 export async function applyIndustryTemplatePack(
   workspaceId,
@@ -321,50 +324,145 @@ export async function applyIndustryTemplatePack(
     err.status = 404
     throw err
   }
-  const sqlText = (pack.sqlCells || [])
+
+  const { buildSchemaContextPack } = await import('./schemaContext.js')
+  let packCtx = { tables: [], stats: {} }
+  try {
+    packCtx = await buildSchemaContextPack(workspaceId)
+  } catch {
+    /* empty workspace ok */
+  }
+  const schemaTables = packCtx.tables || []
+  const tableMatch = matchPackTables(pack.tablesHint || [], schemaTables)
+
+  let sqlText = (pack.sqlCells || [])
     .map((c) => `-- ${c.title}\n${c.sql}`)
     .join('\n\n')
+  sqlText = rewriteSqlWithMatchedTables(sqlText, tableMatch.matched)
+
+  const matchNote =
+    tableMatch.matched.length || tableMatch.missing.length
+      ? `\n\n## Schema match\n` +
+        (tableMatch.matched.length
+          ? `Matched: ${tableMatch.matched
+              .map((m) => `${m.hint} → ${m.table}`)
+              .join(', ')}\n`
+          : 'Matched: (none yet — sync Sources)\n') +
+        (tableMatch.missing.length
+          ? `Missing hints: ${tableMatch.missing.join(', ')}\n`
+          : '')
+      : ''
+
   const notebook = buildNotebookFromFields({
     title: pack.title,
-    notes: `${pack.notebookMarkdown || ''}\n\n${pack.description}`,
+    notes: `${pack.notebookMarkdown || ''}\n\n${pack.description}${matchNote}\n\nHITL: Promote Yellow/Red joins before live materialize / Ship.`,
     sqlText,
-    tables: pack.tablesHint || [],
+    tables: tableMatch.matched.map((m) => m.table).concat(
+      tableMatch.missing,
+    ),
   })
   const job = await createJob(workspaceId, {
-    title: pack.title,
+    title: `[Pack] ${pack.title}`,
     notebook,
     sqlText,
-    notes: pack.description,
-    tables: pack.tablesHint || [],
+    notes: `${pack.description}${matchNote}`,
+    tables: [
+      ...tableMatch.matched.map((m) => m.table),
+      ...tableMatch.missing,
+    ],
   })
 
+  const seedRules =
+    Array.isArray(pack.seedRules) && pack.seedRules.length
+      ? pack.seedRules
+      : [
+          {
+            kind: 'join',
+            title: `${pack.industry} · ${pack.title} join preference`,
+            body: `Marketplace pack “${pack.id}”: when stitching ${
+              (pack.tablesHint || []).join(', ') || 'pack tables'
+            }, prefer documented keys with sample evidence. Never invent keys. Promote stays HITL.`,
+          },
+          {
+            kind: 'privacy',
+            title: 'Schema-first samples only',
+            body: 'AI may use scrubbed 5–10 row samples only — never full lake or managed row custody.',
+          },
+        ]
+
   const seededRules = []
-  if (Array.isArray(pack.seedRules) && pack.seedRules.length) {
-    const { createWorkspaceRule } = await import('./workspaceRules.js')
-    for (const rule of pack.seedRules.slice(0, 12)) {
-      try {
-        const created = await createWorkspaceRule(workspaceId, {
-          kind: rule.kind || 'join',
-          title: rule.title,
-          body: rule.body,
-          source: 'marketplace',
-          priority: 50,
-          userId,
-        })
-        if (created) seededRules.push(created.id)
-      } catch {
-        /* duplicate title ok */
-      }
+  const { createWorkspaceRule } = await import('./workspaceRules.js')
+  for (const rule of seedRules.slice(0, 12)) {
+    try {
+      const created = await createWorkspaceRule(workspaceId, {
+        kind: rule.kind || 'join',
+        title: rule.title,
+        body: rule.body,
+        source: 'marketplace',
+        priority: 50,
+        userId,
+      })
+      if (created) seededRules.push(created.id)
+    } catch {
+      /* duplicate title ok */
     }
   }
 
+  let joins = { created: 0, scanned: 0, ok: false, error: null }
+  try {
+    const { inferJoinsForWorkspace } = await import('./inferJoins.js')
+    const out = await inferJoinsForWorkspace(workspaceId, {})
+    joins = {
+      created: out.created || 0,
+      scanned: out.scanned || 0,
+      ok: true,
+      error: null,
+    }
+  } catch (err) {
+    joins.error = err instanceof Error ? err.message : String(err)
+  }
+
+  const outcomePrompt =
+    pack.outcomePrompt ||
+    `I want ${pack.title}: ${pack.description}. Use connected sources; Promote Yellow/Red joins; then Ship to BI.`
+
   let outcome = null
-  if (pack.outcomePrompt) {
-    try {
-      const { createOutcome } = await import('./outcomes.js')
-      outcome = await createOutcome(workspaceId, pack.outcomePrompt, userId)
-    } catch {
-      /* outcomes table may be missing pre-migrate */
+  try {
+    const { createOutcome } = await import('./outcomes.js')
+    outcome = await createOutcome(workspaceId, outcomePrompt, userId)
+  } catch (err) {
+    outcome = {
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+
+  let ship = null
+  try {
+    const { createShipDraft } = await import('./shipToBi.js')
+    ship = await createShipDraft(workspaceId, {
+      title: `${pack.title} · Ship`,
+      outcomeId: outcome?.id || null,
+      chartType: 'bar',
+      description: outcomePrompt,
+      userId,
+    })
+  } catch (err) {
+    ship = { error: err instanceof Error ? err.message : String(err) }
+  }
+
+  let bi = null
+  try {
+    const { scaffoldBiReport } = await import('./certifiedBi.js')
+    bi = await scaffoldBiReport(workspaceId, {
+      title: `${pack.title} report`,
+      prompt: outcomePrompt,
+      userId,
+    })
+  } catch (err) {
+    bi = {
+      skipped: true,
+      error: err instanceof Error ? err.message : String(err),
+      hint: 'Certify a managed dataset on Jobs → Results, then Build full report in Report Studio',
     }
   }
 
@@ -375,31 +473,153 @@ export async function applyIndustryTemplatePack(
      ) VALUES ($1,$2,$3,$4,$5)`,
     [installId, workspaceId, pack.id, job.id, userId],
   ).catch(() => undefined)
+
+  const playbook = [
+    {
+      id: 'sources',
+      title: 'Sources / schema',
+      status: tableMatch.matched.length ? 'ok' : 'needs_sources',
+      detail: tableMatch.matched.length
+        ? `Matched ${tableMatch.matched.length} table(s)`
+        : 'Sync Sources so pack table hints can bind',
+      href: '/sources',
+    },
+    {
+      id: 'rules',
+      title: 'Workspace rules seeded',
+      status: seededRules.length ? 'ok' : 'empty',
+      detail: `${seededRules.length} rule(s) for chat + transforms`,
+      href: '/chat',
+    },
+    {
+      id: 'joins',
+      title: 'Join suggestions (HITL)',
+      status: joins.ok ? 'ok' : 'warn',
+      detail: joins.ok
+        ? `Inferred ${joins.created} suggestion(s) — Promote Yellow/Red on Joins`
+        : joins.error || 'Join inference skipped',
+      href: '/joins',
+    },
+    {
+      id: 'job',
+      title: 'Draft job notebook',
+      status: 'ok',
+      detail: job.title,
+      href: `/jobs/${job.id}/notebook`,
+    },
+    {
+      id: 'outcome',
+      title: 'Outcome plan',
+      status: outcome?.id ? 'ok' : 'warn',
+      detail: outcome?.id
+        ? 'Plan ready in Assistant'
+        : outcome?.error || 'Outcome not created',
+      href: outcome?.id
+        ? `/chat?q=${encodeURIComponent(outcomePrompt.slice(0, 180))}`
+        : '/chat',
+    },
+    {
+      id: 'ship',
+      title: 'Ship to BI draft',
+      status: ship?.id ? 'ok' : 'warn',
+      detail: ship?.id ? 'Draft ready for Approve' : ship?.error || '—',
+      href: ship?.id ? `/ship?id=${ship.id}` : '/ship',
+    },
+    {
+      id: 'bi',
+      title: 'Report Studio',
+      status: bi?.reportId ? 'ok' : 'pending',
+      detail: bi?.reportId
+        ? `${bi.charts?.length || 0} visuals scaffolded`
+        : bi?.hint || bi?.error || 'After managed certify',
+      href: bi?.reportId
+        ? `/bi?report=${encodeURIComponent(bi.reportId)}`
+        : '/bi',
+    },
+  ]
+
   void recordAuditEvent({
     workspaceId,
     actorUserId: userId,
     action: 'marketplace.install',
     resourceType: 'job',
     resourceId: job.id,
-    summary: `Installed pack ${pack.id} → job “${job.title}”`,
+    summary: `Installed pack ${pack.id} end-to-end → job “${job.title}”`,
     meta: {
       packId: pack.id,
       seededRules: seededRules.length,
       outcomeId: outcome?.id || null,
+      shipId: ship?.id || null,
+      joinsCreated: joins.created,
+      matchedTables: tableMatch.matched.length,
       ceoReady: Boolean(pack.ceoReady),
     },
   })
+
+  const primaryHref =
+    outcome?.id != null
+      ? `/chat?q=${encodeURIComponent(outcomePrompt.slice(0, 180))}`
+      : `/jobs/${job.id}/notebook`
+
   return {
     job,
     pack: summarizePack(pack),
     installId,
     seededRules,
-    outcome,
-    next:
-      outcome?.id != null
-        ? { href: `/outcome`, hint: 'Open Outcome to review the CEO plan' }
-        : { href: `/jobs/${job.id}`, hint: 'Review draft job' },
+    outcome: outcome?.id ? outcome : null,
+    ship: ship?.id ? ship : null,
+    bi: bi?.reportId ? bi : null,
+    joins,
+    tableMatch,
+    playbook,
+    next: {
+      href: primaryHref,
+      hint: 'Follow the playbook: Promote joins → run job → certify Results → Ship / Report Studio',
+    },
   }
+}
+
+function matchPackTables(hints, schemaTables) {
+  const matched = []
+  const missing = []
+  for (const hint of hints || []) {
+    const h = String(hint || '')
+      .trim()
+      .toLowerCase()
+    if (!h) continue
+    const found = (schemaTables || []).find((t) => {
+      const n = String(t.name || '').toLowerCase()
+      return n === h || n.includes(h) || h.includes(n)
+    })
+    if (found) {
+      matched.push({
+        hint,
+        table: found.name,
+        connection: found.connection || null,
+      })
+    } else {
+      missing.push(hint)
+    }
+  }
+  return { matched, missing }
+}
+
+/** Best-effort rename of FROM/JOIN hint identifiers to matched live tables. */
+function rewriteSqlWithMatchedTables(sql, matched) {
+  let out = String(sql || '')
+  const sorted = [...(matched || [])].sort(
+    (a, b) => String(b.hint).length - String(a.hint).length,
+  )
+  for (const m of sorted) {
+    if (!m.hint || !m.table || m.hint === m.table) continue
+    const re = new RegExp(`\\b${escapeRegExp(m.hint)}\\b`, 'gi')
+    out = out.replace(re, m.table)
+  }
+  return out
+}
+
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export async function listPackInstalls(workspaceId, { limit = 30 } = {}) {

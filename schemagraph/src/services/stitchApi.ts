@@ -4091,7 +4091,21 @@ export async function applyIndustryTemplateApi(
   const body = (await res.json().catch(() => ({}))) as {
     job?: { id: string; title: string }
     outcome?: { id: string; prompt?: string } | null
+    ship?: { id: string } | null
+    bi?: { reportId?: string; charts?: unknown[] } | null
     seededRules?: string[]
+    joins?: { created?: number; scanned?: number; ok?: boolean }
+    tableMatch?: {
+      matched?: { hint: string; table: string }[]
+      missing?: string[]
+    }
+    playbook?: {
+      id: string
+      title: string
+      status: string
+      detail: string
+      href: string
+    }[]
     next?: { href?: string; hint?: string }
     pack?: { ceoReady?: boolean; title?: string }
     error?: string

@@ -21,7 +21,7 @@ type GoldenSchedule = {
 
 /** Eval harness + industry templates + scheduled golden eval. */
 export function EvalPage() {
-  const { canAdmin } = useWorkspaceRole()
+  const { canAdmin, canWrite } = useWorkspaceRole()
   const [dash, setDash] = useState<Record<string, unknown> | null>(null)
   const [templates, setTemplates] = useState<
     { id: string; industry: string; title: string; description: string }[]
@@ -241,7 +241,8 @@ export function EvalPage() {
             Industry templates
           </h2>
           <p className="mt-xs text-[12px] text-on-surface-variant">
-            One-click job packs — browse the full catalog on{' '}
+            One-click end-to-end packs (rules → joins → job → Outcome → Ship /
+            BI) — full catalog on{' '}
             <a href="/marketplace" className="text-secondary underline">
               Marketplace
             </a>
@@ -263,22 +264,28 @@ export function EvalPage() {
                 </div>
                 <button
                   type="button"
+                  disabled={!canWrite}
                   onClick={() =>
                     void applyIndustryTemplateApi(t.id)
-                      .then((out) =>
+                      .then((out) => {
+                        const steps = out.playbook?.length || 0
                         setToast(
-                          `Created job “${out.job?.title || t.title}”${
-                            out.outcome?.id ? ' · Outcome seeded' : ''
-                          } → /jobs`,
-                        ),
-                      )
+                          `Installed “${out.pack?.title || t.title}” · ${steps} playbook steps` +
+                            (out.joins?.created != null
+                              ? ` · ${out.joins.created} join suggestions`
+                              : ''),
+                        )
+                        if (out.next?.href) {
+                          window.location.href = out.next.href
+                        }
+                      })
                       .catch((e) =>
                         setError(e instanceof Error ? e.message : String(e)),
                       )
                   }
-                  className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary"
+                  className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary disabled:opacity-40"
                 >
-                  Apply
+                  Apply end-to-end
                 </button>
               </li>
             ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { WorkInProgressOverlay } from '@/components/WorkInProgressOverlay'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
   createGlossaryTermApi,
@@ -81,8 +82,12 @@ export function GlossaryPage() {
 
   return (
     <QueAppChrome eyebrow="GLOSSARY · PHASE 4">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
-        <main className="min-h-0 flex-1 overflow-y-auto px-md py-lg md:px-lg lg:px-margin-desktop">
+      <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-canvas">
+        <WorkInProgressOverlay
+          feature="Glossary"
+          blurb="Business glossary linking is still a preview. Prefer Assistant and Steward tickets later — stitch joins and jobs are ready today."
+        />
+        <main className="pointer-events-none min-h-0 flex-1 select-none overflow-y-auto px-md py-lg opacity-50 md:px-lg lg:px-margin-desktop">
           <div className="mb-xl flex flex-col justify-between gap-md sm:flex-row sm:items-end">
             <div>
               <h1 className="font-headline text-xl font-semibold tracking-tight text-on-surface">

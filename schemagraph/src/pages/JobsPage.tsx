@@ -8,6 +8,7 @@ import {
 import { JobTemplatesPanel } from '@/components/jobs/JobTemplatesPanel'
 import { JobDeployPanel } from '@/components/jobs/JobDeployPanel'
 import { JobManagedDataLayer } from '@/components/jobs/JobManagedDataLayer'
+import { JobValidationLayer } from '@/components/jobs/JobValidationLayer'
 import { JobScheduleControls } from '@/components/jobs/JobScheduleControls'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
@@ -909,14 +910,18 @@ export function JobsPage() {
                       Results · Preview
                     </h2>
                     <p className="mt-1 font-body text-[12px] text-on-surface-variant">
-                      Run output plus managed table preview / certify — no
-                      separate Managed page needed for the main flow.
+                      Run output, managed preview/certify, and validation checks
+                      under the same job — no separate Validation page.
                     </p>
                   </div>
                   <div className="min-h-0 flex-1 space-y-lg overflow-y-auto p-lg">
                     <div className="mx-auto max-w-[64rem] space-y-lg">
                       <JobPreviewPanel latestRun={latestRun} />
                       <JobManagedDataLayer
+                        jobId={selected.id}
+                        canWrite={canWrite}
+                      />
+                      <JobValidationLayer
                         jobId={selected.id}
                         canWrite={canWrite}
                       />

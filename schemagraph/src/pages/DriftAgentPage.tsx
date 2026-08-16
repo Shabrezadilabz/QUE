@@ -77,10 +77,10 @@ export function DriftAgentPage() {
             </div>
             <div className="flex flex-wrap gap-sm">
               <Link
-                to="/agent"
+                to="/chat?agent=1"
                 className="font-label text-[12px] text-secondary hover:underline"
               >
-                Stitch Agent
+                Stitch Agent (Assistant)
               </Link>
               <button
                 type="button"

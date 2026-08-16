@@ -220,10 +220,10 @@ export function ProposalsPage() {
                   </>
                 ) : null}
                 <Link
-                  to="/agent"
+                  to="/chat?agent=1"
                   className="rounded-lg border border-outline-variant px-md py-1"
                 >
-                  Agent
+                  Stitch Agent
                 </Link>
               </div>
             </div>

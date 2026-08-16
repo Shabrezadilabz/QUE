@@ -1033,9 +1033,12 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                     ) : null}
                   </Section>
                   <p className="font-body text-[12px] text-on-surface-variant">
-                    Domains live at{' '}
-                    <Link to="/domains" className="text-secondary hover:underline">
-                      /domains
+                    Domains live under{' '}
+                    <Link
+                      to="/settings/domains"
+                      className="text-secondary hover:underline"
+                    >
+                      Settings → Domains
                     </Link>
                     . Job templates are on the Jobs page.
                   </p>
@@ -2138,7 +2141,7 @@ function PolicyAndAiBlocks({
   />
   <Toggle
     label="Enable Stitch Agent"
-    hint="Activates /agent — NL plan → tools → checkpoint → Promote → draft job"
+    hint="Activates /agent in Assistant — NL plan → tools → checkpoint → Promote → draft job"
     checked={draft.enableStitchAgent === true}
     disabled={!canAdmin}
     onChange={(v) =>

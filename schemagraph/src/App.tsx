@@ -27,8 +27,7 @@ import { AutomationSettingsPage } from '@/pages/settings/AutomationSettingsPage'
 import { GovernanceSettingsPage } from '@/pages/settings/GovernanceSettingsPage'
 import { BillingSettingsPage } from '@/pages/settings/BillingSettingsPage'
 import { AiPolicySettingsPage } from '@/pages/settings/AiPolicySettingsPage'
-import { AgentPage } from '@/pages/AgentPage'
-import { DomainsPage } from '@/pages/DomainsPage'
+import { DomainsSettingsPage } from '@/pages/settings/DomainsSettingsPage'
 import { DriftAgentPage } from '@/pages/DriftAgentPage'
 import { ValidationSuitePage } from '@/pages/ValidationSuitePage'
 import { CatalogPage } from '@/pages/CatalogPage'
@@ -128,7 +127,7 @@ export default function App() {
               path="/agent"
               element={
                 <RequireAuth>
-                  <AgentPage />
+                  <Navigate to="/chat?agent=1" replace />
                 </RequireAuth>
               }
             />
@@ -152,7 +151,7 @@ export default function App() {
               path="/domains"
               element={
                 <RequireAuth>
-                  <DomainsPage />
+                  <Navigate to="/settings/domains" replace />
                 </RequireAuth>
               }
             />
@@ -335,6 +334,7 @@ export default function App() {
               <Route path="automation" element={<AutomationSettingsPage />} />
               <Route path="governance" element={<GovernanceSettingsPage />} />
               <Route path="team" element={<TeamSettingsPage />} />
+              <Route path="domains" element={<DomainsSettingsPage />} />
               <Route path="billing" element={<BillingSettingsPage />} />
               <Route path="ai-policy" element={<AiPolicySettingsPage />} />
             </Route>

@@ -35,13 +35,10 @@ const SIDE_LINKS = [
   { to: '/marketplace', label: 'Marketplace' },
   { to: '/eval', label: 'Eval' },
   { to: '/lineage', label: 'Lineage' },
-  { to: '/validation', label: 'Validation' },
   { to: '/drift-agent', label: 'Drift' },
-  { to: '/domains', label: 'Domains' },
   { to: '/catalog', label: 'Catalog' },
   { to: '/glossary', label: 'Glossary' },
   { to: '/steward', label: 'Steward' },
-  { to: '/agent', label: 'Agent' },
   { to: '/compliance', label: 'Compliance' },
   { to: '/product', label: 'Product' },
 ] as const

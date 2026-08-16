@@ -101,10 +101,10 @@ export function OutcomePlanCard({
       <p className="text-[12px] text-on-surface-variant">{outcome.prompt}</p>
       {outcome.plan?.agentSessionId ? (
         <p className="text-[11px] text-on-surface-variant">
-          Linked agent —{' '}
-          <Link to="/agent" className="text-secondary underline">
-            open /agent
-          </Link>
+          Linked Stitch Agent session — type{' '}
+          <span className="text-secondary">approve</span> /{' '}
+          <span className="text-secondary">continue after promote</span> in
+          this chat, or use the agent card below if shown.
         </p>
       ) : null}
       <ol className="space-y-sm">

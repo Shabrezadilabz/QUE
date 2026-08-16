@@ -15,6 +15,12 @@ import {
   looksLikeOutcomePrompt,
   stripOutcomeSlash,
 } from '@/components/outcome/OutcomePlanCard'
+import {
+  AgentPlanCard,
+  detectAgentFollowUp,
+  looksLikeAgentPrompt,
+  stripAgentSlash,
+} from '@/components/agent/AgentPlanCard'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
@@ -55,6 +61,10 @@ import {
   scaffoldBiReportApi,
   createOutcomeApi,
   createShipDraftApi,
+  createAgentSessionApi,
+  fetchAgentSessions,
+  agentCheckpointApi,
+  fetchWorkspaceSettings,
   fetchAiStatus,
   fetchSchemaContext,
   reindexAi,
@@ -64,6 +74,7 @@ import {
   sendChatFeedback,
   sendChatMessage,
   type AiStatus,
+  type AgentSession,
   type ChatJobDraft,
   type ChatMessage,
   type ChatReferencedTable,
@@ -91,15 +102,17 @@ interface UiMessage {
   feedback?: 1 | -1 | null
   /** Inline Outcome plan card (same chat thread) */
   outcome?: OutcomeRecord | null
+  /** Inline Stitch Agent plan (HITL checkpoints) */
+  agentSession?: AgentSession | null
 }
 
 /**
- * Single assistant chat — schema Q&A + Outcome plans in one thread.
+ * Single assistant chat — schema Q&A, Outcome plans, and Stitch Agent HITL.
  */
 export function ChatPage() {
   const { canWrite, canOwner } = useWorkspaceRole()
   const isCeo = canOwner
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { workspaceId, workspaces } = useAuth()
   const workspaceName =
@@ -107,6 +120,10 @@ export function ChatPage() {
   const { pushToast } = useToast()
   const [messages, setMessages] = useState<UiMessage[]>([])
   const [activeOutcomeId, setActiveOutcomeId] = useState<string | null>(null)
+  const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
+  const [stitchAgentEnabled, setStitchAgentEnabled] = useState<boolean | null>(
+    null,
+  )
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [context, setContext] = useState<ContextPackSummary | null>(null)
@@ -184,16 +201,67 @@ export function ChatPage() {
     }
   }, [])
 
+  const agentBootDone = useRef(false)
+
   useEffect(() => {
+    agentBootDone.current = false
     setMessages([])
     setFocusTables([])
     setActiveMentions([])
     setActiveOutcomeId(null)
-    const q = searchParams.get('q')
-    setInput(q?.trim() || '')
+    setActiveAgentId(null)
     void reloadContext()
     void reloadAiStatus()
-  }, [workspaceId, reloadContext, reloadAiStatus, searchParams])
+    void fetchWorkspaceSettings()
+      .then((s) => setStitchAgentEnabled(s.settings.enableStitchAgent === true))
+      .catch(() => setStitchAgentEnabled(false))
+  }, [workspaceId, reloadContext, reloadAiStatus])
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q?.trim()) setInput(q.trim())
+  }, [searchParams])
+
+  useEffect(() => {
+    const wantAgent =
+      searchParams.get('agent') === '1' || searchParams.get('agent') === 'true'
+    if (!wantAgent || agentBootDone.current) return
+    agentBootDone.current = true
+    void (async () => {
+      try {
+        const list = await fetchAgentSessions()
+        const open =
+          list.find((s) => s.checkpoints.some((c) => c.status === 'open')) ||
+          list[0]
+        if (open) {
+          setActiveAgentId(open.id)
+          setMessages([
+            {
+              id: `ag-boot-${open.id}`,
+              role: 'assistant',
+              content:
+                'Resumed Stitch Agent plan in this chat. Approve checkpoints here — Promote joins stays HITL.',
+              agentSession: open,
+              mode: 'agent',
+              at: stamp(),
+            },
+          ])
+        } else {
+          setInput(
+            '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+          )
+        }
+      } catch {
+        setInput(
+          '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+        )
+      } finally {
+        const next = new URLSearchParams(searchParams)
+        next.delete('agent')
+        setSearchParams(next, { replace: true })
+      }
+    })()
+  }, [searchParams, setSearchParams])
 
   function stamp() {
     return new Date().toLocaleTimeString([], {
@@ -205,6 +273,13 @@ export function ChatPage() {
   function latestOutcomeFromMessages(list: UiMessage[]): OutcomeRecord | null {
     for (let i = list.length - 1; i >= 0; i--) {
       if (list[i].outcome) return list[i].outcome!
+    }
+    return null
+  }
+
+  function latestAgentFromMessages(list: UiMessage[]): AgentSession | null {
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].agentSession) return list[i].agentSession!
     }
     return null
   }
@@ -229,6 +304,79 @@ export function ChatPage() {
       copy[idx] = nextMsg
       return copy
     })
+  }
+
+  function upsertAgentMessage(session: AgentSession, content: string) {
+    setActiveAgentId(session.id)
+    setMessages((prev) => {
+      const idx = [...prev]
+        .map((m, i) => (m.agentSession?.id === session.id ? i : -1))
+        .filter((i) => i >= 0)
+        .pop()
+      const nextMsg: UiMessage = {
+        id: idx != null ? prev[idx].id : `ag-${Date.now()}`,
+        role: 'assistant',
+        content,
+        agentSession: session,
+        mode: 'agent',
+        at: stamp(),
+      }
+      if (idx == null) return [...prev, nextMsg]
+      const copy = [...prev]
+      copy[idx] = nextMsg
+      return copy
+    })
+  }
+
+  async function runAgentAction(
+    action: 'approve' | 'reject' | 'continue_after_promote' | 'refresh',
+    sessionId?: string | null,
+  ) {
+    const id =
+      sessionId ||
+      activeAgentId ||
+      latestAgentFromMessages(messages)?.id ||
+      null
+    if (!id || (!canWrite && action !== 'refresh')) {
+      setBusy(false)
+      return
+    }
+    setBusy(true)
+    try {
+      if (action === 'refresh') {
+        const list = await fetchAgentSessions()
+        const session = list.find((s) => s.id === id)
+        if (session) {
+          upsertAgentMessage(session, 'Agent plan refreshed.')
+        }
+        return
+      }
+      const current =
+        latestAgentFromMessages(messages)?.id === id
+          ? latestAgentFromMessages(messages)
+          : null
+      const open = current?.checkpoints.find((c) => c.status === 'open')
+      const session = await agentCheckpointApi(id, {
+        action,
+        checkpointId: open?.id,
+      })
+      upsertAgentMessage(
+        session,
+        action === 'approve'
+          ? 'Plan approved — agent continues tools (HITL Promote still required for joins).'
+          : action === 'reject'
+            ? 'Plan rejected.'
+            : 'Continued after Promote checkpoint.',
+      )
+      pushToast(`Agent · ${action}`, 'success')
+    } catch (err) {
+      pushToast(
+        err instanceof Error ? err.message : 'Agent action failed',
+        'error',
+      )
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function runOutcomeAction(
@@ -673,6 +821,17 @@ export function ChatPage() {
     setActiveMentions([])
     setBusy(true)
 
+    // Stitch Agent follow-ups (prefer over Outcome when an agent card is active)
+    const agentFollow = detectAgentFollowUp(message)
+    const currentAgent =
+      (activeAgentId
+        ? latestAgentFromMessages([...messages, userMsg])
+        : null) || latestAgentFromMessages(messages)
+    if (agentFollow && (activeAgentId || currentAgent?.id)) {
+      await runAgentAction(agentFollow, activeAgentId || currentAgent?.id)
+      return
+    }
+
     // Outcome follow-ups in the same thread
     const follow = detectOutcomeFollowUp(message)
     const currentOutcome =
@@ -688,6 +847,52 @@ export function ChatPage() {
         advance_agent: 'advance',
       } as const
       await runOutcomeAction(map[follow], activeOutcomeId || currentOutcome?.id)
+      return
+    }
+
+    // Stitch Agent plan in the same thread
+    if (looksLikeAgentPrompt(message)) {
+      try {
+        if (stitchAgentEnabled === false) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `e-${Date.now()}`,
+              role: 'assistant',
+              content:
+                'Stitch Agent is off for this workspace. An admin can enable **Enable Stitch Agent** under Settings → AI & Policy, then retry **/agent**.',
+              at: stamp(),
+              mode: 'agent',
+            },
+          ])
+          return
+        }
+        const goal =
+          stripAgentSlash(message) ||
+          'Build trusted customer 360 from connected sources, then draft a stitch job'
+        const session = await createAgentSessionApi({
+          goal,
+          title: goal.slice(0, 80),
+        })
+        upsertAgentMessage(
+          session,
+          'Stitch Agent plan ready. Approve the checkpoint to run tools — Promote joins stays HITL (auto-promote only if policy is on).',
+        )
+        pushToast('Agent plan started in chat', 'success')
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `e-${Date.now()}`,
+            role: 'assistant',
+            content: `Agent failed: ${err instanceof Error ? err.message : String(err)}`,
+            at: stamp(),
+            mode: 'agent',
+          },
+        ])
+      } finally {
+        setBusy(false)
+      }
       return
     }
 
@@ -963,7 +1168,7 @@ export function ChatPage() {
                 ) : null}
               </h1>
               <p className="font-body text-xs text-on-surface-variant">
-                Schema Q&A, joins, SQL drafts, and Outcome plans in one chat
+                Schema Q&A, Outcome plans, and Stitch Agent HITL in one chat
                 {busy ? ' · thinking…' : ''}
               </p>
             </div>
@@ -1098,6 +1303,12 @@ export function ChatPage() {
                     m.outcome
                       ? (action) =>
                           void runOutcomeAction(action, m.outcome?.id)
+                      : undefined
+                  }
+                  onAgentAction={
+                    m.agentSession
+                      ? (action) =>
+                          void runAgentAction(action, m.agentSession?.id)
                       : undefined
                   }
                   onSaveJob={
@@ -1715,7 +1926,19 @@ export function ChatPage() {
               >
                 /outcome …
               </button>{' '}
-              in this chat for CEO-style plans → Ship to BI.
+              in this chat for CEO-style plans → Ship to BI. Type{' '}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => {
+                  void ask(
+                    '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+                  )
+                }}
+              >
+                /agent …
+              </button>{' '}
+              for the multi-step HITL stitch pipeline.
             </p>
           </div>
         </aside>
@@ -1730,6 +1953,7 @@ function ChatBubble({
   busy,
   canWrite,
   onOutcomeAction,
+  onAgentAction,
   onSaveJob,
   onCopy,
   onInsertMention,
@@ -1740,6 +1964,9 @@ function ChatBubble({
   canWrite?: boolean
   onOutcomeAction?: (
     action: 'refresh' | 'infer' | 'next' | 'approve' | 'advance' | 'ship',
+  ) => void
+  onAgentAction?: (
+    action: 'approve' | 'reject' | 'continue_after_promote' | 'refresh',
   ) => void
   onSaveJob?: () => void
   onCopy?: () => void
@@ -1827,6 +2054,27 @@ function ChatBubble({
               }
               onShip={
                 onOutcomeAction ? () => onOutcomeAction('ship') : undefined
+              }
+            />
+          ) : null}
+          {message.agentSession ? (
+            <AgentPlanCard
+              session={message.agentSession}
+              busy={busy}
+              canWrite={canWrite}
+              onRefresh={
+                onAgentAction ? () => onAgentAction('refresh') : undefined
+              }
+              onApprove={
+                onAgentAction ? () => onAgentAction('approve') : undefined
+              }
+              onReject={
+                onAgentAction ? () => onAgentAction('reject') : undefined
+              }
+              onContinueAfterPromote={
+                onAgentAction
+                  ? () => onAgentAction('continue_after_promote')
+                  : undefined
               }
             />
           ) : null}

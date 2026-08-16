@@ -14,6 +14,11 @@ const NAV = [
   { to: '/settings/automation', label: 'Automation', hint: 'Schedules · runners' },
   { to: '/settings/governance', label: 'Governance', hint: 'Drift · audit · attest' },
   { to: '/settings/team', label: 'Team OS', hint: 'Roles · Slack digests' },
+  {
+    to: '/settings/domains',
+    label: 'Domains',
+    hint: 'Data products · stewards',
+  },
   { to: '/settings/billing', label: 'Billing', hint: 'Seats · checkout', adminOnly: true },
   { to: '/settings/ai-policy', label: 'AI & Policy', hint: 'Flags · GitHub · dbt' },
 ] as const

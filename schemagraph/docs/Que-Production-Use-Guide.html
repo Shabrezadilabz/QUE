@@ -261,7 +261,7 @@ CURSOR LOOP (team OS)
 <h2 id="scenario-c">7. Scenario C — Team Cursor loop (daily DE/DA)</h2>
 <ol class="steps">
   <li>Admin seeds org <span class="route">/rules</span> (join conventions, naming, PII).</li>
-  <li>DE opens <span class="route">/agent</span> or <span class="route">/chat</span> with @tables → draft transform / job.</li>
+  <li>DE opens <span class="route">/chat</span> with @tables or <code>/agent</code> → draft transform / job.</li>
   <li>Transform lands in <span class="route">/transforms</span> and/or <span class="route">/proposals</span> as open diff.</li>
   <li>Peer reviews unified diff on <span class="route">/proposals</span> → Approve / Reject.</li>
   <li>On Promote, rules can learn patterns. Comments/threads on <span class="route">/joins</span> capture debate.</li>
@@ -367,16 +367,16 @@ CURSOR LOOP (team OS)
   <p>“Draft a reconciliation job using promoted joins between ledger and bank_feed” → review SQL → save job → open Jobs.</p>
 </div>
 
-<!-- AGENT -->
-<h2 id="agent">8.5 <span class="route">/agent</span> — Stitch Agent</h2>
+<!-- AGENT (in Assistant) -->
+<h2 id="agent">8.5 Stitch Agent (in <span class="route">/chat</span>)</h2>
 <div class="card">
   <h4>Purpose</h4>
-  <p>Multi-step agent sessions (checkpoints) for stitch goals, including <code>draft_transform</code>.</p>
+  <p>Multi-step agent sessions (checkpoints) for stitch goals — same Assistant thread as schema Q&amp;A and Outcome. <span class="route">/agent</span> redirects here.</p>
   <h4>How to use</h4>
   <ol>
-    <li>Create session with a clear goal (“transform events to weekly active accounts”).</li>
-    <li>Advance checkpoints; when joins needed, Promote in Joins then continue.</li>
-    <li>Resulting transform/proposal appears in Transforms / Proposals for HITL.</li>
+    <li>In Assistant, type <code>/agent</code> with a clear goal (“transform events to weekly active accounts”).</li>
+    <li>Approve checkpoints in the chat card; when joins needed, Promote in Joins then continue.</li>
+    <li>Resulting transform/proposal appears in Review for HITL.</li>
   </ol>
 </div>
 
@@ -520,7 +520,7 @@ CURSOR LOOP (team OS)
   <tr><th>Page</th><th>Use in production</th></tr>
   <tr><td><span class="route">/catalog</span></td><td>Asset inventory / governance hooks — describe products, not replace Workspace stitch.</td></tr>
   <tr><td><span class="route">/glossary</span></td><td>Business terms aligned to tables/columns for DA clarity.</td></tr>
-  <tr><td><span class="route">/domains</span></td><td>Data-product domains; ownership boundaries for multi-team workspaces.</td></tr>
+  <tr><td><span class="route">/settings/domains</span></td><td>Data-product domains; ownership boundaries for multi-team workspaces.</td></tr>
   <tr><td><span class="route">/steward</span></td><td>Stewardship queue: ownership, quality follow-ups, policy actions.</td></tr>
 </table>
 

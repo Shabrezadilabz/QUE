@@ -98,6 +98,15 @@ export const CHAT_SKILLS: ChatSkill[] = [
       '/outcome I want revenue by region from connected sources',
   },
   {
+    id: 'agent',
+    slash: '/agent',
+    label: 'Stitch agent',
+    description:
+      'HITL pipeline: plan → infer joins → Promote → draft stitch job',
+    buildPrompt: () =>
+      '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+  },
+  {
     id: 'bi',
     slash: '/bi',
     label: 'Build Report Studio',
@@ -151,9 +160,12 @@ export function expandSkillInput(input: string, focusTables: string[]): string {
   )
   if (!skill) return trimmed
   const rest = (m[2] || '').trim()
-  // Keep /outcome and /bi as chat intents — do not rewrite user goal text.
+  // Keep /outcome, /agent, /bi as chat intents — do not rewrite user goal text.
   if (skill.id === 'outcome') {
     return rest ? `/outcome ${rest}` : skill.buildPrompt(focusTables)
+  }
+  if (skill.id === 'agent') {
+    return rest ? `/agent ${rest}` : skill.buildPrompt(focusTables)
   }
   if (skill.id === 'bi') {
     return rest ? `/bi ${rest}` : skill.buildPrompt(focusTables)

@@ -3777,6 +3777,14 @@ app.patch(
         req.params.domainId,
         req.body || {},
       )
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'domain.update',
+        resourceType: 'domain',
+        resourceId: domain.id,
+        summary: `Updated domain ${domain.name}`,
+      })
       res.json({ ok: true, domain })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
@@ -3789,11 +3797,23 @@ app.delete(
   requireMinRole('admin'),
   async (req, res) => {
     try {
+      const existing = await getDomain(
+        req.params.workspaceId,
+        req.params.domainId,
+      )
       const ok = await deleteDomain(
         req.params.workspaceId,
         req.params.domainId,
       )
       if (!ok) return res.status(404).json({ error: 'not found' })
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'domain.delete',
+        resourceType: 'domain',
+        resourceId: req.params.domainId,
+        summary: `Deleted domain ${existing?.name || req.params.domainId}`,
+      })
       res.json({ ok: true })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })

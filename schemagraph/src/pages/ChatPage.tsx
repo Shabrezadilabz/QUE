@@ -6,9 +6,10 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
 } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { WarehouseRunsStrip } from '@/components/WarehouseRunsStrip'
+import { OutcomePanel } from '@/components/outcome/OutcomePanel'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
@@ -82,7 +83,25 @@ interface UiMessage {
  * Schema-only AI chat — @mentions, slash skills, sidebar pick, copy/retry/stop.
  */
 export function ChatPage() {
-  const { canWrite } = useWorkspaceRole()
+  const { canWrite, canOwner } = useWorkspaceRole()
+  const [searchParams, setSearchParams] = useSearchParams()
+  /** Owner login = CEO persona — default Outcome mode */
+  const isCeo = canOwner
+  const modeParam = searchParams.get('mode')
+  const assistantMode: 'outcome' | 'explore' =
+    modeParam === 'outcome'
+      ? 'outcome'
+      : modeParam === 'explore'
+        ? 'explore'
+        : isCeo
+          ? 'outcome'
+          : 'explore'
+
+  function setAssistantMode(next: 'outcome' | 'explore') {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('mode', next)
+    setSearchParams(nextParams, { replace: true })
+  }
   const navigate = useNavigate()
   const { workspaceId, workspaces } = useAuth()
   const workspaceName =
@@ -691,8 +710,77 @@ export function ChatPage() {
   }, [focusTables, allTables, sidebarQuery])
 
   return (
-    <QueAppChrome eyebrow="SCHEMA-ONLY · MODEL ASSISTANT">
+    <QueAppChrome
+      eyebrow={
+        assistantMode === 'outcome'
+          ? isCeo
+            ? 'OUTCOME · CEO MODE'
+            : 'OUTCOME · PLAN → SHIP'
+          : 'SCHEMA-ONLY · MODEL ASSISTANT'
+      }
+    >
       <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
+        {/* Mode tabs — left rail */}
+        <nav
+          className="flex w-[4.5rem] shrink-0 flex-col gap-xs border-r border-outline-variant bg-surface-container-low py-md sm:w-36 sm:px-sm"
+          aria-label="Assistant mode"
+        >
+          <p className="hidden px-sm pb-sm font-label text-[9px] tracking-widest text-on-surface-variant uppercase sm:block">
+            Mode
+            {isCeo ? ' · CEO' : ''}
+          </p>
+          <button
+            type="button"
+            onClick={() => setAssistantMode('outcome')}
+            className={[
+              'mx-xs rounded-lg px-sm py-sm text-left font-label text-[11px] font-bold tracking-[0.06em] uppercase transition-colors sm:mx-0',
+              assistantMode === 'outcome'
+                ? 'bg-secondary/20 text-secondary'
+                : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface',
+            ].join(' ')}
+            title="Outcome — business result → plan → Ship"
+          >
+            <span className="sm:hidden">Out</span>
+            <span className="hidden sm:inline">Outcome</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAssistantMode('explore')}
+            className={[
+              'mx-xs rounded-lg px-sm py-sm text-left font-label text-[11px] font-bold tracking-[0.06em] uppercase transition-colors sm:mx-0',
+              assistantMode === 'explore'
+                ? 'bg-secondary/20 text-secondary'
+                : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface',
+            ].join(' ')}
+            title="Explore — schema Q&A, SQL drafts, @mentions"
+          >
+            <span className="sm:hidden">Exp</span>
+            <span className="hidden sm:inline">Explore</span>
+          </button>
+        </nav>
+
+        {assistantMode === 'outcome' ? (
+          <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-sm md:px-lg md:py-md">
+            <WarehouseRunsStrip />
+            <div className="mb-md flex shrink-0 items-end justify-between gap-md">
+              <div>
+                <h1 className="font-headline text-xl font-semibold text-secondary">
+                  Outcome
+                  {isCeo ? (
+                    <span className="ml-sm align-middle font-label text-[10px] tracking-widest text-secondary/80">
+                      CEO
+                    </span>
+                  ) : null}
+                </h1>
+                <p className="font-body text-xs text-on-surface-variant">
+                  Business result → sources → joins → metrics → Ship
+                </p>
+              </div>
+            </div>
+            <OutcomePanel isCeo={isCeo} />
+          </main>
+        ) : (
+          <>
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-sm md:px-lg md:py-md">
           <WarehouseRunsStrip />
           <div className="mb-md flex shrink-0 items-end justify-between gap-md">
@@ -1417,13 +1505,22 @@ export function ChatPage() {
               {context?.stats?.suggestedJoins
                 ? `You have ${context.stats.suggestedJoins} suggested join(s) waiting for review. Promote accepted joins before shipping a dbt PR.`
                 : 'Ask about joins with /suggested, or mention tables with @name for schema-only answers — never raw warehouse rows.'}{' '}
-              <a href="/outcome" className="underline">
+              <a
+                href="#"
+                className="underline"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setAssistantMode('outcome')
+                }}
+              >
                 Outcome mode
               </a>{' '}
               for CEO-style plans → Ship to BI.
             </p>
           </div>
         </aside>
+          </>
+        )}
       </div>
     </QueAppChrome>
   )

@@ -6,7 +6,8 @@ Schema-first HITL loop. No lake custody.
 
 | Route | Purpose |
 |-------|---------|
-| `/outcome` | NL → plan; **Run next step** / Infer joins; optional `/agent` link |
+| `/chat` | **Assistant** — left tabs **Outcome** \| **Explore**; owner (CEO) defaults to Outcome |
+| `/outcome` | Redirect → `/chat?mode=outcome` |
 | `/ship` | Draft → Approve → embed / Rollback (+ optional warehouse DROP) |
 | `/joins` | Green / Yellow / Red + Promote |
 | `/workspace` | **Edit** tool — drag column→column or pull endpoint handles; AI edges need sample match |

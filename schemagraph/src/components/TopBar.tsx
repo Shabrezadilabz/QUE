@@ -25,9 +25,8 @@ export type { TopBarProps, DiagramFilters, ExportFormat }
 
 /** Same primary set as QueAppChrome */
 const PRIMARY_LINKS = [
-  { to: '/outcome', label: 'Outcome' },
+  { to: '/chat', label: 'Assistant' },
   { to: '/workspace', label: 'Workspace' },
-  { to: '/chat', label: 'Chat' },
   { to: '/sources', label: 'Sources' },
   { to: '/joins', label: 'Joins' },
   { to: '/ship', label: 'Ship' },

@@ -5,9 +5,8 @@ import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 import { sideNavLinkClass } from '@/components/primaryNavStyles'
 
 const primaryLinks = [
-  { to: '/outcome', label: 'Outcome' },
+  { to: '/chat', label: 'Assistant' },
   { to: '/workspace', label: 'Workspace' },
-  { to: '/chat', label: 'Chat' },
   { to: '/sources', label: 'Sources' },
   { to: '/joins', label: 'Joins' },
   { to: '/ship', label: 'Ship' },

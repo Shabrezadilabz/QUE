@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Link, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { BiChartPreview } from '@/components/BiChartPreview'
+import { BiPdfDemoDashboard } from '@/components/bi/BiPdfDemoDashboard'
+import {
+  PdfPageHeader,
+  PdfPrimaryButton,
+  PdfGhostButton,
+} from '@/components/pdf/PdfUi'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
   apiFetch,
@@ -381,61 +387,48 @@ export function BiChartsPage() {
     : null
 
   return (
-    <QueAppChrome eyebrow="REPORT STUDIO · FULL BI">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#141820]">
-        {/* Title bar */}
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-sm border-b border-outline-variant/30 bg-surface-container-low px-md py-sm">
-          <div>
-            <h1 className="font-headline text-base font-semibold text-on-surface">
-              Report Studio
-            </h1>
-            <p className="text-[11px] text-on-surface-variant">
-              Metrics + visuals · edit · run · certify · embed — schema-first
-              managed data only
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-sm">
-            <button
-              type="button"
-              disabled={busy || !canWrite}
-              onClick={() => void scaffold()}
-              className="rounded bg-secondary px-md py-1.5 font-label text-[11px] font-semibold text-on-secondary disabled:opacity-40"
-            >
-              Build full report
-            </button>
-            <button
-              type="button"
-              disabled={busy || pageCharts.length === 0}
-              onClick={() => void runAll()}
-              className="rounded-lg border border-secondary/50 px-md py-1.5 font-label text-[11px] text-secondary disabled:opacity-40"
-            >
-              Run all
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditMode((v) => !v)}
-              className="rounded-lg border border-outline-variant px-md py-1.5 font-label text-[11px]"
-            >
-              {editMode ? 'Reading view' : 'Edit view'}
-            </button>
-            <Link
-              to="/ship"
-              className="rounded-lg border border-outline-variant px-md py-1.5 font-label text-[11px]"
-            >
-              Ship
-            </Link>
-              <Link
-                to="/jobs"
-                className="rounded-lg border border-outline-variant px-md py-1.5 font-label text-[11px]"
+    <QueAppChrome flush>
+      <div className="flex h-full min-h-0 flex-col bg-[#111416]">
+        <PdfPageHeader
+          title={
+            <span className="inline-flex items-center gap-[10px]">
+              Certified BI Dashboard
+              <span
+                className="inline-flex size-[22px] items-center justify-center rounded-full border border-solid border-[rgba(122,236,208,0.45)] bg-[rgba(122,236,208,0.12)] text-[11px] text-[#7aecd0]"
+                title="Certified workspace"
               >
-                Jobs · Results
-              </Link>
-          </div>
-        </div>
+                ✓
+              </span>
+            </span>
+          }
+          subtitle="Managed datasets, certified visualizations, and strict compliance."
+          actions={
+            <div className="flex flex-wrap items-center gap-[8px]">
+              <PdfGhostButton type="button" onClick={() => setRibbon('data')}>
+                ⊙ Filter
+              </PdfGhostButton>
+              <PdfGhostButton type="button" disabled={busy} onClick={() => void runAll()}>
+                Run all
+              </PdfGhostButton>
+              <PdfGhostButton type="button" onClick={() => setEditMode((v) => !v)}>
+                {editMode ? 'Reading view' : 'Edit view'}
+              </PdfGhostButton>
+              {canWrite ? (
+                <PdfPrimaryButton
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void addVisual()}
+                >
+                  + Create New Chart
+                </PdfPrimaryButton>
+              ) : null}
+            </div>
+          }
+        />
 
-        {/* Ribbon */}
-        <div className="shrink-0 border-b border-outline-variant/25 bg-surface-container-low/90">
-          <div className="flex gap-xs px-md pt-sm">
+        {/* Power BI / Sigma-style ribbon */}
+        <div className="shrink-0 border-b border-solid border-[#424850] bg-[#0f1215]">
+          <div className="flex gap-[4px] px-[16px] pt-[8px]">
             {(
               [
                 ['home', 'Home'],
@@ -450,45 +443,25 @@ export function BiChartsPage() {
                 type="button"
                 onClick={() => setRibbon(id)}
                 className={[
-                  'rounded-t px-md py-1.5 font-label text-[11px]',
+                  'rounded-t-[4px] px-[14px] py-[7px] text-[11px] font-semibold',
                   ribbon === id
-                    ? 'bg-surface text-secondary'
-                    : 'text-on-surface-variant hover:text-on-surface',
+                    ? 'border border-b-0 border-solid border-[#424850] bg-[#111416] text-[#d4dbe3]'
+                    : 'text-[#a3afbe] hover:text-[#d4dbe3]',
                 ].join(' ')}
               >
                 {label}
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap gap-sm border-t border-outline-variant/20 px-md py-sm">
+          <div className="flex flex-wrap gap-[8px] border-t border-solid border-[#424850] px-[16px] py-[10px]">
             {ribbon === 'home' ? (
               <>
-                <RibbonBtn
-                  disabled={!canWrite || busy}
-                  onClick={() => void saveSelected()}
-                  label="Save"
-                />
-                <RibbonBtn
-                  disabled={!canWrite || busy || !selected}
-                  onClick={() => void certifySelected()}
-                  label="Certify"
-                />
-                <RibbonBtn
-                  disabled={busy || pageCharts.length === 0}
-                  onClick={() => void runAll()}
-                  label="Run"
-                />
-                <RibbonBtn
-                  disabled={!canAdmin || busy || !selected?.certified}
-                  onClick={() => void mintSelected()}
-                  label="Embed"
-                />
-                <RibbonBtn
-                  disabled={!canWrite || busy || !selected}
-                  onClick={() => void deleteSelected()}
-                  label="Delete"
-                  danger
-                />
+                <RibbonBtn disabled={!canWrite || busy} onClick={() => void saveSelected()} label="Save" />
+                <RibbonBtn disabled={!canWrite || busy || !selected} onClick={() => void certifySelected()} label="Certify" />
+                <RibbonBtn disabled={busy || pageCharts.length === 0} onClick={() => void runAll()} label="Run" />
+                <RibbonBtn disabled={!canWrite || busy} onClick={() => void scaffold()} label="Build report" />
+                <RibbonBtn disabled={!canAdmin || busy || !selected?.certified} onClick={() => void mintSelected()} label="Embed" />
+                <RibbonBtn disabled={!canWrite || busy || !selected} onClick={() => void deleteSelected()} label="Delete" danger />
               </>
             ) : null}
             {ribbon === 'insert' ? (
@@ -507,50 +480,33 @@ export function BiChartsPage() {
               </>
             ) : null}
             {ribbon === 'data' ? (
-              <p className="font-label text-[11px] text-on-surface-variant">
-                Use the left Fields pane — metrics, datasets, and columns.
+              <p className="text-[11px] text-[#a3afbe]">
+                Drag fields from the left Data pane onto the canvas — certified managed datasets only.
               </p>
             ) : null}
             {ribbon === 'view' ? (
               <>
-                <RibbonBtn
-                  onClick={() => setPageId('page1')}
-                  label="Page 1"
-                  active={pageId === 'page1'}
-                />
-                <RibbonBtn
-                  onClick={() => setPageId('page2')}
-                  label="Page 2"
-                  active={pageId === 'page2'}
-                />
-                <RibbonBtn
-                  onClick={() => setEditMode(true)}
-                  label="Edit"
-                  active={editMode}
-                />
-                <RibbonBtn
-                  onClick={() => setEditMode(false)}
-                  label="Reading"
-                  active={!editMode}
-                />
+                <RibbonBtn onClick={() => setPageId('page1')} label="Page 1" active={pageId === 'page1'} />
+                <RibbonBtn onClick={() => setPageId('page2')} label="Page 2" active={pageId === 'page2'} />
+                <RibbonBtn onClick={() => setEditMode(true)} label="Edit" active={editMode} />
+                <RibbonBtn onClick={() => setEditMode(false)} label="Reading" active={!editMode} />
               </>
             ) : null}
             {ribbon === 'format' ? (
-              <p className="font-label text-[11px] text-on-surface-variant">
-                Select a visual — use the right Format pane for type, axes,
-                layout.
+              <p className="text-[11px] text-[#a3afbe]">
+                Select a visual — configure type, axes, and layout in the right pane.
               </p>
             ) : null}
           </div>
         </div>
 
         {error ? (
-          <p className="shrink-0 border-b border-error/40 bg-error/10 px-md py-sm text-[12px] text-error">
+          <p className="shrink-0 border-b border-solid border-[rgba(255,107,107,0.35)] bg-[rgba(255,107,107,0.1)] px-[16px] py-[8px] text-[12px] text-[#ff6b6b]">
             {error}
           </p>
         ) : null}
         {toast ? (
-          <p className="shrink-0 border-b border-secondary/25 bg-secondary/5 px-md py-sm text-[12px] text-secondary">
+          <p className="shrink-0 border-b border-solid border-[#424850] bg-[#0f1215] px-[16px] py-[8px] text-[12px] text-[#7aecd0]">
             {toast}{' '}
             <button type="button" className="underline" onClick={() => setToast(null)}>
               dismiss
@@ -558,20 +514,20 @@ export function BiChartsPage() {
           </p>
         ) : null}
         {metricPreview != null ? (
-          <p className="shrink-0 border-b border-outline-variant/20 px-md py-sm text-[12px] text-secondary">
+          <p className="shrink-0 border-b border-solid border-[#424850] px-[16px] py-[8px] text-[12px] text-[#c8cdd3]">
             Metric run: {metricPreview}
           </p>
         ) : null}
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-12">
-          {/* Fields */}
-          <aside className="min-h-0 overflow-y-auto border-b border-outline-variant/20 lg:col-span-2 lg:border-r lg:border-b-0">
+        <div className="flex min-h-0 flex-1">
+          {/* Data explorer — Sigma-style left rail */}
+          <aside className="hidden w-[240px] shrink-0 flex-col overflow-y-auto border-r border-solid border-[#424850] bg-[#0f1215] lg:flex">
             <SectionTitle>Filters</SectionTitle>
-            <div className="space-y-sm px-sm pb-md">
+            <div className="space-y-[8px] px-[12px] pb-[12px]">
               <select
                 value={filterField}
                 onChange={(e) => setFilterField(e.target.value)}
-                className="w-full rounded border border-outline-variant/40 bg-surface px-sm py-1 text-[11px]"
+                className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[7px] text-[11px] text-[#d4dbe3]"
               >
                 <option value="">Field…</option>
                 {filterFieldOpts.map((f) => (
@@ -584,17 +540,17 @@ export function BiChartsPage() {
                 value={filterValue}
                 onChange={(e) => setFilterValue(e.target.value)}
                 placeholder="Contains…"
-                className="w-full rounded border border-outline-variant/40 bg-surface px-sm py-1 text-[11px]"
+                className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[7px] text-[11px] text-[#d4dbe3] placeholder:text-[#6b7380]"
               />
             </div>
 
             <SectionTitle>Datasets</SectionTitle>
-            <ul className="px-sm pb-md">
+            <ul className="px-[12px] pb-[12px]">
               {datasets.map((d) => (
                 <li key={d.id}>
                   <button
                     type="button"
-                    className="w-full truncate rounded px-sm py-1 text-left text-[11px] hover:bg-secondary/10"
+                    className="w-full truncate rounded-[4px] px-[8px] py-[6px] text-left text-[11px] text-[#d4dbe3] hover:bg-[#1e2328]"
                     onClick={() => {
                       setDatasetId(d.id)
                       setMetricDatasetId(d.id)
@@ -602,12 +558,12 @@ export function BiChartsPage() {
                   >
                     {d.name}
                   </button>
-                  <ul className="mb-sm ml-sm border-l border-outline-variant/20 pl-sm">
+                  <ul className="mb-[8px] ml-[8px] border-l border-solid border-[#424850] pl-[8px]">
                     {(d.columns || []).slice(0, 16).map((c) => (
                       <li key={c.name}>
                         <button
                           type="button"
-                          className="w-full truncate py-0.5 text-left font-mono text-[10px] text-on-surface-variant hover:text-secondary"
+                          className="w-full truncate py-[3px] text-left font-mono text-[10px] text-[#a3afbe] hover:text-[#7aecd0]"
                           onClick={() => {
                             if (!xField) setXField(c.name)
                             else setYField(c.name)
@@ -622,9 +578,9 @@ export function BiChartsPage() {
                 </li>
               ))}
               {datasets.length === 0 ? (
-                <li className="px-sm text-[11px] text-on-surface-variant">
+                <li className="px-[8px] text-[11px] text-[#a3afbe]">
                   Certify data on{' '}
-                  <Link to="/jobs" className="text-secondary underline">
+                  <Link to="/jobs" className="text-[#d0d8e0] underline">
                     Jobs → Results
                   </Link>{' '}
                   after a job run.
@@ -634,37 +590,35 @@ export function BiChartsPage() {
 
             <SectionTitle>Metrics</SectionTitle>
             {canWrite ? (
-              <div className="space-y-sm px-sm pb-sm">
+              <div className="space-y-[8px] px-[12px] pb-[8px]">
                 <input
                   value={metricName}
                   onChange={(e) => setMetricName(e.target.value)}
                   placeholder="Name"
-                  className="w-full rounded border border-outline-variant/40 bg-surface px-sm py-1 text-[11px]"
+                  className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[7px] text-[11px] text-[#d4dbe3]"
                 />
                 <input
                   value={metricExpr}
                   onChange={(e) => setMetricExpr(e.target.value)}
                   placeholder="COUNT(*)"
-                  className="w-full rounded border border-outline-variant/40 bg-surface px-sm py-1 font-mono text-[10px]"
+                  className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[7px] font-mono text-[10px] text-[#d4dbe3]"
                 />
                 <button
                   type="button"
                   disabled={busy || !metricName.trim()}
                   onClick={() => void createMetric()}
-                  className="w-full rounded bg-secondary/90 py-1 text-[10px] font-semibold text-on-secondary disabled:opacity-40"
+                  className="pdf-btn-ghost w-full py-[6px] text-[10px] font-semibold disabled:opacity-40"
                 >
                   Add metric
                 </button>
               </div>
             ) : null}
-            <ul className="px-sm pb-lg">
+            <ul className="px-[12px] pb-[16px]">
               {metrics.map((m) => (
-                <li key={m.id} className="border-t border-outline-variant/10 py-sm">
-                  <p className="truncate text-[11px] font-semibold">{m.name}</p>
-                  <p className="font-mono text-[9px] text-on-surface-variant">
-                    {m.expressionSql}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-1">
+                <li key={m.id} className="border-t border-solid border-[#424850]/60 py-[8px]">
+                  <p className="truncate text-[11px] font-semibold text-[#d4dbe3]">{m.name}</p>
+                  <p className="font-mono text-[9px] text-[#8a9099]">{m.expressionSql}</p>
+                  <div className="mt-[6px] flex flex-wrap gap-[4px]">
                     <TinyBtn
                       onClick={() =>
                         void previewMetric(m.id).catch((e) =>
@@ -700,104 +654,98 @@ export function BiChartsPage() {
             </ul>
           </aside>
 
-          {/* Canvas */}
-          <main className="min-h-0 overflow-auto lg:col-span-7">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-sm border-b border-outline-variant/20 bg-[#141820]/90 px-md py-sm backdrop-blur">
-              <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
-                Canvas · {pageId}
-                {reportFilter ? ` · report ${reportFilter.slice(0, 8)}` : ''}
-              </p>
-              <p className="text-[10px] text-on-surface-variant">
-                {pageCharts.length} visual(s)
-              </p>
-            </div>
-
+          {/* Canvas — dashboard / report studio */}
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#111416]">
             {pageCharts.length === 0 ? (
-              <div className="flex min-h-[24rem] flex-col items-center justify-center gap-md p-lg text-center">
-                <p className="max-w-md text-[13px] text-on-surface-variant">
-                    Empty report. After a job run, open{' '}
-                    <Link to="/jobs" className="text-secondary underline">
-                      Jobs → Results
-                    </Link>{' '}
-                    to preview/certify the managed table, then build a full
-                    multi-visual report — or Insert visuals from the ribbon.
-                </p>
-                {canWrite ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void scaffold()}
-                    className="rounded bg-secondary px-lg py-2 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
-                  >
-                    Build full report
-                  </button>
-                ) : null}
-              </div>
+              <BiPdfDemoDashboard
+                canWrite={canWrite}
+                busy={busy}
+                onBuild={() => void scaffold()}
+              />
             ) : (
-              <div
-                className="grid gap-sm p-md"
-                style={{
-                  gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
-                  gridAutoRows: 'minmax(4.5rem, auto)',
-                }}
-              >
-                {pageCharts.map((c) => {
-                  const L = layoutOf(c)
-                  const raw = previewMap[c.id] || []
-                  const rows = applyFilters(raw, filterField, filterValue)
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedId(c.id)
-                        setRibbon('format')
-                      }}
-                      className={[
-                        'overflow-hidden rounded-lg border bg-surface-container-low/80 p-sm text-left transition-shadow',
-                        selectedId === c.id
-                          ? 'border-secondary shadow-[0_0_0_1px_var(--color-secondary)]'
-                          : 'border-outline-variant/30 hover:border-secondary/40',
-                      ].join(' ')}
-                      style={{
-                        gridColumn: `${L.col + 1} / span ${L.w}`,
-                        gridRow: `span ${L.h}`,
-                        minHeight: `${L.h * 3.2}rem`,
-                      }}
-                    >
-                      <div className="mb-sm flex items-center justify-between gap-sm">
-                        <p className="truncate font-label text-[11px] font-semibold">
-                          {c.title}
-                        </p>
-                        <span className="shrink-0 font-label text-[9px] uppercase text-on-surface-variant">
-                          {c.chartType}
-                          {c.certified ? ' · ✓' : ''}
-                        </span>
-                      </div>
-                      <BiChartPreview
-                        chartType={c.chartType}
-                        rows={rows}
-                        xField={String(c.config?.xField || '') || undefined}
-                        yField={String(c.config?.yField || '') || undefined}
-                        compact
-                      />
-                    </button>
-                  )
-                })}
+              <div className="flex flex-col gap-[16px] p-[16px] lg:p-[24px]">
+                <div className="flex items-center justify-between gap-[8px]">
+                  <p className="text-[10px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
+                    Canvas · {pageId}
+                    {reportFilter ? ` · report ${reportFilter.slice(0, 8)}` : ''}
+                  </p>
+                  <p className="text-[10px] text-[#8a9099]">{pageCharts.length} visual(s)</p>
+                </div>
+
+                <div
+                  className="grid gap-[12px]"
+                  style={{
+                    gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
+                    gridAutoRows: 'minmax(4.5rem, auto)',
+                  }}
+                >
+                  {pageCharts.map((c) => {
+                    const L = layoutOf(c)
+                    const raw = previewMap[c.id] || []
+                    const rows = applyFilters(raw, filterField, filterValue)
+                    const isKpi = c.chartType === 'kpi' || c.chartType === 'card'
+
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedId(c.id)
+                          setRibbon('format')
+                        }}
+                        className={[
+                          'overflow-hidden rounded-[4px] border border-solid bg-[#0f1215] p-[14px] text-left transition-colors',
+                          selectedId === c.id
+                            ? 'border-[#d0d8e0]/50 ring-1 ring-[rgba(208,216,224,0.15)]'
+                            : 'border-[#424850] hover:border-[#6b7380]',
+                          isKpi ? 'pdf-shine' : '',
+                        ].join(' ')}
+                        style={{
+                          gridColumn: `${L.col + 1} / span ${L.w}`,
+                          gridRow: `span ${L.h}`,
+                          minHeight: `${L.h * 3.2}rem`,
+                        }}
+                      >
+                        <div className="mb-[10px] flex items-center justify-between gap-[8px]">
+                          <p className="truncate text-[13px] font-semibold text-[#d4dbe3]">
+                            {c.title}
+                          </p>
+                          <span className="shrink-0 text-[9px] font-bold tracking-[0.6px] text-[#8a9099] uppercase">
+                            {c.chartType}
+                            {c.certified ? ' · ✓' : ''}
+                          </span>
+                        </div>
+                        <BiChartPreview
+                          chartType={c.chartType}
+                          rows={rows}
+                          xField={String(c.config?.xField || '') || undefined}
+                          yField={String(c.config?.yField || '') || undefined}
+                          compact
+                        />
+                        <div className="mt-[10px] flex items-center justify-between text-[10px] text-[#6b7380]">
+                          <span>Last updated: live</span>
+                          {c.certified ? (
+                            <span className="text-[#7aecd0]">Mint Embed &lt;&gt;</span>
+                          ) : null}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </main>
 
-          {/* Format / visualizations */}
-          <aside className="min-h-0 overflow-y-auto border-t border-outline-variant/20 lg:col-span-3 lg:border-t-0 lg:border-l">
+          {/* Format / properties — right rail */}
+          <aside className="hidden w-[280px] shrink-0 flex-col overflow-y-auto border-l border-solid border-[#424850] bg-[#0f1215] lg:flex">
             <SectionTitle>Visualizations</SectionTitle>
             {!selected ? (
-              <p className="px-md text-[12px] text-on-surface-variant">
-                Select a tile on the canvas.
+              <p className="px-[16px] text-[12px] text-[#a3afbe]">
+                Select a tile on the canvas to edit fields, type, and layout.
               </p>
             ) : (
-              <div className="space-y-md px-md pb-lg">
-                <div className="flex flex-wrap gap-1">
+              <div className="space-y-[14px] px-[16px] pb-[24px]">
+                <div className="flex flex-wrap gap-[4px]">
                   {VISUAL_TYPES.map((v) => (
                     <button
                       key={v.id}
@@ -805,10 +753,10 @@ export function BiChartsPage() {
                       disabled={!canWrite || !editMode}
                       onClick={() => setChartType(v.id)}
                       className={[
-                        'rounded px-sm py-1 font-label text-[10px]',
+                        'rounded-[4px] px-[8px] py-[4px] text-[10px] font-semibold',
                         chartType === v.id
-                          ? 'bg-secondary text-on-secondary'
-                          : 'border border-outline-variant text-on-surface-variant',
+                          ? 'border border-solid border-[#d0d8e0]/40 bg-[#2e343b] text-[#d4dbe3]'
+                          : 'border border-solid border-[#424850] text-[#a3afbe]',
                       ].join(' ')}
                     >
                       {v.label}
@@ -816,19 +764,14 @@ export function BiChartsPage() {
                   ))}
                 </div>
 
-                <Field
-                  label="Title"
-                  value={title}
-                  onChange={setTitle}
-                  disabled={!canWrite || !editMode}
-                />
-                <label className="block text-[10px] text-on-surface-variant">
+                <Field label="Title" value={title} onChange={setTitle} disabled={!canWrite || !editMode} />
+                <label className="block text-[10px] text-[#a3afbe]">
                   Dataset
                   <select
                     value={datasetId}
                     onChange={(e) => setDatasetId(e.target.value)}
                     disabled={!canWrite || !editMode}
-                    className="mt-1 w-full rounded border border-outline-variant/40 bg-surface px-sm py-1.5 text-[12px]"
+                    className="mt-[6px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[8px] text-[12px] text-[#d4dbe3]"
                   >
                     <option value="">None</option>
                     {datasets.map((d) => (
@@ -838,14 +781,14 @@ export function BiChartsPage() {
                     ))}
                   </select>
                 </label>
-                <div className="grid grid-cols-2 gap-sm">
-                  <label className="block text-[10px] text-on-surface-variant">
+                <div className="grid grid-cols-2 gap-[8px]">
+                  <label className="block text-[10px] text-[#a3afbe]">
                     X / Legend
                     <select
                       value={xField}
                       onChange={(e) => setXField(e.target.value)}
                       disabled={!canWrite || !editMode}
-                      className="mt-1 w-full rounded border border-outline-variant/40 bg-surface px-sm py-1.5 text-[12px]"
+                      className="mt-[6px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[8px] py-[7px] text-[12px] text-[#d4dbe3]"
                     >
                       <option value="">Auto</option>
                       {fieldOpts.map((f) => (
@@ -855,13 +798,13 @@ export function BiChartsPage() {
                       ))}
                     </select>
                   </label>
-                  <label className="block text-[10px] text-on-surface-variant">
+                  <label className="block text-[10px] text-[#a3afbe]">
                     Y / Values
                     <select
                       value={yField}
                       onChange={(e) => setYField(e.target.value)}
                       disabled={!canWrite || !editMode}
-                      className="mt-1 w-full rounded border border-outline-variant/40 bg-surface px-sm py-1.5 text-[12px]"
+                      className="mt-[6px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[8px] py-[7px] text-[12px] text-[#d4dbe3]"
                     >
                       <option value="">Auto</option>
                       {fieldOpts.map((f) => (
@@ -873,10 +816,10 @@ export function BiChartsPage() {
                   </label>
                 </div>
 
-                <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
+                <p className="text-[10px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
                   Layout (12-col grid)
                 </p>
-                <div className="grid grid-cols-4 gap-sm">
+                <div className="grid grid-cols-4 gap-[8px]">
                   {(
                     [
                       ['col', layout.col, 0, 11],
@@ -885,10 +828,7 @@ export function BiChartsPage() {
                       ['h', layout.h, 2, 8],
                     ] as const
                   ).map(([key, val, min, max]) => (
-                    <label
-                      key={key}
-                      className="block text-[10px] text-on-surface-variant"
-                    >
+                    <label key={key} className="block text-[10px] text-[#a3afbe]">
                       {key}
                       <input
                         type="number"
@@ -902,22 +842,22 @@ export function BiChartsPage() {
                             [key]: Number(e.target.value),
                           }))
                         }
-                        className="mt-1 w-full rounded border border-outline-variant/40 bg-surface px-sm py-1 text-[12px]"
+                        className="mt-[4px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[8px] py-[6px] text-[12px] text-[#d4dbe3]"
                       />
                     </label>
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-sm pt-sm">
-                  <button
+                <div className="flex flex-col gap-[8px] pt-[8px]">
+                  <PdfGhostButton
                     type="button"
                     disabled={!canWrite || busy || !editMode}
                     onClick={() => void saveSelected()}
-                    className="rounded-lg border border-secondary px-md py-1.5 text-[12px] font-semibold text-secondary disabled:opacity-40"
+                    className="w-full py-[8px] text-[12px]"
                   >
                     Apply / Save
-                  </button>
-                  <button
+                  </PdfGhostButton>
+                  <PdfPrimaryButton
                     type="button"
                     disabled={busy}
                     onClick={() =>
@@ -925,42 +865,30 @@ export function BiChartsPage() {
                         setToast('Preview refreshed'),
                       )
                     }
-                    className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
+                    className="w-full py-[8px] text-[12px]"
                   >
                     Run visual
-                  </button>
+                  </PdfPrimaryButton>
                   {canWrite && !selected.certified ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void certifySelected()}
-                      className="rounded-lg border border-outline-variant px-md py-1.5 text-[12px] disabled:opacity-40"
-                    >
+                    <PdfGhostButton type="button" disabled={busy} onClick={() => void certifySelected()} className="w-full py-[8px] text-[12px]">
                       Certify
-                    </button>
+                    </PdfGhostButton>
                   ) : null}
                   {canAdmin && selected.certified ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void mintSelected()}
-                      className="rounded-lg border border-outline-variant px-md py-1.5 text-[12px] disabled:opacity-40"
-                    >
+                    <PdfGhostButton type="button" disabled={busy} onClick={() => void mintSelected()} className="w-full py-[8px] text-[12px]">
                       Mint embed
-                    </button>
+                    </PdfGhostButton>
                   ) : null}
                 </div>
 
                 {embedToken ? (
-                  <div className="rounded border border-secondary/40 bg-secondary/5 p-sm">
-                    <p className="font-label text-[10px] text-secondary">
-                      Embed (once)
-                    </p>
-                    <pre className="mt-1 overflow-x-auto font-mono text-[9px]">
+                  <div className="rounded-[4px] border border-solid border-[rgba(122,236,208,0.35)] bg-[rgba(122,236,208,0.08)] p-[10px]">
+                    <p className="text-[10px] font-semibold text-[#7aecd0]">Embed (once)</p>
+                    <pre className="mt-[6px] overflow-x-auto font-mono text-[9px] text-[#c8cdd3]">
                       {embedToken}
                     </pre>
                     {embedUrl ? (
-                      <p className="mt-1 break-all font-mono text-[9px] text-on-surface-variant">
+                      <p className="mt-[6px] break-all font-mono text-[9px] text-[#8a9099]">
                         {embedUrl}
                         <br />
                         {getApiBase()}/bi/embed/{embedToken}
@@ -979,7 +907,7 @@ export function BiChartsPage() {
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <p className="px-md py-sm font-label text-[10px] font-bold tracking-widest text-secondary uppercase">
+    <p className="px-[12px] py-[10px] text-[10px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
       {children}
     </p>
   )
@@ -1004,12 +932,12 @@ function RibbonBtn({
       disabled={disabled}
       onClick={onClick}
       className={[
-        'rounded px-md py-1.5 font-label text-[11px] disabled:opacity-40',
+        'rounded-[4px] px-[12px] py-[6px] text-[11px] font-semibold disabled:opacity-40',
         active
-          ? 'bg-secondary text-on-secondary'
+          ? 'border border-solid border-[#d0d8e0]/40 bg-[#2e343b] text-[#d4dbe3]'
           : danger
-            ? 'border border-error/40 text-error'
-            : 'border border-outline-variant text-on-surface',
+            ? 'border border-solid border-[rgba(255,107,107,0.35)] text-[#ff6b6b]'
+            : 'border border-solid border-[#424850] text-[#c8cdd3] hover:border-[#6b7380]',
       ].join(' ')}
     >
       {label}
@@ -1022,7 +950,7 @@ function TinyBtn({ label, onClick }: { label: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded border border-outline-variant px-sm py-px text-[9px]"
+      className="rounded-[4px] border border-solid border-[#424850] px-[8px] py-[2px] text-[9px] text-[#a3afbe] hover:text-[#d4dbe3]"
     >
       {label}
     </button>
@@ -1041,13 +969,13 @@ function Field({
   disabled?: boolean
 }) {
   return (
-    <label className="block text-[10px] text-on-surface-variant">
+    <label className="block text-[10px] text-[#a3afbe]">
       {label}
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="mt-1 w-full rounded border border-outline-variant/40 bg-surface px-sm py-1.5 text-[12px] text-on-surface"
+        className="mt-[6px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[8px] text-[12px] text-[#d4dbe3] disabled:opacity-50"
       />
     </label>
   )

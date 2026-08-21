@@ -1,10 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { NavLink } from 'react-router-dom'
 import { AuthSessionControls } from '@/components/AuthSessionControls'
-import { MobileNav } from '@/components/MobileNav'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
-import { primaryNavLinkClass } from '@/components/primaryNavStyles'
-import { QueLogo } from '@/components/QueLogo'
 import type { DataSourceType } from '@/types/dataSource'
 import type {
   DiagramFilters,
@@ -15,22 +11,7 @@ import type {
 } from '@/types/topBar'
 import { DEFAULT_DIAGRAM_FILTERS } from '@/types/topBar'
 
-/* ─────────────────────────────────────────────────────────────────────────────
- * TopBar — workspace chrome (aligned with QueAppChrome primary IA)
- * Layout: [Menu · Brand · Primary] [Search] ····· [Tools ▾] [Auth]
- * Extra routes live in MobileNav — not a 12-link strip that overflows laptops.
- * ─────────────────────────────────────────────────────────────────────────── */
-
 export type { TopBarProps, DiagramFilters, ExportFormat }
-
-/** Same primary set as QueAppChrome */
-const PRIMARY_LINKS = [
-  { to: '/chat', label: 'Assistant' },
-  { to: '/workspace', label: 'Workspace' },
-  { to: '/sources', label: 'Sources' },
-  { to: '/joins', label: 'Joins' },
-  { to: '/ship', label: 'Ship' },
-] as const
 
 const SOURCE_OPTIONS: { value: SourceTypeFilter; label: string }[] = [
   { value: 'all', label: 'All sources' },
@@ -59,43 +40,25 @@ const CONFIDENCE_OPTIONS: { value: string; label: string }[] = [
 ]
 
 /**
- * Workspace top bar — search, filters, counts, export, session.
+ * Workspace top bar — PDF slate chrome with filters + export.
+ * Primary navigation lives in PdfSidebar; no search or duplicate nav links.
  */
 export function TopBar({
   visibleTableCount,
   visibleRelationshipCount,
-  searchQuery: searchQueryProp,
   filters: filtersProp,
-  onSearchChange,
   onFiltersChange,
   onExport,
   className = '',
 }: TopBarProps) {
-  const searchId = useId()
   const [menuOpen, setMenuOpen] = useState(false)
   const toolsRef = useRef<HTMLDivElement>(null)
-  const isMac =
-    typeof navigator !== 'undefined' &&
-    /Mac|iPhone|iPad/.test(navigator.platform)
 
-  const [internalSearch, setInternalSearch] = useState('')
   const [internalFilters, setInternalFilters] = useState<DiagramFilters>(
     DEFAULT_DIAGRAM_FILTERS,
   )
 
-  const searchQuery = searchQueryProp ?? internalSearch
   const filters = filtersProp ?? internalFilters
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        document.getElementById(searchId)?.focus()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [searchId])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -105,12 +68,6 @@ export function TopBar({
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [menuOpen])
-
-  function setSearch(next: string) {
-    if (searchQueryProp === undefined) setInternalSearch(next)
-    onSearchChange?.(next)
-    patchFilters({ searchQuery: next })
-  }
 
   function patchFilters(partial: Partial<DiagramFilters>) {
     const next = { ...filters, ...partial }
@@ -125,74 +82,37 @@ export function TopBar({
   return (
     <header
       data-region="top-bar"
-      className={`z-50 shrink-0 border-b border-secondary-container/30 bg-background ${className}`}
+      className={`z-50 shrink-0 border-b border-solid border-[#424850] bg-[#0f1215] ${className}`}
     >
-      <div className="flex h-14 min-w-0 items-center gap-sm px-md sm:h-16 sm:gap-md sm:px-lg">
-        <div className="flex min-w-0 shrink items-center gap-sm sm:gap-md">
-          <MobileNav showBelow="md" />
-          <QueLogo
-            size={28}
-            withWordmark
-            wordmarkClassName="hidden font-headline text-[1.2rem] font-bold leading-none tracking-tight text-on-surface min-[420px]:inline sm:text-[1.35rem]"
-          />
-          <nav
-            className="hidden h-14 min-w-0 items-stretch md:flex"
-            aria-label="Primary"
-          >
-            <div className="mr-sm flex items-center lg:mr-md">
-              <WorkspaceSwitcher variant="nav" />
-            </div>
-            {PRIMARY_LINKS.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                className={primaryNavLinkClass}
-                end={l.to === '/workspace' ? false : undefined}
-              >
-                {l.label}
-              </NavLink>
-            ))}
-          </nav>
+      <div className="flex h-12 min-w-0 items-center gap-[12px] px-[16px] sm:h-14 sm:px-[20px]">
+        <div className="flex min-w-0 shrink items-center gap-[12px]">
+          <WorkspaceSwitcher variant="compact" />
+          <div className="hidden min-w-0 sm:block">
+            <p className="truncate text-[13px] font-semibold text-[#d4dbe3]">Workspace</p>
+            <p className="truncate text-[10px] text-[#8a9099]">Schema graph · ERD canvas</p>
+          </div>
         </div>
 
-        <div className="relative mx-xs min-h-9 min-w-0 max-w-[9rem] flex-1 sm:mx-sm sm:max-w-[14rem] lg:max-w-[18rem]">
-          <span
-            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 font-mono text-[12px] text-on-surface-variant"
-            aria-hidden
-          >
-            ⌕
-          </span>
-          <label htmlFor={searchId} className="sr-only">
-            Filter tables and columns
-          </label>
-          <input
-            id={searchId}
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter…"
-            className="que-search-input h-9 w-full rounded border border-outline-variant bg-surface-container py-1 pr-3 pl-8 font-mono text-[12px] text-on-surface outline-none transition-all placeholder:text-on-surface-variant/50 focus:border-secondary focus:ring-1 focus:ring-secondary sm:pr-14"
-            autoComplete="off"
+        <div className="ml-auto flex shrink-0 items-center gap-[8px]" ref={toolsRef}>
+          <VisibleCounts
+            tables={visibleTableCount}
+            relationships={visibleRelationshipCount}
+            className="hidden lg:flex"
           />
-          <span className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 font-label text-[10px] font-bold tracking-widest text-on-surface-variant/50 lg:inline">
-            {isMac ? '⌘K' : 'Ctrl+K'}
-          </span>
-        </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-sm" ref={toolsRef}>
-          <div className="hidden items-center gap-sm 2xl:flex">
+          <div className="hidden items-center gap-[8px] xl:flex">
             <FilterControls filters={filters} onChange={patchFilters} />
             <ExportButtons onExport={handleExport} />
           </div>
 
           <button
             type="button"
-            className="rounded-lg border border-outline-variant/50 px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase hover:border-secondary-fixed hover:text-secondary-fixed 2xl:hidden"
+            className="pdf-btn-ghost rounded-[4px] px-[10px] py-[6px] text-[10px] font-semibold tracking-[0.6px] uppercase xl:hidden"
             aria-expanded={menuOpen}
             aria-controls="topbar-collapsed-panel"
             onClick={() => setMenuOpen((o) => !o)}
           >
-            {menuOpen ? 'Close' : 'Tools'}
+            {menuOpen ? 'Close' : 'Filters'}
           </button>
 
           <AuthSessionControls />
@@ -202,7 +122,7 @@ export function TopBar({
       {menuOpen ? (
         <div
           id="topbar-collapsed-panel"
-          className="flex flex-col gap-md border-t border-secondary-container/30 bg-surface-container-low px-md py-md 2xl:hidden"
+          className="flex flex-col gap-[12px] border-t border-solid border-[#424850] bg-[#15191e] px-[16px] py-[12px] xl:hidden"
         >
           <VisibleCounts
             tables={visibleTableCount}
@@ -228,14 +148,14 @@ function VisibleCounts({
 }) {
   return (
     <div
-      className={`items-center gap-sm font-label text-[10px] tracking-[0.14em] text-on-surface-variant ${className}`}
+      className={`items-center gap-[8px] text-[10px] font-semibold tracking-[0.6px] text-[#8a9099] uppercase ${className}`}
       aria-live="polite"
     >
-      <span className="que-pill whitespace-nowrap border border-outline-variant bg-surface-container-lowest px-sm py-xs">
-        <span className="text-secondary">{tables}</span> TABLES
+      <span className="pdf-shine whitespace-nowrap rounded-[4px] px-[8px] py-[4px]">
+        <span className="text-[#d0d8e0]">{tables}</span> tables
       </span>
-      <span className="que-pill whitespace-nowrap border border-outline-variant bg-surface-container-lowest px-sm py-xs">
-        <span className="text-secondary">{relationships}</span> RELS
+      <span className="pdf-shine whitespace-nowrap rounded-[4px] px-[8px] py-[4px]">
+        <span className="text-[#7aecd0]">{relationships}</span> rels
       </span>
     </div>
   )
@@ -254,8 +174,8 @@ function FilterControls({
     <div
       className={
         stacked
-          ? 'flex flex-col gap-sm'
-          : 'flex shrink-0 flex-nowrap items-center gap-sm'
+          ? 'flex flex-col gap-[8px]'
+          : 'flex shrink-0 flex-nowrap items-center gap-[8px]'
       }
     >
       <SelectControl
@@ -295,17 +215,17 @@ function SelectControl({
 }) {
   const id = useId()
   return (
-    <label className="flex shrink-0 items-center gap-sm rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-xs">
+    <label className="flex shrink-0 items-center gap-[8px] rounded-[4px] border border-solid border-[#424850] bg-[#15191e] px-[8px] py-[6px]">
       <span className="sr-only">{label}</span>
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="max-w-[9.5rem] cursor-pointer border-none bg-transparent font-body text-[12px] text-on-surface outline-none sm:text-xs"
+        className="max-w-[9.5rem] cursor-pointer border-none bg-transparent text-[12px] text-[#d4dbe3] outline-none"
         aria-label={label}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} className="bg-surface-container-lowest">
+          <option key={o.value} value={o.value} className="bg-[#15191e]">
             {o.label}
           </option>
         ))}
@@ -321,13 +241,13 @@ function ExportButtons({
 }) {
   const formats: ExportFormat[] = ['pdf', 'png', 'json']
   return (
-    <div className="flex items-center gap-xs" role="group" aria-label="Export">
+    <div className="flex items-center gap-[6px]" role="group" aria-label="Export">
       {formats.map((fmt) => (
         <button
           key={fmt}
           type="button"
           onClick={() => onExport(fmt)}
-          className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest px-sm py-xs font-label text-[10px] font-bold tracking-[0.14em] text-on-surface-variant uppercase transition-colors hover:border-secondary-fixed hover:text-secondary-fixed"
+          className="pdf-btn-ghost rounded-[4px] px-[10px] py-[6px] text-[10px] font-semibold tracking-[0.6px] uppercase"
         >
           {fmt}
         </button>

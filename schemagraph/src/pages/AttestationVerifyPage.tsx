@@ -2,11 +2,9 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { getApiBase } from '@/services/apiConfig'
 import { verifyAttestationPublic } from '@/services/stitchApi'
+import { FigmaPublicShell, PUBLIC_ASSETS } from '@/components/figma/FigmaPublicShell'
 
-/**
- * Public diligence page — paste a Que export attestation and re-verify HMAC.
- * No login required (matches POST /auth/attestation/verify).
- */
+/** Attestation Verification — pixel-faithful Figma v2 frame (2:1250). */
 export function AttestationVerifyPage() {
   const [raw, setRaw] = useState('')
   const [busy, setBusy] = useState(false)
@@ -55,136 +53,79 @@ export function AttestationVerifyPage() {
   }
 
   return (
-    <div className="min-h-full w-full bg-[linear-gradient(165deg,#faf6f1_0%,#f0e4d8_55%,#ebe0d4_100%)]">
-      <div className="mx-auto max-w-[40rem] px-md py-xl sm:px-lg">
-        <header className="mb-lg">
-          <p className="font-label text-[11px] font-bold tracking-[0.18em] text-[#8b4a34] uppercase">
-            Que · Diligence
-          </p>
-          <h1 className="mt-sm font-headline text-[1.75rem] font-semibold tracking-tight text-[#3d241c]">
-            Verify attestation
-          </h1>
-          <p className="mt-sm max-w-[36rem] font-body text-[14px] leading-relaxed text-on-surface-variant">
-            Paste a schema-only export attestation from a Que job (or a
-            downloaded verify pack). Que recomputes the HMAC — no login, no
-            warehouse data.
-          </p>
-        </header>
+    <FigmaPublicShell
+      section="Verify"
+      sectionBadge
+      headerRight={
+        <Link to="/product" className="text-[13px] text-[#a3afbe] hover:text-[#ecf0f4]">
+          Documentation
+        </Link>
+      }
+    >
+      <div className="flex flex-1 items-center justify-center p-[40px]">
+        <div className="w-[580px] max-w-full rounded-[12px] border border-solid border-[#2a313c] bg-[#15191e] p-[32px]">
+          <header className="mb-[24px] flex flex-col gap-[8px]">
+            <h1 className="text-[22px] font-bold text-[#ecf0f4]">Verify Attestation</h1>
+            <p className="text-[13px] text-[#a3afbe]">
+              Input the cryptographic attestation token or snapshot fingerprint to verify the
+              integrity and lineage of the data artifact.
+            </p>
+          </header>
 
-        <form
-          onSubmit={(e) => void onVerify(e)}
-          className="rounded-xl border border-[#c9b8a8]/60 bg-surface-container-low/90 p-md sm:p-lg"
-        >
-          <label className="block">
-            <span className="font-label text-[11px] font-semibold tracking-[0.12em] text-on-surface-variant uppercase">
-              Attestation JSON
-            </span>
-            <textarea
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-              rows={14}
-              spellCheck={false}
-              placeholder='{ "version": 2, "policy": "schema-only", "signature": { ... }, ... }'
-              className="mt-sm w-full resize-y rounded-lg border border-outline-variant/40 bg-surface-container px-sm py-sm font-mono text-[12px] text-on-surface outline-none focus:border-secondary"
-            />
-          </label>
-          <div className="mt-md flex flex-wrap items-center gap-sm">
+          <form onSubmit={(e) => void onVerify(e)} className="flex flex-col gap-[24px]">
+            <label className="flex flex-col gap-[8px]">
+              <span className="text-[11px] font-extrabold tracking-[1px] text-[#a3afbe] uppercase">
+                Attestation token / fingerprint
+              </span>
+              <textarea
+                value={raw}
+                onChange={(e) => setRaw(e.target.value)}
+                rows={8}
+                spellCheck={false}
+                placeholder="Paste the verification token here (e.g. que_attest_sha256_8f2d93...)"
+                className="h-[160px] w-full resize-y rounded-[6px] border border-solid border-[#2a313c] bg-[#0f1216] p-[12px] font-mono text-[13px] text-[#d4dbe3] outline-none placeholder:text-[#a3afbe]"
+              />
+            </label>
+
+            {error ? (
+              <p className="rounded-[6px] border border-solid border-[#ff6b6b]/40 bg-[rgba(255,107,107,0.13)] px-[12px] py-[8px] text-[13px] text-[#ff6b6b]">
+                {error}
+              </p>
+            ) : null}
+
+            {result ? (
+              <div
+                className={[
+                  'rounded-[6px] border border-solid px-[12px] py-[10px] text-[13px]',
+                  result.ok
+                    ? 'border-[#7aecd0] bg-[rgba(122,236,208,0.13)] text-[#7aecd0]'
+                    : 'border-[#ff6b6b] bg-[rgba(255,107,107,0.13)] text-[#ff6b6b]',
+                ].join(' ')}
+              >
+                {result.ok ? 'Signature valid' : result.reason || 'Verification failed'}
+                {result.fingerprint ? (
+                  <p className="mt-1 font-mono text-[11px] opacity-80">{result.fingerprint}</p>
+                ) : null}
+              </div>
+            ) : null}
+
             <button
               type="submit"
               disabled={busy}
-              className="rounded bg-secondary px-md py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
+              className="pdf-btn-primary flex w-full items-center justify-center gap-[8px] rounded-[6px] px-[24px] py-[12px] text-[14px] font-bold disabled:opacity-50"
             >
-              {busy ? 'Verifying…' : 'Verify signature'}
+              <img alt="" className="size-[16px]" src={PUBLIC_ASSETS.check} />
+              {busy ? 'Verifying…' : 'Verify Artifact'}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRaw('')
-                setResult(null)
-                setError(null)
-              }}
-              className="rounded-lg border border-outline-variant/40 px-md py-2 font-label text-[12px] text-on-surface-variant hover:border-secondary"
-            >
-              Clear
-            </button>
-          </div>
-          <p className="mt-sm font-body text-[11px] text-on-surface-variant/80">
-            API: <code className="font-mono text-[11px]">{apiHint}</code>
-          </p>
-        </form>
 
-        {error ? (
-          <div
-            className="mt-md rounded-xl border border-error/30 bg-error/5 px-md py-sm"
-            role="alert"
-          >
-            <p className="font-label text-[11px] font-semibold tracking-wide text-error uppercase">
-              Could not verify
+            <p className="text-center text-[11px] text-[#a3afbe]">
+              API:{' '}
+              <code className="font-mono text-[#d4dbe3]">{apiHint}</code>
             </p>
-            <p className="mt-xs font-body text-[13px] text-on-surface">{error}</p>
-          </div>
-        ) : null}
-
-        {result ? (
-          <div
-            className={`mt-md rounded-xl border px-md py-sm ${
-              result.ok
-                ? 'border-tertiary/30 bg-tertiary/5'
-                : 'border-error/30 bg-error/5'
-            }`}
-            role="status"
-          >
-            <p
-              className={`font-label text-[11px] font-semibold tracking-wide uppercase ${
-                result.ok ? 'text-tertiary' : 'text-error'
-              }`}
-            >
-              {result.ok ? 'Signature valid' : 'Signature invalid'}
-            </p>
-            <dl className="mt-sm space-y-xs font-body text-[13px] text-on-surface">
-              {result.reason ? (
-                <div className="flex justify-between gap-sm">
-                  <dt className="text-on-surface-variant">Reason</dt>
-                  <dd>{result.reason}</dd>
-                </div>
-              ) : null}
-              {result.fingerprint ? (
-                <div className="flex justify-between gap-sm">
-                  <dt className="text-on-surface-variant">Fingerprint</dt>
-                  <dd className="truncate font-mono text-[12px]">
-                    {result.fingerprint}
-                  </dd>
-                </div>
-              ) : null}
-              {result.policy ? (
-                <div className="flex justify-between gap-sm">
-                  <dt className="text-on-surface-variant">Policy</dt>
-                  <dd>{result.policy}</dd>
-                </div>
-              ) : null}
-              {result.alg ? (
-                <div className="flex justify-between gap-sm">
-                  <dt className="text-on-surface-variant">Alg</dt>
-                  <dd>{result.alg}</dd>
-                </div>
-              ) : null}
-            </dl>
-          </div>
-        ) : null}
-
-        <p className="mt-lg font-body text-[12px] text-on-surface-variant">
-          Workspace members can download verify packs from{' '}
-          <Link to="/settings" className="text-secondary underline">
-            Settings
-          </Link>{' '}
-          after an attested export. Need an account?{' '}
-          <Link to="/login" className="text-secondary underline">
-            Sign in
-          </Link>
-          .
-        </p>
+          </form>
+        </div>
       </div>
-    </div>
+    </FigmaPublicShell>
   )
 }
 

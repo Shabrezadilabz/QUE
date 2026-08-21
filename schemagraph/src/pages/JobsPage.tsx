@@ -5,7 +5,6 @@ import {
   JobsMonitorView,
   type LiveLogRow,
 } from '@/components/jobs/JobsMonitorView'
-import { JobTemplatesPanel } from '@/components/jobs/JobTemplatesPanel'
 import { JobDeployPanel } from '@/components/jobs/JobDeployPanel'
 import { JobManagedDataLayer } from '@/components/jobs/JobManagedDataLayer'
 import { JobValidationLayer } from '@/components/jobs/JobValidationLayer'
@@ -673,7 +672,7 @@ export function JobsPage() {
             </p>
           ) : null}
           {toast ? (
-            <p className="shrink-0 border-b border-secondary/25 bg-secondary/10 px-md py-sm font-label text-[10px] tracking-widest text-secondary">
+            <p className="shrink-0 border-b border-[#424850] bg-[rgba(170,181,192,0.08)] px-md py-sm text-[12px] text-[#d0d8e0]">
               {toast}
               <button
                 type="button"
@@ -684,7 +683,6 @@ export function JobsPage() {
               </button>
             </p>
           ) : null}
-            <JobTemplatesPanel canWrite={canWrite} />
             <JobsMonitorView
               jobs={jobs}
               filtered={filtered}
@@ -712,7 +710,7 @@ export function JobsPage() {
             </p>
           ) : null}
           {toast ? (
-            <p className="shrink-0 border-b border-secondary/25 bg-secondary/10 px-md py-sm font-label text-[10px] tracking-widest text-secondary">
+            <p className="shrink-0 border-b border-[#424850] bg-[rgba(170,181,192,0.08)] px-md py-sm text-[12px] text-[#d0d8e0]">
               {toast}
               <button
                 type="button"

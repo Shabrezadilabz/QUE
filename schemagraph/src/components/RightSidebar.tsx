@@ -53,17 +53,17 @@ export function RightSidebar({
   return (
     <aside
       data-region="right-sidebar"
-      className={`flex h-full w-full max-w-[320px] shrink-0 flex-col border-l border-outline-variant bg-surface-container ${className}`}
+      className={`flex h-full w-full max-w-[320px] shrink-0 flex-col border-l border-solid border-[#424850] bg-[#0f1215] ${className}`}
       aria-label="Properties"
     >
-      <div className="shrink-0 border-b border-outline-variant/20 p-lg">
+      <div className="shrink-0 border-b border-solid border-[#424850] p-lg">
         <div className="mb-md flex items-center justify-between">
-          <h3 className="font-headline text-xl font-semibold text-on-surface">
+          <h3 className="text-xl font-semibold text-[#d4dbe3]">
             Properties
           </h3>
           <button
             type="button"
-            className="rounded-full p-xs text-on-surface-variant transition-colors hover:bg-secondary-container"
+            className="rounded-full p-xs text-[#8a9099] transition-colors hover:bg-[#252a30] hover:text-[#d4dbe3]"
             aria-label="Close properties"
             onClick={onClose}
           >
@@ -72,15 +72,15 @@ export function RightSidebar({
         </div>
 
         {status === 'ready' && table ? (
-          <div className="flex items-center gap-md rounded-lg border border-secondary/30 bg-secondary/10 p-md">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-outline-variant bg-surface-container-high text-secondary">
+          <div className="flex items-center gap-md rounded-[4px] border border-solid border-[#424850] bg-[#15191e] p-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-solid border-[#424850] bg-[#252a30] text-[#7aecd0]">
               <SourceTypeIcon type={table.sourceType} className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate font-label text-sm font-bold text-on-surface">
+              <p className="truncate text-sm font-semibold text-[#d4dbe3]">
                 {table.name}
               </p>
-              <p className="font-mono text-[11px] text-on-surface-variant">
+              <p className="font-mono text-[11px] text-[#8a9099]">
                 Table · {table.sourceLabel || sourceTypeLabel(table.sourceType)}
               </p>
             </div>
@@ -170,16 +170,16 @@ export function RightSidebar({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-outline-variant/20 bg-surface-container-low/50 p-lg">
+      <div className="shrink-0 border-t border-solid border-[#424850] bg-[#15191e] p-lg">
         <button
           type="button"
           disabled={!table || status !== 'ready'}
           onClick={() => table && onAddToJob?.(table.id)}
-          className="w-full rounded bg-secondary py-md font-label text-sm font-medium text-on-secondary transition-colors hover:bg-secondary-fixed-dim active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+          className="pdf-btn-primary w-full rounded-[4px] py-md text-sm font-semibold transition-colors active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Save Changes
         </button>
-        <p className="mt-xs text-center font-label text-[9px] tracking-wide text-on-surface-variant/70">
+        <p className="mt-xs text-center text-[9px] tracking-wide text-[#8a9099]">
           Creates a stitch job from this table + neighbors
         </p>
       </div>
@@ -225,8 +225,8 @@ function ColumnPill({
       className={[
         'flex w-full items-center justify-between rounded-lg border px-sm py-sm text-left transition-colors',
         selected
-          ? 'border-secondary/40 bg-surface-container-low'
-          : 'border-outline-variant/30 bg-surface-container-low/30 hover:border-secondary/40',
+          ? 'border-[rgba(208,216,224,0.35)] bg-[#15191e]'
+          : 'border-[#424850] bg-[#0f1215] hover:border-[rgba(208,216,224,0.25)]',
       ].join(' ')}
     >
       <span className="flex min-w-0 items-center gap-sm">

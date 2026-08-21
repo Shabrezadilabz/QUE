@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { MainDiagramLayout } from '@/layouts/MainDiagramLayout'
 import { DiagramProvider } from '@/context/DiagramContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
@@ -344,28 +345,33 @@ export function WorkspacePage() {
 
   if (!ready) {
     return (
-      <div className="flex h-full items-center justify-center bg-background font-label text-[11px] tracking-widest text-on-surface-variant">
-        LOADING WORKSPACE…
-      </div>
+      <QueAppChrome flush>
+        <div className="flex h-full items-center justify-center font-label text-[11px] tracking-widest text-[#8a9099]">
+          LOADING WORKSPACE…
+        </div>
+      </QueAppChrome>
     )
   }
 
   if (loadError === 'auth' || loadError === 'forbidden') {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-md bg-background px-md text-center">
-        <p className="font-headline text-xl text-on-surface">{banner}</p>
-        <a
-          href="/login"
-          className="bg-primary-container px-md py-sm font-label text-[11px] font-bold tracking-widest text-on-primary-fixed"
-        >
-          SIGN IN
-        </a>
-      </div>
+      <QueAppChrome flush>
+        <div className="flex h-full flex-col items-center justify-center gap-md px-md text-center">
+          <p className="text-xl font-semibold text-[#d4dbe3]">{banner}</p>
+          <a
+            href="/login"
+            className="pdf-btn-primary rounded-[4px] px-md py-sm text-[11px] font-semibold tracking-widest"
+          >
+            SIGN IN
+          </a>
+        </div>
+      </QueAppChrome>
     )
   }
 
   return (
-    <div className="relative h-full">
+    <QueAppChrome flush>
+      <div className="relative h-full min-h-0">
       <DiagramProvider initialTables={tables}>
         <StitchSessionDialog
           open={stitchOpen}
@@ -406,6 +412,7 @@ export function WorkspacePage() {
           syncing={syncing}
         />
       </DiagramProvider>
-    </div>
+      </div>
+    </QueAppChrome>
   )
 }

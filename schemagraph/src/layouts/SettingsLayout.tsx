@@ -1,78 +1,34 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { PdfPageHeader } from '@/components/pdf/PdfUi'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 
-const NAV = [
-  { to: '/settings/members', label: 'Members', hint: 'Roles & invites' },
-  { to: '/settings/security', label: 'Security', hint: 'SSO · API keys · BYOK' },
-  {
-    to: '/settings/enterprise',
-    label: 'Enterprise',
-    hint: 'SCIM · CMK · SIEM · SOC2 pack',
-    adminOnly: true,
-  },
-  { to: '/settings/automation', label: 'Automation', hint: 'Schedules · runners' },
-  { to: '/settings/governance', label: 'Governance', hint: 'Drift · audit · attest' },
-  { to: '/settings/team', label: 'Team OS', hint: 'Roles · Slack digests' },
-  {
-    to: '/settings/domains',
-    label: 'Domains',
-    hint: 'Data products · stewards',
-  },
-  { to: '/settings/billing', label: 'Billing', hint: 'Seats · checkout', adminOnly: true },
-  { to: '/settings/ai-policy', label: 'AI & Policy', hint: 'Flags · GitHub · dbt' },
+const ORG_NAV = [
+  { to: '/settings/members', label: 'Members' },
+  { to: '/settings/security', label: 'Security' },
+  { to: '/settings/ai-policy', label: 'AI Policy' },
+  { to: '/settings/automation', label: 'Automation' },
+  { to: '/settings/billing', label: 'Billing', adminOnly: true },
 ] as const
 
-/**
- * Settings shell — primary chrome + secondary side nav + nested outlet.
- */
+/** Settings — pixel-faithful Figma v2 frame (2:1050). */
 export function SettingsLayout() {
   const { canAdmin } = useWorkspaceRole()
 
   return (
-    <QueAppChrome eyebrow="SETTINGS · WORKSPACE">
-      <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-secondary-container/30 bg-background md:flex lg:w-64">
-          <div className="border-b border-outline-variant/20 px-md py-md">
-            <p className="font-label text-[10px] tracking-[0.16em] text-on-surface-variant/70 uppercase">
-              Workspace
-            </p>
-            <h1 className="mt-xs font-headline text-base font-semibold text-on-surface">
-              Settings
-            </h1>
-          </div>
-          <nav className="flex flex-1 flex-col gap-xs overflow-y-auto p-sm" aria-label="Settings sections">
-            {NAV.map((item) => {
-              if ('adminOnly' in item && item.adminOnly && !canAdmin) return null
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    [
-                      'rounded-lg px-md py-sm transition-colors',
-                      isActive
-                        ? 'bg-secondary/15 text-secondary'
-                        : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
-                    ].join(' ')
-                  }
-                >
-                  <span className="block font-label text-[12px] font-medium tracking-wide">
-                    {item.label}
-                  </span>
-                  <span className="mt-0.5 block font-body text-[11px] opacity-70">
-                    {item.hint}
-                  </span>
-                </NavLink>
-              )
-            })}
-          </nav>
-        </aside>
+    <QueAppChrome flush>
+      <div className="flex h-full min-h-0 flex-col bg-[#111416]">
+        <PdfPageHeader
+          title="Settings"
+          subtitle="Configure workspaces, integrations, access credentials and billing controls."
+        />
 
-        {/* Mobile section strip */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex gap-xs overflow-x-auto border-b border-outline-variant/20 bg-background px-sm py-sm md:hidden">
-            {NAV.map((item) => {
+        <div className="flex min-h-0 flex-1 gap-[24px] p-[24px]">
+          <aside className="hidden w-[220px] shrink-0 flex-col gap-[4px] md:flex">
+            <p className="text-[11px] font-extrabold tracking-[1px] text-[#a3afbe] uppercase">
+              Organization
+            </p>
+            {ORG_NAV.map((item) => {
               if ('adminOnly' in item && item.adminOnly && !canAdmin) return null
               return (
                 <NavLink
@@ -80,10 +36,10 @@ export function SettingsLayout() {
                   to={item.to}
                   className={({ isActive }) =>
                     [
-                      'shrink-0 rounded-full px-md py-xs font-label text-[11px] tracking-wide',
+                      'rounded-[4px] p-[10px] text-[13px]',
                       isActive
-                        ? 'bg-secondary text-on-secondary'
-                        : 'bg-surface-container-low text-on-surface-variant',
+                        ? 'pdf-shine font-bold text-[#d0d8e0]'
+                        : 'font-normal text-[#a3afbe] hover:bg-[#15191e]',
                     ].join(' ')
                   }
                 >
@@ -91,8 +47,34 @@ export function SettingsLayout() {
                 </NavLink>
               )
             })}
+          </aside>
+
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <div className="flex gap-[8px] overflow-x-auto border-b border-solid border-[#2a313c] pb-[8px] md:hidden">
+              {ORG_NAV.map((item) => {
+                if ('adminOnly' in item && item.adminOnly && !canAdmin) return null
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      [
+                        'shrink-0 rounded-full px-[12px] py-[4px] text-[11px]',
+                        isActive
+                          ? 'bg-[#d0d8e0] text-[#323840]'
+                          : 'bg-[#15191e] text-[#a3afbe]',
+                      ].join(' ')
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                )
+              })}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <Outlet />
+            </div>
           </div>
-          <Outlet />
         </div>
       </div>
     </QueAppChrome>

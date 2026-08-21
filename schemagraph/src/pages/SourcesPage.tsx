@@ -13,11 +13,10 @@ import {
 } from '@/components/sidebar/SourceTypeIcon'
 import {
   ConnectorCatalogGrid,
-  SourcesBranchMark,
 } from '@/components/sources/ConnectorCatalogGrid'
-import {
-  ConnectionHealthPanel,
-} from '@/components/sources/ConnectionHealthPanel'
+import { SourcesTableView } from '@/components/sources/SourcesTableView'
+import { PdfPageHeader, PdfPrimaryButton, PdfGhostButton } from '@/components/pdf/PdfUi'
+import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
 import {
   CONNECTOR_CATALOG,
   filterConnectorCatalog,
@@ -55,8 +54,8 @@ const CREATABLE: DataSourceType[] = [
 ]
 
 const STATUS_DOT: Record<DataSourceStatus, string> = {
-  active: 'bg-tertiary',
-  warning: 'bg-amber-400',
+  active: 'bg-[#d0d8e0]',
+  warning: 'bg-[#f0a020]',
   error: 'bg-error',
 }
 
@@ -324,7 +323,7 @@ function statusBadge(status: DataSourceStatus): {
   if (status === 'active') {
     return {
       label: 'Connected',
-      className: 'bg-tertiary/10 text-tertiary',
+      className: 'pdf-shine text-[#d0d8e0]',
     }
   }
   if (status === 'warning') {
@@ -816,7 +815,7 @@ export function SourcesPage() {
         </p>
       ) : null}
       {toast ? (
-        <p className="border-b border-secondary/25 bg-secondary/10 px-md py-sm font-body text-sm text-secondary">
+        <p className="border-b border-[#424850] bg-[rgba(170,181,192,0.08)] px-md py-sm font-body text-sm text-[#d0d8e0]">
           {toast}
           <button
             type="button"
@@ -848,7 +847,7 @@ export function SourcesPage() {
                       cancelWizard()
                     }
                   }}
-                  className="font-label text-[12px] font-medium text-secondary hover:underline"
+                  className="text-[12px] font-medium text-[#a3afbe] hover:text-[#d0d8e0] hover:underline"
                 >
                   {wizardStep === 2 ? '← Back to connectors' : '← All sources'}
                 </button>
@@ -863,9 +862,9 @@ export function SourcesPage() {
                         className={[
                           'rounded-md px-3 py-1 font-label text-[11px]',
                           active
-                            ? 'bg-secondary text-on-secondary'
+                            ? 'bg-[#d0d8e0] text-[#323840]'
                             : done
-                              ? 'text-tertiary'
+                              ? 'text-[#c8cdd3]'
                               : 'text-on-surface-variant/50',
                         ].join(' ')}
                       >
@@ -905,7 +904,7 @@ export function SourcesPage() {
                 <div className="grid grid-cols-1 items-start gap-lg lg:grid-cols-12">
                   <aside className="lg:col-span-4">
                     <div className="sticky top-4 rounded-lg border border-outline-variant/20 bg-surface-container-low p-lg">
-                      <div className="mb-md flex h-16 w-16 items-center justify-center rounded-xl border border-secondary/40 bg-secondary/5 text-secondary">
+                      <div className="pdf-shine mb-md flex h-16 w-16 items-center justify-center rounded-[8px] text-[#c8cdd3]">
                         {form.type ? (
                           <SourceTypeIcon type={form.type} className="h-8 w-8" />
                         ) : null}
@@ -924,7 +923,7 @@ export function SourcesPage() {
                           {catalogItem.capabilities.map((cap) => (
                             <span
                               key={cap}
-                              className="rounded-full bg-secondary-container/80 px-2 py-0.5 font-label text-[10px] text-on-secondary-container"
+                              className="rounded-full border border-solid border-[#424850] bg-[#252a30] px-2 py-0.5 text-[10px] text-[#c8cdd3]"
                             >
                               {cap}
                             </span>
@@ -973,7 +972,7 @@ export function SourcesPage() {
                           type="button"
                           disabled={busy || !form.name.trim() || !canAdmin}
                           onClick={() => void save()}
-                          className="rounded bg-secondary px-lg py-2 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
+                          className="pdf-btn-primary rounded-[4px] px-lg py-2 text-[12px] font-semibold disabled:opacity-40"
                         >
                           {form.type === 'excel' || form.type === 'csv'
                             ? busy
@@ -996,154 +995,88 @@ export function SourcesPage() {
 
   /* List + detail */
   return (
-      <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-[#111416]">
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {banners}
-          <main className="min-h-0 flex-1 overflow-y-auto px-md py-lg md:px-lg lg:px-margin-desktop">
-            {!selected ? (
-              <>
-                <div className="mb-xl flex flex-col items-start gap-md sm:flex-row sm:items-end sm:justify-between">
-                  <div className="flex items-start gap-md">
-                    <SourcesBranchMark className="mt-1 hidden h-10 w-10 shrink-0 text-secondary sm:block" />
-                    <div>
-                      <h1 className="font-headline text-xl font-semibold tracking-tight text-secondary">
-                        Sources
-                      </h1>
-                      <p className="mt-xs max-w-[36rem] font-body text-[13px] text-on-surface-variant">
-                        Connected systems sync schema into Que. Add a connector
-                        from the tile catalog, then Promote joins on Workspace.
-                      </p>
+          {!selected ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <PdfPageHeader
+                title="Sources"
+                subtitle="Connected systems sync schema into Que. Add a connector, then Promote joins on Workspace."
+                actions={
+                  <div className="flex flex-wrap items-center gap-[12px]">
+                    <div className="relative w-[220px]">
+                      <input
+                        type="search"
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                        placeholder="Filter sources..."
+                        className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#0f1215] py-[10px] pl-[37px] pr-[13px] text-[12px] text-[#d4dbe3] outline-none placeholder:text-[#8a9099]"
+                      />
+                      <img
+                        alt=""
+                        className="pointer-events-none absolute left-[12px] top-1/2 size-[13.5px] -translate-y-1/2 opacity-70"
+                        src={FIGMA_NAV.search}
+                      />
                     </div>
-                  </div>
-                  <div className="flex w-full flex-wrap items-center gap-sm sm:w-auto">
-                    <input
-                      type="search"
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      placeholder="Filter sources…"
-                      className="min-w-0 flex-1 rounded-lg border border-outline-variant/30 bg-surface-container-low px-md py-1.5 font-body text-[13px] outline-none focus:border-secondary sm:w-52 sm:flex-none"
-                    />
                     {canAdmin ? (
-                      <button
-                        type="button"
-                        onClick={startCreate}
-                        className="rounded bg-secondary px-md py-1.5 font-label text-[12px] font-semibold text-on-secondary"
-                      >
+                      <PdfPrimaryButton type="button" onClick={startCreate}>
                         + Add connector
-                      </button>
+                      </PdfPrimaryButton>
                     ) : null}
                   </div>
-                </div>
+                }
+              />
 
+              <main className="min-h-0 flex-1 overflow-y-auto p-[24px]">
                 {canAdmin ? (
-                  <div className="mb-lg flex flex-col gap-md rounded-lg border border-secondary/20 bg-surface-container-low p-md sm:flex-row sm:items-center sm:justify-between">
+                  <div className="pdf-shine mb-[24px] flex flex-col gap-[12px] rounded-[8px] p-[16px] sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h2 className="font-label text-[13px] font-semibold text-on-surface">
+                      <h2 className="text-[13px] font-semibold text-[#d4dbe3]">
                         {POC_PACK.title}
                       </h2>
-                      <p className="mt-1 max-w-[36rem] font-body text-[12px] text-on-surface-variant">
+                      <p className="mt-[4px] max-w-[36rem] text-[12px] text-[#a3afbe]">
                         {POC_PACK.body}
                       </p>
                     </div>
-                    <button
+                    <PdfGhostButton
                       type="button"
                       disabled={busy}
                       onClick={() => void installPocPack()}
-                      className="shrink-0 rounded-lg border border-secondary px-md py-1.5 font-label text-[12px] font-semibold text-secondary disabled:opacity-40"
+                      className="shrink-0"
                     >
                       Install POC pack
-                    </button>
+                    </PdfGhostButton>
                   </div>
                 ) : null}
 
-                <div className="mb-md">
-                  <h2 className="font-label text-[11px] font-semibold tracking-[0.12em] text-on-surface-variant uppercase">
-                    Connected · {filtered.length}
-                  </h2>
-                </div>
-
-                <div className="grid grid-cols-2 gap-md sm:grid-cols-3 lg:grid-cols-4">
-                  {filtered.map((s) => {
-                    const badge = statusBadge(s.status)
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedId(s.id)
-                          goView('detail', { id: s.id })
-                        }}
-                        className="group flex flex-col items-center gap-sm rounded-lg border border-outline-variant/25 bg-surface-container-low p-md text-center transition-all hover:border-secondary/40 hover:shadow-md"
-                      >
-                        <div className="relative">
-                          <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-outline-variant/30 bg-surface-container text-secondary transition-colors group-hover:border-secondary/40">
-                            <SourceTypeIcon type={s.type} className="h-7 w-7" />
-                          </div>
-                          <span
-                            className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full ring-2 ring-white ${STATUS_DOT[s.status]}`}
-                            title={badge.label}
-                          />
-                        </div>
-                        <div className="min-w-0 w-full">
-                          <p className="truncate font-label text-[13px] font-semibold text-on-surface">
-                            {s.name}
-                          </p>
-                          <p className="mt-0.5 truncate font-label text-[10px] text-on-surface-variant uppercase">
-                            {sourceTypeLabel(s.type)} ·{' '}
-                            {relativeSyncLabel(s.lastSyncAt || s.updatedAt)}
-                          </p>
-                        </div>
-                      </button>
-                    )
-                  })}
-                  {canAdmin ? (
-                    <button
-                      type="button"
-                      onClick={startCreate}
-                      className="flex min-h-[160px] flex-col items-center justify-center gap-sm rounded-lg border border-dashed border-outline-variant/50 bg-transparent p-md text-center hover:border-secondary/40 hover:bg-surface-container-low/70"
-                    >
-                      <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-outline-variant/40 text-2xl text-on-surface-variant">
-                        +
-                      </div>
-                      <span className="font-label text-[13px] font-semibold text-on-surface">
-                        Add connector
-                      </span>
-                    </button>
-                  ) : null}
-                </div>
-
-                {filtered.length === 0 && !canAdmin ? (
-                  <p className="mt-lg font-body text-[13px] text-on-surface-variant">
-                    No sources yet — ask an admin to add a connection.
-                  </p>
-                ) : null}
-
-                <div className="mt-xl">
-                  <ConnectionHealthPanel
-                    sources={sources}
-                    onSelect={(id) => {
-                      setSelectedId(id)
-                      goView('detail', { id })
-                    }}
-                    onSync={canWrite ? (id) => void syncById(id) : undefined}
-                    canSync={canWrite}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
+                <SourcesTableView
+                  sources={filtered}
+                  onSelect={(id) => {
+                    setSelectedId(id)
+                    goView('detail', { id })
+                  }}
+                  onSync={canWrite ? (id) => void syncById(id) : undefined}
+                  canSync={canWrite}
+                  canAdd={canAdmin}
+                  onAdd={startCreate}
+                />
+              </main>
+            </div>
+          ) : (
+          <main className="min-h-0 flex-1 overflow-y-auto px-md py-lg md:px-lg lg:px-margin-desktop">
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedId(null)
                     goView('home')
                   }}
-                  className="mb-md font-label text-[12px] font-medium text-secondary hover:underline"
+                  className="mb-md text-[12px] font-medium text-[#a3afbe] hover:text-[#d0d8e0] hover:underline"
                 >
                   ← Back to Sources
                 </button>
                 <div className="mb-lg flex flex-wrap items-start gap-md">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-secondary/40 bg-secondary/5 text-secondary">
+                  <div className="pdf-shine flex h-14 w-14 items-center justify-center rounded-[8px] text-[#c8cdd3]">
                     <SourceTypeIcon type={selected.type} className="h-7 w-7" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -1201,7 +1134,7 @@ export function SourcesPage() {
                               type="button"
                               disabled={busy}
                               onClick={() => void sync()}
-                              className="rounded-md bg-secondary/10 px-sm py-1 font-label text-[11px] font-bold text-secondary disabled:opacity-40"
+                              className="pdf-btn-ghost rounded-[4px] px-[10px] py-[4px] text-[11px] font-bold disabled:opacity-40"
                             >
                               Retry sync
                             </button>
@@ -1318,7 +1251,7 @@ export function SourcesPage() {
                       type="button"
                       disabled={busy || !form.name.trim()}
                       onClick={() => void save()}
-                      className="rounded bg-secondary px-md py-1.5 font-label text-[12px] font-semibold text-on-secondary disabled:opacity-40"
+                      className="pdf-btn-primary rounded-[4px] px-md py-1.5 text-[12px] font-semibold disabled:opacity-40"
                     >
                       Save
                     </button>
@@ -1328,7 +1261,7 @@ export function SourcesPage() {
                       type="button"
                       disabled={busy}
                       onClick={() => void sync()}
-                      className="rounded-lg border border-secondary px-md py-1.5 font-label text-[12px] font-semibold text-secondary disabled:opacity-40"
+                      className="pdf-btn-ghost rounded-[4px] px-md py-1.5 text-[12px] font-semibold disabled:opacity-40"
                     >
                       Sync Schema
                     </button>
@@ -1345,14 +1278,13 @@ export function SourcesPage() {
                   ) : null}
                   <Link
                     to="/workspace"
-                    className="ml-auto rounded-lg border border-outline-variant px-md py-1.5 font-label text-[12px] font-semibold text-on-surface-variant hover:border-secondary"
+                    className="ml-auto pdf-btn-ghost rounded-[4px] px-md py-1.5 text-[12px] font-semibold"
                   >
                     Open Workspace
                   </Link>
                 </div>
-              </>
-            )}
           </main>
+          )}
         </div>
       </div>
   )
@@ -1463,8 +1395,8 @@ function ConnectionFields({
       ) : null}
       {form.type === 'excel' || form.type === 'csv' ? (
         <div className="space-y-md">
-          <div className="rounded-xl border border-dashed border-secondary/40 bg-secondary/5 p-md">
-            <p className="font-label text-[10px] font-bold tracking-widest text-secondary">
+          <div className="rounded-xl border border-dashed border-[#424850] bg-[rgba(170,181,192,0.06)] p-md">
+            <p className="text-[10px] font-bold tracking-widest text-[#d0d8e0]">
               Upload {form.type === 'excel' ? 'Excel' : 'CSV'}
             </p>
             <p className="mt-xs font-body text-xs text-on-surface-variant">
@@ -1655,7 +1587,7 @@ function AuthModeToggle({
           className={[
             'flex-1 rounded-md py-2.5 font-label text-sm font-semibold',
             mode === 'fixture'
-              ? 'bg-secondary text-on-secondary'
+              ? 'bg-[#d0d8e0] text-[#323840]'
               : 'text-on-surface-variant hover:bg-surface-container',
           ].join(' ')}
         >
@@ -1667,7 +1599,7 @@ function AuthModeToggle({
           className={[
             'flex-1 rounded-md py-2.5 font-label text-sm font-semibold',
             mode === 'live'
-              ? 'bg-secondary text-on-secondary'
+              ? 'bg-[#d0d8e0] text-[#323840]'
               : 'text-on-surface-variant hover:bg-surface-container',
           ].join(' ')}
         >

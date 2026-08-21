@@ -7,7 +7,7 @@ import { QueAppChrome } from '@/layouts/QueAppChrome'
 export function JobsLayout() {
   return (
     <QueAppChrome eyebrow="JOBS · STITCH → SHIP">
-      <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-[#111416]">
         <Outlet />
       </div>
     </QueAppChrome>

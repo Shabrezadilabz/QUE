@@ -245,7 +245,7 @@ export function MiniMap({
   return (
     <div
       data-region="mini-map"
-      className={`absolute bottom-md right-md z-20 overflow-hidden rounded-xl border border-sand/50 bg-surface-container-lowest/90 backdrop-blur-[2px] ${className}`}
+      className={`absolute bottom-md right-md z-20 overflow-hidden rounded-[4px] border border-solid border-[#424850] bg-[#0f1215]/95 backdrop-blur-[2px] ${className}`}
       style={{
         width: frameW,
         height: frameH,
@@ -271,7 +271,7 @@ export function MiniMap({
           y={0}
           width={frameW}
           height={frameH}
-          fill="#020617"
+          fill="#111416"
           fillOpacity={0.95}
           onPointerDown={onBackgroundPointerDown}
           style={{ cursor: 'crosshair' }}
@@ -305,7 +305,7 @@ export function MiniMap({
               key={rel.id}
               d={`M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`}
               fill="none"
-              stroke={inferred ? 'rgba(123,208,255,0.55)' : '#64748b'}
+              stroke={inferred ? 'rgba(122,236,208,0.5)' : '#6b7380'}
               strokeWidth={1}
               strokeDasharray={inferred ? '3 2' : undefined}
               pointerEvents="none"
@@ -326,8 +326,8 @@ export function MiniMap({
                 width={Math.max(w, 4)}
                 height={Math.max(h, 4)}
                 rx={2}
-                fill="#0b1c30"
-                stroke="#45464d"
+                fill="#0f1215"
+                stroke="#424850"
                 strokeWidth={1}
               />
               {/* Source header strip */}
@@ -336,7 +336,7 @@ export function MiniMap({
                 y={p.y}
                 width={Math.max(w, 4)}
                 height={Math.max(SOURCE_HEADER_HEIGHT * scale, 2)}
-                fill="#7bd0ff"
+                fill="#252a30"
               />
             </g>
           )
@@ -348,8 +348,8 @@ export function MiniMap({
           y={vpMini.y}
           width={Math.max(vpMini.w, 12)}
           height={Math.max(vpMini.h, 10)}
-          fill="rgba(123, 208, 255, 0.12)"
-          stroke="#7bd0ff"
+          fill="rgba(208, 216, 224, 0.1)"
+          stroke="#d0d8e0"
           strokeWidth={dragging ? 2 : 1.5}
           style={{ cursor: dragging ? 'grabbing' : 'grab' }}
           onPointerDown={onViewportPointerDown}

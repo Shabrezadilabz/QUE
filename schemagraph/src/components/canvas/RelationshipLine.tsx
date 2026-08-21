@@ -99,19 +99,19 @@ export function resolveLineStyle(
 
   if (relationship.type === 'ai-inferred') {
     return {
-      stroke: muted ? '#45464d' : emphasized ? '#7bd0ff' : 'rgba(123,208,255,0.55)',
+      stroke: muted ? '#424850' : emphasized ? '#7aecd0' : 'rgba(122, 236, 208, 0.5)',
       strokeWidth: emphasized ? 2.25 : conf >= 0.75 ? 1.75 : 1.25,
       strokeDasharray: '6 4',
-      markerFill: muted ? '#45464d' : emphasized ? '#7bd0ff' : 'rgba(123,208,255,0.55)',
+      markerFill: muted ? '#424850' : emphasized ? '#7aecd0' : 'rgba(122, 236, 208, 0.5)',
       label: 'AI-inferred',
     }
   }
 
   return {
-    stroke: muted ? '#45464d' : emphasized ? '#7bd0ff' : '#64748b',
+    stroke: muted ? '#424850' : emphasized ? '#d0d8e0' : '#6b7380',
     strokeWidth: emphasized ? 2.5 : 1.75,
     strokeDasharray: emphasized ? undefined : '4 4',
-    markerFill: muted ? '#45464d' : emphasized ? '#7bd0ff' : '#64748b',
+    markerFill: muted ? '#424850' : emphasized ? '#d0d8e0' : '#6b7380',
     label: 'Explicit',
   }
 }

@@ -137,7 +137,7 @@ export function MainDiagramLayout({
           URL.revokeObjectURL(url)
           return
         }
-        ctx.fillStyle = '#031427'
+        ctx.fillStyle = '#111416'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(img, 0, 0)
         canvas.toBlob((blob) => {
@@ -171,9 +171,9 @@ export function MainDiagramLayout({
     }
     w.document.write(`<!doctype html><html><head><title>Que export</title>
       <style>
-        body{font-family:Inter,system-ui,sans-serif;background:#031427;color:#d3e4fe;padding:24px}
-        h1{font-family:Inter,system-ui,sans-serif;color:#7bd0ff}
-        pre{white-space:pre-wrap;font-size:11px;border:1px solid #45464d;padding:16px}
+        body{font-family:Inter,system-ui,sans-serif;background:#111416;color:#d4dbe3;padding:24px}
+        h1{font-family:Inter,system-ui,sans-serif;color:#d0d8e0}
+        pre{white-space:pre-wrap;font-size:11px;border:1px solid #424850;padding:16px}
       </style></head><body>
       <h1>Que schema export</h1>
       <p>${payload.tables.length} tables · ${payload.relationships.length} relationships</p>
@@ -188,9 +188,7 @@ export function MainDiagramLayout({
     <TopBar
       visibleTableCount={visibleTables.length}
       visibleRelationshipCount={visibleRelationships.length}
-      searchQuery={filters.searchQuery}
       filters={filters}
-      onSearchChange={(query) => setFilters({ ...filters, searchQuery: query })}
       onFiltersChange={setFilters}
       onExport={handleExport}
     />
@@ -254,7 +252,7 @@ export function MainDiagramLayout({
   return (
     <div
       data-layout="main-diagram"
-      className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-canvas ${className}`}
+      className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#111416] ${className}`}
     >
       <div data-slot="top-bar">{topBar ?? defaultTopBar}</div>
       {statusBanner ? (
@@ -348,8 +346,8 @@ function buildExportSvg(
     .map((t) => {
       const x = t.position?.x ?? 40
       const y = t.position?.y ?? 40
-      return `<rect x="${x}" y="${y}" width="220" height="56" rx="4" fill="#0b1c30" stroke="#7bd0ff" stroke-width="1.5"/>
-      <text x="${x + 12}" y="${y + 34}" fill="#d3e4fe" font-family="Inter,sans-serif" font-size="13">${escapeHtml(t.name)}</text>`
+      return `<rect x="${x}" y="${y}" width="220" height="56" rx="4" fill="#0f1215" stroke="#424850" stroke-width="1.5"/>
+      <text x="${x + 12}" y="${y + 34}" fill="#d4dbe3" font-family="Inter,sans-serif" font-size="13">${escapeHtml(t.name)}</text>`
     })
     .join('\n')
   const edges = relationships
@@ -366,7 +364,7 @@ function buildExportSvg(
     .join('\n')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-<rect width="100%" height="100%" fill="#020617"/>
+<rect width="100%" height="100%" fill="#111416"/>
 ${edges}
 ${nodes}
 </svg>`

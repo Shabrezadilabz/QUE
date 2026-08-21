@@ -8,7 +8,14 @@ import {
 } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import {
+  AssistantLandingLayout,
+} from '@/components/assistant/AssistantLandingLayout'
+import { LandingComposer } from '@/components/assistant/LandingComposer'
 import { WarehouseRunsStrip } from '@/components/WarehouseRunsStrip'
+import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
+import { CHAT } from '@/components/chat/chatUi'
+import { SqlHighlight } from '@/components/code/SqlHighlight'
 import {
   OutcomePlanCard,
   detectOutcomeFollowUp,
@@ -114,9 +121,13 @@ export function ChatPage() {
   const isCeo = canOwner
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { workspaceId, workspaces } = useAuth()
+  const { workspaceId, workspaces, user } = useAuth()
   const workspaceName =
     workspaces.find((w) => w.id === workspaceId)?.name || 'Workspace'
+  const firstName =
+    user?.displayName?.trim().split(/\s+/)[0] ||
+    user?.email?.split('@')[0] ||
+    'there'
   const { pushToast } = useToast()
   const [messages, setMessages] = useState<UiMessage[]>([])
   const [activeOutcomeId, setActiveOutcomeId] = useState<string | null>(null)
@@ -1146,81 +1157,137 @@ export function ChatPage() {
     )
   }, [focusTables, allTables, sidebarQuery])
 
+  const isLanding = messages.length === 0 && !busy
+
+  const landingSuggestions = [
+    {
+      category: 'Schema help',
+      title: 'Explore tables and relationships in my workspace',
+      onClick: () => void ask('/list'),
+    },
+    {
+      category: 'SQL & joins',
+      title: 'Draft SQL or explain how tables connect',
+      onClick: () => {
+        setInput('/sql ')
+        textareaRef.current?.focus()
+      },
+    },
+    {
+      category: 'Outcome plan',
+      title: 'Build a revenue or metrics plan from connected sources',
+      onClick: () =>
+        void ask('/outcome I want revenue by region from connected sources'),
+    },
+  ]
+
   return (
-    <QueAppChrome
-      eyebrow={
-        isCeo
-          ? 'ASSISTANT · CEO (schema-only)'
-          : 'SCHEMA-ONLY · MODEL ASSISTANT'
-      }
-    >
-      <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
-        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden px-md py-sm md:px-lg md:py-md">
+    <QueAppChrome flush>
+      <div className={`flex min-h-0 flex-1 overflow-hidden ${CHAT.page}`}>
+        <main
+          className={[
+            'relative flex min-w-0 flex-1 flex-col overflow-hidden',
+            isLanding ? '' : 'border-r border-solid border-[#424850]',
+          ].join(' ')}
+        >
+          {isLanding ? (
+            <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto">
+              <AssistantLandingLayout
+                greeting={`Hey! ${firstName}`}
+                headline="What can I help with?"
+                suggestions={landingSuggestions.map((s) => ({
+                  ...s,
+                  disabled: !canWrite,
+                }))}
+                footer={`${workspaceName} · AI can make mistakes. Verify critical schema changes.`}
+                composer={
+                  <LandingComposer
+                    canWrite={canWrite}
+                    busy={busy}
+                    input={input}
+                    setInput={setInput}
+                    composerDragOver={composerDragOver}
+                    attachments={attachments}
+                    setAttachments={setAttachments}
+                    suggestOpen={suggestOpen}
+                    suggestions={suggestions}
+                    suggestIndex={suggestIndex}
+                    setSuggestIndex={setSuggestIndex}
+                    pickMention={pickMention}
+                    pickSkill={pickSkill}
+                    onComposerDragOver={onComposerDragOver}
+                    onComposerDragLeave={onComposerDragLeave}
+                    onComposerDrop={onComposerDrop}
+                    syncTriggerFromCaret={syncTriggerFromCaret}
+                    setSuggestOpen={setSuggestOpen}
+                    setTrigger={setTrigger}
+                    setActiveMentions={setActiveMentions}
+                    ask={ask}
+                    fileInputRef={fileInputRef}
+                    onPickAttachments={onPickAttachments}
+                    textareaRef={textareaRef}
+                  />
+                }
+              />
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 px-[16px] pt-[12px] md:px-[24px] md:pt-[16px]">
           <WarehouseRunsStrip />
-          <div className="mb-md flex shrink-0 items-end justify-between gap-md">
-            <div>
-              <h1 className="font-headline text-xl font-semibold text-secondary sm:text-xl">
+          <PdfPageHeader
+            compact
+            title={
+              <span className="inline-flex items-center gap-[10px]">
                 Assistant
                 {isCeo ? (
-                  <span className="ml-sm align-middle font-label text-[10px] tracking-widest text-secondary/80">
+                  <span className="rounded-[2px] border border-solid border-[rgba(122,236,208,0.35)] bg-[rgba(122,236,208,0.1)] px-[7px] py-[2px] text-[10px] font-bold tracking-[0.8px] text-[#7aecd0] uppercase">
                     CEO
                   </span>
                 ) : null}
-              </h1>
-              <p className="font-body text-xs text-on-surface-variant">
-                Schema Q&A, Outcome plans, and Stitch Agent HITL in one chat
-                {busy ? ' · thinking…' : ''}
-              </p>
-            </div>
-            <div className="hidden flex-wrap items-center justify-end gap-sm sm:flex">
-              <button
-                type="button"
-                className="flex items-center gap-xs rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
-                onClick={() => setShowSkills((v) => !v)}
-              >
-                Skills
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-xs rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest disabled:opacity-40"
-                disabled={!canWrite || reindexing}
-                onClick={() => {
-                  if (reindexing) return
-                  void runReindex()
-                }}
-                title="Reindex schema embeddings"
-              >
-                {reindexing ? 'Indexing…' : 'Reindex'}
-              </button>
-              {busy ? (
-                <button
+              </span>
+            }
+            subtitle={`Schema Q&A, Outcome plans, and Stitch Agent HITL in one chat${busy ? ' · thinking…' : ''}`}
+            actions={
+              <div className="hidden flex-wrap items-center gap-[8px] sm:flex">
+                <PdfGhostButton type="button" onClick={() => setShowSkills((v) => !v)}>
+                  Skills
+                </PdfGhostButton>
+                <PdfGhostButton
                   type="button"
-                  className="rounded-md border border-error/50 px-sm py-1 font-label text-[11px] text-error"
-                  onClick={stopAsk}
+                  disabled={!canWrite || reindexing}
+                  onClick={() => {
+                    if (reindexing) return
+                    void runReindex()
+                  }}
+                  title="Reindex schema embeddings"
                 >
-                  Stop
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="rounded-md border border-outline-variant px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
-                onClick={() => {
-                  setMessages([])
-                  setFocusTables([])
-                  setActiveMentions([])
-                }}
-              >
-                Clear
-              </button>
-            </div>
-          </div>
+                  {reindexing ? 'Indexing…' : 'Reindex'}
+                </PdfGhostButton>
+                {busy ? (
+                  <PdfGhostButton type="button" onClick={stopAsk} className="text-[#ff6b6b]">
+                    Stop
+                  </PdfGhostButton>
+                ) : null}
+                <PdfGhostButton
+                  type="button"
+                  onClick={() => {
+                    setMessages([])
+                    setFocusTables([])
+                    setActiveMentions([])
+                  }}
+                >
+                  Clear
+                </PdfGhostButton>
+              </div>
+            }
+          />
 
           {showSkills ? (
-            <div className="mb-md shrink-0 rounded-xl border border-outline-variant/30 bg-surface-container-low/70 p-md">
-              <p className="mb-sm font-label text-[11px] text-on-surface-variant">
+            <div className={`mb-[12px] shrink-0 p-[14px] ${CHAT.panel}`}>
+              <p className="mb-[8px] text-[11px] text-[#a3afbe]">
                 Slash skills · type / or click · use @ for tables
               </p>
-              <div className="flex flex-wrap gap-sm">
+              <div className="flex flex-wrap gap-[8px]">
                 {CHAT_SKILLS.map((s) => (
                   <button
                     key={s.id}
@@ -1232,68 +1299,20 @@ export function ChatPage() {
                       setShowSkills(false)
                       textareaRef.current?.focus()
                     }}
-                    className="rounded-full border border-outline-variant bg-surface-container-low px-md py-sm text-left hover:bg-secondary/15 disabled:opacity-40"
+                    className={CHAT.pill}
                   >
-                    <span className="font-label text-[12px] text-secondary">
-                      {s.slash}
-                    </span>
-                    <span className="ml-sm font-body text-[12px] text-on-surface-variant">
-                      {s.label}
-                    </span>
+                    <span className={CHAT.accent}>{s.slash}</span>
+                    <span className="ml-[8px] text-[#c8cdd3]">{s.label}</span>
                   </button>
                 ))}
               </div>
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1 space-y-lg overflow-y-auto pr-sm">
-            {messages.length === 0 ? (
-              <div className="flex max-w-[56rem] gap-md">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-secondary/15 font-label text-sm font-bold text-secondary">
-                  AI
-                </div>
-                <div className="space-y-sm">
-                  <div className="rounded-lg rounded-tl-none border border-outline-variant bg-surface-container-low/80 p-md">
-                    <p className="font-body text-[13px] leading-snug text-on-surface">
-                      Hello! I am here to help you navigate your data mesh. I have
-                      analyzed{' '}
-                      <span className="font-semibold text-secondary">{workspaceName}</span>
-                      {context?.stats?.tableCount
-                        ? ` — ${context.stats.tableCount} tables and ${context.stats.relationshipCount ?? 0} relationships ready for schema-only answers.`
-                        : '. Sync a source or ask about tables with @mentions.'}{' '}
-                      Ask schema questions, or say “I want revenue by region…” for an
-                      Outcome plan in this same thread.
-                    </p>
-                  </div>
-                  <span className="ml-1 font-label text-[12px] text-on-surface-variant/60">
-                    Assistant · Ready
-                  </span>
-                  <div className="flex flex-wrap gap-sm pt-sm">
-                    {CHAT_SKILLS.filter((s) =>
-                      ['outcome', 'list', 'suggested', 'diff', 'help'].includes(
-                        s.id,
-                      ),
-                    ).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        disabled={!canWrite}
-                        onClick={() => void ask(s.buildPrompt([]))}
-                        className="rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                  {!canWrite ? (
-                    <p className="font-label text-[11px] text-on-surface-variant">
-                      Read-only — viewer cannot chat
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            ) : (
-              messages.map((m) => (
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-[16px] overflow-y-auto px-[16px] md:px-[24px]">
+            {messages.map((m) => (
                 <ChatBubble
                   key={m.id}
                   message={m}
@@ -1331,14 +1350,11 @@ export function ChatPage() {
                       : undefined
                   }
                 />
-              ))
-            )}
+              ))}
             {busy ? (
-              <div className="flex gap-md">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-secondary/15 font-label text-sm text-secondary">
-                  …
-                </div>
-                <p className="rounded-lg rounded-tl-none border border-outline-variant bg-surface-container-low/70 px-md py-sm font-label text-[12px] text-on-surface-variant">
+              <div className="flex gap-[12px]">
+                <div className={CHAT.avatarAi}>…</div>
+                <p className={`px-[14px] py-[10px] ${CHAT.bubbleAi} text-[12px] text-[#a3afbe]`}>
                   Reading schema pack…
                 </p>
               </div>
@@ -1346,14 +1362,14 @@ export function ChatPage() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="mt-md shrink-0 space-y-md">
+          <div className="mt-[12px] shrink-0 space-y-[12px] px-[16px] pb-[12px] md:px-[24px]">
             {activeMentions.length > 0 ? (
-              <div className="flex flex-wrap gap-xs">
+              <div className="flex flex-wrap gap-[6px]">
                 {activeMentions.map((name) => (
                   <button
                     key={name}
                     type="button"
-                    className="rounded-full border border-secondary/40 bg-secondary/15 px-sm py-xs font-label text-[11px] text-secondary"
+                    className={CHAT.pillAccent}
                     onClick={() =>
                       setActiveMentions((prev) =>
                         prev.filter((n) => n !== name),
@@ -1366,7 +1382,7 @@ export function ChatPage() {
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-sm">
+            <div className="flex flex-wrap gap-[8px]">
               <button
                 type="button"
                 disabled={!canWrite}
@@ -1375,7 +1391,7 @@ export function ChatPage() {
                     '/outcome I want revenue by region from connected sources',
                   )
                 }
-                className="flex items-center gap-xs rounded-full border border-secondary/40 bg-secondary/10 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
+                className={CHAT.pillAccent}
               >
                 Outcome plan
               </button>
@@ -1386,7 +1402,7 @@ export function ChatPage() {
                   setInput('/sql ')
                   textareaRef.current?.focus()
                 }}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
+                className={CHAT.pill}
               >
                 Generate SQL
               </button>
@@ -1397,7 +1413,7 @@ export function ChatPage() {
                   setInput('/describe ')
                   textareaRef.current?.focus()
                 }}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
+                className={CHAT.pill}
               >
                 Explain table
               </button>
@@ -1405,24 +1421,19 @@ export function ChatPage() {
                 type="button"
                 disabled={!canWrite}
                 onClick={() => void ask('/suggested')}
-                className="flex items-center gap-xs rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-secondary hover:bg-secondary/15 disabled:opacity-40"
+                className={CHAT.pill}
               >
                 Visualize joins
               </button>
               <button
                 type="button"
-                className="rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
+                className={CHAT.pill}
                 onClick={() => setShowSkills((v) => !v)}
               >
                 ···
               </button>
               {canWrite && messages.some((m) => m.role === 'user') ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={regenerate}
-                  className="rounded-full border border-outline-variant bg-surface-container-low/80 px-sm py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest disabled:opacity-40"
-                >
+                <button type="button" disabled={busy} onClick={regenerate} className={CHAT.pill}>
                   Regen
                 </button>
               ) : null}
@@ -1489,10 +1500,8 @@ export function ChatPage() {
 
               <div
                 className={[
-                  'relative rounded-lg border bg-surface-container-low p-md transition-colors focus-within:border-secondary',
-                  composerDragOver
-                    ? 'border-secondary border-dashed bg-secondary/5'
-                    : 'border-outline-variant/60',
+                  CHAT.composer,
+                  composerDragOver ? 'border-[#7aecd0]/45 border-dashed bg-[rgba(122,236,208,0.04)]' : '',
                 ].join(' ')}
                 onDragOver={onComposerDragOver}
                 onDragLeave={onComposerDragLeave}
@@ -1597,10 +1606,10 @@ export function ChatPage() {
                       ? 'Ask Que anything about your pipelines…  @table  /sql'
                       : 'Read-only — viewer cannot send chat'
                   }
-                  className="max-h-32 min-h-[2.5rem] w-full resize-none border-none bg-transparent px-xs py-xs font-body text-[13px] leading-snug text-on-surface outline-none placeholder:text-on-surface-variant/40 disabled:opacity-50"
+                  className="max-h-32 min-h-[2.5rem] w-full resize-none border-none bg-transparent px-[4px] py-[4px] text-[13px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
                 />
 
-                <div className="mt-sm flex flex-wrap items-center gap-xs border-t border-outline-variant/20 pt-sm">
+                <div className="mt-[10px] flex flex-wrap items-center gap-[6px] border-t border-solid border-[#424850] pt-[10px]">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1616,7 +1625,7 @@ export function ChatPage() {
                     type="button"
                     disabled={!canWrite}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                    className="flex size-[36px] items-center justify-center rounded-full text-[#a3afbe] transition-colors hover:bg-[#1e2328] disabled:opacity-40"
                     title="Attach schema note (.sql, .md, .txt…)"
                     aria-label="Attach file"
                   >
@@ -1643,7 +1652,7 @@ export function ChatPage() {
                         ta.setSelectionRange(nextCaret, nextCaret)
                       })
                     }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full font-label text-sm font-bold text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                    className="flex size-[36px] items-center justify-center rounded-full text-sm font-bold text-[#a3afbe] transition-colors hover:bg-[#1e2328] disabled:opacity-40"
                     title="Mention a table"
                     aria-label="Mention table"
                   >
@@ -1668,10 +1677,10 @@ export function ChatPage() {
                     disabled={!canWrite}
                     onClick={toggleVoiceInput}
                     className={[
-                      'flex h-9 w-9 items-center justify-center rounded-full transition-colors disabled:opacity-40',
+                      'flex size-[36px] items-center justify-center rounded-full transition-colors disabled:opacity-40',
                       listening
-                        ? 'bg-error/15 text-error'
-                        : 'text-on-surface-variant hover:bg-secondary-container',
+                        ? 'bg-[rgba(255,107,107,0.12)] text-[#ff6b6b]'
+                        : 'text-[#a3afbe] hover:bg-[#1e2328]',
                     ].join(' ')}
                     title={listening ? 'Stop listening' : 'Voice input'}
                     aria-label={listening ? 'Stop voice input' : 'Voice input'}
@@ -1681,13 +1690,13 @@ export function ChatPage() {
                   </button>
 
                   <div className="ml-auto flex items-center gap-sm">
-                    <label className="flex max-w-[11rem] items-center gap-1 rounded-full border border-outline-variant/40 bg-surface-container-low px-sm py-1.5">
+                    <label className="flex max-w-[11rem] items-center gap-1 rounded-[12px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[6px]">
                       <span className="sr-only">Model</span>
                       <select
                         value={modelId}
                         onChange={(e) => setModelId(e.target.value)}
                         disabled={!canWrite || !aiStatus?.models?.length}
-                        className="max-w-[9.5rem] truncate border-none bg-transparent font-label text-[12px] font-medium text-on-surface outline-none disabled:opacity-40"
+                        className="max-w-[9.5rem] truncate border-none bg-transparent text-[12px] font-medium text-[#d4dbe3] outline-none disabled:opacity-40"
                         title="Generation model"
                       >
                         {(aiStatus?.models?.length
@@ -1716,7 +1725,7 @@ export function ChatPage() {
                           (!input.trim() && attachments.length === 0)
                         }
                         onClick={() => void ask(input)}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary font-label text-sm font-bold text-on-secondary transition-transform hover:bg-secondary-fixed-dim active:scale-90 disabled:opacity-40"
+                        className="pdf-btn-primary flex size-[40px] shrink-0 items-center justify-center rounded-full text-[14px] font-bold disabled:opacity-40"
                         aria-label="Send"
                       >
                         →
@@ -1726,54 +1735,53 @@ export function ChatPage() {
                 </div>
               </div>
             </div>
-            <p className="pb-sm text-center font-label text-[12px] text-on-surface-variant/40">
+            <p className="pb-[8px] text-center text-[11px] text-[#6b7380]">
               AI can make mistakes. Verify critical schema changes.
               {contextError ? ` · Context error: ${contextError}` : ''}
             </p>
           </div>
+            </div>
+          )}
         </main>
 
-        <aside className="hidden w-80 shrink-0 flex-col gap-lg overflow-y-auto py-lg pr-lg pl-md xl:flex">
-          <div className="space-y-md rounded-xl border border-outline-variant bg-surface-container-low/80 p-lg">
+        {!isLanding ? (
+        <aside className="hidden w-[300px] shrink-0 flex-col gap-[16px] overflow-y-auto bg-[#111416] py-[16px] pr-[20px] pl-[4px] xl:flex">
+          <div className={`space-y-[14px] p-[16px] ${CHAT.panel}`}>
             <div className="flex items-center justify-between">
-              <h3 className="font-label text-sm font-bold tracking-widest text-on-surface uppercase">
+              <h3 className="text-[11px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
                 Active Context
               </h3>
               <button
                 type="button"
                 onClick={() => void reloadContext()}
-                className="font-label text-[10px] tracking-wide text-on-surface-variant hover:text-secondary"
+                className="text-[10px] text-[#a3afbe] hover:text-[#d4dbe3]"
               >
                 {contextRefreshing ? '…' : 'Refresh'}
               </button>
             </div>
-            <div className="space-y-sm">
-              <div className="flex items-center justify-between gap-sm">
-                <span className="font-label text-[12px] text-on-surface-variant">
-                  Selected model
-                </span>
-                <span className="truncate font-label text-[12px] font-semibold text-secondary underline">
+            <div className="space-y-[8px]">
+              <div className="flex items-center justify-between gap-[8px]">
+                <span className="text-[12px] text-[#a3afbe]">Selected model</span>
+                <span className="truncate text-[12px] font-semibold text-[#7aecd0]">
                   {modelId || aiStatus?.models?.[0]?.label || 'heuristic'}
                 </span>
               </div>
-              <div className="h-1 w-full overflow-hidden rounded-full bg-secondary-container">
+              <div className="h-[4px] w-full overflow-hidden rounded-full bg-[#1e2328]">
                 <div
-                  className="h-full rounded-full bg-secondary transition-all"
+                  className="h-full rounded-full bg-[#7aecd0] transition-all"
                   style={{
                     width: aiStatus?.vectorReady ? '75%' : '40%',
                   }}
                 />
               </div>
             </div>
-            <div className="space-y-xs pt-sm">
-              <p className="font-label text-[12px] font-semibold text-on-surface">
-                Referenced tables
-              </p>
+            <div className="space-y-[8px] pt-[4px]">
+              <p className="text-[12px] font-semibold text-[#d4dbe3]">Referenced tables</p>
               <input
                 value={sidebarQuery}
                 onChange={(e) => setSidebarQuery(e.target.value)}
                 placeholder="Filter tables…"
-                className="mb-sm w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-xs font-body text-xs outline-none focus:border-secondary"
+                className="mb-[8px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[7px] text-[12px] text-[#d4dbe3] outline-none placeholder:text-[#6b7380] focus:border-[#6b7380]"
               />
               <ul className="max-h-64 space-y-xs overflow-y-auto">
                 {sidebarTables.slice(0, 24).map((t) => {
@@ -1787,8 +1795,8 @@ export function ChatPage() {
                           .includes(sidebarQuery.trim().toLowerCase()),
                       ))
                   return (
-                    <li key={key} className="rounded-lg hover:bg-secondary-container/40">
-                      <div className="flex items-center gap-0.5">
+                    <li key={key} className="rounded-[4px] hover:bg-[#1e2328]">
+                      <div className="flex items-center gap-[2px]">
                         <button
                           type="button"
                           aria-expanded={open}
@@ -1798,7 +1806,7 @@ export function ChatPage() {
                               : `Expand columns for ${t.name}`
                           }
                           onClick={() => toggleTableExpand(key)}
-                          className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-on-surface-variant hover:bg-secondary-container hover:text-secondary"
+                          className="flex size-[32px] shrink-0 items-center justify-center rounded-[4px] text-[#8a9099] hover:bg-[#252a30] hover:text-[#d4dbe3]"
                         >
                           <span
                             className={`inline-block text-[10px] transition-transform ${open ? 'rotate-90' : ''}`}
@@ -1820,13 +1828,13 @@ export function ChatPage() {
                               ? `Click or drag @${t.name} into chat`
                               : t.name
                           }
-                          className="flex min-w-0 flex-1 items-center gap-sm rounded-lg px-xs py-xs text-left text-[13px] text-on-surface-variant hover:text-secondary disabled:cursor-default disabled:opacity-40"
+                          className="flex min-w-0 flex-1 items-center gap-[8px] rounded-[4px] px-[6px] py-[6px] text-left text-[13px] text-[#c8cdd3] hover:text-[#d4dbe3] disabled:cursor-default disabled:opacity-40"
                         >
-                          <span className="text-tertiary" aria-hidden>
+                          <span className="text-[#7aecd0]" aria-hidden>
                             ▤
                           </span>
                           <span className="truncate font-medium">{t.name}</span>
-                          <span className="ml-auto shrink-0 font-label text-[9px] text-on-surface-variant/50">
+                          <span className="ml-auto shrink-0 text-[9px] text-[#6b7380]">
                             {t.columns.length}
                           </span>
                         </button>
@@ -1888,29 +1896,29 @@ export function ChatPage() {
                 ) : null}
               </ul>
             </div>
-            <div className="pt-md">
+            <div className="pt-[12px]">
               <Link
                 to="/workspace"
-                className="block w-full rounded-lg border border-secondary/25 py-sm text-center font-label text-[12px] text-secondary transition-all hover:bg-secondary/15"
+                className="pdf-btn-ghost block w-full rounded-[4px] py-[10px] text-center text-[12px] font-semibold"
               >
                 View Graph Representation
               </Link>
             </div>
           </div>
 
-          <div className="rounded-xl border border-tertiary/10 bg-tertiary/15 p-lg">
-            <div className="mb-sm flex items-center gap-sm text-tertiary">
+          <div className={CHAT.tipCard}>
+            <div className="mb-[8px] flex items-center gap-[8px] text-[#7aecd0]">
               <span
-                className="flex h-5 w-5 items-center justify-center rounded-full bg-tertiary text-[10px] font-bold text-on-tertiary"
+                className="flex size-[20px] items-center justify-center rounded-full border border-solid border-[rgba(122,236,208,0.45)] bg-[rgba(122,236,208,0.12)] text-[10px] font-bold"
                 aria-hidden
               >
                 ✓
               </span>
-              <span className="font-label text-sm font-bold">
+              <span className="text-[13px] font-semibold text-[#d4dbe3]">
                 Optimization Tip
               </span>
             </div>
-            <p className="font-body text-sm leading-relaxed text-[#1f4f3c]">
+            <p className="text-[12px] leading-relaxed text-[#c8cdd3]">
               {context?.stats?.suggestedJoins
                 ? `You have ${context.stats.suggestedJoins} suggested join(s) waiting for review. Promote accepted joins before shipping a dbt PR.`
                 : 'Ask about joins with /suggested, or mention tables with @name for schema-only answers — never raw warehouse rows.'}{' '}
@@ -1942,6 +1950,7 @@ export function ChatPage() {
             </p>
           </div>
         </aside>
+        ) : null}
       </div>
     </QueAppChrome>
   )
@@ -1975,31 +1984,25 @@ function ChatBubble({
 }) {
   if (message.role === 'user') {
     return (
-      <div className="ml-auto flex max-w-[56rem] flex-row-reverse gap-md">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary font-label text-sm font-bold text-on-secondary">
-          You
-        </div>
-        <div className="space-y-sm text-right">
-          <div className="rounded-xl rounded-tr-none bg-secondary p-md text-left">
-            <p className="font-body text-[13px] leading-snug whitespace-pre-wrap text-on-secondary">
+      <div className="ml-auto flex max-w-[56rem] flex-row-reverse gap-[12px]">
+        <div className={CHAT.avatarUser}>You</div>
+        <div className="space-y-[6px] text-right">
+          <div className={`p-[14px] text-left ${CHAT.bubbleUser}`}>
+            <p className="text-[13px] leading-snug whitespace-pre-wrap text-[#ecf0f4]">
               {message.content}
             </p>
           </div>
-          <span className="mr-1 font-label text-[12px] text-on-surface-variant/60">
-            You · {message.at}
-          </span>
+          <span className={`mr-1 ${CHAT.meta}`}>You · {message.at}</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex max-w-[64rem] gap-md">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-secondary/40 bg-secondary/15 font-label text-sm font-bold text-secondary">
-        AI
-      </div>
-      <div className="w-full min-w-0 space-y-sm">
-        <div className="space-y-md rounded-lg rounded-tl-none border border-outline-variant bg-surface-container-low/80 p-md">
+    <div className="flex max-w-[64rem] gap-[12px]">
+      <div className={CHAT.avatarAi}>AI</div>
+      <div className="w-full min-w-0 space-y-[6px]">
+        <div className={`space-y-[12px] p-[14px] ${CHAT.bubbleAi}`}>
           <div className="mb-xs flex flex-wrap items-center gap-sm">
             {onCopy ? (
               <button
@@ -2128,16 +2131,14 @@ function ChatBubble({
             </div>
           ) : null}
           {message.sql ? (
-            <div className="relative overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-md">
-              <span className="absolute top-0 right-0 rounded-bl-lg bg-secondary-container px-sm py-xs font-label text-[10px] tracking-widest text-secondary">
+            <div className="relative overflow-hidden rounded-[4px] border border-solid border-[#424850] bg-[#0d1117] p-[12px]">
+              <span className="absolute top-0 right-0 rounded-bl-[4px] border-b border-l border-solid border-[#424850] bg-[#121619] px-[8px] py-[4px] text-[9px] font-bold tracking-[0.6px] text-[#7aecd0] uppercase">
                 SQL
               </span>
-              <pre className="overflow-x-auto font-label text-xs whitespace-pre-wrap text-secondary">
-                {message.sql}
-              </pre>
+              <SqlHighlight code={message.sql} />
               <button
                 type="button"
-                className="mt-sm rounded-lg bg-secondary-container px-sm py-xs font-label text-[11px] text-on-secondary-container hover:bg-secondary-fixed-dim hover:text-on-secondary"
+                className="mt-[8px] pdf-btn-ghost px-[10px] py-[4px] text-[11px]"
                 onClick={() => void navigator.clipboard.writeText(message.sql!)}
               >
                 Copy SQL
@@ -2207,7 +2208,7 @@ function ChatBubble({
             </p>
           ) : null}
         </div>
-        <span className="ml-1 font-label text-[12px] text-on-surface-variant/60">
+        <span className={`ml-1 ${CHAT.meta}`}>
           Assistant · {message.at}
           {message.mode ? ` · ${message.mode}` : ''}
           {message.model ? ` · ${message.model}` : ''}

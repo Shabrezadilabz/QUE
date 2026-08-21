@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { PdfPageHeader } from '@/components/pdf/PdfUi'
 import { WorkInProgressOverlay } from '@/components/WorkInProgressOverlay'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
@@ -81,13 +82,23 @@ export function GlossaryPage() {
   const active = terms.find((t) => t.id === activeId) || null
 
   return (
-    <QueAppChrome eyebrow="GLOSSARY · PHASE 4">
-      <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-canvas">
+    <QueAppChrome flush>
+      <div className="flex h-full min-h-0 flex-col bg-[#111416]">
+      <PdfPageHeader
+        title="Catalog & Glossary"
+        subtitle="Business terms linked to schema columns — steward-approved definitions."
+        actions={
+          <Link to="/catalog" className="text-[12px] text-[#7aecd0] hover:underline">
+            Catalog
+          </Link>
+        }
+      />
+      <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
         <WorkInProgressOverlay
           feature="Glossary"
           blurb="Business glossary linking is still a preview. Prefer Assistant and Steward tickets later — stitch joins and jobs are ready today."
         />
-        <main className="pointer-events-none min-h-0 flex-1 select-none overflow-y-auto px-md py-lg opacity-50 md:px-lg lg:px-margin-desktop">
+        <main className="pointer-events-none min-h-0 flex-1 select-none overflow-y-auto px-6 py-6 opacity-50">
           <div className="mb-xl flex flex-col justify-between gap-md sm:flex-row sm:items-end">
             <div>
               <h1 className="font-headline text-xl font-semibold tracking-tight text-on-surface">
@@ -223,6 +234,7 @@ export function GlossaryPage() {
             </section>
           </div>
         </main>
+      </div>
       </div>
     </QueAppChrome>
   )

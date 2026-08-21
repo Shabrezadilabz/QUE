@@ -720,7 +720,7 @@ export function MainCanvas({
     >
       {/* ── Toolbar (floating IDE pill) ─────────────────────────────────── */}
       <div
-        className="absolute left-md top-md z-30 flex items-center gap-sm rounded border border-outline-variant bg-surface-container-low/90 p-sm backdrop-blur-md"
+        className="absolute left-md top-md z-30 flex items-center gap-sm rounded-[4px] border border-solid border-[#424850] bg-[#0f1215]/95 p-sm backdrop-blur-md"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
@@ -770,7 +770,7 @@ export function MainCanvas({
         >
           Edit
         </ToolbarButton>
-        <div className="mx-xs h-6 w-px self-center bg-outline-variant/30" />
+        <div className="mx-xs h-6 w-px self-center bg-[#424850]" />
         <ToolbarButton
           label="Zoom in"
           onClick={() => setZoom(viewport.zoom + ZOOM_STEP)}
@@ -785,7 +785,7 @@ export function MainCanvas({
         >
           −
         </ToolbarButton>
-        <span className="hidden h-8 items-center px-sm font-label text-[10px] tracking-widest text-on-surface-variant sm:flex">
+        <span className="hidden h-8 items-center px-sm text-[10px] font-semibold tracking-widest text-[#8a9099] sm:flex">
           {Math.round(viewport.zoom * 100)}%
         </span>
         <div className="mx-xs hidden h-6 w-px self-center bg-outline-variant/30 sm:block" />
@@ -805,7 +805,7 @@ export function MainCanvas({
           Layout
         </ToolbarButton>
         {readOnly ? (
-          <span className="flex h-8 items-center rounded-lg px-sm font-label text-[9px] tracking-widest text-on-surface-variant">
+          <span className="flex h-8 items-center rounded-lg px-sm text-[9px] font-semibold tracking-widest text-[#8a9099]">
             VIEW
           </span>
         ) : null}
@@ -820,7 +820,7 @@ export function MainCanvas({
           <button
             type="button"
             onClick={onOpenStitchSession}
-            className="rounded border border-secondary/40 bg-secondary/10 px-md py-sm font-label text-[10px] font-bold tracking-[0.14em] text-secondary uppercase backdrop-blur-md hover:bg-secondary hover:text-on-secondary"
+            className="pdf-btn-ghost rounded-[4px] px-md py-sm text-[10px] font-semibold tracking-[0.6px] uppercase backdrop-blur-md"
           >
             {stitchSessionLabel}
           </button>
@@ -829,24 +829,24 @@ export function MainCanvas({
 
       {/* Stats widget — bottom left */}
       <div
-        className="absolute bottom-md left-md z-30 flex gap-lg rounded border border-outline-variant bg-surface-container-low/90 p-md backdrop-blur-md"
+        className="absolute bottom-md left-md z-30 flex gap-lg rounded-[4px] border border-solid border-[#424850] bg-[#0f1215]/95 p-md backdrop-blur-md"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col">
-          <span className="text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
+          <span className="text-[10px] font-semibold tracking-wider text-[#8a9099] uppercase">
             Total Nodes
           </span>
-          <span className="font-headline text-2xl font-semibold text-secondary">
+          <span className="text-2xl font-semibold text-[#d0d8e0]">
             {String(visibleTables.length).padStart(2, '0')}
           </span>
         </div>
-        <div className="h-8 w-px self-center bg-outline-variant/30" />
+        <div className="h-8 w-px self-center bg-[#424850]" />
         <div className="flex flex-col">
-          <span className="text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
+          <span className="text-[10px] font-semibold tracking-wider text-[#8a9099] uppercase">
             Relationships
           </span>
-          <span className="font-headline text-2xl font-semibold text-tertiary">
+          <span className="text-2xl font-semibold text-[#7aecd0]">
             {String(visibleRelationships.length).padStart(2, '0')}
           </span>
         </div>
@@ -889,7 +889,7 @@ export function MainCanvas({
               y1={joinWire.startY}
               x2={joinWire.curX}
               y2={joinWire.curY}
-              stroke="#7bd0ff"
+              stroke="#7aecd0"
               strokeWidth={2}
               strokeDasharray="5 4"
             />
@@ -897,7 +897,7 @@ export function MainCanvas({
               cx={joinWire.curX}
               cy={joinWire.curY}
               r={5}
-              fill="#7bd0ff"
+              fill="#7aecd0"
             />
           </svg>
         ) : null}
@@ -967,19 +967,19 @@ function ToolbarButton({
       onClick={onClick}
       className={
         wide
-          ? `rounded px-sm py-sm font-label text-[11px] font-medium tracking-wide transition-colors ${
+          ? `rounded px-sm py-sm text-[11px] font-medium tracking-wide transition-colors ${
               active
-                ? 'bg-secondary/20 text-secondary'
-                : 'text-on-surface-variant hover:bg-surface-container-highest'
+                ? 'bg-[rgba(170,181,192,0.14)] text-[#d0d8e0]'
+                : 'text-[#8a9099] hover:bg-[#252a30] hover:text-[#d4dbe3]'
             }`
           : chip
-            ? `flex h-9 min-w-9 items-center justify-center rounded bg-surface-container-highest px-sm font-label text-sm font-semibold text-on-surface-variant transition-colors hover:text-secondary ${
-                active ? 'text-secondary' : ''
+            ? `flex h-9 min-w-9 items-center justify-center rounded bg-[#252a30] px-sm text-sm font-semibold text-[#c8cdd3] transition-colors hover:text-[#d0d8e0] ${
+                active ? 'text-[#d0d8e0]' : ''
               }`
-            : `flex h-9 min-w-9 items-center justify-center rounded px-sm font-label text-[11px] font-medium transition-colors ${
+            : `flex h-9 min-w-9 items-center justify-center rounded px-sm text-[11px] font-medium transition-colors ${
                 active
-                  ? 'bg-secondary/20 text-secondary'
-                  : 'text-on-surface-variant hover:bg-surface-container-highest'
+                  ? 'bg-[rgba(170,181,192,0.14)] text-[#d0d8e0]'
+                  : 'text-[#8a9099] hover:bg-[#252a30] hover:text-[#d4dbe3]'
               }`
       }
     >

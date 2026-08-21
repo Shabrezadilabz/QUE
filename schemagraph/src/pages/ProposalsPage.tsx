@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
+import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
 import {
-  createTransformApi,
   fetchProposals,
   fetchTransforms,
   reviewProposalApi,
@@ -19,25 +19,6 @@ type ProposalItem = {
   after: Record<string, unknown>
   unifiedDiff?: string
   status: string
-  resourceType?: string | null
-  resourceId?: string | null
-}
-
-type TransformEvidence = {
-  mode?: string
-  model?: string | null
-  proposerKind?: string
-  nature?: string
-  query?: string
-  whyReferred?: string
-  referredTables?: {
-    name: string
-    connection?: string | null
-    reason?: string
-  }[]
-  tableCount?: number
-  rulesApplied?: number
-  ruleTitles?: string[]
 }
 
 type TransformItem = {
@@ -46,32 +27,93 @@ type TransformItem = {
   prompt: string
   sqlText: string
   status: string
-  jobId?: string | null
-  createdBy?: string | null
   createdByName?: string | null
   createdByEmail?: string | null
   createdAt?: string
-  evidence?: TransformEvidence
 }
 
-/**
- * Unified HITL review — NL→SQL transforms + PR-style proposal diffs.
- * Click a transform to open the right-side attribution / rationale panel.
- */
+type InboxItem =
+  | { type: 'proposal'; data: ProposalItem }
+  | { type: 'transform'; data: TransformItem }
+
+function kindStyle(item: InboxItem): { bg: string; text: string; label: string } {
+  if (item.type === 'transform') {
+    return {
+      bg: 'bg-[rgba(177,152,255,0.13)]',
+      text: 'text-[#b198ff]',
+      label: 'TRANSFORM',
+    }
+  }
+  const k = item.data.kind.toLowerCase()
+  if (k.includes('join')) {
+    return {
+      bg: 'bg-[rgba(104,206,175,0.13)]',
+      text: 'text-[#68ceaf]',
+      label: 'JOIN SUGGESTION',
+    }
+  }
+  if (k.includes('schema') || k.includes('map')) {
+    return {
+      bg: 'bg-[rgba(255,176,107,0.13)]',
+      text: 'text-[#ffb06b]',
+      label: 'SCHEMA MAPPING',
+    }
+  }
+  return {
+    bg: 'bg-[rgba(104,206,175,0.13)]',
+    text: 'text-[#68ceaf]',
+    label: item.data.kind.toUpperCase(),
+  }
+}
+
+function relativeTime(iso?: string): string {
+  if (!iso) return 'Recently'
+  const ms = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(ms / 60000)
+  if (m < 1) return 'Just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+function FigmaDiffLine({ line, index }: { line: string; index: number }) {
+  const isAdd = line.startsWith('+') && !line.startsWith('+++')
+  const isDel = line.startsWith('-') && !line.startsWith('---')
+  const content = isAdd || isDel ? line.slice(1) : line
+
+  if (isDel) {
+    return (
+      <div className="flex w-full gap-[16px] bg-[rgba(255,107,107,0.13)] px-[16px] py-[4px] text-[12px] text-[#ff6b6b]">
+        <p className="w-[30px] shrink-0">- {index}</p>
+        <p className="whitespace-pre">{content}</p>
+      </div>
+    )
+  }
+  if (isAdd) {
+    return (
+      <div className="pdf-shine flex w-full gap-[16px] px-[16px] py-[4px] text-[12px] text-[#7aecd0]">
+        <p className="w-[30px] shrink-0">+ {index}</p>
+        <p className="whitespace-pre">{content}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="flex w-full gap-[16px] px-[16px] py-[4px] text-[12px]">
+      <p className="w-[30px] shrink-0 text-[#a3afbe]">{index}</p>
+      <p className="whitespace-pre text-[#d4dbe3]">{content}</p>
+    </div>
+  )
+}
+
+/** Proposals — pixel-faithful Figma v2 frame (2:833). */
 export function ProposalsPage() {
   const { canWrite } = useWorkspaceRole()
   const [proposals, setProposals] = useState<ProposalItem[]>([])
   const [transforms, setTransforms] = useState<TransformItem[]>([])
-  const [prompt, setPrompt] = useState(
-    'Clean customer emails and join to orders for a trusted 360 extract',
-  )
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [view, setView] = useState<'unified' | 'side'>('unified')
-  const [filter, setFilter] = useState<'all' | 'transforms' | 'diffs'>('all')
-  const [selectedTransformId, setSelectedTransformId] = useState<string | null>(
-    null,
-  )
 
   async function reload() {
     const [p, t] = await Promise.all([
@@ -79,7 +121,7 @@ export function ProposalsPage() {
       fetchTransforms(),
     ])
     setProposals(p)
-    setTransforms(t)
+    setTransforms(t.filter((d) => d.status === 'proposed' || d.status === 'approved'))
   }
 
   useEffect(() => {
@@ -88,21 +130,24 @@ export function ProposalsPage() {
     )
   }, [])
 
-  async function draft() {
-    if (!canWrite || !prompt.trim()) return
-    setBusy(true)
-    setError(null)
-    try {
-      const item = await createTransformApi({ prompt })
-      await reload()
-      setFilter('transforms')
-      if (item?.id) setSelectedTransformId(item.id)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
+  const inbox: InboxItem[] = useMemo(
+    () => [
+      ...proposals.map((p) => ({ type: 'proposal' as const, data: p })),
+      ...transforms.map((t) => ({ type: 'transform' as const, data: t })),
+    ],
+    [proposals, transforms],
+  )
+
+  const selected = useMemo(() => {
+    if (!selectedKey) return inbox[0] ?? null
+    return inbox.find((i) => `${i.type}-${i.data.id}` === selectedKey) ?? inbox[0] ?? null
+  }, [inbox, selectedKey])
+
+  useEffect(() => {
+    if (!selectedKey && inbox[0]) {
+      setSelectedKey(`${inbox[0].type}-${inbox[0].data.id}`)
     }
-  }
+  }, [inbox, selectedKey])
 
   async function actProposal(id: string, action: 'approve' | 'reject') {
     setBusy(true)
@@ -117,10 +162,7 @@ export function ProposalsPage() {
     }
   }
 
-  async function actTransform(
-    id: string,
-    action: 'approve' | 'reject' | 'apply',
-  ) {
+  async function actTransform(id: string, action: 'approve' | 'reject' | 'apply') {
     setBusy(true)
     setError(null)
     try {
@@ -133,461 +175,199 @@ export function ProposalsPage() {
     }
   }
 
-  const openTransforms = transforms.filter(
-    (d) => d.status === 'proposed' || d.status === 'approved',
-  )
-  const selectedTransform = useMemo(
-    () => openTransforms.find((d) => d.id === selectedTransformId) ?? null,
-    [openTransforms, selectedTransformId],
-  )
-  const showTransforms = filter === 'all' || filter === 'transforms'
-  const showDiffs = filter === 'all' || filter === 'diffs'
-  const empty =
-    (showTransforms ? openTransforms.length === 0 : true) &&
-    (showDiffs ? proposals.length === 0 : true)
+  const diffLines =
+    selected?.type === 'proposal'
+      ? (selected.data.unifiedDiff || '').split('\n')
+      : selected?.type === 'transform'
+        ? selected.data.sqlText.split('\n').map((l) => `  ${l}`)
+        : []
+
+  const adds = diffLines.filter((l) => l.startsWith('+') && !l.startsWith('+++')).length
+  const dels = diffLines.filter((l) => l.startsWith('-') && !l.startsWith('---')).length
+
+  const pendingCount = inbox.length
 
   return (
-    <QueAppChrome eyebrow="REVIEW · APPROVE / REJECT">
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-md py-lg md:px-lg">
-          <div className="mx-auto max-w-4xl">
-            <div className="flex flex-wrap items-end justify-between gap-md">
-              <div>
-                <h1 className="font-headline text-xl font-semibold">Review</h1>
-                <p className="mt-xs text-[13px] text-on-surface-variant">
-                  One queue for transform SQL drafts and proposal diffs — click a
-                  transform to see who proposed it and why.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-sm text-[12px]">
-                <button
-                  type="button"
-                  onClick={() => setFilter('all')}
-                  className={
-                    filter === 'all'
-                      ? 'rounded bg-secondary px-md py-1 text-on-secondary'
-                      : 'rounded-lg border border-outline-variant px-md py-1'
-                  }
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilter('transforms')}
-                  className={
-                    filter === 'transforms'
-                      ? 'rounded bg-secondary px-md py-1 text-on-secondary'
-                      : 'rounded-lg border border-outline-variant px-md py-1'
-                  }
-                >
-                  Transforms
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilter('diffs')}
-                  className={
-                    filter === 'diffs'
-                      ? 'rounded bg-secondary px-md py-1 text-on-secondary'
-                      : 'rounded-lg border border-outline-variant px-md py-1'
-                  }
-                >
-                  Diffs
-                </button>
-                {showDiffs ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setView('unified')}
-                      className={
-                        view === 'unified'
-                          ? 'rounded bg-secondary/80 px-md py-1 text-on-secondary'
-                          : 'rounded-lg border border-outline-variant px-md py-1'
-                      }
-                    >
-                      Unified
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setView('side')}
-                      className={
-                        view === 'side'
-                          ? 'rounded bg-secondary/80 px-md py-1 text-on-secondary'
-                          : 'rounded-lg border border-outline-variant px-md py-1'
-                      }
-                    >
-                      Side-by-side
-                    </button>
-                  </>
-                ) : null}
-                <Link
-                  to="/chat?agent=1"
-                  className="rounded-lg border border-outline-variant px-md py-1"
-                >
-                  Stitch Agent
-                </Link>
-              </div>
+    <QueAppChrome flush>
+      <div className="flex h-full min-h-0 items-start">
+        {/* InboxList — exact Figma 384px */}
+        <aside className="flex h-full w-[384px] shrink-0 flex-col border-r border-solid border-[#2a313c] bg-[#0f1216]">
+          <div className="flex shrink-0 items-center justify-between border-b border-solid border-[#2a313c] bg-[#1e2328] p-[16px]">
+            <div className="flex flex-col gap-[4px]">
+              <p className="text-[16px] font-bold text-[#ecf0f4]">Proposals</p>
+              <p className="text-[12px] font-normal text-[#a3afbe]">
+                {pendingCount} pending review{pendingCount === 1 ? '' : 's'}
+              </p>
             </div>
-
-            {error ? (
-              <p className="mt-md text-[13px] text-error">{error}</p>
+            <div className="relative size-[18px] shrink-0">
+              <img alt="" className="absolute inset-0 block size-full max-w-none" src={FIGMA_NAV.search} />
+            </div>
+          </div>
+          <ul className="flex min-h-0 flex-1 flex-col gap-[8px] overflow-y-auto p-[8px]">
+            {inbox.length === 0 ? (
+              <li className="p-[12px] text-[11px] text-[#a3afbe]">
+                Nothing open.{' '}
+                <Link to="/chat" className="text-[#68ceaf] underline">
+                  Chat
+                </Link>
+              </li>
             ) : null}
+            {inbox.map((item) => {
+              const key = `${item.type}-${item.data.id}`
+              const active = selectedKey === key
+              const style = kindStyle(item)
+              const title = item.data.title
+              const meta =
+                item.type === 'transform'
+                  ? `Proposed by ${item.data.createdByName || item.data.createdByEmail || 'User'} · ${relativeTime(item.data.createdAt)}`
+                  : item.data.summary
+              const timeLabel =
+                item.type === 'transform'
+                  ? relativeTime(item.data.createdAt)
+                  : active
+                    ? 'Active'
+                    : 'Open'
 
-            {canWrite ? (
-              <div className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
-                <p className="mb-sm font-label text-[11px] font-bold tracking-widest text-secondary uppercase">
-                  Draft transform · NL → SQL
-                </p>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-lg border border-outline-variant/40 bg-surface px-md py-2 text-[13px]"
-                />
-                <button
-                  type="button"
-                  disabled={busy || !prompt.trim()}
-                  onClick={() => void draft()}
-                  className="mt-sm rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
-                >
-                  {busy ? 'Drafting…' : 'Draft SQL'}
-                </button>
-              </div>
-            ) : null}
-
-            <ul className="mt-lg space-y-md pb-lg">
-              {empty ? (
-                <p className="text-[13px] text-on-surface-variant">
-                  Nothing open. Draft a transform above, or promote a join to
-                  create a proposal diff.
-                </p>
-              ) : null}
-
-              {showTransforms
-                ? openTransforms.map((d) => (
-                    <li key={`t-${d.id}`}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedTransformId((prev) =>
-                            prev === d.id ? null : d.id,
-                          )
-                        }
+              return (
+                <li key={key}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedKey(key)}
+                    className={[
+                      'flex w-full flex-col gap-[8px] rounded-[6px] border border-solid p-[12px] text-left',
+                      active
+                        ? 'border-[#d0d8e0] bg-[#252a30]'
+                        : 'border-[#2a313c] bg-[#15191e]',
+                    ].join(' ')}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span
                         className={[
-                          'w-full rounded-xl border p-md text-left transition-colors',
-                          selectedTransformId === d.id
-                            ? 'border-secondary/50 bg-secondary/10'
-                            : 'border-outline-variant/30 bg-surface-container-low hover:border-secondary/30',
+                          'rounded-[4px] px-[6px] py-[2px] text-[9px] font-bold',
+                          style.bg,
+                          style.text,
                         ].join(' ')}
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-sm">
-                          <p className="font-label text-[13px] font-semibold">
-                            <span className="mr-sm rounded bg-secondary/15 px-sm py-px font-label text-[10px] tracking-wide text-secondary uppercase">
-                              transform
-                            </span>
-                            {d.title}
-                          </p>
-                          <span className="text-[11px] uppercase text-on-surface-variant">
-                            {d.status}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-[12px] text-on-surface-variant">
-                          {d.prompt}
-                        </p>
-                        <pre className="mt-md max-h-40 overflow-auto rounded-lg bg-surface-container-lowest p-md font-mono text-[11px] text-on-surface">
-                          {d.sqlText}
-                        </pre>
-                      </button>
-                      {canWrite && d.status === 'proposed' ? (
-                        <div className="mt-sm flex gap-sm px-xs">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void actTransform(d.id, 'approve')}
-                            className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void actTransform(d.id, 'reject')}
-                            className="rounded-lg border border-error/40 px-md py-1.5 text-[12px] text-error disabled:opacity-40"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : null}
-                      {canWrite && d.status === 'approved' ? (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void actTransform(d.id, 'apply')}
-                          className="mt-sm rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
-                        >
-                          Apply to job
-                        </button>
-                      ) : null}
-                      {d.jobId ? (
-                        <Link
-                          to={`/jobs/${d.jobId}/notebook`}
-                          className="mt-sm inline-block text-[12px] text-secondary underline"
-                        >
-                          Open job
-                        </Link>
-                      ) : null}
-                    </li>
-                  ))
-                : null}
+                        {style.label}
+                      </span>
+                      <span className="text-[11px] text-[#a3afbe]">{timeLabel}</span>
+                    </div>
+                    <p className="text-[14px] font-bold text-[#d4dbe3]">{title}</p>
+                    <p className="text-[11px] text-[#a3afbe]">{meta}</p>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </aside>
 
-              {showDiffs
-                ? proposals.map((p) => (
-                    <li
-                      key={`p-${p.id}`}
-                      className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-md"
-                    >
-                      <p className="font-label text-[13px] font-semibold">
-                        <span className="mr-sm rounded bg-tertiary/20 px-sm py-px font-label text-[10px] tracking-wide text-tertiary uppercase">
-                          {p.kind || 'diff'}
-                        </span>
-                        {p.title}
-                      </p>
-                      <p className="mt-1 text-[12px] text-on-surface-variant">
-                        {p.summary}
-                      </p>
-                      {view === 'unified' ? (
-                        <pre className="mt-md max-h-80 overflow-auto rounded-lg bg-[#1e1e1e] p-md font-mono text-[10px] leading-relaxed text-[#d4d4d4]">
-                          {(p.unifiedDiff || '').split('\n').map((line, i) => (
-                            <div
-                              key={i}
-                              className={
-                                line.startsWith('+') && !line.startsWith('+++')
-                                  ? 'text-emerald-400'
-                                  : line.startsWith('-') &&
-                                      !line.startsWith('---')
-                                    ? 'text-rose-400'
-                                    : line.startsWith('@@') ||
-                                        line.startsWith('---') ||
-                                        line.startsWith('+++')
-                                      ? 'text-sky-300'
-                                      : undefined
-                              }
-                            >
-                              {line || ' '}
-                            </div>
-                          ))}
-                        </pre>
-                      ) : (
-                        <div className="mt-md grid gap-md md:grid-cols-2">
-                          <pre className="overflow-x-auto rounded-lg bg-surface-container-low p-md font-mono text-[10px]">
-                            BEFORE{'\n'}
-                            {JSON.stringify(p.before, null, 2)}
-                          </pre>
-                          <pre className="overflow-x-auto rounded-lg bg-secondary/5 p-md font-mono text-[10px]">
-                            AFTER{'\n'}
-                            {JSON.stringify(p.after, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                      {canWrite ? (
-                        <div className="mt-sm flex gap-sm">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void actProposal(p.id, 'approve')}
-                            className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary disabled:opacity-40"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void actProposal(p.id, 'reject')}
-                            className="rounded-lg border border-error/40 px-md py-1.5 text-[12px] text-error disabled:opacity-40"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : null}
-                    </li>
-                  ))
-                : null}
-            </ul>
-          </div>
-        </div>
+        {/* DiffView */}
+        <div className="flex h-full min-w-0 flex-1 flex-col bg-[#0b0e11]">
+          {error ? (
+            <p className="border-b border-[#ff6b6b]/30 bg-[rgba(255,107,107,0.13)] px-[24px] py-[8px] text-[12px] text-[#ff6b6b]">
+              {error}
+            </p>
+          ) : null}
 
-        {selectedTransform ? (
-          <aside className="hidden w-[22rem] shrink-0 overflow-y-auto border-l border-outline-variant bg-surface-container-low md:block lg:w-[26rem]">
-            <TransformDetailPanel
-              draft={selectedTransform}
-              onClose={() => setSelectedTransformId(null)}
-            />
-          </aside>
-        ) : null}
-      </div>
-
-      {/* Mobile: bottom sheet style when selected */}
-      {selectedTransform ? (
-        <div className="border-t border-outline-variant bg-surface-container-low p-md md:hidden">
-          <TransformDetailPanel
-            draft={selectedTransform}
-            onClose={() => setSelectedTransformId(null)}
-            compact
-          />
-        </div>
-      ) : null}
-    </QueAppChrome>
-  )
-}
-
-function TransformDetailPanel({
-  draft,
-  onClose,
-  compact = false,
-}: {
-  draft: TransformItem
-  onClose: () => void
-  compact?: boolean
-}) {
-  const ev = draft.evidence || {}
-  const mode = ev.mode || 'unknown'
-  const isAgent = mode === 'llm'
-  const who =
-    draft.createdByName ||
-    draft.createdByEmail ||
-    (draft.createdBy ? `User ${draft.createdBy.slice(0, 8)}` : 'Unknown user')
-  const queryText = ev.query || draft.prompt
-  const nature =
-    ev.nature ||
-    (isAgent
-      ? 'Agent drafted SQL from the prompt against the schema pack.'
-      : 'Heuristic draft — review SQL before Approve / Apply.')
-  const referred = ev.referredTables || []
-
-  return (
-    <div className={compact ? 'space-y-md' : 'space-y-lg p-md lg:p-lg'}>
-      <div className="flex items-start justify-between gap-sm">
-        <div>
-          <p className="font-label text-[10px] font-bold tracking-widest text-secondary uppercase">
-            Proposal detail
-          </p>
-          <h2 className="mt-xs font-headline text-base font-semibold text-on-surface">
-            {draft.title}
-          </h2>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded border border-outline-variant px-sm py-1 font-label text-[10px] text-on-surface-variant"
-        >
-          Close
-        </button>
-      </div>
-
-      <section>
-        <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
-          Proposed by
-        </p>
-        <p className="mt-xs text-[13px] text-on-surface">{who}</p>
-        <p className="mt-1 text-[12px] text-on-surface-variant">
-          {isAgent ? (
-            <>
-              Drafted by <span className="text-secondary">Agent (LLM)</span>
-              {ev.model ? ` · ${ev.model}` : ''}
-            </>
+          {!selected ? (
+            <div className="flex flex-1 items-center justify-center text-[13px] text-[#a3afbe]">
+              Select a proposal to review
+            </div>
           ) : (
             <>
-              Drafted by <span className="text-secondary">Heuristic</span> (no
-              LLM / fallback)
+              <header className="flex shrink-0 flex-col gap-[12px] border-b border-solid border-[#2a313c] bg-[#0f1216] px-[24px] py-[16px]">
+                <div className="flex w-full items-center justify-between">
+                  <div className="flex flex-col gap-[4px]">
+                    <p className="text-[20px] font-bold text-[#ecf0f4]">{selected.data.title}</p>
+                    <p className="text-[13px] text-[#a3afbe]">
+                      {selected.type === 'transform'
+                        ? `Prompt: ${selected.data.prompt.slice(0, 120)}`
+                        : selected.data.summary}
+                    </p>
+                  </div>
+                  {canWrite ? (
+                    <div className="flex gap-[8px]">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void (selected.type === 'proposal'
+                            ? actProposal(selected.data.id, 'reject')
+                            : actTransform(selected.data.id, 'reject'))
+                        }
+                        className="rounded-[4px] border border-solid border-[#ff6b6b] bg-[rgba(255,107,107,0.13)] px-[12px] py-[6px] text-[13px] font-semibold text-[#ff6b6b] disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void (selected.type === 'proposal'
+                            ? actProposal(selected.data.id, 'approve')
+                            : actTransform(selected.data.id, 'approve'))
+                        }
+                        className="pdf-btn-primary rounded-[4px] px-[12px] py-[6px] text-[13px] font-bold disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-[16px] text-[12px]">
+                  <Link to="/chat?agent=1" className="text-[#68ceaf]">
+                    View Agent Context
+                  </Link>
+                  {dels > 0 || adds > 0 ? (
+                    <>
+                      <span className="text-[#a3afbe]">|</span>
+                      {dels > 0 ? (
+                        <span className="text-[#ff6b6b]">-{dels} deletions</span>
+                      ) : null}
+                      {adds > 0 ? (
+                        <span className="text-[#68ceaf]">+{adds} additions</span>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+              </header>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-[24px]">
+                <div className="w-full overflow-hidden rounded-[6px] border border-solid border-[#2a313c] bg-[#15191e]">
+                  <div className="border-b border-solid border-[#2a313c] bg-[#0f1216] p-[12px]">
+                    <p className="text-[12px] text-[#a3afbe]">
+                      {selected.type === 'transform' ? 'SQL draft' : 'SQL Unified Diff View'}
+                    </p>
+                  </div>
+                  <div className="py-[12px]">
+                    {diffLines.length === 0 ? (
+                      <p className="px-[16px] text-[12px] text-[#a3afbe]">No diff body.</p>
+                    ) : (
+                      diffLines.map((line, i) => (
+                        <FigmaDiffLine key={i} line={line} index={i + 1} />
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {selected.type === 'transform' &&
+                canWrite &&
+                selected.data.status === 'approved' ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void actTransform(selected.data.id, 'apply')}
+                    className="pdf-btn-primary mt-[16px] rounded-[4px] px-[16px] py-[8px] text-[13px] font-bold disabled:opacity-50"
+                  >
+                    Apply to job
+                  </button>
+                ) : null}
+              </div>
             </>
           )}
-        </p>
-        {draft.createdAt ? (
-          <p className="mt-1 font-label text-[10px] text-on-surface-variant/70">
-            {new Date(draft.createdAt).toLocaleString()}
-          </p>
-        ) : null}
-      </section>
-
-      <section>
-        <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
-          Nature · why proposed
-        </p>
-        <p className="mt-xs text-[13px] leading-relaxed text-on-surface">
-          {nature}
-        </p>
-      </section>
-
-      <section>
-        <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
-          Due to query
-        </p>
-        <p className="mt-xs rounded-lg border border-outline-variant/40 bg-surface p-sm text-[12px] leading-relaxed text-on-surface">
-          {queryText}
-        </p>
-      </section>
-
-      <section>
-        <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
-          Why these tables were referred
-        </p>
-        {ev.whyReferred ? (
-          <p className="mt-xs text-[12px] leading-relaxed text-on-surface-variant">
-            {ev.whyReferred}
-          </p>
-        ) : null}
-        {referred.length > 0 ? (
-          <ul className="mt-sm space-y-sm">
-            {referred.map((t) => (
-              <li
-                key={t.name}
-                className="rounded-lg border border-outline-variant/25 bg-surface px-sm py-sm"
-              >
-                <p className="font-label text-[12px] font-semibold text-secondary">
-                  {t.name}
-                  {t.connection ? (
-                    <span className="ml-sm font-normal text-on-surface-variant">
-                      · {t.connection}
-                    </span>
-                  ) : null}
-                </p>
-                {t.reason ? (
-                  <p className="mt-xs text-[11px] text-on-surface-variant">
-                    {t.reason}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-xs text-[12px] text-on-surface-variant">
-            No table referral metadata on this draft (older item). Re-draft to
-            capture rationale.
-          </p>
-        )}
-      </section>
-
-      {(ev.rulesApplied != null && ev.rulesApplied > 0) ||
-      (ev.ruleTitles && ev.ruleTitles.length > 0) ? (
-        <section>
-          <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
-            Rules considered
-          </p>
-          <p className="mt-xs text-[12px] text-on-surface-variant">
-            {ev.rulesApplied ?? ev.ruleTitles?.length ?? 0} rule(s)
-            {ev.ruleTitles?.length
-              ? `: ${ev.ruleTitles.slice(0, 5).join(', ')}`
-              : ''}
-          </p>
-        </section>
-      ) : null}
-
-      <section>
-        <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
-          Status
-        </p>
-        <p className="mt-xs text-[12px] uppercase text-on-surface">{draft.status}</p>
-      </section>
-    </div>
+        </div>
+      </div>
+    </QueAppChrome>
   )
 }
 

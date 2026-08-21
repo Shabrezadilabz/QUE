@@ -45,16 +45,20 @@ function headerTone(sourceType: string, selected: boolean): {
   muted: string
 } {
   if (selected) {
-    return { bg: 'rgba(123,208,255,0.18)', fg: '#7bd0ff', muted: 'rgba(123,208,255,0.7)' }
+    return {
+      bg: 'rgba(170, 181, 192, 0.14)',
+      fg: '#d0d8e0',
+      muted: 'rgba(208, 216, 224, 0.7)',
+    }
   }
   switch (sourceType) {
     case 'mongodb':
     case 'databricks':
-      return { bg: 'rgba(78,222,163,0.08)', fg: '#d3e4fe', muted: '#c6c6cd' }
+      return { bg: '#15191e', fg: '#d4dbe3', muted: '#8a9099' }
     case 'snowflake':
-      return { bg: 'rgba(123,208,255,0.08)', fg: '#d3e4fe', muted: '#c6c6cd' }
+      return { bg: '#1a1f24', fg: '#d4dbe3', muted: '#8a9099' }
     default:
-      return { bg: 'rgba(38,54,74,0.9)', fg: '#d3e4fe', muted: '#c6c6cd' }
+      return { bg: '#15191e', fg: '#d4dbe3', muted: '#8a9099' }
   }
 }
 
@@ -65,19 +69,19 @@ const Card = styled.div<{
 }>`
   position: absolute;
   width: ${TABLE_NODE_WIDTH}px;
-  background: #0b1c30;
-  border-radius: 0.5rem;
+  background: #0f1215;
+  border-radius: 0.375rem;
   overflow: hidden;
   border: ${({ $selected, $searchMatch }) =>
     $selected
-      ? '1px solid rgba(123, 208, 255, 0.55)'
+      ? '1px solid rgba(208, 216, 224, 0.45)'
       : $searchMatch
-        ? '1px solid rgba(78, 222, 163, 0.55)'
-        : '1px solid #45464d'};
+        ? '1px solid rgba(122, 236, 208, 0.45)'
+        : '1px solid #424850'};
   box-shadow: ${({ $selected }) =>
     $selected
-      ? '0 0 0 1px rgba(123, 208, 255, 0.25), 0 0 24px rgba(123, 208, 255, 0.12)'
-      : 'none'};
+      ? '0 0 0 1px rgba(208, 216, 224, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.04)'
+      : 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'};
   cursor: default;
   user-select: none;
   z-index: ${({ $dragging, $searchMatch }) =>
@@ -87,7 +91,7 @@ const Card = styled.div<{
   will-change: ${({ $dragging }) => ($dragging ? 'left, top' : 'auto')};
 
   &:hover {
-    border-color: rgba(123, 208, 255, 0.45);
+    border-color: rgba(208, 216, 224, 0.35);
   }
 `
 
@@ -100,7 +104,7 @@ const Header = styled.div<{ $bg: string; $fg: string }>`
   padding: 0 14px;
   background: ${({ $bg }) => $bg};
   color: ${({ $fg }) => $fg};
-  border-bottom: 1px solid #45464d;
+  border-bottom: 1px solid #424850;
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -142,7 +146,7 @@ const HeaderAction = styled.button<{ $fg: string }>`
 
   &:hover {
     opacity: 1;
-    background: rgba(123, 208, 255, 0.12);
+    background: rgba(170, 181, 192, 0.12);
   }
 `
 
@@ -167,17 +171,17 @@ const ColumnRow = styled.li<{ $selected: boolean }>`
   cursor: pointer;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 12px;
-  color: ${({ $selected }) => ($selected ? '#7bd0ff' : '#c6c6cd')};
+  color: ${({ $selected }) => ($selected ? '#d0d8e0' : '#c8cdd3')};
 
   ${({ $selected }) =>
     $selected &&
     css`
-      background: rgba(123, 208, 255, 0.12);
+      background: rgba(170, 181, 192, 0.1);
     `}
 
   &:hover {
-    background: rgba(38, 54, 74, 0.9);
-    color: #d3e4fe;
+    background: rgba(170, 181, 192, 0.08);
+    color: #d4dbe3;
   }
 `
 
@@ -200,12 +204,12 @@ const TypeMuted = styled.span`
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 11px;
   letter-spacing: 0.02em;
-  color: #909097;
+  color: #6b7380;
 `
 
 const KeyWrap = styled.span`
   display: inline-flex;
-  color: #4edea3;
+  color: #7aecd0;
   flex-shrink: 0;
 `
 
@@ -215,7 +219,7 @@ const ExpandHint = styled.div`
   font-size: 10px;
   letter-spacing: 0.05em;
   font-weight: 700;
-  color: #909097;
+  color: #6b7380;
   text-transform: uppercase;
 `
 
@@ -227,10 +231,10 @@ const Tooltip = styled.div`
   z-index: 50;
   width: 220px;
   padding: 10px 12px;
-  background: #1b2b3f;
-  border: 1px solid #45464d;
+  background: #15191e;
+  border: 1px solid #424850;
   border-radius: 0.375rem;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   pointer-events: none;
   text-align: left;
 `
@@ -239,7 +243,7 @@ const TipTitle = styled.div`
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 12px;
   font-weight: 500;
-  color: #7bd0ff;
+  color: #d0d8e0;
   margin-bottom: 6px;
 `
 
@@ -248,7 +252,7 @@ const TipMeta = styled.div`
   font-size: 10px;
   letter-spacing: 0.05em;
   font-weight: 700;
-  color: #c6c6cd;
+  color: #8a9099;
   text-transform: uppercase;
   margin-bottom: 4px;
 `
@@ -258,7 +262,7 @@ const TipBody = styled.p`
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.4;
-  color: #d3e4fe;
+  color: #d4dbe3;
 `
 
 function ColumnTooltip({ column }: { column: SchemaColumn }) {

@@ -45,6 +45,7 @@ import { ProposalsPage } from '@/pages/ProposalsPage'
 import { MetricsPage } from '@/pages/MetricsPage'
 import { EvalPage } from '@/pages/EvalPage'
 import { MarketplacePage } from '@/pages/MarketplacePage'
+import { JobTemplatesPage } from '@/pages/JobTemplatesPage'
 import { OutcomePage } from '@/pages/OutcomePage'
 import { ShipPage } from '@/pages/ShipPage'
 import { StatusPage } from '@/pages/StatusPage'
@@ -256,6 +257,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <MarketplacePage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/templates"
+              element={
+                <RequireAuth>
+                  <JobTemplatesPage />
                 </RequireAuth>
               }
             />

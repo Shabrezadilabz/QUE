@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
-/** Compact signed-in identity — dark IDE presence chip. */
+/** Compact signed-in identity + theme toggle. */
 export function AuthSessionControls() {
   const { user, logout } = useAuth()
   const { role } = useWorkspaceRole()
@@ -20,6 +21,7 @@ export function AuthSessionControls() {
 
   return (
     <div className="flex shrink-0 items-center gap-sm">
+      <ThemeToggle compact />
       {role ? (
         <span
           className="hidden rounded-full bg-secondary/15 px-sm py-xs font-label text-[9px] font-medium tracking-wide text-secondary uppercase sm:inline"

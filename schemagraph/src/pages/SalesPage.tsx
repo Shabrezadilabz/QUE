@@ -3,16 +3,17 @@
  */
 import { Link } from 'react-router-dom'
 import { QueLogo } from '@/components/QueLogo'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export function SalesPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-canvas">
+    <div className="que-auth-bg relative min-h-screen overflow-hidden">
+      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+        <ThemeToggle compact />
+      </div>
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 90% 55% at 15% -10%, rgba(123,208,255,0.18) 0%, transparent 55%), radial-gradient(ellipse 70% 45% at 95% 10%, rgba(78,222,163,0.14) 0%, transparent 50%), linear-gradient(180deg, #031427 0%, #0b1c30 100%)',
-        }}
+        className="que-auth-orb-teal pointer-events-none absolute -right-20 top-0 size-64 rounded-xl opacity-10 blur-[60px]"
+        aria-hidden
       />
       <div className="relative mx-auto max-w-3xl px-md py-xl md:px-lg">
         <QueLogo
@@ -32,7 +33,7 @@ export function SalesPage() {
         <div className="mt-xl flex flex-wrap gap-sm">
           <Link
             to="/login"
-            className="rounded bg-secondary px-lg py-2.5 font-label text-[13px] font-semibold text-on-secondary"
+            className="rounded bg-primary px-lg py-2.5 font-label text-[13px] font-semibold text-on-primary hover:bg-primary-fixed-dim"
           >
             Start workspace
           </Link>

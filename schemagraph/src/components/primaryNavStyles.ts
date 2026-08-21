@@ -1,11 +1,11 @@
-/** Shared primary header nav — dark IDE (cyber-blue active). */
+/** Shared primary header nav — Figma teal active indicator. */
 
 export const primaryNavLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
     'relative inline-flex h-full items-center whitespace-nowrap px-2 font-label text-[11px] font-bold leading-none tracking-[0.05em] uppercase transition-colors lg:px-3',
     isActive
       ? 'border-b-2 border-secondary text-secondary'
-      : 'border-b-2 border-transparent text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface',
+      : 'border-b-2 border-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
   ].join(' ')
 
 export const workspaceNavTriggerClass = ({
@@ -25,6 +25,6 @@ export const sideNavLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
     'mx-2 flex items-center gap-3 rounded-lg px-3 py-2 font-body text-[13px] transition-colors',
     isActive
-      ? 'bg-secondary-container/25 font-medium text-secondary'
-      : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface',
+      ? 'bg-secondary-container font-medium text-secondary'
+      : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface',
   ].join(' ')

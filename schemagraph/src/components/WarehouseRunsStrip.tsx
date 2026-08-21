@@ -25,19 +25,19 @@ export function WarehouseRunsStrip() {
   }, [])
 
   return (
-    <div className="mb-sm flex flex-wrap items-center gap-sm rounded-lg border border-outline-variant/25 bg-white/80 px-md py-sm text-[11px] text-on-surface-variant">
-      <span className="font-label tracking-widest uppercase">Offer A runs</span>
+    <div className="mb-[12px] flex flex-wrap items-center gap-[8px] rounded-[4px] border border-solid border-[#424850] bg-[#0f1215] px-[12px] py-[8px] text-[11px] text-[#a3afbe]">
+      <span className="font-semibold tracking-[0.6px] text-[#8a9099] uppercase">Offer A runs</span>
       <span className="min-w-0 flex-1 truncate">
         {summary
           ? summary
           : 'No warehouse digests yet — build from recent external job runs.'}
         {failed != null && failed > 0 ? (
-          <span className="ml-1 text-error">({failed} failed)</span>
+          <span className="ml-1 text-[#ff6b6b]">({failed} failed)</span>
         ) : null}
       </span>
       <button
         type="button"
-        className="rounded border border-primary/40 px-sm py-0.5 text-primary"
+        className="pdf-btn-ghost rounded-[4px] px-[10px] py-[4px] text-[11px]"
         onClick={() =>
           void buildWarehouseDigestApi()
             .then((d) => {
@@ -49,7 +49,7 @@ export function WarehouseRunsStrip() {
       >
         Refresh digest
       </button>
-      <Link to="/compliance" className="text-primary underline">
+      <Link to="/compliance" className="text-[#d0d8e0] hover:underline">
         Compliance
       </Link>
     </div>

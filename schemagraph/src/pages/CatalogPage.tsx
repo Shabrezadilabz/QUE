@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { PdfPageHeader } from '@/components/pdf/PdfUi'
 import { WorkInProgressOverlay } from '@/components/WorkInProgressOverlay'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
@@ -60,36 +61,28 @@ export function CatalogPage() {
   }
 
   return (
-    <QueAppChrome eyebrow="CATALOG · PHASE 4">
-      <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-canvas">
+    <QueAppChrome flush>
+      <div className="flex h-full min-h-0 flex-col bg-[#111416]">
+      <PdfPageHeader
+        title="Catalog & Glossary"
+        subtitle="Dashboards, metrics, and pipelines as first-class nodes linked to promoted tables."
+        actions={
+          <div className="flex gap-3 text-[12px]">
+            <Link to="/glossary" className="text-[#7aecd0] hover:underline">
+              Glossary
+            </Link>
+            <Link to="/lineage" className="text-[#7aecd0] hover:underline">
+              Lineage
+            </Link>
+          </div>
+        }
+      />
+      <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
         <WorkInProgressOverlay
           feature="Catalog"
           blurb="Asset catalog (dashboards, metrics, pipelines) is not fully wired yet. Use Jobs, Lineage, and Report Studio for production stitch work."
         />
-        <main className="pointer-events-none min-h-0 flex-1 select-none overflow-y-auto px-md py-lg opacity-50 md:px-lg lg:px-margin-desktop">
-          <div className="mb-xl flex flex-col justify-between gap-md sm:flex-row sm:items-end">
-            <div>
-              <h1 className="font-headline text-xl font-semibold tracking-tight text-on-surface">
-                Catalog assets
-              </h1>
-              <p className="mt-xs max-w-[42rem] font-body text-[13px] text-on-surface-variant">
-                Dashboards, metrics, and pipelines as first-class nodes linked to
-                tables — optional catalog expansion beside the stitch wedge.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-md">
-              <Link to="/glossary" className="font-label text-[12px] text-secondary hover:underline">
-                Glossary
-              </Link>
-              <Link to="/steward" className="font-label text-[12px] text-secondary hover:underline">
-                Steward
-              </Link>
-              <Link to="/lineage" className="font-label text-[12px] text-secondary hover:underline">
-                Column lineage
-              </Link>
-            </div>
-          </div>
-
+        <main className="pointer-events-none min-h-0 flex-1 select-none overflow-y-auto px-6 py-6 opacity-50">
           {enabled === false ? (
             <p className="mb-md rounded-xl border border-secondary/40 bg-secondary/5 p-md font-body text-[13px]">
               Catalog governance is off. Enable{' '}
@@ -185,6 +178,7 @@ export function CatalogPage() {
             ) : null}
           </ul>
         </main>
+      </div>
       </div>
     </QueAppChrome>
   )

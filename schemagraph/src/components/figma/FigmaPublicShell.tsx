@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const PUBLIC_ASSETS = {
   logo: '/figma/public/logo.svg',
@@ -24,25 +25,28 @@ export function FigmaPublicShell({
   footer,
 }: FigmaPublicShellProps) {
   return (
-    <div className="flex size-full min-h-0 flex-col bg-[#0b0e11] text-[#d4dbe3]">
-      <header className="flex h-[64px] shrink-0 items-center justify-between border-b border-solid border-[#424850] bg-[#0f1215] px-[24px]">
+    <div className="pdf-app-canvas flex size-full min-h-0 flex-col">
+      <header className="pdf-page-header flex h-[64px] shrink-0 items-center justify-between border-b border-solid px-[24px]">
         <div className="flex items-center gap-[8px]">
           <Link to="/" className="flex items-center gap-[8px]">
             <div className="relative size-[24px] shrink-0">
               <img alt="" className="absolute inset-0 block size-full max-w-none" src={PUBLIC_ASSETS.logo} />
             </div>
-            <span className="text-[18px] font-bold text-[#ecf0f4]">Que</span>
+            <span className="text-[18px] font-bold text-[var(--pdf-text-heading)]">Que</span>
           </Link>
-          <div className="h-[16px] w-px shrink-0 bg-[#424850]" />
+          <div className="h-[16px] w-px shrink-0 bg-[var(--pdf-border)]" />
           {sectionBadge ? (
-            <span className="rounded-[4px] bg-[#1e2328] px-[8px] py-[2px] text-[11px] font-bold text-[#d4dbe3]">
+            <span className="rounded-[4px] bg-[var(--pdf-bg-elevated)] px-[8px] py-[2px] text-[11px] font-bold text-[var(--pdf-text-primary)]">
               {section}
             </span>
           ) : (
-            <span className="text-[14px] font-normal text-[#a3afbe]">{section}</span>
+            <span className="text-[14px] font-normal text-[var(--pdf-text-muted)]">{section}</span>
           )}
         </div>
-        {headerRight}
+        <div className="flex items-center gap-[12px]">
+          {headerRight}
+          <ThemeToggle compact />
+        </div>
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
       {footer}
@@ -52,7 +56,7 @@ export function FigmaPublicShell({
 
 export function FigmaStatusFooter() {
   return (
-    <footer className="flex shrink-0 items-start justify-between border-t border-solid border-[#424850] bg-[#0f1215] px-[24px] py-[20px] text-[12px] text-[#a3afbe]">
+    <footer className="flex shrink-0 items-start justify-between border-t border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-shell)] px-[24px] py-[20px] text-[12px] text-[var(--pdf-text-muted)]">
       <p>© 2024 Que Data Engine. All rights reserved.</p>
       <div className="flex gap-[16px]">
         <Link to="/product" className="hover:text-[#ecf0f4]">

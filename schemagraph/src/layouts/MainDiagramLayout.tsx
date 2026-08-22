@@ -252,7 +252,7 @@ export function MainDiagramLayout({
   return (
     <div
       data-layout="main-diagram"
-      className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#111416] ${className}`}
+      className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--pdf-bg-canvas)] ${className}`}
     >
       <div data-slot="top-bar">{topBar ?? defaultTopBar}</div>
       {statusBanner ? (

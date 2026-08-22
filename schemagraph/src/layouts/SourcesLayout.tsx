@@ -7,7 +7,7 @@ import { QueAppChrome } from '@/layouts/QueAppChrome'
 export function SourcesLayout() {
   return (
     <QueAppChrome eyebrow="SOURCES · SCHEMA SYNC">
-      <div className="flex min-h-0 flex-1 overflow-hidden bg-[#111416]">
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-[var(--pdf-bg-canvas)]">
         <Outlet />
       </div>
     </QueAppChrome>

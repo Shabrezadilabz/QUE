@@ -47,10 +47,10 @@ function jobStatus(job: StitchJob): { label: string; tone: 'neutral' | 'ok' | 'w
 }
 
 const STATUS_PILL = {
-  neutral: 'pdf-shine text-[#a3afbe]',
-  ok: 'border border-solid border-[rgba(208,216,224,0.25)] bg-[rgba(170,181,192,0.1)] text-[#d0d8e0]',
-  warn: 'border border-solid border-[rgba(240,160,32,0.35)] bg-[rgba(240,160,32,0.1)] text-[#f0a020]',
-  error: 'border border-solid border-[rgba(255,107,107,0.35)] bg-[rgba(255,107,107,0.1)] text-[#ff6b6b]',
+  neutral: 'pdf-shine pdf-status-neutral',
+  ok: 'pdf-status-ok rounded-[4px] px-[8px] py-[4px]',
+  warn: 'pdf-status-warn rounded-[4px] px-[8px] py-[4px]',
+  error: 'pdf-status-error rounded-[4px] px-[8px] py-[4px]',
 }
 
 /** Jobs list — PDF slate layout: KPI strip, table, run history, slim live rail. */
@@ -441,60 +441,40 @@ function KpiCard({
   tone: 'blue' | 'teal' | 'amber' | 'alert' | 'neutral'
   icon: 'jobs' | 'ready' | 'draft' | 'drift'
 }) {
-  const styles = {
-    blue: {
-      card: 'border-[rgba(122,196,220,0.28)] bg-gradient-to-br from-[rgba(122,196,220,0.08)] to-[#0f1215]',
-      iconBox: 'border-[rgba(122,196,220,0.35)] bg-[rgba(122,196,220,0.14)]',
-      icon: '#7ac4dc',
-      value: '#ecf0f4',
-    },
-    teal: {
-      card: 'border-[rgba(122,236,208,0.28)] bg-gradient-to-br from-[rgba(122,236,208,0.08)] to-[#0f1215]',
-      iconBox: 'border-[rgba(122,236,208,0.35)] bg-[rgba(122,236,208,0.14)]',
-      icon: '#7aecd0',
-      value: '#ecf0f4',
-    },
-    amber: {
-      card: 'border-[rgba(255,176,107,0.28)] bg-gradient-to-br from-[rgba(255,176,107,0.07)] to-[#0f1215]',
-      iconBox: 'border-[rgba(255,176,107,0.35)] bg-[rgba(255,176,107,0.12)]',
-      icon: '#ffb06b',
-      value: '#ecf0f4',
-    },
-    alert: {
-      card: 'border-[rgba(255,107,107,0.35)] bg-gradient-to-br from-[rgba(255,107,107,0.1)] to-[#0f1215] shadow-[inset_-24px_0_32px_-24px_rgba(255,107,107,0.25)]',
-      iconBox: 'border-[rgba(255,107,107,0.4)] bg-[rgba(255,107,107,0.14)]',
-      icon: '#ff6b6b',
-      value: '#ff8a8a',
-    },
-    neutral: {
-      card: 'border-[#424850] bg-gradient-to-br from-[rgba(170,181,192,0.06)] to-[#0f1215]',
-      iconBox: 'border-[rgba(208,216,224,0.22)] bg-[rgba(170,181,192,0.1)]',
-      icon: '#c8cdd3',
-      value: '#ecf0f4',
-    },
+  const cardClass = {
+    blue: 'pdf-kpi-card pdf-kpi-card--blue',
+    teal: 'pdf-kpi-card pdf-kpi-card--teal',
+    amber: 'pdf-kpi-card pdf-kpi-card--amber',
+    alert: 'pdf-kpi-card pdf-kpi-card--alert',
+    neutral: 'pdf-kpi-card pdf-kpi-card--neutral',
+  }[tone]
+
+  const iconColor = {
+    blue: 'var(--pdf-kpi-blue, #006fe8)',
+    teal: 'var(--pdf-kpi-teal, #059669)',
+    amber: 'var(--pdf-kpi-amber, #d97706)',
+    alert: 'var(--pdf-kpi-alert, #dc2626)',
+    neutral: 'var(--pdf-text-muted)',
   }[tone]
 
   return (
-    <div
-      className={[
-        'relative overflow-hidden rounded-[6px] border border-solid px-[16px] py-[14px]',
-        styles.card,
-      ].join(' ')}
-    >
+    <div className={['relative overflow-hidden rounded-[6px] px-[16px] py-[14px]', cardClass].join(' ')}>
       <div className="flex items-start justify-between gap-[10px]">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold tracking-[0.8px] text-[#a3afbe] uppercase">
+          <p className="text-[10px] font-bold tracking-[0.8px] text-[var(--pdf-text-muted)] uppercase">
             {label}
           </p>
           <p
-            className="mt-[6px] text-[28px] font-bold leading-none tabular-nums"
-            style={{ color: styles.value }}
+            className={[
+              'mt-[6px] text-[28px] font-bold leading-none tabular-nums',
+              tone === 'alert' ? 'text-[var(--pdf-danger)]' : 'text-[var(--pdf-text-heading)]',
+            ].join(' ')}
           >
             {value}
           </p>
-          <p className="mt-[6px] text-[11px] text-[#8a9099]">{hint}</p>
+          <p className="mt-[6px] text-[11px] text-[var(--pdf-text-faint)]">{hint}</p>
         </div>
-        <KpiIcon kind={icon} color={styles.icon} boxClass={styles.iconBox} />
+        <KpiIcon kind={icon} color={iconColor} />
       </div>
     </div>
   )
@@ -503,11 +483,9 @@ function KpiCard({
 function KpiIcon({
   kind,
   color,
-  boxClass,
 }: {
   kind: 'jobs' | 'ready' | 'draft' | 'drift'
   color: string
-  boxClass: string
 }) {
   const props = {
     width: 18,
@@ -556,12 +534,7 @@ function KpiIcon({
   }
 
   return (
-    <div
-      className={[
-        'flex size-[36px] shrink-0 items-center justify-center rounded-[6px] border border-solid',
-        boxClass,
-      ].join(' ')}
-    >
+    <div className="pdf-kpi-icon-box shrink-0">
       {svg}
     </div>
   )

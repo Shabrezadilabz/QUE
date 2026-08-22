@@ -66,7 +66,7 @@ export function LandingComposer({
   return (
     <div className="relative">
       {suggestOpen && suggestions.length > 0 ? (
-        <div className="absolute bottom-full left-0 right-0 z-20 mb-[8px] max-h-56 overflow-y-auto rounded-[8px] border border-solid border-[#424850] bg-[#15191e]">
+        <div className="pdf-dropdown absolute bottom-full left-0 right-0 z-20 mb-[8px] max-h-56 overflow-y-auto rounded-[8px]">
           {suggestions.map((s, i) => {
             const active = i === suggestIndex
             if (s.kind === 'mention') {
@@ -76,8 +76,8 @@ export function LandingComposer({
                   type="button"
                   className={`flex w-full items-center justify-between px-[14px] py-[10px] text-left text-[12px] ${
                     active
-                      ? 'bg-[#252a30] text-[#d4dbe3]'
-                      : 'text-[#c8cdd3] hover:bg-[#1e2328]'
+                      ? 'bg-[var(--pdf-bg-muted)] text-[var(--pdf-text-primary)]'
+                      : 'text-[var(--pdf-text-secondary)] hover:bg-[var(--pdf-bg-elevated)]'
                   }`}
                   onMouseDown={(e) => {
                     e.preventDefault()
@@ -85,7 +85,7 @@ export function LandingComposer({
                   }}
                 >
                   <span>{s.item.label}</span>
-                  <span className="text-[10px] text-[#8a9099]">{s.item.detail}</span>
+                  <span className="text-[10px] text-[var(--pdf-text-faint)]">{s.item.detail}</span>
                 </button>
               )
             }
@@ -95,18 +95,18 @@ export function LandingComposer({
                 type="button"
                 className={`flex w-full items-center justify-between px-[14px] py-[10px] text-left text-[12px] ${
                   active
-                    ? 'bg-[#252a30] text-[#d4dbe3]'
-                    : 'text-[#c8cdd3] hover:bg-[#1e2328]'
+                    ? 'bg-[var(--pdf-bg-muted)] text-[var(--pdf-text-primary)]'
+                    : 'text-[var(--pdf-text-secondary)] hover:bg-[var(--pdf-bg-elevated)]'
                 }`}
                 onMouseDown={(e) => {
                   e.preventDefault()
                   pickSkill(s.item)
                 }}
               >
-                <span>
-                  <span className="text-[#7aecd0]">{s.item.slash}</span> {s.item.label}
+                  <span>
+                  <span className="text-[var(--pdf-accent)]">{s.item.slash}</span> {s.item.label}
                 </span>
-                <span className="max-w-[50%] truncate text-[10px] text-[#8a9099]">
+                <span className="max-w-[50%] truncate text-[10px] text-[var(--pdf-text-faint)]">
                   {s.item.description}
                 </span>
               </button>
@@ -117,17 +117,17 @@ export function LandingComposer({
 
       <div
         className={[
-          'overflow-hidden rounded-[16px] border border-solid bg-[#0f1215]',
+          'overflow-hidden rounded-[16px] border border-solid bg-[var(--pdf-bg-panel)]',
           composerDragOver
-            ? 'border-[#7aecd0]/45 border-dashed bg-[rgba(122,236,208,0.04)]'
-            : 'border-[#424850]',
+            ? 'border-[var(--pdf-accent-border)] border-dashed bg-[var(--pdf-accent-surface)]'
+            : 'border-[var(--pdf-border)]',
         ].join(' ')}
         onDragOver={onComposerDragOver}
         onDragLeave={onComposerDragLeave}
         onDrop={onComposerDrop}
       >
         {composerDragOver ? (
-          <p className="pointer-events-none px-[20px] pt-[12px] text-center text-[10px] font-semibold tracking-wide text-[#7aecd0]">
+          <p className="pointer-events-none px-[20px] pt-[12px] text-center text-[10px] font-semibold tracking-wide text-[var(--pdf-accent)]">
             Drop to mention @table or @table.column
           </p>
         ) : null}
@@ -140,7 +140,7 @@ export function LandingComposer({
                 {attachments.map((a) => (
                   <span
                     key={a.id}
-                    className="inline-flex max-w-full items-center gap-[4px] rounded-full border border-solid border-[#424850] bg-[#15191e] px-[10px] py-[4px] text-[11px] text-[#d4dbe3]"
+                    className="pdf-shine inline-flex max-w-full items-center gap-[4px] rounded-full px-[10px] py-[4px] text-[11px] text-[var(--pdf-text-primary)]"
                   >
                     <span className="truncate" title={a.name}>
                       {a.name}
@@ -151,7 +151,7 @@ export function LandingComposer({
                       onClick={() =>
                         setAttachments((prev) => prev.filter((x) => x.id !== a.id))
                       }
-                      className="text-[#8a9099] hover:text-[#ff6b6b]"
+                      className="text-[var(--pdf-text-faint)] hover:text-[var(--pdf-danger)]"
                     >
                       ×
                     </button>
@@ -221,12 +221,12 @@ export function LandingComposer({
                   ? 'Ask me anything about your schema…'
                   : 'Read-only — viewer cannot send chat'
               }
-              className="min-h-[72px] w-full resize-none border-none bg-transparent text-[15px] leading-relaxed text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
+              className="min-h-[72px] w-full resize-none border-none bg-transparent text-[15px] leading-relaxed text-[var(--pdf-text-primary)] outline-none placeholder:text-[var(--pdf-text-faint)] disabled:opacity-50"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-[12px] border-t border-solid border-[#424850] px-[20px] py-[14px]">
+        <div className="flex items-center justify-between gap-[12px] border-t border-solid border-[var(--pdf-border)] px-[20px] py-[14px]">
           <input
             ref={fileInputRef}
             type="file"
@@ -242,7 +242,7 @@ export function LandingComposer({
             type="button"
             disabled={!canWrite}
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-[8px] rounded-full border border-solid border-[#424850] bg-[#15191e] px-[14px] py-[8px] text-[12px] font-medium text-[#c8cdd3] transition-colors hover:border-[#6b7380] hover:text-[#d4dbe3] disabled:opacity-40"
+            className="pdf-btn-ghost inline-flex items-center gap-[8px] rounded-full px-[14px] py-[8px] text-[12px] font-medium disabled:opacity-40"
           >
             <PaperclipIcon />
             Attach file

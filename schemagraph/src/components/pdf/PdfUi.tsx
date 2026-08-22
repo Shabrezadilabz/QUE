@@ -15,17 +15,17 @@ export function PdfPageHeader({
   return (
     <header
       className={[
-        'pdf-page-header shrink-0 border-b border-solid border-[#424850] bg-[#0f1215]',
+        'pdf-page-header shrink-0 border-b border-solid',
         compact ? 'px-0 pb-[16px] pt-0' : 'px-[24px] pb-[32px] pt-[32px]',
       ].join(' ')}
     >
       <div className="flex flex-wrap items-start justify-between gap-[16px]">
         <div className="flex min-w-0 flex-col gap-[4px]">
-          <h1 className="text-[24px] font-bold leading-[32px] tracking-[-0.48px] text-[#d4dbe3]">
+          <h1 className="text-[24px] font-bold leading-[32px] tracking-[-0.48px] text-[var(--pdf-text-primary)]">
             {title}
           </h1>
           {subtitle ? (
-            <p className="text-[12px] leading-[18px] text-[#c8cdd3] md:text-[14px] md:leading-[20px]">
+            <p className="text-[12px] leading-[18px] text-[var(--pdf-text-secondary)] md:text-[14px] md:leading-[20px]">
               {subtitle}
             </p>
           ) : null}
@@ -90,19 +90,16 @@ export function PdfBadge({
   tone?: 'neutral' | 'success' | 'warn' | 'danger' | 'purple' | 'orange'
 }) {
   const tones = {
-    neutral: 'bg-[#2e343b] text-[#c8cdd3] border-[#424850]',
-    success: 'bg-[rgba(122,236,208,0.15)] text-[#7aecd0] border-[rgba(122,236,208,0.35)]',
-    warn: 'bg-[rgba(240,160,32,0.12)] text-[#f0a020] border-[rgba(240,160,32,0.35)]',
-    danger: 'bg-[rgba(255,107,107,0.12)] text-[#ff6b6b] border-[rgba(255,107,107,0.35)]',
-    purple: 'bg-[rgba(177,152,255,0.13)] text-[#b198ff] border-[rgba(177,152,255,0.3)]',
-    orange: 'bg-[rgba(255,176,107,0.13)] text-[#ffb06b] border-[rgba(255,176,107,0.3)]',
+    neutral: 'pdf-badge-neutral',
+    success: 'pdf-badge-success',
+    warn: 'pdf-badge-warn',
+    danger: 'pdf-badge-danger',
+    purple: 'pdf-badge-purple',
+    orange: 'pdf-badge-orange',
   }
   return (
     <span
-      className={[
-        'inline-flex items-center rounded-[4px] border border-solid px-[6px] py-[2px] text-[9px] font-bold tracking-[0.5px] uppercase',
-        tones[tone],
-      ].join(' ')}
+      className={['pdf-badge', tones[tone]].join(' ')}
     >
       {children}
     </span>

@@ -8,7 +8,7 @@ function NavIcon({ icon, active }: { icon: string; active: boolean }) {
       aria-hidden
       className={[
         'size-[14px] shrink-0',
-        active ? 'bg-[#d0d8e0]' : 'bg-[#8a9099]',
+        active ? 'bg-[var(--pdf-nav-icon-active)]' : 'bg-[var(--pdf-nav-icon)]',
       ].join(' ')}
       style={{
         maskImage: `url(${icon})`,
@@ -43,14 +43,14 @@ function NavItem({
       end={end}
       className={[
         'flex w-full flex-col items-center gap-[3px] rounded-[4px] border border-solid px-[6px] py-[6px] transition-colors',
-        active ? 'pdf-nav-active' : 'border-transparent text-[#8a9099] hover:text-[#c8cdd3]',
+        active ? 'pdf-nav-active' : 'border-transparent text-[var(--pdf-nav-icon)] hover:text-[var(--pdf-text-secondary)]',
       ].join(' ')}
     >
       <NavIcon icon={icon} active={active} />
       <span
         className={[
           'text-center text-[7px] font-semibold leading-none',
-          active ? 'text-[#d0d8e0]' : '',
+          active ? 'text-[var(--pdf-nav-icon-active)]' : '',
         ].join(' ')}
       >
         {label}
@@ -63,7 +63,6 @@ function NavItem({
 export function PdfSidebar() {
   const { pathname } = useLocation()
   const active = resolveActiveNav(pathname)
-  const settingsActive = active === 'settings'
 
   const icons: Record<string, string> = {
     workspace: FIGMA_NAV.workspace,
@@ -76,17 +75,18 @@ export function PdfSidebar() {
     marketplace: FIGMA_NAV.marketplace,
     metrics: FIGMA_NAV.jobs,
     bi: FIGMA_NAV.lineage,
+    settings: FIGMA_NAV.settings,
   }
 
   return (
-    <aside className="pdf-sidebar hidden h-full w-[72px] shrink-0 flex-col overflow-hidden border-r border-solid border-[#424850] bg-[#0b0e11] px-[8px] py-[12px] md:flex">
-      <div className="shrink-0 border-b border-solid border-[#424850]/60 pb-[10px]">
+    <aside className="pdf-sidebar hidden h-full w-[72px] shrink-0 flex-col overflow-hidden border-r border-solid border-[var(--pdf-border)] px-[8px] py-[12px] md:flex">
+      <div className="shrink-0 border-b border-solid border-[color-mix(in_srgb,var(--pdf-border)_60%,transparent)] pb-[10px]">
         <NavLink to="/workspace" className="flex flex-col items-center gap-[1px]">
           <div className="relative size-[28px] shrink-0">
             <img alt="" className="absolute inset-0 block size-full max-w-none" src={FIGMA_NAV.logo} />
           </div>
-          <span className="text-[9px] font-black leading-none text-[#ecf0f4]">Que</span>
-          <span className="text-[7px] font-medium leading-none text-[#8a9099]">Data Engine</span>
+          <span className="text-[9px] font-black leading-none text-[var(--pdf-text-heading)]">Que</span>
+          <span className="text-[7px] font-medium leading-none text-[var(--pdf-text-faint)]">Data Engine</span>
         </NavLink>
       </div>
 
@@ -106,30 +106,38 @@ export function PdfSidebar() {
         ))}
       </nav>
 
-      <div className="mt-[8px] flex shrink-0 flex-col gap-[3px] border-t border-solid border-[#424850]/60 pt-[8px]">
+      <div className="mt-[8px] flex shrink-0 flex-col gap-[3px] border-t border-solid border-[color-mix(in_srgb,var(--pdf-border)_60%,transparent)] pt-[8px]">
         <NavLink
           to="/status"
-          className="flex flex-col items-center gap-[1px] py-[4px] text-[7px] leading-none text-[#8a9099] hover:text-[#c8cdd3]"
+          className="flex flex-col items-center gap-[1px] py-[4px] text-[7px] leading-none text-[var(--pdf-nav-icon)] hover:text-[var(--pdf-text-secondary)]"
         >
           <span className="text-[11px] leading-none">?</span>
           Support
         </NavLink>
         <NavLink
-          to="/settings"
-          className={[
-            'flex w-full flex-col items-center gap-[3px] rounded-[4px] border border-solid px-[6px] py-[6px] transition-colors',
-            settingsActive ? 'pdf-nav-active' : 'border-transparent text-[#8a9099] hover:text-[#c8cdd3]',
-          ].join(' ')}
+          to="/settings/members"
+          className={({ isActive }) =>
+            [
+              'flex w-full flex-col items-center gap-[3px] rounded-[4px] border border-solid px-[6px] py-[6px] transition-colors',
+              isActive
+                ? 'pdf-nav-active'
+                : 'border-transparent text-[var(--pdf-nav-icon)] hover:text-[var(--pdf-text-secondary)]',
+            ].join(' ')
+          }
         >
-          <NavIcon icon={FIGMA_NAV.settings} active={settingsActive} />
-          <span
-            className={[
-              'text-[7px] font-semibold leading-none',
-              settingsActive ? 'text-[#d0d8e0]' : '',
-            ].join(' ')}
-          >
-            Settings
-          </span>
+          {({ isActive }) => (
+            <>
+              <NavIcon icon={FIGMA_NAV.account} active={isActive} />
+              <span
+                className={[
+                  'text-[7px] font-semibold leading-none',
+                  isActive ? 'text-[var(--pdf-nav-icon-active)]' : '',
+                ].join(' ')}
+              >
+                Account
+              </span>
+            </>
+          )}
         </NavLink>
       </div>
     </aside>

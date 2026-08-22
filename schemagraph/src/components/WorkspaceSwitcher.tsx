@@ -91,24 +91,24 @@ export function WorkspaceSwitcher({
           Create workspace ▾
         </button>
         {open ? (
-          <div className="absolute top-full left-0 z-[120] mt-sm min-w-[16rem] rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-md shadow-lg">
-            <p className="mb-sm font-label text-[9px] tracking-widest text-on-surface-variant">
+          <div className="pdf-dropdown absolute top-full left-0 z-[120] mt-sm min-w-[16rem] p-md">
+            <p className="mb-sm text-[9px] font-semibold tracking-[0.6px] text-[var(--pdf-text-faint)] uppercase">
               NEW WORKSPACE
             </p>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Workspace name"
-              className="mb-sm w-full border border-outline-variant px-sm py-sm font-body text-sm outline-none focus:border-primary"
+              className="pdf-input mb-sm w-full px-sm py-sm text-sm"
             />
             {createError ? (
-              <p className="mb-sm font-body text-xs text-error">{createError}</p>
+              <p className="mb-sm text-xs text-[var(--pdf-danger)]">{createError}</p>
             ) : null}
             <button
               type="button"
               disabled={creating}
               onClick={() => void onCreateWorkspace()}
-              className="w-full rounded bg-secondary py-sm font-label text-[11px] text-on-secondary disabled:opacity-40"
+              className="pdf-btn-primary w-full rounded-[4px] py-sm text-[11px] disabled:opacity-40"
             >
               {creating ? 'Creating…' : 'Create'}
             </button>
@@ -122,10 +122,8 @@ export function WorkspaceSwitcher({
     variant === 'nav'
       ? workspaceNavTriggerClass({ emphasized: open || onCanvas })
       : [
-          'inline-flex min-w-[8.5rem] max-w-[13rem] items-center justify-between gap-[8px] rounded-[4px] border border-solid px-[10px] py-[7px] transition-colors',
-          open
-            ? 'border-[#6b7380] bg-[#1e2328] text-[#ecf0f4]'
-            : 'border-[#424850] bg-[#15191e] text-[#d4dbe3] hover:border-[#6b7380] hover:bg-[#1e2328]',
+          'pdf-btn-ghost inline-flex min-w-[8.5rem] max-w-[13rem] items-center justify-between gap-[8px] rounded-[4px] px-[10px] py-[7px] transition-colors',
+          open ? 'border-[var(--pdf-btn-ghost-hover-border)] bg-[var(--pdf-bg-elevated)] text-[var(--pdf-text-heading)]' : '',
         ].join(' ')
 
   return (
@@ -154,9 +152,9 @@ export function WorkspaceSwitcher({
           id={listId}
           role="listbox"
           aria-label="Workspaces"
-          className="absolute top-full left-0 z-[120] mt-[6px] min-w-[15rem] overflow-hidden rounded-[4px] border border-solid border-[#424850] bg-[#0f1215] py-[4px] shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+          className="pdf-dropdown absolute top-full left-0 z-[120] mt-[6px] min-w-[15rem] py-[4px]"
         >
-          <p className="px-[12px] py-[6px] text-[9px] font-semibold tracking-[0.6px] text-[#8a9099] uppercase">
+          <p className="px-[12px] py-[6px] text-[9px] font-semibold tracking-[0.6px] text-[var(--pdf-text-faint)] uppercase">
             Switch workspace
           </p>
           {workspaces.map((w) => {
@@ -169,37 +167,35 @@ export function WorkspaceSwitcher({
                 aria-selected={active}
                 onClick={() => selectWorkspace(w.id)}
                 className={[
-                  'flex w-full items-start justify-between gap-[12px] px-[12px] py-[8px] text-left transition-colors',
-                  active
-                    ? 'border-l-2 border-[#7aecd0] bg-[rgba(122,236,208,0.08)]'
-                    : 'border-l-2 border-transparent hover:bg-[#15191e]',
+                  'pdf-dropdown-item',
+                  active ? 'pdf-dropdown-item-active' : '',
                 ].join(' ')}
               >
                 <span>
-                  <span className="block text-[13px] font-semibold text-[#d4dbe3]">
+                  <span className="block text-[13px] font-semibold text-[var(--pdf-text-primary)]">
                     {w.name}
                   </span>
-                  <span className="mt-[2px] block text-[10px] tracking-wide text-[#8a9099] uppercase">
+                  <span className="mt-[2px] block text-[10px] tracking-wide text-[var(--pdf-text-faint)] uppercase">
                     {w.slug} · {w.role}
                   </span>
                 </span>
                 {active ? (
-                  <span className="text-[9px] font-semibold tracking-[0.6px] text-[#7aecd0] uppercase">
+                  <span className="text-[9px] font-semibold tracking-[0.6px] text-[var(--pdf-accent)] uppercase">
                     Active
                   </span>
                 ) : null}
               </button>
             )
           })}
-          <div className="mt-[4px] border-t border-solid border-[#424850] px-[12px] py-[10px]">
-            <p className="mb-[6px] text-[9px] font-semibold tracking-[0.6px] text-[#8a9099] uppercase">
+          <div className="mt-[4px] border-t border-solid border-[var(--pdf-border)] px-[12px] py-[10px]">
+            <p className="mb-[6px] text-[9px] font-semibold tracking-[0.6px] text-[var(--pdf-text-faint)] uppercase">
               New workspace
             </p>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Name"
-              className="mb-[6px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#15191e] px-[8px] py-[6px] text-[12px] text-[#d4dbe3] outline-none placeholder:text-[#6b7380] focus:border-[#6b7380]"
+              className="pdf-input mb-[6px] w-full px-[8px] py-[6px] text-[12px]"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
@@ -208,7 +204,7 @@ export function WorkspaceSwitcher({
               }}
             />
             {createError ? (
-              <p className="mb-[6px] text-[11px] text-[#ff6b6b]">{createError}</p>
+              <p className="mb-[6px] text-[11px] text-[var(--pdf-danger)]">{createError}</p>
             ) : null}
             <button
               type="button"
@@ -220,7 +216,7 @@ export function WorkspaceSwitcher({
             </button>
             <button
               type="button"
-              className="text-[11px] text-[#c8cdd3] underline hover:text-[#ecf0f4]"
+              className="text-[11px] text-[var(--pdf-text-secondary)] underline hover:text-[var(--pdf-text-heading)]"
               onClick={() => {
                 setOpen(false)
                 navigate('/workspace')
@@ -248,7 +244,7 @@ function ChevronDown({ open }: { open: boolean }) {
       strokeLinejoin="round"
       aria-hidden
       className={[
-        'shrink-0 text-[#8a9099] transition-transform',
+        'shrink-0 text-[var(--pdf-text-faint)] transition-transform',
         open ? 'rotate-180' : '',
       ].join(' ')}
     >

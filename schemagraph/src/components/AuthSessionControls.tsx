@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 
-/** Compact signed-in identity + theme toggle. */
+/** Compact signed-in identity for PDF top bars. */
 export function AuthSessionControls() {
   const { user, logout } = useAuth()
   const { role } = useWorkspaceRole()
@@ -22,7 +22,7 @@ export function AuthSessionControls() {
     <div className="flex shrink-0 items-center gap-[10px]">
       {role ? (
         <span
-          className="hidden rounded-[4px] border border-solid border-[#424850] bg-[#15191e] px-[8px] py-[4px] text-[9px] font-semibold tracking-[0.4px] text-[#a3afbe] uppercase sm:inline"
+          className="pdf-auth-pill hidden rounded-[4px] border border-solid px-[8px] py-[4px] text-[9px] font-semibold tracking-[0.4px] uppercase sm:inline"
           title={`${user.email} · ${role}`}
         >
           {role}
@@ -32,7 +32,7 @@ export function AuthSessionControls() {
         type="button"
         onClick={() => void onLogout()}
         title={`Sign out (${user.email})`}
-        className="flex size-[32px] items-center justify-center overflow-hidden rounded-full border border-solid border-[#424850] bg-[#252a30] text-[12px] font-bold text-[#d4dbe3] transition-colors hover:border-[#6b7380] hover:bg-[#2e343b]"
+        className="pdf-auth-avatar flex size-[32px] items-center justify-center overflow-hidden rounded-full border border-solid text-[12px] font-bold transition-colors"
         aria-label={`Signed in as ${user.email}. Click to sign out.`}
       >
         {initial}

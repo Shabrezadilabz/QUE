@@ -53,17 +53,17 @@ export function RightSidebar({
   return (
     <aside
       data-region="right-sidebar"
-      className={`flex h-full w-full max-w-[320px] shrink-0 flex-col border-l border-solid border-[#424850] bg-[#0f1215] ${className}`}
+      className={`flex h-full w-full max-w-[320px] shrink-0 flex-col border-l border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-panel)] ${className}`}
       aria-label="Properties"
     >
-      <div className="shrink-0 border-b border-solid border-[#424850] p-lg">
+      <div className="shrink-0 border-b border-solid border-[var(--pdf-border)] p-lg">
         <div className="mb-md flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-[#d4dbe3]">
+          <h3 className="text-xl font-semibold text-[var(--pdf-text-primary)]">
             Properties
           </h3>
           <button
             type="button"
-            className="rounded-full p-xs text-[#8a9099] transition-colors hover:bg-[#252a30] hover:text-[#d4dbe3]"
+            className="rounded-full p-xs text-[var(--pdf-text-faint)] transition-colors hover:bg-[var(--pdf-bg-muted)] hover:text-[var(--pdf-text-primary)]"
             aria-label="Close properties"
             onClick={onClose}
           >
@@ -72,15 +72,15 @@ export function RightSidebar({
         </div>
 
         {status === 'ready' && table ? (
-          <div className="flex items-center gap-md rounded-[4px] border border-solid border-[#424850] bg-[#15191e] p-md">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-solid border-[#424850] bg-[#252a30] text-[#7aecd0]">
+          <div className="pdf-panel flex items-center gap-md p-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-elevated)] text-[var(--pdf-accent)]">
               <SourceTypeIcon type={table.sourceType} className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[#d4dbe3]">
+              <p className="truncate text-sm font-semibold text-[var(--pdf-text-primary)]">
                 {table.name}
               </p>
-              <p className="font-mono text-[11px] text-[#8a9099]">
+              <p className="font-mono text-[11px] text-[var(--pdf-text-faint)]">
                 Table · {table.sourceLabel || sourceTypeLabel(table.sourceType)}
               </p>
             </div>
@@ -170,7 +170,7 @@ export function RightSidebar({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-solid border-[#424850] bg-[#15191e] p-lg">
+      <div className="shrink-0 border-t border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-elevated)] p-lg">
         <button
           type="button"
           disabled={!table || status !== 'ready'}
@@ -179,7 +179,7 @@ export function RightSidebar({
         >
           Save Changes
         </button>
-        <p className="mt-xs text-center text-[9px] tracking-wide text-[#8a9099]">
+        <p className="mt-xs text-center text-[9px] tracking-wide text-[var(--pdf-text-faint)]">
           Creates a stitch job from this table + neighbors
         </p>
       </div>
@@ -225,8 +225,8 @@ function ColumnPill({
       className={[
         'flex w-full items-center justify-between rounded-lg border px-sm py-sm text-left transition-colors',
         selected
-          ? 'border-[rgba(208,216,224,0.35)] bg-[#15191e]'
-          : 'border-[#424850] bg-[#0f1215] hover:border-[rgba(208,216,224,0.25)]',
+          ? 'border-[var(--pdf-accent-border)] bg-[var(--pdf-accent-surface)]'
+          : 'border-[var(--pdf-border)] bg-[var(--pdf-bg-shell)] hover:border-[var(--pdf-btn-ghost-hover-border)]',
       ].join(' ')}
     >
       <span className="flex min-w-0 items-center gap-sm">

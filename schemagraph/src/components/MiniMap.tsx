@@ -245,7 +245,7 @@ export function MiniMap({
   return (
     <div
       data-region="mini-map"
-      className={`absolute bottom-md right-md z-20 overflow-hidden rounded-[4px] border border-solid border-[#424850] bg-[#0f1215]/95 backdrop-blur-[2px] ${className}`}
+      className={`absolute bottom-md right-md z-20 overflow-hidden rounded-[4px] pdf-canvas-overlay ${className}`}
       style={{
         width: frameW,
         height: frameH,
@@ -271,7 +271,7 @@ export function MiniMap({
           y={0}
           width={frameW}
           height={frameH}
-          fill="#111416"
+          fill="var(--pdf-bg-canvas)"
           fillOpacity={0.95}
           onPointerDown={onBackgroundPointerDown}
           style={{ cursor: 'crosshair' }}
@@ -326,8 +326,8 @@ export function MiniMap({
                 width={Math.max(w, 4)}
                 height={Math.max(h, 4)}
                 rx={2}
-                fill="#0f1215"
-                stroke="#424850"
+                fill="var(--pdf-bg-shell)"
+                stroke="var(--pdf-border)"
                 strokeWidth={1}
               />
               {/* Source header strip */}
@@ -336,7 +336,7 @@ export function MiniMap({
                 y={p.y}
                 width={Math.max(w, 4)}
                 height={Math.max(SOURCE_HEADER_HEIGHT * scale, 2)}
-                fill="#252a30"
+                fill="var(--pdf-table-head-bg)"
               />
             </g>
           )
@@ -349,7 +349,7 @@ export function MiniMap({
           width={Math.max(vpMini.w, 12)}
           height={Math.max(vpMini.h, 10)}
           fill="rgba(208, 216, 224, 0.1)"
-          stroke="#d0d8e0"
+          stroke="var(--pdf-accent)"
           strokeWidth={dragging ? 2 : 1.5}
           style={{ cursor: dragging ? 'grabbing' : 'grab' }}
           onPointerDown={onViewportPointerDown}

@@ -222,19 +222,19 @@ function MarketplacePackCard({
   onInstall: () => void
 }) {
   return (
-    <article className="flex flex-col overflow-hidden rounded-[4px] border border-solid border-[#424850] bg-[#0f1215] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-      <div className="flex items-start justify-between border-b border-solid border-[#424850] bg-[#1e2328] px-[16px] pb-[17px] pt-[16px]">
+    <article className="pdf-panel flex flex-col overflow-hidden rounded-[4px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+      <div className="flex items-start justify-between border-b border-solid border-[var(--pdf-border)] bg-[var(--pdf-table-head-bg)] px-[16px] pb-[17px] pt-[16px]">
         <PackIndustryIcon industry={pack.industry} />
-        <span className="rounded-[2px] border border-solid border-[#424850] bg-[#2e343b] px-[9px] py-[3px] text-[10px] font-bold tracking-[1px] text-[#c8cdd3] uppercase">
+        <span className="pdf-badge-neutral px-[9px] py-[3px] text-[10px] tracking-[1px]">
           {pack.industry}
         </span>
       </div>
       <div className="flex flex-1 flex-col justify-between p-[16px]">
         <div>
-          <h3 className="text-[16px] font-semibold leading-[24px] text-[#d4dbe3]">
+          <h3 className="text-[16px] font-semibold leading-[24px] text-[var(--pdf-text-primary)]">
             {pack.title}
           </h3>
-          <p className="mt-[8px] text-[12px] leading-[18px] text-[#c8cdd3]">
+          <p className="mt-[8px] text-[12px] leading-[18px] text-[var(--pdf-text-secondary)]">
             {pack.description}
           </p>
         </div>
@@ -244,7 +244,7 @@ function MarketplacePackCard({
               <span
                 key={t}
                 title={t}
-                className="flex size-[24px] items-center justify-center rounded-full border border-solid border-[#424850] bg-[#252a30] text-[9px] font-semibold uppercase tracking-[0.02em] text-[#c8cdd3]"
+                className="flex size-[24px] items-center justify-center rounded-full border border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-elevated)] text-[9px] font-semibold uppercase tracking-[0.02em] text-[var(--pdf-text-secondary)]"
               >
                 {sourceBadgeLabel(t)}
               </span>

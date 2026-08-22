@@ -9,7 +9,6 @@ export type LandingSuggestion = {
 
 /**
  * Centered assistant landing — greeting, suggestion cards, prompt box.
- * Layout-only shell; colors use existing PDF slate tokens.
  */
 export function AssistantLandingLayout({
   greeting,
@@ -27,10 +26,10 @@ export function AssistantLandingLayout({
   return (
     <div className="mx-auto flex w-full max-w-[920px] flex-col gap-[40px] px-[16px] py-[32px] md:px-[24px] md:py-[48px]">
       <header className="space-y-[8px]">
-        <p className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] text-[#ecf0f4] md:text-[40px]">
+        <p className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] text-[var(--pdf-text-heading)] md:text-[40px]">
           {greeting}
         </p>
-        <p className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] text-[#ecf0f4] md:text-[40px]">
+        <p className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] text-[var(--pdf-text-heading)] md:text-[40px]">
           {headline}
         </p>
       </header>
@@ -42,12 +41,12 @@ export function AssistantLandingLayout({
             type="button"
             disabled={s.disabled}
             onClick={s.onClick}
-            className="group flex min-h-[120px] flex-col items-start gap-[16px] rounded-[16px] border border-solid border-[#424850] bg-[#0f1215] p-[20px] text-left transition-colors hover:border-[#6b7380] hover:bg-[#15191e] disabled:cursor-not-allowed disabled:opacity-40"
+            className="pdf-panel group flex min-h-[120px] flex-col items-start gap-[16px] rounded-[16px] p-[20px] text-left transition-colors hover:border-[var(--pdf-btn-ghost-hover-border)] hover:bg-[var(--pdf-bg-elevated)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <span className="rounded-full border border-solid border-[#424850] bg-[#15191e] px-[12px] py-[4px] text-[11px] font-semibold text-[#c8cdd3]">
+            <span className="pdf-shine rounded-full px-[12px] py-[4px] text-[11px] font-semibold text-[var(--pdf-text-secondary)]">
               {s.category}
             </span>
-            <span className="text-[15px] font-medium leading-snug text-[#d4dbe3] group-hover:text-[#ecf0f4]">
+            <span className="text-[15px] font-medium leading-snug text-[var(--pdf-text-primary)] group-hover:text-[var(--pdf-text-heading)]">
               {s.title}
             </span>
           </button>
@@ -57,7 +56,7 @@ export function AssistantLandingLayout({
       <div className="w-full">{composer}</div>
 
       {footer ? (
-        <p className="text-center text-[11px] text-[#6b7380]">{footer}</p>
+        <p className="text-center text-[11px] text-[var(--pdf-text-faint)]">{footer}</p>
       ) : null}
     </div>
   )
@@ -70,7 +69,7 @@ export function LandingSparkleIcon() {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      className="mt-[2px] shrink-0 text-[#8a9099]"
+      className="mt-[2px] shrink-0 text-[var(--pdf-text-faint)]"
       aria-hidden
     >
       <path

@@ -11,4 +11,6 @@ export const FIGMA_NAV = {
   marketplace: '/figma/nav/marketplace.svg',
   settings: '/figma/nav/settings.svg',
   search: '/figma/nav/search.svg',
+  bell: '/figma/nav/bell.svg',
+  account: '/figma/nav/account.svg',
 } as const

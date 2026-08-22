@@ -1,13 +1,18 @@
 import type { ReactNode } from 'react'
 import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
+import {
+  FIGMA_SETTINGS_NAV,
+  type SettingsNavId,
+} from '@/components/figma/settingsNavAssets'
 
 /** Shared panel shell — PDF page 10 settings cards. */
 export const SETTINGS_PANEL =
-  'overflow-hidden rounded-[8px] border border-solid border-[#424850] bg-[#0f1215] p-[20px]'
+  'pdf-panel overflow-hidden rounded-[8px] p-[20px]'
 
-export const SETTINGS_PANEL_TITLE = 'text-[15px] font-semibold text-[#d4dbe3]'
+export const SETTINGS_PANEL_TITLE =
+  'text-[15px] font-semibold text-[var(--pdf-text-primary)]'
 export const SETTINGS_PANEL_SUB =
-  'mt-[4px] max-w-[36rem] text-[12px] leading-snug text-[#a3afbe]'
+  'mt-[4px] max-w-[36rem] text-[12px] leading-snug text-[var(--pdf-text-muted)]'
 
 export function SettingsSectionHeader({
   title,
@@ -21,11 +26,11 @@ export function SettingsSectionHeader({
   return (
     <div className="mb-[24px] flex flex-col justify-between gap-[16px] sm:flex-row sm:items-end">
       <div className="min-w-0">
-        <h1 className="text-[20px] font-semibold tracking-tight text-[#d4dbe3]">
+        <h1 className="text-[20px] font-semibold tracking-tight text-[var(--pdf-text-primary)]">
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-[4px] max-w-[42rem] text-[13px] leading-snug text-[#a3afbe]">
+          <p className="mt-[4px] max-w-[42rem] text-[13px] leading-snug text-[var(--pdf-text-muted)]">
             {subtitle}
           </p>
         ) : null}
@@ -81,7 +86,7 @@ export function SettingsSearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#0f1215] py-[10px] pl-[37px] pr-[13px] text-[12px] text-[#d4dbe3] outline-none placeholder:text-[#8a9099] focus:border-[#6b7380]"
+        className="pdf-input w-full rounded-[4px] py-[10px] pl-[37px] pr-[13px] text-[12px] outline-none"
       />
       <img
         alt=""
@@ -111,7 +116,7 @@ export function SettingsSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={[
-        'rounded-[4px] border border-solid border-[#424850] bg-[#0f1215] px-[12px] py-[10px] text-[12px] text-[#d4dbe3] outline-none focus:border-[#6b7380]',
+        'pdf-input rounded-[4px] px-[12px] py-[10px] text-[12px] outline-none',
         className,
       ].join(' ')}
     >
@@ -129,10 +134,10 @@ export function SettingsMetric({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-semibold tracking-[0.5px] text-[#8a9099] uppercase">
+      <p className="text-[10px] font-semibold tracking-[0.5px] text-[var(--pdf-text-faint)] uppercase">
         {label}
       </p>
-      <p className="mt-[6px] text-[28px] font-semibold leading-none tracking-tight text-[#7aecd0]">
+      <p className="mt-[6px] text-[28px] font-semibold leading-none tracking-tight text-[var(--pdf-accent)]">
         {value}
       </p>
     </div>
@@ -141,7 +146,7 @@ export function SettingsMetric({
 
 export function SettingsUsageBadge({ pct }: { pct: number }) {
   return (
-    <span className="inline-flex items-center rounded-[4px] border border-solid border-[rgba(122,236,208,0.35)] bg-[rgba(122,236,208,0.12)] px-[8px] py-[4px] text-[11px] font-semibold text-[#7aecd0]">
+    <span className="inline-flex items-center rounded-[4px] border border-solid border-[color-mix(in_srgb,var(--pdf-accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--pdf-accent)_12%,transparent)] px-[8px] py-[4px] text-[11px] font-semibold text-[var(--pdf-accent)]">
       {pct}% of soft cap
     </span>
   )
@@ -162,23 +167,27 @@ export function SettingsProgressRow({
 }) {
   const width = Math.min(100, pct)
   const barColor =
-    pct >= 90 ? 'bg-[#ff6b6b]' : pct >= 80 ? 'bg-[#f0a020]' : 'bg-[#7aecd0]'
+    pct >= 90
+      ? 'bg-[var(--pdf-danger)]'
+      : pct >= 80
+        ? 'bg-[var(--pdf-warn)]'
+        : 'bg-[var(--pdf-accent)]'
 
   return (
     <li>
       <div className="mb-[6px] flex items-center justify-between gap-[12px]">
-        <span className="text-[12px] font-medium text-[#d4dbe3]">{label}</span>
-        <span className="text-[12px] text-[#a3afbe]">
+        <span className="text-[12px] font-medium text-[var(--pdf-text-primary)]">{label}</span>
+        <span className="text-[12px] text-[var(--pdf-text-muted)]">
           {used} / {max}
         </span>
       </div>
-      <div className="h-[6px] overflow-hidden rounded-full bg-[#252a30]">
+      <div className="h-[6px] overflow-hidden rounded-full bg-[var(--pdf-bg-muted)]">
         <div
           className={['h-full rounded-full transition-all', barColor].join(' ')}
           style={{ width: `${width}%` }}
         />
       </div>
-      <p className="mt-[6px] text-[11px] text-[#8a9099]">{hint}</p>
+      <p className="mt-[6px] text-[11px] text-[var(--pdf-text-faint)]">{hint}</p>
     </li>
   )
 }
@@ -194,7 +203,7 @@ export function SettingsRoleBadge({ role }: { role: string }) {
           : 'Editor'
 
   return (
-    <span className="inline-flex items-center rounded-[4px] border border-solid border-[#424850] bg-[#252a30] px-[8px] py-[3px] text-[11px] font-medium text-[#c8cdd3]">
+    <span className="inline-flex items-center rounded-[4px] border border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-muted)] px-[8px] py-[3px] text-[11px] font-medium text-[var(--pdf-text-secondary)]">
       {label}
     </span>
   )
@@ -212,55 +221,40 @@ export function SettingsKebabButton({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="inline-flex size-[28px] items-center justify-center rounded-[4px] text-[#a3afbe] transition-colors hover:bg-[#252a30] hover:text-[#d4dbe3]"
+      className="inline-flex size-[28px] items-center justify-center rounded-[4px] text-[var(--pdf-text-muted)] transition-colors hover:bg-[var(--pdf-bg-muted)] hover:text-[var(--pdf-text-primary)]"
     >
       <span className="text-[16px] leading-none">⋮</span>
     </button>
   )
 }
 
-export function SettingsOrgNavIcon({ id }: { id: string }) {
-  const common = 'size-[14px] shrink-0 stroke-current'
-  switch (id) {
-    case 'members':
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className={common} aria-hidden>
-          <circle cx="6" cy="5" r="2.25" strokeWidth="1.2" />
-          <path d="M2.5 13.5c0-2.2 1.6-3.5 3.5-3.5s3.5 1.3 3.5 3.5" strokeWidth="1.2" strokeLinecap="round" />
-          <circle cx="11.5" cy="5.5" r="1.75" strokeWidth="1.2" />
-          <path d="M9 13.5c.3-1.6 1.2-2.5 2.5-2.5 1 0 1.8.6 2.2 2.5" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-      )
-    case 'security':
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className={common} aria-hidden>
-          <path d="M8 1.75 3 4v4c0 3 2.2 5.4 5 6.25 2.8-.85 5-3.25 5-6.25V4L8 1.75Z" strokeWidth="1.2" strokeLinejoin="round" />
-        </svg>
-      )
-    case 'ai-policy':
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className={common} aria-hidden>
-          <rect x="2.5" y="2.5" width="11" height="11" rx="2" strokeWidth="1.2" />
-          <path d="M5.5 8h5M8 5.5v5" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-      )
-    case 'automation':
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className={common} aria-hidden>
-          <path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2M4.4 4.4l1.4 1.4M10.2 10.2l1.4 1.4M4.4 11.6l1.4-1.4M10.2 5.8l1.4-1.4" strokeWidth="1.2" strokeLinecap="round" />
-          <circle cx="8" cy="8" r="2.25" strokeWidth="1.2" />
-        </svg>
-      )
-    case 'billing':
-      return (
-        <svg viewBox="0 0 16 16" fill="none" className={common} aria-hidden>
-          <rect x="2" y="4" width="12" height="8.5" rx="1.5" strokeWidth="1.2" />
-          <path d="M2 7h12" strokeWidth="1.2" />
-        </svg>
-      )
-    default:
-      return null
-  }
+export function SettingsOrgNavIcon({
+  id,
+  active = false,
+}: {
+  id: SettingsNavId
+  active?: boolean
+}) {
+  const icon = FIGMA_SETTINGS_NAV[id]
+  return (
+    <div
+      aria-hidden
+      className={[
+        'size-[16px] shrink-0',
+        active ? 'bg-[var(--pdf-text-primary)]' : 'bg-[var(--pdf-text-faint)]',
+      ].join(' ')}
+      style={{
+        maskImage: `url(${icon})`,
+        WebkitMaskImage: `url(${icon})`,
+        maskRepeat: 'no-repeat',
+        WebkitMaskRepeat: 'no-repeat',
+        maskPosition: 'center',
+        WebkitMaskPosition: 'center',
+        maskSize: 'contain',
+        WebkitMaskSize: 'contain',
+      }}
+    />
+  )
 }
 
 export function relativeActiveLabel(isYou: boolean, joinedAt?: string) {

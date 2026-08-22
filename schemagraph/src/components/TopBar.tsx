@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { AuthSessionControls } from '@/components/AuthSessionControls'
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher'
 import type { DataSourceType } from '@/types/dataSource'
 import type {
@@ -82,7 +81,7 @@ export function TopBar({
   return (
     <header
       data-region="top-bar"
-      className={`z-50 shrink-0 border-b border-solid border-[#424850] bg-[#0f1215] ${className}`}
+      className={`pdf-top-bar z-50 shrink-0 border-b border-solid ${className}`}
     >
       <div className="flex h-12 min-w-0 items-center gap-[12px] px-[16px] sm:h-14 sm:px-[20px]">
         <div className="flex min-w-0 shrink items-center gap-[12px]">
@@ -114,15 +113,13 @@ export function TopBar({
           >
             {menuOpen ? 'Close' : 'Filters'}
           </button>
-
-          <AuthSessionControls />
         </div>
       </div>
 
       {menuOpen ? (
         <div
           id="topbar-collapsed-panel"
-          className="flex flex-col gap-[12px] border-t border-solid border-[#424850] bg-[#15191e] px-[16px] py-[12px] xl:hidden"
+          className="flex flex-col gap-[12px] border-t border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-elevated)] px-[16px] py-[12px] xl:hidden"
         >
           <VisibleCounts
             tables={visibleTableCount}
@@ -215,17 +212,17 @@ function SelectControl({
 }) {
   const id = useId()
   return (
-    <label className="flex shrink-0 items-center gap-[8px] rounded-[4px] border border-solid border-[#424850] bg-[#15191e] px-[8px] py-[6px]">
+    <label className="pdf-input flex shrink-0 items-center gap-[8px] rounded-[4px] px-[8px] py-[6px]">
       <span className="sr-only">{label}</span>
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="max-w-[9.5rem] cursor-pointer border-none bg-transparent text-[12px] text-[#d4dbe3] outline-none"
+        className="max-w-[9.5rem] cursor-pointer border-none bg-transparent text-[12px] text-[var(--pdf-text-primary)] outline-none"
         aria-label={label}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} className="bg-[#15191e]">
+          <option key={o.value} value={o.value} className="bg-[var(--pdf-bg-panel)]">
             {o.label}
           </option>
         ))}

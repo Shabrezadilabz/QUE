@@ -144,11 +144,11 @@ export function QueGhostButton({
 type BadgeTone = 'mint' | 'purple' | 'orange' | 'slate' | 'warn'
 
 const BADGE_STYLES: Record<BadgeTone, string> = {
-  mint: 'bg-secondary-container text-secondary border-secondary/30',
-  purple: 'bg-[rgba(177,152,255,0.13)] text-[#b198ff] border-[#b198ff]/30',
-  orange: 'bg-[rgba(255,176,107,0.13)] text-[#ffb06b] border-[#ffb06b]/30',
-  slate: 'bg-surface-container-high text-on-surface border-outline-variant',
-  warn: 'bg-[rgba(240,160,32,0.13)] text-[#f0a020] border-[#f0a020]/30',
+  mint: 'pdf-badge-success',
+  purple: 'pdf-badge-purple',
+  orange: 'pdf-badge-orange',
+  slate: 'pdf-badge-neutral',
+  warn: 'pdf-badge-warn',
 }
 
 export function QueBadge({
@@ -161,7 +161,7 @@ export function QueBadge({
   return (
     <span
       className={[
-        'inline-flex items-center rounded border px-1.5 py-0.5 font-label text-[9px] font-bold tracking-wide uppercase',
+        'pdf-badge',
         BADGE_STYLES[tone],
       ].join(' ')}
     >

@@ -1,12 +1,13 @@
 import { useTheme } from '@/context/ThemeContext'
 
-type ThemeToggleProps = {
+/** Sun/moon toggle for dark ↔ light mode — PDF top bar styling. */
+export function ThemeToggle({
+  className = '',
+  compact = false,
+}: {
   className?: string
   compact?: boolean
-}
-
-/** Sun/moon toggle for dark ↔ light mode. */
-export function ThemeToggle({ className = '', compact = false }: ThemeToggleProps) {
+}) {
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -15,9 +16,8 @@ export function ThemeToggle({ className = '', compact = false }: ThemeToggleProp
       type="button"
       onClick={toggleTheme}
       className={[
-        'inline-flex items-center justify-center rounded border border-outline-variant transition-colors',
-        'text-on-surface-variant hover:border-secondary hover:text-secondary',
-        compact ? 'h-8 w-8' : 'gap-1.5 px-2.5 py-1.5',
+        'pdf-theme-toggle inline-flex items-center justify-center rounded-[4px]',
+        compact ? 'size-[32px]' : 'gap-[6px] px-[10px] py-[6px]',
         className,
       ].join(' ')}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -44,7 +44,7 @@ export function ThemeToggle({ className = '', compact = false }: ThemeToggleProp
         </svg>
       )}
       {!compact ? (
-        <span className="font-label text-[10px] font-bold tracking-widest uppercase">
+        <span className="text-[10px] font-bold tracking-[0.08em] uppercase">
           {isDark ? 'Light' : 'Dark'}
         </span>
       ) : null}

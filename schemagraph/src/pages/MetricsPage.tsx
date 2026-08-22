@@ -259,20 +259,20 @@ function MetricCard({
         }
       }}
       className={[
-        'flex cursor-pointer flex-col justify-between rounded-[4px] border border-solid bg-[#0f1215] p-[17px] shadow-[0px_1px_1px_rgba(0,0,0,0.05)] transition-colors',
+        'pdf-panel flex cursor-pointer flex-col justify-between rounded-[4px] p-[17px] transition-colors',
         active
-          ? 'border-[#d0d8e0]/50 ring-1 ring-[rgba(208,216,224,0.15)]'
-          : 'border-[#424850] hover:border-[#6b7380]',
+          ? 'border-[var(--pdf-accent-border)] ring-1 ring-[var(--pdf-accent-surface)]'
+          : 'hover:border-[var(--pdf-btn-ghost-hover-border)]',
       ].join(' ')}
     >
       <div>
         <div className="mb-[8px] flex items-start justify-between gap-[8px]">
           <div className="flex min-w-0 flex-wrap items-center gap-[8px]">
-            <h3 className="text-[16px] font-semibold leading-[24px] text-[#d4dbe3]">
+            <h3 className="text-[16px] font-semibold leading-[24px] text-[var(--pdf-text-primary)]">
               {m.name}
             </h3>
             {m.certified ? (
-              <span className="inline-flex shrink-0 items-center gap-[4px] rounded-[2px] border border-solid border-[#7aecd0] bg-[rgba(122,236,208,0.18)] px-[7px] py-[3px] text-[10px] font-bold tracking-[1px] text-[#7aecd0]">
+              <span className="pdf-badge-success shrink-0 px-[7px] py-[3px] text-[10px] tracking-[1px]">
                 <span aria-hidden className="text-[9px]">
                   ✓
                 </span>
@@ -280,17 +280,17 @@ function MetricCard({
               </span>
             ) : null}
             {m.pending ? (
-              <span className="inline-flex shrink-0 items-center rounded-[2px] border border-solid border-[rgba(255,176,107,0.45)] bg-[rgba(255,176,107,0.12)] px-[7px] py-[3px] text-[10px] font-bold tracking-[1px] text-[#ffb06b]">
+              <span className="pdf-badge-warn shrink-0 px-[7px] py-[3px] text-[10px] tracking-[1px]">
                 Review pending
               </span>
             ) : null}
           </div>
-          <span className="shrink-0 rounded-[2px] bg-[#1e2328] px-[8px] py-[4px] text-[10px] font-bold tracking-[1px] text-[#c8cdd3]">
+          <span className="shrink-0 rounded-[2px] bg-[var(--pdf-bg-muted)] px-[8px] py-[4px] text-[10px] font-bold tracking-[1px] text-[var(--pdf-text-secondary)]">
             {m.code}
           </span>
         </div>
-        <p className="mb-[8px] text-[12px] leading-[18px] text-[#c8cdd3]">{m.description}</p>
-        <div className="rounded-[2px] border border-solid border-[#424850] bg-[#0d1117] px-[9px] py-[11px]">
+        <p className="mb-[8px] text-[12px] leading-[18px] text-[var(--pdf-text-secondary)]">{m.description}</p>
+        <div className="pdf-code-block">
           <SqlHighlight code={m.sql} />
         </div>
       </div>

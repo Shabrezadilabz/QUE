@@ -720,7 +720,7 @@ export function MainCanvas({
     >
       {/* ── Toolbar (floating IDE pill) ─────────────────────────────────── */}
       <div
-        className="absolute left-md top-md z-30 flex items-center gap-sm rounded-[4px] border border-solid border-[#424850] bg-[#0f1215]/95 p-sm backdrop-blur-md"
+        className="absolute left-md top-md z-30 flex items-center gap-sm rounded-[4px] pdf-canvas-overlay p-sm"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
@@ -829,7 +829,7 @@ export function MainCanvas({
 
       {/* Stats widget — bottom left */}
       <div
-        className="absolute bottom-md left-md z-30 flex gap-lg rounded-[4px] border border-solid border-[#424850] bg-[#0f1215]/95 p-md backdrop-blur-md"
+        className="absolute bottom-md left-md z-30 flex gap-lg rounded-[4px] pdf-canvas-overlay p-md"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >

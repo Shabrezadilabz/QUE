@@ -164,6 +164,18 @@ export const QUE_PDF_NAV: QueNavItem[] = [
 
   },
 
+  {
+
+    id: 'settings',
+
+    to: '/settings',
+
+    label: 'Settings',
+
+    match: ['/settings'],
+
+  },
+
 ]
 
 

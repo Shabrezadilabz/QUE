@@ -525,7 +525,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                     }
                   >
                     <table className="w-full min-w-[640px] text-left">
-                      <thead className="bg-[#15191e]">
+                      <thead className="pdf-table-head-row">
                         <tr>
                           <th className={PDF_TABLE_HEAD}>User</th>
                           <th className={PDF_TABLE_HEAD}>Role</th>

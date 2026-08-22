@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { useAuth } from '@/context/AuthContext'
 import { getApiBase } from '@/services/apiConfig'
 
@@ -57,10 +58,10 @@ export function LoginPage() {
   if (!ready) {
     return (
       <div
-        className="flex size-full items-center justify-center text-[14px] text-[#c8cdd3]"
+        className="flex size-full items-center justify-center text-[14px] text-[var(--pdf-text-secondary)]"
         style={{
           backgroundImage:
-            'linear-gradient(90deg, rgb(17, 20, 22) 0%, rgb(17, 20, 22) 100%)',
+            'linear-gradient(90deg, var(--pdf-bg-canvas) 0%, var(--pdf-bg-canvas) 100%)',
         }}
       >
         Checking session…
@@ -96,19 +97,14 @@ export function LoginPage() {
 
   return (
     <div
-      className="relative flex min-h-full w-full flex-col overflow-y-auto bg-[#111416] text-[#d4dbe3]"
+      className="pdf-app-canvas relative flex min-h-full w-full flex-col overflow-y-auto"
     >
+      <div className="absolute right-[24px] top-[24px] z-10">
+        <ThemeToggle compact />
+      </div>
+      <div className="pdf-login-grid" aria-hidden />
       <div
-        className="pointer-events-none absolute inset-0 opacity-50"
-        aria-hidden
-        style={{
-          backgroundImage:
-            'linear-gradient(90deg, rgba(66, 72, 80, 0.1) 2.5%, rgba(66, 72, 80, 0) 2.5%), linear-gradient(180deg, rgba(66, 72, 80, 0.1) 2.5%, rgba(66, 72, 80, 0) 2.5%)',
-          backgroundSize: '40px 40px',
-        }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-[66.66%] left-[-10%] right-1/2 top-[-16.67%] rounded-[12px] bg-[#aab5c0] opacity-[0.06] blur-[60px]"
+        className="pdf-login-orb bottom-[66.66%] left-[-10%] right-1/2 top-[-16.67%]"
         aria-hidden
       />
 
@@ -123,30 +119,30 @@ export function LoginPage() {
                   src={LOGIN_ASSETS.logo}
                 />
               </div>
-              <p className="text-[24px] font-black leading-[32px] tracking-[-0.6px] text-[#ecf0f4]">
+              <p className="text-[24px] font-black leading-[32px] tracking-[-0.6px] text-[var(--pdf-text-heading)]">
                 Que
               </p>
             </div>
           </header>
 
           <div className="que-glass-card relative flex w-full flex-col gap-[16px] p-[33px]">
-          <h1 className="text-center text-[20px] font-semibold leading-[28px] text-[#d4dbe3]">
+          <h1 className="text-center text-[20px] font-semibold leading-[28px] text-[var(--pdf-text-primary)]">
             {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
           </h1>
 
           {mode === 'register' ? (
-            <div className="flex gap-[4px] rounded-[4px] border border-solid border-[#424850] p-[4px]">
+            <div className="flex gap-[4px] rounded-[4px] border border-solid border-[var(--pdf-border)] p-[4px]">
               <button
                 type="button"
                 onClick={() => setMode('login')}
-                className="flex-1 rounded-[4px] py-[8px] text-[10px] font-bold tracking-[1px] text-[#c8cdd3]"
+                className="flex-1 rounded-[4px] py-[8px] text-[10px] font-bold tracking-[1px] text-[var(--pdf-text-secondary)]"
               >
                 SIGN IN
               </button>
               <button
                 type="button"
                 onClick={() => setMode('register')}
-                className="flex-1 rounded-[4px] bg-[#252a30] py-[8px] text-[10px] font-bold tracking-[1px] text-[#d4dbe3]"
+                className="flex-1 rounded-[4px] bg-[var(--pdf-bg-muted)] py-[8px] text-[10px] font-bold tracking-[1px] text-[var(--pdf-text-primary)]"
               >
                 REGISTER
               </button>
@@ -156,7 +152,7 @@ export function LoginPage() {
           {error ? (
             <p
               role="alert"
-              className="rounded-[4px] border border-solid border-[#ff6b6b]/40 bg-[rgba(255,107,107,0.13)] px-[12px] py-[8px] text-[13px] text-[#ff6b6b]"
+              className="pdf-status-error rounded-[4px] px-[12px] py-[8px] text-[13px]"
             >
               {error}
             </p>
@@ -165,7 +161,7 @@ export function LoginPage() {
           <form onSubmit={onSubmit} className="flex w-full flex-col gap-[16px]">
             {mode === 'register' ? (
               <label className="flex w-full flex-col gap-[4px]">
-                <span className="text-[12px] font-semibold tracking-[0.6px] text-[#c8cdd3]">
+                <span className="text-[12px] font-semibold tracking-[0.6px] text-[var(--pdf-text-secondary)]">
                   Display name
                 </span>
                 <input
@@ -173,13 +169,13 @@ export function LoginPage() {
                   autoComplete="name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#2e343b] px-[13px] py-[12px] text-[14px] text-[#d4dbe3] outline-none placeholder:text-[#8a9099]"
+                  className="pdf-input w-full px-[13px] py-[12px] text-[14px]"
                 />
               </label>
             ) : null}
 
             <label className="flex w-full flex-col gap-[4px]">
-              <span className="text-[12px] font-semibold tracking-[0.6px] text-[#c8cdd3]">
+              <span className="text-[12px] font-semibold tracking-[0.6px] text-[var(--pdf-text-secondary)]">
                 Work Email
               </span>
               <div className="relative w-full">
@@ -191,7 +187,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#2e343b] py-[12px] pl-[37px] pr-[13px] text-[14px] text-[#d4dbe3] outline-none placeholder:text-[#8a9099]"
+                  className="pdf-input w-full py-[12px] pl-[37px] pr-[13px] text-[14px]"
                 />
                 <div className="pointer-events-none absolute bottom-0 left-0 top-0 flex items-center pl-[12px]">
                   <img alt="" className="h-[12px] w-[15px]" src={LOGIN_ASSETS.mail} />
@@ -201,11 +197,11 @@ export function LoginPage() {
 
             <label className="flex w-full flex-col gap-[4px]">
               <span className="flex items-center justify-between">
-                <span className="text-[12px] font-semibold tracking-[0.6px] text-[#c8cdd3]">
+                <span className="text-[12px] font-semibold tracking-[0.6px] text-[var(--pdf-text-secondary)]">
                   Password
                 </span>
                 {mode === 'login' ? (
-                  <span className="text-[12px] font-semibold tracking-[0.6px] text-[#d0d8e0]">
+                  <span className="text-[12px] font-semibold tracking-[0.6px] text-[var(--pdf-text-accent)]">
                     Forgot password?
                   </span>
                 ) : null}
@@ -219,7 +215,7 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   minLength={mode === 'register' ? 8 : undefined}
                   required
-                  className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#2e343b] py-[12px] pl-[37px] pr-[13px] text-[14px] text-[#d4dbe3] outline-none placeholder:text-[#8a9099]"
+                  className="pdf-input w-full py-[12px] pl-[37px] pr-[13px] text-[14px]"
                 />
                 <div className="pointer-events-none absolute bottom-0 left-0 top-0 flex items-center pl-[12px]">
                   <img alt="" className="h-[15.75px] w-[12px]" src={LOGIN_ASSETS.lock} />
@@ -229,7 +225,7 @@ export function LoginPage() {
 
             {mode === 'register' ? (
               <label className="flex w-full flex-col gap-[4px]">
-                <span className="text-[12px] font-semibold tracking-[0.6px] text-[#c8cdd3]">
+                <span className="text-[12px] font-semibold tracking-[0.6px] text-[var(--pdf-text-secondary)]">
                   First workspace name
                 </span>
                 <input
@@ -237,7 +233,7 @@ export function LoginPage() {
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
                   placeholder="My workspace"
-                  className="w-full rounded-[4px] border border-solid border-[#424850] bg-[#2e343b] px-[13px] py-[12px] text-[14px] text-[#d4dbe3] outline-none placeholder:text-[#8a9099]"
+                  className="pdf-input w-full px-[13px] py-[12px] text-[14px]"
                 />
               </label>
             ) : null}
@@ -245,7 +241,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={busy}
-              className="flex w-full items-center justify-center gap-[8px] rounded-[4px] bg-[#d0d8e0] py-[12px] text-[12px] font-semibold tracking-[0.6px] text-[#323840] disabled:opacity-40"
+              className="pdf-btn-primary flex w-full items-center justify-center gap-[8px] rounded-[4px] py-[12px] text-[12px] font-semibold tracking-[0.6px] disabled:opacity-40"
             >
               {busy
                 ? mode === 'register'
@@ -263,30 +259,30 @@ export function LoginPage() {
           {ssoReady && mode === 'login' ? (
             <>
               <div className="flex w-full items-center py-[8px]">
-                <div className="h-px min-w-0 flex-1 border-t border-solid border-[#424850]" />
-                <span className="shrink-0 px-[12px] text-[10px] font-bold tracking-[1px] text-[#c8cdd3]">
+                <div className="h-px min-w-0 flex-1 border-t border-solid border-[var(--pdf-border)]" />
+                <span className="shrink-0 px-[12px] text-[10px] font-bold tracking-[1px] text-[var(--pdf-text-secondary)]">
                   OR CONTINUE WITH
                 </span>
-                <div className="h-px min-w-0 flex-1 border-t border-solid border-[#424850]" />
+                <div className="h-px min-w-0 flex-1 border-t border-solid border-[var(--pdf-border)]" />
               </div>
               <a
                 href={`${getApiBase()}/auth/sso/start`}
-                className="flex w-full items-center justify-center gap-[8px] rounded-[4px] border border-solid border-[#424850] bg-[#252a30] px-px py-[13px] text-[12px] font-semibold tracking-[0.6px] text-[#d4dbe3]"
+                className="pdf-btn-ghost flex w-full items-center justify-center gap-[8px] rounded-[4px] px-px py-[13px] text-[12px] font-semibold tracking-[0.6px]"
               >
                 <img alt="" className="h-[9px] w-[16.5px]" src={LOGIN_ASSETS.sso} />
                 Sign in with SSO
               </a>
               {ssoRequireInvite ? (
-                <p className="text-center text-[11px] text-[#c8cdd3]">
+                <p className="text-center text-[11px] text-[var(--pdf-text-secondary)]">
                   SSO requires a workspace invite for your email before first login.
                 </p>
               ) : null}
             </>
           ) : null}
 
-          <p className="pt-[8px] text-center text-[12px] leading-[18px] text-[#c3c6d0]">
+          <p className="pt-[8px] text-center text-[12px] leading-[18px] text-[var(--pdf-text-muted)]">
             Don&apos;t have an account?{' '}
-            <Link to="/sales" className="font-medium text-[#d3e4ff]">
+            <Link to="/sales" className="pdf-link">
               Contact Sales
             </Link>
             {mode === 'login' ? (
@@ -296,7 +292,7 @@ export function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setMode('register')}
-                  className="font-medium text-[#d3e4ff]"
+                  className="pdf-link"
                 >
                   Register
                 </button>
@@ -308,7 +304,7 @@ export function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setMode('login')}
-                  className="font-medium text-[#d3e4ff]"
+                  className="pdf-link"
                 >
                   Sign in
                 </button>
@@ -317,8 +313,8 @@ export function LoginPage() {
           </p>
 
           {import.meta.env.DEV && mode === 'login' ? (
-            <div className="mt-[8px] space-y-[8px] border-t border-solid border-[#424850] pt-[16px]">
-              <p className="text-[10px] font-bold tracking-[1px] text-[#c8cdd3]">
+            <div className="mt-[8px] space-y-[8px] border-t border-solid border-[var(--pdf-border)] pt-[16px]">
+              <p className="text-[10px] font-bold tracking-[1px] text-[var(--pdf-text-secondary)]">
                 LOCAL DEMO (DEV ONLY)
               </p>
               <ul className="space-y-[8px]">
@@ -364,7 +360,7 @@ export function LoginPage() {
           <Link
             key={label}
             to="/sales"
-            className="text-[10px] font-bold tracking-[1px] text-[#c8cdd3]"
+            className="text-[10px] font-bold tracking-[1px] text-[var(--pdf-text-secondary)]"
           >
             {label}
           </Link>
@@ -390,14 +386,14 @@ function DemoAccount({
       <button
         type="button"
         onClick={onUse}
-        className="flex w-full flex-col gap-[4px] border border-solid border-[#424850] bg-[#252a30] px-[12px] py-[8px] text-left sm:flex-row sm:items-center sm:justify-between"
+        className="pdf-btn-ghost flex w-full flex-col gap-[4px] px-[12px] py-[8px] text-left sm:flex-row sm:items-center sm:justify-between"
       >
-        <span className="text-[10px] font-bold tracking-[1px] text-[#7aecd0] uppercase">
+        <span className="text-[10px] font-bold tracking-[1px] text-[var(--pdf-accent)] uppercase">
           {role}
         </span>
-        <span className="min-w-0 break-all text-[12px] text-[#c8cdd3] sm:text-right">
+        <span className="min-w-0 break-all text-[12px] text-[var(--pdf-text-secondary)] sm:text-right">
           {email}
-          <span className="text-[#8a9099]"> / </span>
+          <span className="text-[var(--pdf-text-faint)]"> / </span>
           {password}
         </span>
       </button>

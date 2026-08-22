@@ -14,14 +14,13 @@ import {
 } from '@/components/canvas/ColumnIcons'
 import { SAMPLE_TABLE_NODE } from '@/data/dummySchema'
 
-/* Technical node — dark IDE tonal card (DESIGN.md) */
+/* ERD table node — theme-aware via CSS variables (dark + light) */
 
 export interface TableNodeProps {
   table: SchemaTable
   isSelected: boolean
   onExpand: (tableId: string, expanded: boolean) => void
   onSelectColumn: (tableId: string, columnId: string) => void
-  /** Edit mode: start dragging a join wire from this column */
   onColumnJoinPointerDown?: (
     e: ReactPointerEvent,
     tableId: string,
@@ -34,31 +33,20 @@ export interface TableNodeProps {
   onSelect?: (tableId: string) => void
   dragging?: boolean
   onPointerDownDrag?: (e: ReactPointerEvent, tableId: string) => void
-  /** Highlight columns as join drop targets */
   joinEditActive?: boolean
   className?: string
 }
 
-function headerTone(sourceType: string, selected: boolean): {
-  bg: string
-  fg: string
-  muted: string
-} {
+function headerTone(selected: boolean): { bg: string; fg: string } {
   if (selected) {
     return {
-      bg: 'rgba(170, 181, 192, 0.14)',
-      fg: '#d0d8e0',
-      muted: 'rgba(208, 216, 224, 0.7)',
+      bg: 'var(--pdf-nav-active-bg)',
+      fg: 'var(--pdf-nav-active-text)',
     }
   }
-  switch (sourceType) {
-    case 'mongodb':
-    case 'databricks':
-      return { bg: '#15191e', fg: '#d4dbe3', muted: '#8a9099' }
-    case 'snowflake':
-      return { bg: '#1a1f24', fg: '#d4dbe3', muted: '#8a9099' }
-    default:
-      return { bg: '#15191e', fg: '#d4dbe3', muted: '#8a9099' }
+  return {
+    bg: 'var(--pdf-table-head-bg)',
+    fg: 'var(--pdf-text-primary)',
   }
 }
 
@@ -69,19 +57,15 @@ const Card = styled.div<{
 }>`
   position: absolute;
   width: ${TABLE_NODE_WIDTH}px;
-  background: #0f1215;
+  background: var(--pdf-bg-shell);
   border-radius: 0.375rem;
   overflow: hidden;
-  border: ${({ $selected, $searchMatch }) =>
-    $selected
-      ? '1px solid rgba(208, 216, 224, 0.45)'
-      : $searchMatch
-        ? '1px solid rgba(122, 236, 208, 0.45)'
-        : '1px solid #424850'};
-  box-shadow: ${({ $selected }) =>
-    $selected
-      ? '0 0 0 1px rgba(208, 216, 224, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.04)'
-      : 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'};
+  border: 1px solid
+    ${({ $selected, $searchMatch }) =>
+      $selected || $searchMatch
+        ? 'var(--pdf-accent-border)'
+        : 'var(--pdf-border)'};
+  box-shadow: var(--pdf-panel-shadow);
   cursor: default;
   user-select: none;
   z-index: ${({ $dragging, $searchMatch }) =>
@@ -91,7 +75,7 @@ const Card = styled.div<{
   will-change: ${({ $dragging }) => ($dragging ? 'left, top' : 'auto')};
 
   &:hover {
-    border-color: rgba(208, 216, 224, 0.35);
+    border-color: var(--pdf-btn-ghost-hover-border);
   }
 `
 
@@ -104,7 +88,7 @@ const Header = styled.div<{ $bg: string; $fg: string }>`
   padding: 0 14px;
   background: ${({ $bg }) => $bg};
   color: ${({ $fg }) => $fg};
-  border-bottom: 1px solid #424850;
+  border-bottom: 1px solid var(--pdf-border);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -146,7 +130,7 @@ const HeaderAction = styled.button<{ $fg: string }>`
 
   &:hover {
     opacity: 1;
-    background: rgba(170, 181, 192, 0.12);
+    background: var(--pdf-shine-bg);
   }
 `
 
@@ -171,17 +155,18 @@ const ColumnRow = styled.li<{ $selected: boolean }>`
   cursor: pointer;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 12px;
-  color: ${({ $selected }) => ($selected ? '#d0d8e0' : '#c8cdd3')};
+  color: ${({ $selected }) =>
+    $selected ? 'var(--pdf-text-accent)' : 'var(--pdf-text-secondary)'};
 
   ${({ $selected }) =>
     $selected &&
     css`
-      background: rgba(170, 181, 192, 0.1);
+      background: var(--pdf-shine-bg);
     `}
 
   &:hover {
-    background: rgba(170, 181, 192, 0.08);
-    color: #d4dbe3;
+    background: var(--pdf-bg-muted);
+    color: var(--pdf-text-primary);
   }
 `
 
@@ -204,12 +189,12 @@ const TypeMuted = styled.span`
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 11px;
   letter-spacing: 0.02em;
-  color: #6b7380;
+  color: var(--pdf-text-faint);
 `
 
 const KeyWrap = styled.span`
   display: inline-flex;
-  color: #7aecd0;
+  color: var(--pdf-accent);
   flex-shrink: 0;
 `
 
@@ -219,7 +204,7 @@ const ExpandHint = styled.div`
   font-size: 10px;
   letter-spacing: 0.05em;
   font-weight: 700;
-  color: #6b7380;
+  color: var(--pdf-text-faint);
   text-transform: uppercase;
 `
 
@@ -231,10 +216,10 @@ const Tooltip = styled.div`
   z-index: 50;
   width: 220px;
   padding: 10px 12px;
-  background: #15191e;
-  border: 1px solid #424850;
+  background: var(--pdf-bg-elevated);
+  border: 1px solid var(--pdf-border);
   border-radius: 0.375rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: var(--pdf-panel-shadow);
   pointer-events: none;
   text-align: left;
 `
@@ -243,7 +228,7 @@ const TipTitle = styled.div`
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 12px;
   font-weight: 500;
-  color: #d0d8e0;
+  color: var(--pdf-text-primary);
   margin-bottom: 6px;
 `
 
@@ -252,7 +237,7 @@ const TipMeta = styled.div`
   font-size: 10px;
   letter-spacing: 0.05em;
   font-weight: 700;
-  color: #8a9099;
+  color: var(--pdf-text-faint);
   text-transform: uppercase;
   margin-bottom: 4px;
 `
@@ -262,7 +247,7 @@ const TipBody = styled.p`
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.4;
-  color: #d4dbe3;
+  color: var(--pdf-text-secondary);
 `
 
 function ColumnTooltip({ column }: { column: SchemaColumn }) {
@@ -306,7 +291,7 @@ export function TableNode({
 
   const expandControlled = isExpandedProp !== undefined
   const isExpanded = expandControlled ? isExpandedProp : uncontrolledExpanded
-  const tone = headerTone(table.sourceType, isSelected)
+  const tone = headerTone(isSelected)
 
   function handleExpandToggle(e: MouseEvent) {
     e.stopPropagation()

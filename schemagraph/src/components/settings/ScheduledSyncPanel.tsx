@@ -4,6 +4,11 @@ import {
   runWorkspaceScheduledSync,
   type SyncScheduleStatus,
 } from '@/services/stitchApi'
+import {
+  SETTINGS_PANEL,
+  SettingsPanelHeader,
+} from '@/components/settings/SettingsPdfUi'
+import { PdfGhostButton } from '@/components/pdf/PdfUi'
 
 /**
  * Wave 2.5 — workspace scheduled schema sync overview (introspect only).
@@ -63,38 +68,31 @@ export function ScheduledSyncPanel({
   const summary = status?.summary
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
-      <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
-        <div>
-          <h2 className="font-headline text-base font-semibold text-on-surface-variant">
-            Scheduled sync
-          </h2>
-          <p className="mt-xs max-w-[36rem] font-body text-[12px] text-on-surface-variant">
-            Wave 2.5 — hourly/daily schema introspect per source. Not full ETL;
-            Que still does not centralize warehouse rows.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-sm">
-          {canAdmin ? (
-            <button
+    <section className={SETTINGS_PANEL}>
+      <SettingsPanelHeader
+        title="Scheduled sync"
+        subtitle="Wave 2.5 — hourly/daily schema introspect per source. Not full ETL; Que still does not centralize warehouse rows."
+        actions={
+          <div className="flex flex-wrap gap-[8px]">
+            {canAdmin ? (
+              <PdfGhostButton
+                type="button"
+                disabled={busy || loading}
+                onClick={() => void onRunDue()}
+              >
+                {busy ? 'Running…' : 'Run due now'}
+              </PdfGhostButton>
+            ) : null}
+            <PdfGhostButton
               type="button"
-              disabled={busy || loading}
-              onClick={() => void onRunDue()}
-              className="rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] text-secondary hover:bg-secondary/10 disabled:opacity-40"
+              onClick={() => void load()}
+              disabled={loading}
             >
-              {busy ? 'Running…' : 'Run due now'}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] text-on-surface-variant hover:border-secondary hover:text-secondary disabled:opacity-40"
-          >
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </button>
-        </div>
-      </div>
+              {loading ? 'Refreshing…' : 'Refresh'}
+            </PdfGhostButton>
+          </div>
+        }
+      />
 
       {err ? (
         <p className="mb-sm font-body text-[12px] text-error">{err}</p>

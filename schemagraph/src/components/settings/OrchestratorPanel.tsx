@@ -5,6 +5,10 @@ import {
   testOrchestrator,
   type OrchestratorConfig,
 } from '@/services/stitchApi'
+import {
+  SETTINGS_PANEL,
+  SettingsPanelHeader,
+} from '@/components/settings/SettingsPdfUi'
 
 /** Wave 4.3 — Airflow/Dagster/generic webhook trigger settings. */
 export function OrchestratorPanel({
@@ -90,14 +94,11 @@ export function OrchestratorPanel({
   }
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
-      <h2 className="font-headline text-base font-semibold text-on-surface-variant">
-        External orchestrator
-      </h2>
-      <p className="mt-xs max-w-[36rem] font-body text-[12px] text-on-surface-variant">
-        Wave 4.3 — HMAC POST to Airflow/Dagster/generic webhook after Que runs.
-        Que does not rebuild Airflow.
-      </p>
+    <section className={SETTINGS_PANEL}>
+      <SettingsPanelHeader
+        title="External orchestrator"
+        subtitle="Wave 4.3 — HMAC POST to Airflow/Dagster/generic webhook after Que runs. Que does not rebuild Airflow."
+      />
       {err ? (
         <p className="mt-sm font-body text-[12px] text-error">{err}</p>
       ) : null}

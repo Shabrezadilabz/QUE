@@ -5,6 +5,11 @@ import {
   createBillingPortal,
   type BillingStatus,
 } from '@/services/stitchApi'
+import {
+  SETTINGS_PANEL,
+  SettingsPanelHeader,
+} from '@/components/settings/SettingsPdfUi'
+import { PdfGhostButton, PdfPrimaryButton } from '@/components/pdf/PdfUi'
 
 /** Wave 4.6 — Stripe seats (test-mode). */
 export function BillingPanel({
@@ -63,51 +68,48 @@ export function BillingPanel({
   }
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
-      <h2 className="font-headline text-base font-semibold text-on-surface-variant">
-        Billing
-      </h2>
-      <p className="mt-xs max-w-[36rem] font-body text-[12px] text-on-surface-variant">
-        Wave 4.6 — Stripe Checkout for seat packs (test mode). Soft-enforced
-        against member count.
-      </p>
+    <section className={SETTINGS_PANEL}>
+      <SettingsPanelHeader
+        title="Billing"
+        subtitle="Wave 4.6 — Stripe Checkout for seat packs (test mode). Soft-enforced against member count."
+      />
       {err ? (
-        <p className="mt-sm font-body text-[12px] text-error">{err}</p>
+        <p className="mt-[12px] text-[12px] text-[#ff6b6b]">{err}</p>
       ) : null}
-      <div className="mt-md flex flex-wrap gap-md font-body text-[13px] text-on-surface-variant">
+      <div className="mt-[16px] flex flex-wrap gap-[16px] text-[13px] text-[#a3afbe]">
         <span>
           Status{' '}
-          <strong className="text-on-surface">
+          <strong className="text-[#d4dbe3]">
             {billing?.billingStatus ?? '—'}
           </strong>
         </span>
         <span>
           Seats{' '}
-          <strong className="text-on-surface">
+          <strong className="text-[#d4dbe3]">
             {billing?.seatCount ?? 0}
           </strong>
         </span>
         <span>
           Members{' '}
-          <strong className="text-on-surface">{billing?.members ?? '—'}</strong>
+          <strong className="text-[#d4dbe3]">{billing?.members ?? '—'}</strong>
           {' / '}
           {billing?.effectiveMaxMembers ?? '—'}
         </span>
         <span>
           Stripe{' '}
-          <strong className="text-on-surface">
+          <strong className="text-[#d4dbe3]">
             {billing?.configured ? 'configured' : 'unset'}
           </strong>
         </span>
       </div>
       {billing?.overSeatSoft ? (
-        <p className="mt-sm font-body text-[12px] text-error">
+        <p className="mt-[12px] text-[12px] text-[#ff6b6b]">
           Soft warning: members exceed paid seats.
         </p>
       ) : null}
       {canAdmin ? (
-        <div className="mt-md flex flex-wrap items-end gap-sm">
-          <label className="flex flex-col gap-1 font-label text-[11px] text-on-surface-variant">
+        <div className="mt-[16px] flex flex-wrap items-end gap-[8px]">
+          <label className="flex flex-col gap-[4px] text-[11px] text-[#8a9099]">
             Seats to buy
             <input
               type="number"
@@ -116,33 +118,26 @@ export function BillingPanel({
               value={seats}
               disabled={busy}
               onChange={(e) => setSeats(Number(e.target.value))}
-              className="w-24 rounded-lg border border-outline-variant/40 px-sm py-1.5 text-[12px]"
+              className="w-[96px] rounded-[4px] border border-solid border-[#424850] bg-[#0f1215] px-[10px] py-[8px] text-[12px] text-[#d4dbe3]"
             />
           </label>
-          <button
+          <PdfPrimaryButton
             type="button"
             disabled={busy || !billing?.configured}
             onClick={() => void checkout()}
-            className="rounded-lg border border-secondary/40 bg-secondary/5 px-md py-1.5 font-label text-[12px] text-secondary disabled:opacity-40"
           >
             Upgrade (Checkout)
-          </button>
-          <button
+          </PdfPrimaryButton>
+          <PdfGhostButton
             type="button"
             disabled={busy || !billing?.stripeCustomerId}
             onClick={() => void portal()}
-            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] disabled:opacity-40"
           >
             Manage (Portal)
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void load()}
-            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] disabled:opacity-40"
-          >
+          </PdfGhostButton>
+          <PdfGhostButton type="button" disabled={busy} onClick={() => void load()}>
             Refresh
-          </button>
+          </PdfGhostButton>
         </div>
       ) : null}
     </section>

@@ -13,15 +13,17 @@ export const SETTINGS_SECTION_META: Record<
 > = {
   members: {
     title: 'Members',
-    subtitle: 'Team permissions and invites for this workspace.',
+    subtitle:
+      'Manage organization members, roles, and access permissions.',
   },
   security: {
     title: 'Security',
-    subtitle: 'SSO status, API key summary, and environment overview.',
+    subtitle: 'SSO, API keys, sessions, and environment configuration.',
   },
   automation: {
     title: 'Automation',
-    subtitle: 'Scheduled sync/jobs, orchestrator webhook, and private runner.',
+    subtitle:
+      'Scheduled sync/jobs, orchestrator webhook, and private runner.',
   },
   governance: {
     title: 'Governance',
@@ -36,7 +38,8 @@ export const SETTINGS_SECTION_META: Record<
     subtitle: 'Seats and checkout for this workspace.',
   },
   'ai-policy': {
-    title: 'AI & Policy',
-    subtitle: 'Privacy gates, feature flags, BYOK, and GitHub/dbt deploy branches.',
+    title: 'AI Policy',
+    subtitle:
+      'Privacy gates, feature flags, BYOK keys, and GitHub/dbt deploy branches.',
   },
 }

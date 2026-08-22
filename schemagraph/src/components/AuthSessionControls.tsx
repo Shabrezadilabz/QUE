@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
-import { ThemeToggle } from '@/components/ThemeToggle'
 
 /** Compact signed-in identity + theme toggle. */
 export function AuthSessionControls() {
@@ -20,11 +19,10 @@ export function AuthSessionControls() {
   const initial = (user.displayName || localPart).charAt(0).toUpperCase()
 
   return (
-    <div className="flex shrink-0 items-center gap-sm">
-      <ThemeToggle compact />
+    <div className="flex shrink-0 items-center gap-[10px]">
       {role ? (
         <span
-          className="hidden rounded-full bg-secondary/15 px-sm py-xs font-label text-[9px] font-medium tracking-wide text-secondary uppercase sm:inline"
+          className="hidden rounded-[4px] border border-solid border-[#424850] bg-[#15191e] px-[8px] py-[4px] text-[9px] font-semibold tracking-[0.4px] text-[#a3afbe] uppercase sm:inline"
           title={`${user.email} · ${role}`}
         >
           {role}
@@ -34,7 +32,7 @@ export function AuthSessionControls() {
         type="button"
         onClick={() => void onLogout()}
         title={`Sign out (${user.email})`}
-        className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-outline-variant bg-surface-container-highest font-label text-xs font-bold text-secondary transition-colors hover:border-secondary hover:bg-secondary/15"
+        className="flex size-[32px] items-center justify-center overflow-hidden rounded-full border border-solid border-[#424850] bg-[#252a30] text-[12px] font-bold text-[#d4dbe3] transition-colors hover:border-[#6b7380] hover:bg-[#2e343b]"
         aria-label={`Signed in as ${user.email}. Click to sign out.`}
       >
         {initial}

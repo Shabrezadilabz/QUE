@@ -4,6 +4,10 @@ import {
   updatePrivateRunnerConfig,
   type PrivateRunnerConfig,
 } from '@/services/stitchApi'
+import {
+  SETTINGS_PANEL,
+  SettingsPanelHeader,
+} from '@/components/settings/SettingsPdfUi'
 
 /** Wave 4.5 — private runner callback MVP settings. */
 export function PrivateRunnerPanel({
@@ -60,17 +64,11 @@ export function PrivateRunnerPanel({
   }
 
   return (
-    <section className="mt-lg rounded-xl border border-outline-variant/30 bg-surface-container-low p-lg">
-      <h2 className="font-headline text-base font-semibold text-on-surface-variant">
-        Private runner
-      </h2>
-      <p className="mt-xs max-w-[36rem] font-body text-[12px] text-on-surface-variant">
-        Phase 3 — signed work order (schema v2, idempotency key, one retry) to
-        your URL; runner callbacks{' '}
-        <code className="text-[11px]">/runner/callback</code> (incl. heartbeat{' '}
-        <code className="text-[11px]">running</code>). VPC agent image still
-        optional later.
-      </p>
+    <section className={SETTINGS_PANEL}>
+      <SettingsPanelHeader
+        title="Private runner"
+        subtitle="Phase 3 — signed work order to your URL; runner callbacks /runner/callback. VPC agent image still optional later."
+      />
       {err ? (
         <p className="mt-sm font-body text-[12px] text-error">{err}</p>
       ) : null}

@@ -183,22 +183,22 @@ const EdgeGroup = styled.g<{ $active: boolean }>`
   }
 
   &:hover .rl-path {
-    filter: drop-shadow(0 0 4px rgba(123, 208, 255, 0.4));
+    filter: drop-shadow(0 0 4px rgba(122, 236, 208, 0.35));
   }
 
   ${({ $active }) =>
     $active &&
     css`
       .rl-path {
-        stroke: #7bd0ff !important;
+        stroke: #7aecd0 !important;
         stroke-width: 2px;
-        filter: drop-shadow(0 0 6px rgba(123, 208, 255, 0.6));
+        filter: drop-shadow(0 0 6px rgba(122, 236, 208, 0.45));
         animation: ${hoverGlow} 0.9s ease-in-out infinite;
       }
     `}
 
   &:focus-visible .rl-hit {
-    stroke: #7bd0ff;
+    stroke: #d0d8e0;
     stroke-opacity: 0.45;
   }
 `
@@ -208,15 +208,17 @@ const TooltipCard = styled.div<{ $interactive?: boolean }>`
   z-index: 10000;
   width: 260px;
   max-width: calc(100vw - 24px);
-  padding: 10px 12px;
-  background: #1b2b3f;
-  border: 1px solid #45464d;
+  padding: 12px 14px;
+  background: #0f1215;
+  border: 1px solid #424850;
   border-radius: 0.375rem;
-  box-shadow: none;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.45;
-  color: #d3e4fe;
+  color: #d4dbe3;
   pointer-events: ${({ $interactive }) => ($interactive ? 'auto' : 'none')};
 `
 
@@ -229,11 +231,11 @@ const TipActions = styled.div`
 const TipButton = styled.button<{ $primary?: boolean }>`
   flex: 1;
   border: 1px solid
-    ${({ $primary }) => ($primary ? '#7bd0ff' : '#45464d')};
+    ${({ $primary }) => ($primary ? 'transparent' : '#424850')};
   border-radius: 0.25rem;
   background: ${({ $primary }) =>
-    $primary ? '#7bd0ff' : 'transparent'};
-  color: ${({ $primary }) => ($primary ? '#00354a' : '#c6c6cd')};
+    $primary ? '#d0d8e0' : '#252a30'};
+  color: ${({ $primary }) => ($primary ? '#323840' : '#c8cdd3')};
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 10px;
   font-weight: 700;
@@ -241,9 +243,13 @@ const TipButton = styled.button<{ $primary?: boolean }>`
   text-transform: uppercase;
   padding: 8px 6px;
   cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 
-  &:hover {
-    opacity: 0.9;
+  &:hover:not(:disabled) {
+    background: ${({ $primary }) =>
+      $primary ? '#bec6d0' : '#2e343b'};
+    border-color: ${({ $primary }) =>
+      $primary ? 'transparent' : '#6b7380'};
   }
 
   &:disabled {
@@ -252,30 +258,31 @@ const TipButton = styled.button<{ $primary?: boolean }>`
   }
 `
 
-const TipTitle = styled.div`
+const TipTitle = styled.div<{ $inferred?: boolean }>`
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #7bd0ff;
+  color: ${({ $inferred }) => ($inferred ? '#7aecd0' : '#d0d8e0')};
   margin-bottom: 8px;
 `
 
 const TipRow = styled.div`
   margin-bottom: 4px;
   word-break: break-word;
+  color: #d4dbe3;
 `
 
 const TipMuted = styled.span`
-  color: #c6c6cd;
+  color: #8a9099;
 `
 
 const TipNote = styled.p`
   margin: 8px 0 0;
   padding-top: 8px;
-  border-top: 1px solid #45464d;
-  color: #c6c6cd;
+  border-top: 1px solid #424850;
+  color: #c8cdd3;
   font-size: 10px;
   line-height: 1.5;
 `
@@ -286,7 +293,7 @@ const TipHint = styled.div`
   font-size: 9px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #909097;
+  color: #6b7380;
 `
 
 type TooltipState =
@@ -356,7 +363,9 @@ function RelationshipTooltipPortal({
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <TipTitle>{styleLabel}</TipTitle>
+      <TipTitle $inferred={relationship.type === 'ai-inferred'}>
+        {styleLabel}
+      </TipTitle>
       <TipRow>
         <TipMuted>Columns: </TipMuted>
         {relationship.fromId} → {relationship.toId}
@@ -706,8 +715,8 @@ export function RelationshipLine({
               cx={fromX}
               cy={fromY}
               r={6}
-              fill="#7bd0ff"
-              stroke="#031427"
+              fill="#7aecd0"
+              stroke="#111416"
               strokeWidth={2}
               style={{ cursor: 'grab', pointerEvents: 'all' }}
               onPointerDown={(e) => {
@@ -723,8 +732,8 @@ export function RelationshipLine({
               cx={toX}
               cy={toY}
               r={6}
-              fill="#7bd0ff"
-              stroke="#031427"
+              fill="#7aecd0"
+              stroke="#111416"
               strokeWidth={2}
               style={{ cursor: 'grab', pointerEvents: 'all' }}
               onPointerDown={(e) => {

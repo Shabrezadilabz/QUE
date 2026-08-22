@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -382,6 +383,7 @@ export function SourcesPage() {
   const [toast, setToast] = useState<string | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [tableNameOverrides, setTableNameOverrides] = useState('')
+  const prevWorkspaceIdRef = useRef<string | null>(null)
 
   function goView(
     next: SourcesView,
@@ -425,14 +427,22 @@ export function SourcesPage() {
   }
 
   useEffect(() => {
+    const switched =
+      prevWorkspaceIdRef.current !== null &&
+      prevWorkspaceIdRef.current !== workspaceId
+    prevWorkspaceIdRef.current = workspaceId
+
+    void reload().catch((err) =>
+      setError(err instanceof Error ? err.message : String(err)),
+    )
+
+    if (!switched) return
+
     setSelectedId(null)
     setCreating(false)
     setWizardStep(1)
     setCatalogKey(null)
     goView('home')
-    reload().catch((err) =>
-      setError(err instanceof Error ? err.message : String(err)),
-    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId])
 
@@ -567,6 +577,8 @@ export function SourcesPage() {
       }
       return next
     })
+    setWizardStep(2)
+    goView('form', { connector: item.key })
   }
 
   async function installPocPack() {
@@ -842,7 +854,7 @@ export function SourcesPage() {
                   onClick={() => {
                     if (wizardStep === 2) {
                       setWizardStep(1)
-                      goView('catalog', { connector: catalogKey })
+                      goView('catalog')
                     } else {
                       cancelWizard()
                     }

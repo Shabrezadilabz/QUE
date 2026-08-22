@@ -42,7 +42,7 @@ function NavItem({
       to={to}
       end={end}
       className={[
-        'flex w-full flex-col items-center gap-[2px] rounded-[4px] border border-solid px-[6px] py-[5px] transition-colors',
+        'flex w-full flex-col items-center gap-[3px] rounded-[4px] border border-solid px-[6px] py-[6px] transition-colors',
         active ? 'pdf-nav-active' : 'border-transparent text-[#8a9099] hover:text-[#c8cdd3]',
       ].join(' ')}
     >
@@ -80,15 +80,20 @@ export function PdfSidebar() {
 
   return (
     <aside className="pdf-sidebar hidden h-full w-[72px] shrink-0 flex-col overflow-hidden border-r border-solid border-[#424850] bg-[#0b0e11] px-[8px] py-[12px] md:flex">
-      <NavLink to="/workspace" className="mb-[10px] flex flex-col items-center gap-[1px]">
-        <div className="relative size-[28px] shrink-0">
-          <img alt="" className="absolute inset-0 block size-full max-w-none" src={FIGMA_NAV.logo} />
-        </div>
-        <span className="text-[9px] font-black leading-none text-[#ecf0f4]">Que</span>
-        <span className="text-[7px] font-medium leading-none text-[#8a9099]">Data Engine</span>
-      </NavLink>
+      <div className="shrink-0 border-b border-solid border-[#424850]/60 pb-[10px]">
+        <NavLink to="/workspace" className="flex flex-col items-center gap-[1px]">
+          <div className="relative size-[28px] shrink-0">
+            <img alt="" className="absolute inset-0 block size-full max-w-none" src={FIGMA_NAV.logo} />
+          </div>
+          <span className="text-[9px] font-black leading-none text-[#ecf0f4]">Que</span>
+          <span className="text-[7px] font-medium leading-none text-[#8a9099]">Data Engine</span>
+        </NavLink>
+      </div>
 
-      <nav className="flex min-h-0 flex-1 flex-col justify-evenly gap-[2px] overflow-hidden" aria-label="Main">
+      <nav
+        className="flex min-h-0 flex-1 flex-col gap-[7px] overflow-hidden pt-[10px]"
+        aria-label="Main"
+      >
         {QUE_PDF_NAV.map((item) => (
           <NavItem
             key={item.id}
@@ -112,7 +117,7 @@ export function PdfSidebar() {
         <NavLink
           to="/settings"
           className={[
-            'flex w-full flex-col items-center gap-[2px] rounded-[4px] border border-solid px-[6px] py-[5px] transition-colors',
+            'flex w-full flex-col items-center gap-[3px] rounded-[4px] border border-solid px-[6px] py-[6px] transition-colors',
             settingsActive ? 'pdf-nav-active' : 'border-transparent text-[#8a9099] hover:text-[#c8cdd3]',
           ].join(' ')}
         >

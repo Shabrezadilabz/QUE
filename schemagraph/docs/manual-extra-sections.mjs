@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Extra depth chapters to reach ~50 A4 pages — imported by build-complete-manual.mjs
  */
 export const EXTRA_SECTIONS = `

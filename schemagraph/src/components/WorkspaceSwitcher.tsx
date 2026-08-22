@@ -121,7 +121,12 @@ export function WorkspaceSwitcher({
   const triggerClass =
     variant === 'nav'
       ? workspaceNavTriggerClass({ emphasized: open || onCanvas })
-      : 'flex max-w-[12rem] items-center gap-xs rounded-lg border border-outline-variant/50 bg-surface-container-high px-sm py-xs font-label text-[10px] font-semibold tracking-[0.12em] text-primary-container uppercase hover:border-primary'
+      : [
+          'inline-flex min-w-[8.5rem] max-w-[13rem] items-center justify-between gap-[8px] rounded-[4px] border border-solid px-[10px] py-[7px] transition-colors',
+          open
+            ? 'border-[#6b7380] bg-[#1e2328] text-[#ecf0f4]'
+            : 'border-[#424850] bg-[#15191e] text-[#d4dbe3] hover:border-[#6b7380] hover:bg-[#1e2328]',
+        ].join(' ')
 
   return (
     <div className="relative" ref={rootRef}>
@@ -138,12 +143,10 @@ export function WorkspaceSwitcher({
         onClick={() => setOpen((o) => !o)}
         className={triggerClass}
       >
-        <span className="inline-flex max-w-[10rem] items-center gap-1 truncate sm:max-w-[14rem]">
-          <span className="truncate">{current?.name ?? 'Workspace'}</span>
-          <span aria-hidden className="shrink-0 text-[10px] opacity-70">
-            ▾
-          </span>
+        <span className="min-w-0 truncate text-left text-[11px] font-semibold leading-none tracking-[0.02em] normal-case">
+          {current?.name ?? 'Workspace'}
         </span>
+        <ChevronDown open={open} />
       </button>
 
       {open ? (
@@ -151,10 +154,10 @@ export function WorkspaceSwitcher({
           id={listId}
           role="listbox"
           aria-label="Workspaces"
-          className="absolute top-full left-0 z-[120] mt-sm min-w-[15rem] overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container-lowest py-xs shadow-lg"
+          className="absolute top-full left-0 z-[120] mt-[6px] min-w-[15rem] overflow-hidden rounded-[4px] border border-solid border-[#424850] bg-[#0f1215] py-[4px] shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
         >
-          <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
-            SWITCH WORKSPACE
+          <p className="px-[12px] py-[6px] text-[9px] font-semibold tracking-[0.6px] text-[#8a9099] uppercase">
+            Switch workspace
           </p>
           {workspaces.map((w) => {
             const active = w.id === workspaceId
@@ -166,37 +169,37 @@ export function WorkspaceSwitcher({
                 aria-selected={active}
                 onClick={() => selectWorkspace(w.id)}
                 className={[
-                  'flex w-full items-start justify-between gap-md px-md py-sm text-left transition-colors',
+                  'flex w-full items-start justify-between gap-[12px] px-[12px] py-[8px] text-left transition-colors',
                   active
-                    ? 'border-l-2 border-secondary bg-secondary/15'
-                    : 'border-l-2 border-transparent hover:bg-surface-container-high',
+                    ? 'border-l-2 border-[#7aecd0] bg-[rgba(122,236,208,0.08)]'
+                    : 'border-l-2 border-transparent hover:bg-[#15191e]',
                 ].join(' ')}
               >
                 <span>
-                  <span className="block font-body text-sm font-semibold text-on-surface">
+                  <span className="block text-[13px] font-semibold text-[#d4dbe3]">
                     {w.name}
                   </span>
-                  <span className="mt-xs block font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
+                  <span className="mt-[2px] block text-[10px] tracking-wide text-[#8a9099] uppercase">
                     {w.slug} · {w.role}
                   </span>
                 </span>
                 {active ? (
-                  <span className="font-label text-[9px] tracking-widest text-secondary">
-                    ACTIVE
+                  <span className="text-[9px] font-semibold tracking-[0.6px] text-[#7aecd0] uppercase">
+                    Active
                   </span>
                 ) : null}
               </button>
             )
           })}
-          <div className="mt-xs border-t border-outline-variant/30 px-md py-sm">
-            <p className="mb-xs font-label text-[9px] tracking-widest text-on-surface-variant">
-              NEW WORKSPACE
+          <div className="mt-[4px] border-t border-solid border-[#424850] px-[12px] py-[10px]">
+            <p className="mb-[6px] text-[9px] font-semibold tracking-[0.6px] text-[#8a9099] uppercase">
+              New workspace
             </p>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Name"
-              className="mb-xs w-full border border-outline-variant/40 bg-surface-container-low px-sm py-xs font-body text-xs outline-none focus:border-primary"
+              className="mb-[6px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#15191e] px-[8px] py-[6px] text-[12px] text-[#d4dbe3] outline-none placeholder:text-[#6b7380] focus:border-[#6b7380]"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
@@ -205,19 +208,19 @@ export function WorkspaceSwitcher({
               }}
             />
             {createError ? (
-              <p className="mb-xs font-body text-[11px] text-error">{createError}</p>
+              <p className="mb-[6px] text-[11px] text-[#ff6b6b]">{createError}</p>
             ) : null}
             <button
               type="button"
               disabled={creating}
               onClick={() => void onCreateWorkspace()}
-              className="mb-sm w-full rounded bg-secondary py-xs font-label text-[10px] tracking-widest text-on-secondary disabled:opacity-40"
+              className="pdf-btn-primary mb-[8px] w-full rounded-[4px] py-[7px] text-[10px] font-semibold tracking-[0.6px] uppercase disabled:opacity-40"
             >
-              {creating ? 'CREATING…' : '+ CREATE WORKSPACE'}
+              {creating ? 'Creating…' : '+ Create workspace'}
             </button>
             <button
               type="button"
-              className="font-label text-[11px] tracking-wide text-primary underline"
+              className="text-[11px] text-[#c8cdd3] underline hover:text-[#ecf0f4]"
               onClick={() => {
                 setOpen(false)
                 navigate('/workspace')
@@ -229,5 +232,27 @@ export function WorkspaceSwitcher({
         </div>
       ) : null}
     </div>
+  )
+}
+
+function ChevronDown({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={[
+        'shrink-0 text-[#8a9099] transition-transform',
+        open ? 'rotate-180' : '',
+      ].join(' ')}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
   )
 }

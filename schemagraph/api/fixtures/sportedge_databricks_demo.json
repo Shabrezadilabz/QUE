@@ -1,0 +1,938 @@
+{
+  "catalog": "main",
+  "schema": "sportedge",
+  "notes": "SportEdge Databricks fixture — 20 tables. Join keys: pg_customer_id, order_id, sku, brand_code.",
+  "tables": [
+    {
+      "name": "dim_brand",
+      "columns": [
+        {
+          "name": "brand_id",
+          "dataType": "INT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "1",
+            "2"
+          ]
+        },
+        {
+          "name": "brand_code",
+          "dataType": "STRING",
+          "keyKind": "unique",
+          "nullable": true,
+          "samples": [
+            "PUMA",
+            "NIKE"
+          ]
+        },
+        {
+          "name": "name",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "Puma India",
+            "Nike India"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "dim_warehouse",
+      "columns": [
+        {
+          "name": "warehouse_id",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "WH-MUM-01",
+            "WH-DEL-01",
+            "WH-BLR-01"
+          ]
+        },
+        {
+          "name": "city",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "Mumbai",
+            "Delhi",
+            "Bangalore"
+          ]
+        },
+        {
+          "name": "region_code",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "IN-WEST",
+            "IN-NORTH",
+            "IN-SOUTH"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "dim_customer",
+      "columns": [
+        {
+          "name": "customer_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "1001",
+            "1002",
+            "1003"
+          ]
+        },
+        {
+          "name": "pg_customer_id",
+          "dataType": "INT",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "email",
+          "dataType": "STRING",
+          "keyKind": "unique",
+          "nullable": true,
+          "samples": [
+            "ada@example.com",
+            "grace@example.com",
+            "user4@example.com"
+          ]
+        },
+        {
+          "name": "region_code",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "IN-WEST",
+            "IN-NORTH",
+            "IN-SOUTH",
+            "IN-EAST"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "dim_product",
+      "columns": [
+        {
+          "name": "product_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "2001",
+            "2002",
+            "2003"
+          ]
+        },
+        {
+          "name": "sku",
+          "dataType": "STRING",
+          "keyKind": "unique",
+          "nullable": true,
+          "samples": [
+            "PUMA-SKU-00001",
+            "NIKE-SKU-00001",
+            "PUMA-SKU-00002"
+          ]
+        },
+        {
+          "name": "brand_code",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "PUMA",
+            "NIKE"
+          ]
+        },
+        {
+          "name": "category",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "footwear",
+            "apparel"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "dim_vendor",
+      "columns": [
+        {
+          "name": "vendor_id",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "V-PUMA-01",
+            "V-NIKE-01"
+          ]
+        },
+        {
+          "name": "brand_code",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "PUMA",
+            "NIKE"
+          ]
+        },
+        {
+          "name": "vendor_name",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "Puma Vendor",
+            "Nike Vendor"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "dim_date",
+      "columns": [
+        {
+          "name": "date_key",
+          "dataType": "INT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "20240101",
+            "20240102",
+            "20240103"
+          ]
+        },
+        {
+          "name": "year",
+          "dataType": "INT",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "2024",
+            "2024",
+            "2024"
+          ]
+        },
+        {
+          "name": "month",
+          "dataType": "INT",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "1",
+            "1",
+            "1"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_orders",
+      "columns": [
+        {
+          "name": "order_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "9001",
+            "9002",
+            "9003"
+          ]
+        },
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "unique",
+          "nullable": true,
+          "samples": [
+            "ORD-00000001",
+            "ORD-00000002",
+            "ORD-00000003"
+          ]
+        },
+        {
+          "name": "pg_customer_id",
+          "dataType": "INT",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "1",
+            "2",
+            "3"
+          ]
+        },
+        {
+          "name": "brand_code",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "PUMA",
+            "NIKE"
+          ]
+        },
+        {
+          "name": "order_total_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "1299.00",
+            "4599.00",
+            "899.00"
+          ]
+        },
+        {
+          "name": "warehouse_id",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "WH-MUM-01",
+            "WH-DEL-01",
+            "WH-BLR-01"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_order_items",
+      "columns": [
+        {
+          "name": "order_item_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "9101",
+            "9102",
+            "9103"
+          ]
+        },
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "ORD-00000001",
+            "ORD-00000001",
+            "ORD-00000002"
+          ]
+        },
+        {
+          "name": "sku",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "PUMA-SKU-00001-S",
+            "PUMA-SKU-00001-M",
+            "NIKE-SKU-00001-L"
+          ]
+        },
+        {
+          "name": "quantity",
+          "dataType": "INT",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "1",
+            "2",
+            "1"
+          ]
+        },
+        {
+          "name": "unit_price_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "1299.00",
+            "1299.00",
+            "4599.00"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_shipments",
+      "columns": [
+        {
+          "name": "shipment_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "9201",
+            "9202"
+          ]
+        },
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "ORD-00000001",
+            "ORD-00000002"
+          ]
+        },
+        {
+          "name": "warehouse_id",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "WH-MUM-01",
+            "WH-DEL-01"
+          ]
+        },
+        {
+          "name": "shipped_at",
+          "dataType": "TIMESTAMP",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "2024-06-01T10:00:00Z",
+            "2024-06-02T11:00:00Z"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_returns",
+      "columns": [
+        {
+          "name": "return_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "9301",
+            "9302"
+          ]
+        },
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "ORD-00000010",
+            "ORD-00000011"
+          ]
+        },
+        {
+          "name": "sku",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "PUMA-SKU-00005-M",
+            "NIKE-SKU-00012-L"
+          ]
+        },
+        {
+          "name": "refund_amount_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "999.00",
+            "2499.00"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_payments",
+      "columns": [
+        {
+          "name": "payment_sk",
+          "dataType": "BIGINT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "9401",
+            "9402"
+          ]
+        },
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "ORD-00000001",
+            "ORD-00000005"
+          ]
+        },
+        {
+          "name": "method",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "upi",
+            "cod"
+          ]
+        },
+        {
+          "name": "amount_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "1299.00",
+            "4599.00"
+          ]
+        },
+        {
+          "name": "is_cod",
+          "dataType": "BOOLEAN",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "false",
+            "true"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_ad_spend",
+      "columns": [
+        {
+          "name": "campaign_id",
+          "dataType": "STRING",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "CMP-00001",
+            "CMP-00002"
+          ]
+        },
+        {
+          "name": "date_key",
+          "dataType": "INT",
+          "keyKind": "fk",
+          "nullable": true,
+          "samples": [
+            "20240101",
+            "20240102"
+          ]
+        },
+        {
+          "name": "brand_code",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "PUMA",
+            "NIKE"
+          ]
+        },
+        {
+          "name": "spend_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "5000.00",
+            "12000.00"
+          ]
+        },
+        {
+          "name": "impressions",
+          "dataType": "BIGINT",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "50000",
+            "120000"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_wishlist_daily",
+      "columns": [
+        {
+          "name": "date_key",
+          "dataType": "INT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "20240101",
+            "20240102"
+          ]
+        },
+        {
+          "name": "sku",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "PUMA-SKU-00001",
+            "NIKE-SKU-00001"
+          ]
+        },
+        {
+          "name": "wishlist_count",
+          "dataType": "INT",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "120",
+            "85"
+          ]
+        },
+        {
+          "name": "brand_code",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "PUMA",
+            "NIKE"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_fraud",
+      "columns": [
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "ORD-00000099",
+            "ORD-00000100"
+          ]
+        },
+        {
+          "name": "fraud_score",
+          "dataType": "DOUBLE",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "0.82",
+            "0.91"
+          ]
+        },
+        {
+          "name": "signal_type",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "cod_risk",
+            "velocity"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_inventory_daily",
+      "columns": [
+        {
+          "name": "date_key",
+          "dataType": "INT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "20240101",
+            "20240101"
+          ]
+        },
+        {
+          "name": "warehouse_id",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "WH-MUM-01",
+            "WH-DEL-01"
+          ]
+        },
+        {
+          "name": "sku",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "PUMA-SKU-00001",
+            "NIKE-SKU-00001"
+          ]
+        },
+        {
+          "name": "qty_on_hand",
+          "dataType": "INT",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "200",
+            "150"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_cod_reconciliation",
+      "columns": [
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "ORD-00000005",
+            "ORD-00000010"
+          ]
+        },
+        {
+          "name": "expected_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "4599.00",
+            "1299.00"
+          ]
+        },
+        {
+          "name": "collected_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "4599.00",
+            "1200.00"
+          ]
+        },
+        {
+          "name": "variance_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "0.00",
+            "-99.00"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "fact_vendor_payouts",
+      "columns": [
+        {
+          "name": "vendor_id",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "V-PUMA-01",
+            "V-NIKE-01"
+          ]
+        },
+        {
+          "name": "period_month",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "2024-06",
+            "2024-06"
+          ]
+        },
+        {
+          "name": "payout_inr",
+          "dataType": "DECIMAL(14,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "250000.00",
+            "380000.00"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "bridge_campaign_product",
+      "columns": [
+        {
+          "name": "campaign_id",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "CMP-00001",
+            "CMP-00002"
+          ]
+        },
+        {
+          "name": "sku",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "PUMA-SKU-00001",
+            "NIKE-SKU-00001"
+          ]
+        },
+        {
+          "name": "brand_code",
+          "dataType": "STRING",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "PUMA",
+            "NIKE"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "bridge_order_offer",
+      "columns": [
+        {
+          "name": "order_id",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "ORD-00000001",
+            "ORD-00000002"
+          ]
+        },
+        {
+          "name": "offer_code",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "OFFER10",
+            "OFFER20"
+          ]
+        },
+        {
+          "name": "discount_inr",
+          "dataType": "DECIMAL(12,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "100.00",
+            "200.00"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    },
+    {
+      "name": "agg_daily_revenue_by_brand",
+      "columns": [
+        {
+          "name": "date_key",
+          "dataType": "INT",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "20240101",
+            "20240101"
+          ]
+        },
+        {
+          "name": "brand_code",
+          "dataType": "STRING",
+          "keyKind": "pk",
+          "nullable": false,
+          "samples": [
+            "PUMA",
+            "NIKE"
+          ]
+        },
+        {
+          "name": "revenue_inr",
+          "dataType": "DECIMAL(14,2)",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "1250000.00",
+            "980000.00"
+          ]
+        },
+        {
+          "name": "order_count",
+          "dataType": "INT",
+          "keyKind": "none",
+          "nullable": true,
+          "samples": [
+            "420",
+            "380"
+          ]
+        }
+      ],
+      "entityKind": "TABLE"
+    }
+  ],
+  "foreignKeys": [
+    {
+      "fromTable": "fact_orders",
+      "fromColumn": "pg_customer_id",
+      "toTable": "dim_customer",
+      "toColumn": "pg_customer_id",
+      "constraintName": "fk_orders_customer"
+    },
+    {
+      "fromTable": "fact_order_items",
+      "fromColumn": "order_id",
+      "toTable": "fact_orders",
+      "toColumn": "order_id",
+      "constraintName": "fk_items_order"
+    }
+  ]
+}

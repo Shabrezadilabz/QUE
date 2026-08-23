@@ -21,6 +21,20 @@ import pg from 'pg'
  * @param {PgConnectionConfig} config
  * @returns {pg.PoolConfig}
  */
+function inferSsl(config = {}) {
+  if (config.ssl === true) return { rejectUnauthorized: false }
+  if (config.ssl === false) return false
+  const host = String(config.host ?? 'localhost').toLowerCase()
+  const local =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host.endsWith('.local') ||
+    host.startsWith('192.168.') ||
+    host.startsWith('10.') ||
+    host === 'host.docker.internal'
+  return local ? false : { rejectUnauthorized: false }
+}
+
 export function toPoolConfig(config = {}) {
   return {
     host: config.host ?? 'localhost',
@@ -28,7 +42,7 @@ export function toPoolConfig(config = {}) {
     database: config.database ?? 'customer_demo',
     user: config.user ?? 'stitch',
     password: config.password ?? process.env.STITCH_SOURCE_PG_PASSWORD ?? 'stitch',
-    ssl: config.ssl ? { rejectUnauthorized: false } : false,
+    ssl: inferSsl(config),
     max: 2,
     connectionTimeoutMillis: 8_000,
     statement_timeout: 15_000,

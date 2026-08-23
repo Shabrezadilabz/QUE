@@ -21,7 +21,12 @@
     "bootstrap:demo-mongo-bulk": "node scripts/applyCustomerDemoMongoBulk.js",
     "bootstrap:test-data": "node src/bootstrapTestData.js",
     "fixtures:generate": "node scripts/generateTestFixtures.js",
-    "fixtures:tester-excel": "node scripts/generateTesterExcelPack.js"
+    "fixtures:tester-excel": "node scripts/generateTesterExcelPack.js",
+    "fixtures:sportedge": "node scripts/generateSportedgeFixtures.js",
+    "bootstrap:sportedge-pg": "node scripts/bootstrapSportedgePostgres.js",
+    "bootstrap:sportedge-mongo": "node scripts/bootstrapSportedgeMongo.js",
+    "bootstrap:sportedge-dbx": "node scripts/bootstrapSportedgeDatabricks.js",
+    "bootstrap:sportedge-all": "node scripts/bootstrapSportedgeAll.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

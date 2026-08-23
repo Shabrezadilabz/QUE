@@ -1,0 +1,57 @@
+{
+  "excel": [
+    {
+      "file": "mkt_products_catalog.xlsx",
+      "rows": 5000,
+      "cols": 12
+    },
+    {
+      "file": "mkt_ad_campaigns.xlsx",
+      "rows": 8000,
+      "cols": 10
+    },
+    {
+      "file": "mkt_ad_reach_daily.xlsx",
+      "rows": 10000,
+      "cols": 8
+    },
+    {
+      "file": "vendor_master.xlsx",
+      "rows": 200,
+      "cols": 7
+    },
+    {
+      "file": "vendor_catalog.xlsx",
+      "rows": 5000,
+      "cols": 6
+    }
+  ],
+  "csv": [
+    {
+      "file": "mkt_leads.csv",
+      "rows": 10000,
+      "cols": 8
+    },
+    {
+      "file": "mkt_web_events.csv",
+      "rows": 15000,
+      "cols": 9
+    },
+    {
+      "file": "mkt_regional_stock.csv",
+      "rows": 8000,
+      "cols": 6
+    },
+    {
+      "file": "vendor_purchase_orders.csv",
+      "rows": 5000,
+      "cols": 7
+    },
+    {
+      "file": "vendor_commissions.csv",
+      "rows": 4000,
+      "cols": 6
+    }
+  ],
+  "generatedAt": "2026-08-23T13:59:49.638Z"
+}

@@ -11,6 +11,7 @@ import { isProduction } from './env.js'
 const SECRET_KEYS = [
   'openai_api_key',
   'anthropic_api_key',
+  'openrouter_api_key',
   'github_token',
 ]
 
@@ -141,9 +142,11 @@ export async function getSecretsStatus(workspaceId) {
   const map = Object.fromEntries(rows.map((r) => [r.secret_key, r]))
   const openaiWorkspace = Boolean(map.openai_api_key)
   const anthropicWorkspace = Boolean(map.anthropic_api_key)
+  const openrouterWorkspace = Boolean(map.openrouter_api_key)
   const githubWorkspace = Boolean(map.github_token)
   const openaiEnv = Boolean(process.env.OPENAI_API_KEY)
   const anthropicEnv = Boolean(process.env.ANTHROPIC_API_KEY)
+  const openrouterEnv = Boolean(process.env.OPENROUTER_API_KEY)
   const githubEnv = Boolean(process.env.GITHUB_TOKEN)
 
   return {
@@ -157,6 +160,13 @@ export async function getSecretsStatus(workspaceId) {
       source: anthropicWorkspace ? 'workspace' : anthropicEnv ? 'env' : 'none',
       hint: map.anthropic_api_key?.hint || (anthropicEnv ? 'env:ANTHROPIC_API_KEY' : null),
     },
+    openrouter: {
+      configured: openrouterWorkspace || openrouterEnv,
+      source: openrouterWorkspace ? 'workspace' : openrouterEnv ? 'env' : 'none',
+      hint:
+        map.openrouter_api_key?.hint ||
+        (openrouterEnv ? 'env:OPENROUTER_API_KEY' : null),
+    },
     github: {
       configured: githubWorkspace || githubEnv,
       source: githubWorkspace ? 'workspace' : githubEnv ? 'env' : 'none',
@@ -167,7 +177,7 @@ export async function getSecretsStatus(workspaceId) {
       String(process.env.QUE_SECRETS_KEY || process.env.STITCH_SECRETS_KEY || '').trim(),
     ),
     note:
-      'Keys are encrypted at rest. Workspace github_token preferred over env GITHUB_TOKEN. Que still proxies LLM calls server-side (schema-only prompts).',
+      'Keys are encrypted at rest. Workspace BYOK wins over env. OpenRouter unlocks OR models in chat; embeddings use OpenAI or OpenRouter when configured. Que proxies LLM calls server-side (schema-only prompts).',
   }
 }
 
@@ -194,13 +204,16 @@ export async function resolveGithubToken(workspaceId) {
 export async function resolveProviderKeys(workspaceId) {
   let openai = process.env.OPENAI_API_KEY || null
   let anthropic = process.env.ANTHROPIC_API_KEY || null
+  let openrouter = process.env.OPENROUTER_API_KEY || null
   let openaiSource = openai ? 'env' : 'none'
   let anthropicSource = anthropic ? 'env' : 'none'
+  let openrouterSource = openrouter ? 'env' : 'none'
 
   if (workspaceId) {
     try {
       const wsOpenai = await getSecret(workspaceId, 'openai_api_key')
       const wsAnthropic = await getSecret(workspaceId, 'anthropic_api_key')
+      const wsOpenrouter = await getSecret(workspaceId, 'openrouter_api_key')
       if (wsOpenai) {
         openai = wsOpenai
         openaiSource = 'workspace'
@@ -209,10 +222,21 @@ export async function resolveProviderKeys(workspaceId) {
         anthropic = wsAnthropic
         anthropicSource = 'workspace'
       }
+      if (wsOpenrouter) {
+        openrouter = wsOpenrouter
+        openrouterSource = 'workspace'
+      }
     } catch (err) {
       console.warn('[Que secrets] resolve failed:', err.message || err)
     }
   }
 
-  return { openai, anthropic, openaiSource, anthropicSource }
+  return {
+    openai,
+    anthropic,
+    openrouter,
+    openaiSource,
+    anthropicSource,
+    openrouterSource,
+  }
 }

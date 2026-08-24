@@ -13,7 +13,10 @@ import { getBoostedSourceRefs } from './feedback.js'
 export async function retrieveForQuery(workspaceId, queryText, opts = {}) {
   const topK = opts.topK ?? 8
   const includeDocs = opts.includeDocs !== false
-  const queryVec = await embedText(queryText, opts.openaiKey || null)
+  const queryVec = await embedText(
+    queryText,
+    opts.embedKeys || { openai: opts.openaiKey || null },
+  )
   let hits = await searchChunks(workspaceId, queryVec, {
     topK: topK + 4,
     includeDocs,

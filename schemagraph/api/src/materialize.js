@@ -18,6 +18,8 @@ import { runWriteSql as runDatabricksWrite } from './connectors/databricks.js'
 import { runWriteSql as runSnowflakeWrite } from './connectors/snowflake.js'
 import { recordAuditEvent } from './auditLog.js'
 import { buildSchemaOnlyAttestation } from './exporters/attestation.js'
+import { getConnectionSecrets } from './connections.js'
+import { createPlaneActivityEvent } from './planeActivity.js'
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/
 const WRITE_IN_SELECT_RE =
@@ -609,6 +611,64 @@ export async function listMaterializations(workspaceId, opts = {}) {
 }
 
 /**
+ * Queue a planned materialize after sync — no DDL until human confirms in Jobs.
+ */
+export async function enqueuePlannedMaterialization(
+  workspaceId,
+  { jobId, connectionId, userId = null, trigger = 'source_sync' } = {},
+) {
+  if (!jobId || !connectionId) {
+    return { queued: false, reason: 'missing_job_or_connection' }
+  }
+  const { rows: existing } = await query(
+    `SELECT id FROM job_materializations
+     WHERE workspace_id = $1 AND job_id = $2 AND connection_id = $3
+       AND status = 'planned'
+       AND created_at > now() - interval '7 days'
+     LIMIT 1`,
+    [workspaceId, jobId, connectionId],
+  )
+  if (existing[0]) {
+    return { queued: false, reason: 'already_planned', id: existing[0].id }
+  }
+  const job = await getJob(workspaceId, jobId)
+  if (!job) return { queued: false, reason: 'job_not_found' }
+
+  const objectName = defaultObjectName(job)
+  const id = randomUUID()
+  await query(
+    `INSERT INTO job_materializations (
+       id, workspace_id, job_id, connection_id, actor_user_id,
+       object_kind, object_schema, object_name, qualified_name,
+       status, meta_json
+     ) VALUES ($1,$2,$3,$4,$5,'view',NULL,$6,$6,'planned',$7::jsonb)`,
+    [
+      id,
+      workspaceId,
+      jobId,
+      connectionId,
+      userId,
+      objectName.slice(0, 63),
+      JSON.stringify({
+        trigger,
+        plannedAt: new Date().toISOString(),
+        note: 'Confirm in Jobs → Deploy → Materialize',
+      }),
+    ],
+  )
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId: userId,
+    action: 'job.materialize_planned',
+    resourceType: 'job',
+    resourceId: jobId,
+    summary: `Queued planned materialize for ${job.title}`,
+    meta: { materializationId: id, connectionId, trigger },
+  })
+  return { queued: true, id, jobId, connectionId }
+}
+
+/**
  * Drop a previously materialized view/table in the customer warehouse (metadata + DDL).
  * Que still does not store rows — only issues DROP and audits.
  */
@@ -706,5 +766,100 @@ export async function dropMaterialization(
     dropSql,
     rolledBackAt,
     note: 'DROP issued in customer warehouse. Que stores metadata only.',
+  }
+}
+
+/**
+ * Post-sync stub for customer_warehouse landing — plans materialize, never runs DDL.
+ */
+export async function stubCustomerWarehouseMaterializeFromSync(
+  workspaceId,
+  connectionId,
+  { userId = null } = {},
+) {
+  const conn = await getConnectionSecrets(workspaceId, connectionId)
+  if (!conn) return { planned: false, reason: 'connection_not_found' }
+
+  const settings = (await getWorkspaceSettings(workspaceId))?.settings || {}
+  if (settings.enableMaterialize === false) {
+    return { planned: false, reason: 'materialize_disabled' }
+  }
+
+  const { rows: objs } = await query(
+    `SELECT name FROM schema_objects
+     WHERE workspace_id = $1 AND connection_id = $2
+     ORDER BY name
+     LIMIT 40`,
+    [workspaceId, connectionId],
+  )
+  const tableNames = objs.map((o) => o.name)
+
+  const { rows: jobRows } = await query(
+    `SELECT id, title, tables FROM jobs
+     WHERE workspace_id = $1 AND status IN ('ready', 'exported')
+     ORDER BY updated_at DESC
+     LIMIT 40`,
+    [workspaceId],
+  )
+  let suggestedJobId = null
+  let suggestedJobTitle = null
+  for (const j of jobRows) {
+    const jTables = Array.isArray(j.tables) ? j.tables : []
+    if (jTables.some((t) => tableNames.includes(t))) {
+      suggestedJobId = j.id
+      suggestedJobTitle = j.title
+      break
+    }
+  }
+
+  const detail =
+    suggestedJobId
+      ? `Materialize planned for “${conn.name}”. Open Jobs → “${suggestedJobTitle}” → Deploy → Materialize (confirm required — no silent DDL).`
+      : `Materialize planned for “${conn.name}”. Promote a job with SQL for these tables, then Jobs → Deploy → Materialize.`
+
+  await createPlaneActivityEvent(
+    workspaceId,
+    {
+      kind: 'planned',
+      source: 'source_sync',
+      actor: 'system',
+      title: `Warehouse materialize planned — ${conn.name}`,
+      detail,
+      connectionId: conn.id,
+    },
+    userId,
+  )
+
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId: userId,
+    action: 'connection.materialize_planned',
+    resourceType: 'connection',
+    resourceId: connectionId,
+    summary: `Post-sync materialize stub for ${conn.name}`,
+    meta: {
+      tableCount: tableNames.length,
+      suggestedJobId,
+    },
+  })
+
+  let queued = null
+  if (suggestedJobId) {
+    queued = await enqueuePlannedMaterialization(workspaceId, {
+      jobId: suggestedJobId,
+      connectionId: conn.id,
+      userId,
+      trigger: 'source_sync',
+    })
+  }
+
+  return {
+    planned: true,
+    connectionId,
+    connectionName: conn.name,
+    tableCount: tableNames.length,
+    suggestedJobId,
+    suggestedJobTitle,
+    queued,
   }
 }

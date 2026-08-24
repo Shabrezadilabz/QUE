@@ -448,7 +448,10 @@ export async function fetchManagedDatasetRows(
   datasetId: string,
   opts: { limit?: number } = {},
   workspaceId: string = getActiveWorkspaceId(),
-): Promise<{ rows: { id: string; data: Record<string, unknown> }[] }> {
+): Promise<{
+  rows: { id: string; data: Record<string, unknown> }[]
+  displayMasked?: boolean
+}> {
   const q = new URLSearchParams()
   if (opts.limit != null) q.set('limit', String(opts.limit))
   const res = await apiFetch(
@@ -456,10 +459,11 @@ export async function fetchManagedDatasetRows(
   )
   const body = (await res.json().catch(() => ({}))) as {
     rows?: { id: string; data: Record<string, unknown> }[]
+    displayMasked?: boolean
     error?: string
   }
   if (!res.ok) throw new Error(body.error ?? `rows ${res.status}`)
-  return { rows: body.rows ?? [] }
+  return { rows: body.rows ?? [], displayMasked: body.displayMasked }
 }
 
 export async function certifyManagedDatasetApi(
@@ -477,6 +481,234 @@ export async function certifyManagedDatasetApi(
   if (!res.ok) throw new Error(body.error ?? `certify ${res.status}`)
   if (!body.item) throw new Error('certify missing item')
   return body.item
+}
+
+export type PlaneActivityKind =
+  | 'created'
+  | 'drafted'
+  | 'edited'
+  | 'executed'
+  | 'landed'
+  | 'certified'
+  | 'failed'
+
+export type PlaneActivitySource =
+  | 'chat'
+  | 'plane_sql'
+  | 'plane_nlp'
+  | 'job'
+  | 'source_sync'
+  | 'system'
+
+export interface PlaneActivityEvent {
+  id: string
+  workspaceId: string
+  kind: PlaneActivityKind
+  source: PlaneActivitySource
+  actor: 'user' | 'ai_chat' | 'ssm' | 'system'
+  title: string
+  detail?: string
+  sql?: string
+  sqlHash?: string
+  datasetId?: string | null
+  connectionId?: string | null
+  rowCount?: number | null
+  durationMs?: number | null
+  read: boolean
+  createdAt: string
+}
+
+export async function fetchPlaneActivity(
+  opts: { source?: PlaneActivitySource; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ items: PlaneActivityEvent[]; unread: number }> {
+  const q = new URLSearchParams()
+  if (opts.source) q.set('source', opts.source)
+  if (opts.limit != null) q.set('limit', String(opts.limit))
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/plane/activity?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: PlaneActivityEvent[]
+    unread?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `plane activity ${res.status}`)
+  return { items: body.items ?? [], unread: body.unread ?? 0 }
+}
+
+export async function fetchPlaneActivityUnread(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<number> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/plane/activity/unread`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    unread?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `plane unread ${res.status}`)
+  return body.unread ?? 0
+}
+
+export async function createPlaneActivityApi(
+  input: {
+    kind: PlaneActivityKind
+    source: PlaneActivitySource
+    actor?: PlaneActivityEvent['actor']
+    title: string
+    detail?: string
+    sql?: string
+    datasetId?: string | null
+    connectionId?: string | null
+    rowCount?: number | null
+    durationMs?: number | null
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PlaneActivityEvent> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/plane/activity`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: PlaneActivityEvent
+    error?: string
+  }
+  if (!res.ok || !body.item) {
+    throw new Error(body.error ?? `create plane activity ${res.status}`)
+  }
+  return body.item
+}
+
+export async function markPlaneActivityReadApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/plane/activity/mark-read`,
+    { method: 'POST', body: '{}' },
+  )
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `mark plane read ${res.status}`)
+  }
+}
+
+export async function handoffChatSqlToPlaneApi(
+  input: { sql: string; detail?: string },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PlaneActivityEvent> {
+  return createPlaneActivityApi(
+    {
+      kind: 'drafted',
+      source: 'chat',
+      actor: 'user',
+      title: 'Opened SQL in Managed Plane',
+      detail: input.detail,
+      sql: input.sql,
+    },
+    workspaceId,
+  )
+}
+
+export type DataLandingMode =
+  | 'schema_only'
+  | 'managed_plane'
+  | 'customer_warehouse'
+
+export interface PlanePreviewConnection {
+  id: string
+  name: string
+  type: string
+  dataLandingMode: DataLandingMode
+}
+
+export interface PlaneQueryPreviewResult {
+  ok: boolean
+  target: 'managed' | 'warehouse'
+  datasetId: string | null
+  datasetName: string | null
+  datasetSlug: string | null
+  connectionId: string | null
+  connectionName: string | null
+  engine?: string
+  columns: { name: string; dataType?: string }[]
+  rows: Record<string, unknown>[]
+  rowCount: number
+  truncated: boolean
+  note?: string | null
+  sqlExecuted: string
+  durationMs: number
+  policy: string
+  displayMasked?: boolean
+}
+
+/** Managed Plane — read-only SQL preview (server-side credentials). */
+export async function previewPlaneQueryApi(
+  input: {
+    sql: string
+    connectionId?: string | null
+    datasetId?: string | null
+    maxRows?: number
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PlaneQueryPreviewResult> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/plane/query/preview`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as PlaneQueryPreviewResult & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `plane preview ${res.status}`)
+  return body
+}
+
+export async function fetchPlanePreviewConnections(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PlanePreviewConnection[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/plane/preview-connections`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: PlanePreviewConnection[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `preview connections ${res.status}`)
+  return body.items ?? []
+}
+
+export type PlaneNlpScope = 'in_scope' | 'complex' | 'blocked'
+
+export interface PlaneNlpToSqlResult {
+  ok: boolean
+  question: string
+  sql: string | null
+  explanation: string
+  scope: PlaneNlpScope
+  mode: 'llm' | 'heuristic'
+  model: string | null
+  tablesUsed: string[]
+  policy: string
+}
+
+/** Managed Plane SSM — bounded NLP → read-only SQL (schema metadata only). */
+export async function generatePlaneSqlFromNlpApi(
+  input: {
+    question: string
+    datasetId?: string | null
+    modelId?: string
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PlaneNlpToSqlResult> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/plane/nlp-to-sql`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as PlaneNlpToSqlResult & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `plane nlp ${res.status}`)
+  return body
 }
 
 export async function reportExternalJobStatusApi(
@@ -907,6 +1139,14 @@ export interface RetrievedChunk {
   score: number
 }
 
+export type ChatPlaneScope = 'in_scope' | 'needs_plane' | 'blocked'
+
+export interface ChatCapabilities {
+  chatMay: string[]
+  chatMayNot: string[]
+  planeMay: string[]
+}
+
 export interface ChatResponse {
   ok: boolean
   reply: string
@@ -919,6 +1159,9 @@ export interface ChatResponse {
   model?: string | null
   retrievedChunks?: RetrievedChunk[]
   vectorReady?: boolean
+  planeScope?: ChatPlaneScope
+  planeScopeHint?: string | null
+  chatCapabilities?: ChatCapabilities
   contextStats?: {
     tableCount: number
     columnCount: number
@@ -1561,6 +1804,38 @@ export async function materializeJob(
     throw new Error((body.error ?? `materialize ${res.status}`) + detail)
   }
   return body
+}
+
+export interface MaterializationEvent {
+  id: string
+  jobId: string
+  jobTitle: string | null
+  connectionId: string | null
+  connectionName: string | null
+  engine: string | null
+  kind: string
+  qualifiedName: string
+  status: string
+  meta: Record<string, unknown>
+  createdAt: string
+}
+
+export async function fetchMaterializations(
+  opts: { jobId?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<MaterializationEvent[]> {
+  const q = new URLSearchParams()
+  if (opts.jobId) q.set('jobId', opts.jobId)
+  if (opts.limit != null) q.set('limit', String(opts.limit))
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/materializations?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    events?: MaterializationEvent[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `materializations ${res.status}`)
+  return body.events ?? []
 }
 
 /** Wave 3.3 — signed / tokenized export artifact */
@@ -3692,16 +3967,25 @@ export async function closeBreakGlassApi(
 
 export async function fetchSiemConfig(
   workspaceId: string = getActiveWorkspaceId(),
-): Promise<{ enabled: boolean; webhookUrl: string }> {
+): Promise<{
+  enabled: boolean
+  webhookUrl: string
+  lastExportedAt?: string | null
+}> {
   const res = await apiFetch(`/workspaces/${workspaceId}/enterprise/siem`)
   const body = (await res.json().catch(() => ({}))) as {
-    siem?: { enabled?: boolean; webhookUrl?: string }
+    siem?: {
+      enabled?: boolean
+      webhookUrl?: string
+      lastExportedAt?: string | null
+    }
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `siem ${res.status}`)
   return {
     enabled: body.siem?.enabled === true,
     webhookUrl: body.siem?.webhookUrl || '',
+    lastExportedAt: body.siem?.lastExportedAt ?? null,
   }
 }
 
@@ -3799,6 +4083,7 @@ export async function createAbacPolicyApi(
 
 export async function fetchWorkspaceRules(
   workspaceId: string = getActiveWorkspaceId(),
+  opts?: { ensureDefaults?: boolean },
 ): Promise<
   {
     id: string
@@ -3810,7 +4095,8 @@ export async function fetchWorkspaceRules(
     priority: number
   }[]
 > {
-  const res = await apiFetch(`/workspaces/${workspaceId}/rules`)
+  const q = opts?.ensureDefaults ? '?ensureDefaults=1' : ''
+  const res = await apiFetch(`/workspaces/${workspaceId}/rules${q}`)
   const body = (await res.json().catch(() => ({}))) as {
     items?: {
       id: string
@@ -3838,6 +4124,37 @@ export async function createWorkspaceRuleApi(
   const body = (await res.json().catch(() => ({}))) as { item?: unknown; error?: string }
   if (!res.ok) throw new Error(body.error || `rule create ${res.status}`)
   return body.item
+}
+
+export async function updateWorkspaceRuleApi(
+  ruleId: string,
+  patch: {
+    enabled?: boolean
+    title?: string
+    body?: string
+    kind?: string
+    priority?: number
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/rules/${ruleId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: {
+      id: string
+      kind: string
+      title: string
+      body: string
+      enabled: boolean
+      source: string
+      priority: number
+    }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `rule update ${res.status}`)
+  return body.item!
 }
 
 export async function fetchJoinComments(
@@ -3952,8 +4269,12 @@ export async function reviewTransformApi(
     `/workspaces/${workspaceId}/transforms/${draftId}/review`,
     { method: 'POST', body: JSON.stringify({ action }) },
   )
-  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: string
+    item?: { id: string; jobId?: string | null; status: string }
+  }
   if (!res.ok) throw new Error(body.error || `review ${res.status}`)
+  return body.item
 }
 
 export async function fetchProposals(

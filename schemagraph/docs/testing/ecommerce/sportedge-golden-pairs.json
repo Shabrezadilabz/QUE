@@ -1,0 +1,21 @@
+{
+  "description": "Golden join pairs for SportEdge Postgres ↔ Excel tester pack (Que /eval page)",
+  "pairs": [
+    { "fromTable": "customers", "fromColumn": "customer_id", "toTable": "leads", "toColumn": "customer_id" },
+    { "fromTable": "customers", "fromColumn": "email", "toTable": "leads", "toColumn": "email" },
+    { "fromTable": "customers", "fromColumn": "email", "toTable": "accounts", "toColumn": "owner_email" },
+    { "fromTable": "products", "fromColumn": "sku", "toTable": "products_catalog", "toColumn": "sku" },
+    { "fromTable": "orders", "fromColumn": "order_id", "toTable": "order_shipments", "toColumn": "order_id" },
+    { "fromTable": "orders", "fromColumn": "customer_id", "toTable": "invoices", "toColumn": "customer_id" },
+    { "fromTable": "order_items", "fromColumn": "sku", "toTable": "products_catalog", "toColumn": "sku" },
+    { "fromTable": "finance.payments", "fromColumn": "order_id", "toTable": "orders", "toColumn": "order_id" },
+    { "fromTable": "finance.invoices", "fromColumn": "order_id", "toTable": "orders", "toColumn": "order_id" },
+    { "fromTable": "finance.refunds", "fromColumn": "order_id", "toTable": "orders", "toColumn": "order_id" },
+    { "fromTable": "delivery_addresses", "fromColumn": "order_id", "toTable": "orders", "toColumn": "order_id" },
+    { "fromTable": "order_tracking", "fromColumn": "order_id", "toTable": "orders", "toColumn": "order_id" },
+    { "fromTable": "wishlist", "fromColumn": "customer_id", "toTable": "customers", "toColumn": "customer_id" },
+    { "fromTable": "wishlist", "fromColumn": "sku", "toTable": "products", "toColumn": "sku" },
+    { "fromTable": "product_variants", "fromColumn": "product_id", "toTable": "products", "toColumn": "product_id" },
+    { "fromTable": "orders", "fromColumn": "brand_id", "toTable": "brands", "toColumn": "brand_id" }
+  ]
+}

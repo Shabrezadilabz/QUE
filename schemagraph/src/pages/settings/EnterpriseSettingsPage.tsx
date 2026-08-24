@@ -41,6 +41,9 @@ export function EnterpriseSettingsPage() {
   const [cmk, setCmk] = useState<CmkStatus | null>(null)
   const [glass, setGlass] = useState<BreakGlassEvent[]>([])
   const [siemUrl, setSiemUrl] = useState('')
+  const [siemEnabled, setSiemEnabled] = useState(false)
+  const [siemLastExported, setSiemLastExported] = useState<string | null>(null)
+  const [siemPushResult, setSiemPushResult] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -71,6 +74,8 @@ export function EnterpriseSettingsPage() {
     setCmk(c)
     setGlass(g)
     setSiemUrl(siem.webhookUrl || '')
+    setSiemEnabled(siem.enabled)
+    setSiemLastExported(siem.lastExportedAt ?? null)
   }
 
   useEffect(() => {
@@ -384,6 +389,28 @@ export function EnterpriseSettingsPage() {
           <h2 className="font-headline text-base font-semibold text-on-surface-variant">
             SIEM export
           </h2>
+          <p className="mt-xs font-body text-[12px] text-on-surface-variant">
+            Auto-push runs every ~10 minutes when enabled (server cron). Manual push
+            below exports audit events as NDJSON.
+          </p>
+          {siemLastExported ? (
+            <p className="mt-xs font-body text-[11px] text-on-surface-variant/80">
+              Last export: {new Date(siemLastExported).toLocaleString()}
+            </p>
+          ) : (
+            <p className="mt-xs font-body text-[11px] text-on-surface-variant/80">
+              No exports yet — save webhook URL and enable, or push now.
+            </p>
+          )}
+          <label className="mt-md flex items-center gap-2 font-label text-[13px]">
+            <input
+              type="checkbox"
+              disabled={!canAdmin || busy}
+              checked={siemEnabled}
+              onChange={(e) => setSiemEnabled(e.target.checked)}
+            />
+            Enable scheduled SIEM export
+          </label>
           <input
             value={siemUrl}
             onChange={(e) => setSiemUrl(e.target.value)}
@@ -391,30 +418,41 @@ export function EnterpriseSettingsPage() {
             disabled={!canAdmin || busy}
             className="mt-md w-full rounded-lg border border-outline-variant/40 px-md py-sm font-body text-[13px]"
           />
+          {siemPushResult ? (
+            <p className="mt-sm font-body text-[11px] text-secondary">{siemPushResult}</p>
+          ) : null}
           <div className="mt-sm flex flex-wrap gap-sm">
             <button
               type="button"
               disabled={!canAdmin || busy}
               onClick={() =>
                 void updateSiemConfigApi({
-                  enabled: true,
+                  enabled: siemEnabled,
                   webhookUrl: siemUrl,
                 })
-                  .then(() => setToast('SIEM config saved'))
+                  .then(async () => {
+                    setToast('SIEM config saved')
+                    setSiemPushResult(null)
+                    await reload()
+                  })
                   .catch((err) =>
                     setError(err instanceof Error ? err.message : String(err)),
                   )
               }
               className="rounded-lg border border-secondary px-md py-2 font-label text-[12px] text-secondary disabled:opacity-40"
             >
-              Save &amp; enable
+              Save config
             </button>
             <button
               type="button"
-              disabled={!canAdmin || busy}
+              disabled={!canAdmin || busy || !siemUrl.trim()}
               onClick={() =>
                 void pushSiemApi()
-                  .then((o) => setToast(`Pushed ${o.pushed} events`))
+                  .then((o) => {
+                    setSiemPushResult(`Pushed ${o.pushed} event(s) just now`)
+                    setToast(`Pushed ${o.pushed} events`)
+                    return reload()
+                  })
                   .catch((err) =>
                     setError(err instanceof Error ? err.message : String(err)),
                   )

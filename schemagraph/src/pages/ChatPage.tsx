@@ -16,6 +16,8 @@ import { WarehouseRunsStrip } from '@/components/WarehouseRunsStrip'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { CHAT } from '@/components/chat/chatUi'
 import { SqlHighlight } from '@/components/code/SqlHighlight'
+import { OpenInManagedPlaneButton } from '@/components/plane/OpenInManagedPlaneButton'
+import { ChatPlaneBoundaryCard } from '@/components/chat/ChatPlaneBoundaryCard'
 import {
   OutcomePlanCard,
   detectOutcomeFollowUp,
@@ -84,6 +86,7 @@ import {
   type AgentSession,
   type ChatJobDraft,
   type ChatMessage,
+  type ChatPlaneScope,
   type ChatReferencedTable,
   type ContextPackSummary,
   type OutcomeRecord,
@@ -111,6 +114,10 @@ interface UiMessage {
   outcome?: OutcomeRecord | null
   /** Inline Stitch Agent plan (HITL checkpoints) */
   agentSession?: AgentSession | null
+  planeScope?: ChatPlaneScope
+  planeScopeHint?: string | null
+  /** Original user question — for Managed Plane NLP handoff */
+  planeHandoffQuestion?: string | null
 }
 
 /**
@@ -1033,6 +1040,9 @@ export function ChatPage() {
         retrievedChunks: res.retrievedChunks,
         mode: res.mode,
         model: res.model,
+        planeScope: res.planeScope ?? 'in_scope',
+        planeScopeHint: res.planeScopeHint ?? null,
+        planeHandoffQuestion: message,
         feedback: null,
         at: new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -1040,6 +1050,9 @@ export function ChatPage() {
         }),
       }
       setMessages((prev) => [...prev, assistant])
+      if (res.sql) {
+        window.dispatchEvent(new CustomEvent('que-plane-activity'))
+      }
       if (res.referencedTables?.length) {
         setFocusTables(res.referencedTables)
       }
@@ -2035,6 +2048,14 @@ function ChatBubble({
             ) : null}
           </div>
           <AssistantBody text={message.content} />
+          {message.planeScope && message.planeScope !== 'in_scope' ? (
+            <ChatPlaneBoundaryCard
+              scope={message.planeScope}
+              hint={message.planeScopeHint}
+              sql={message.sql}
+              question={message.planeHandoffQuestion}
+            />
+          ) : null}
           {message.outcome ? (
             <OutcomePlanCard
               outcome={message.outcome}
@@ -2136,13 +2157,23 @@ function ChatBubble({
                 SQL
               </span>
               <SqlHighlight code={message.sql} />
-              <button
-                type="button"
-                className="mt-[8px] pdf-btn-ghost px-[10px] py-[4px] text-[11px]"
-                onClick={() => void navigator.clipboard.writeText(message.sql!)}
-              >
-                Copy SQL
-              </button>
+              <div className="mt-[8px] flex flex-wrap gap-[8px]">
+                <button
+                  type="button"
+                  className="pdf-btn-ghost px-[10px] py-[4px] text-[11px]"
+                  onClick={() => void navigator.clipboard.writeText(message.sql!)}
+                >
+                  Copy SQL
+                </button>
+                <OpenInManagedPlaneButton
+                  sql={message.sql}
+                  detail={message.content.slice(0, 200)}
+                  compact
+                />
+              </div>
+              <p className="mt-[6px] text-[10px] text-[var(--pdf-text-faint)]">
+                Run preview in Managed Plane — row results never enter AI context.
+              </p>
             </div>
           ) : null}
           <VerifyScrubbedSamples

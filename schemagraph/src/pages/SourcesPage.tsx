@@ -41,6 +41,7 @@ import type {
   DataSource,
   DataSourceStatus,
   DataSourceType,
+  DataLandingMode,
 } from '@/types/dataSource'
 
 const CREATABLE: DataSourceType[] = [
@@ -423,6 +424,22 @@ export function SourcesPage() {
         setWizardStep(1)
         setForm(formFromSource(s))
       }
+    }
+  }
+
+  async function setSourceLandingMode(id: string, mode: DataLandingMode) {
+    const source = sources.find((s) => s.id === id)
+    if (!source) return
+    setBusy(true)
+    try {
+      await updateConnection(id, {
+        config: { ...(source.config || {}), dataLandingMode: mode },
+      })
+      await reload(id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -1069,6 +1086,10 @@ export function SourcesPage() {
                     goView('detail', { id })
                   }}
                   onSync={canWrite ? (id) => void syncById(id) : undefined}
+                  onLandingModeChange={
+                    canWrite ? (id, mode) => void setSourceLandingMode(id, mode) : undefined
+                  }
+                  canEditLanding={canWrite}
                   canSync={canWrite}
                   canAdd={canAdmin}
                   onAdd={startCreate}

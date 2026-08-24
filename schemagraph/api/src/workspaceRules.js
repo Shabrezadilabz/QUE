@@ -207,3 +207,31 @@ export async function learnRuleFromPromote(
     userId,
   })
 }
+
+/** Whether the workspace privacy rule gates PII column masking in grids. */
+export async function isHidePiiRuleEnabled(workspaceId) {
+  const rules = await listWorkspaceRules(workspaceId)
+  const privacy = rules.filter((r) => r.kind === 'privacy')
+  if (!privacy.length) return true
+  const hideRule = privacy.find((r) => /hide.*pii/i.test(r.title))
+  if (!hideRule) return true
+  return hideRule.enabled
+}
+
+/** Seed default privacy rule when workspace has none (Rules page + masking). */
+export async function ensureDefaultPrivacyRule(workspaceId) {
+  const rules = await listWorkspaceRules(workspaceId)
+  const has = rules.some(
+    (r) => r.kind === 'privacy' && /hide.*pii/i.test(r.title),
+  )
+  if (has) return null
+  return createWorkspaceRule(workspaceId, {
+    kind: 'privacy',
+    title: 'Hide PII columns by default',
+    body:
+      'Automatically redact columns containing email, phone, or SSN patterns in Managed Plane previews and job output grids.',
+    source: 'system',
+    priority: 50,
+    enabled: true,
+  })
+}

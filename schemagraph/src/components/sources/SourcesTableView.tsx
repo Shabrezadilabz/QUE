@@ -9,7 +9,11 @@ import {
   PdfTableFooter,
   PdfTableShell,
 } from '@/components/pdf/PdfTable'
-import type { DataSource, DataSourceStatus } from '@/types/dataSource'
+import type { DataSource, DataSourceStatus, DataLandingMode } from '@/types/dataSource'
+import {
+  readDataLandingMode,
+  SourceLandingModeSelect,
+} from '@/components/sources/SourceLandingModeSelect'
 
 const STATUS: Record<
   DataSourceStatus,
@@ -48,6 +52,7 @@ const HEADERS = [
   'SOURCE NAME',
   'TYPE',
   'STATUS',
+  'DATA LANDING',
   'LAST SYNCED',
   'ACTIONS',
 ] as const
@@ -56,9 +61,11 @@ type Props = {
   sources: DataSource[]
   onSelect: (id: string) => void
   onSync?: (id: string) => void
+  onLandingModeChange?: (id: string, mode: DataLandingMode) => void
   canSync?: boolean
   canAdd?: boolean
   onAdd?: () => void
+  canEditLanding?: boolean
 }
 
 /** Sources list — PDF page-02 style segregated table (slate, no mint). */
@@ -66,9 +73,11 @@ export function SourcesTableView({
   sources,
   onSelect,
   onSync,
+  onLandingModeChange,
   canSync,
   canAdd,
   onAdd,
+  canEditLanding,
 }: Props) {
   const active = sources.filter((s) => s.status === 'active').length
   const healthPct =
@@ -169,6 +178,22 @@ export function SourcesTableView({
                     {st.label}
                   </span>
                 </td>
+                <td className={PDF_TABLE_CELL}>
+                  {canEditLanding && onLandingModeChange ? (
+                    <SourceLandingModeSelect
+                      value={readDataLandingMode(s.config)}
+                      onChange={(mode) => onLandingModeChange(s.id, mode)}
+                    />
+                  ) : (
+                    <span className="text-[11px] text-[#a3afbe]">
+                      {readDataLandingMode(s.config) === 'schema_only'
+                        ? 'Schema only'
+                        : readDataLandingMode(s.config) === 'managed_plane'
+                          ? 'Managed'
+                          : 'Warehouse'}
+                    </span>
+                  )}
+                </td>
                 <td className={`${PDF_TABLE_CELL} text-[12px] text-[#c8cdd3]`}>
                   {relativeSyncLabel(s.lastSyncAt || s.updatedAt)}
                 </td>
@@ -197,7 +222,7 @@ export function SourcesTableView({
           })}
           {canAdd && onAdd ? (
             <tr className={PDF_TABLE_ROW}>
-              <td colSpan={5} className={PDF_TABLE_CELL}>
+              <td colSpan={6} className={PDF_TABLE_CELL}>
                 <button
                   type="button"
                   onClick={onAdd}
@@ -212,7 +237,7 @@ export function SourcesTableView({
           {!sources.length ? (
             <tr className={PDF_TABLE_ROW}>
               <td
-                colSpan={5}
+                colSpan={6}
                 className={`${PDF_TABLE_CELL} py-[32px] text-center text-[13px] text-[#a3afbe]`}
               >
                 No sources yet.{' '}

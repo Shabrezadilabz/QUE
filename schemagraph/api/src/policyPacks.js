@@ -130,8 +130,21 @@ export async function ensureDefaultPolicyPacks(workspaceId) {
   return listPolicyPacks(workspaceId)
 }
 
+/** Column names tagged as PII for grid masking. */
+export async function loadPiiTaggedColumnNames(workspaceId) {
+  const { rows } = await query(
+    `SELECT c.name
+     FROM schema_columns c
+     JOIN schema_objects o ON o.id = c.schema_object_id
+     WHERE o.workspace_id = $1
+       AND COALESCE(c.meta_json->'piiTags', '[]'::jsonb) <> '[]'::jsonb`,
+    [workspaceId],
+  )
+  return new Set(rows.map((r) => String(r.name || '').toLowerCase()).filter(Boolean))
+}
+
 /**
- * Apply PII pack rules to schema columns (tag in meta — does not rewrite warehouse).
+ * Apply PII pack rules to schema columns (persist tags in meta_json).
  */
 export async function applyPiiPolicyPack(workspaceId, packId = null) {
   let packs = await listPolicyPacks(workspaceId)
@@ -158,23 +171,31 @@ export async function applyPiiPolicyPack(workspaceId, packId = null) {
   const preview = []
   for (const col of cols) {
     const n = String(col.name).toLowerCase()
+    let colTags = []
     for (const rule of pack.rules) {
       const match = String(rule.match || '')
       const m = match.match(/column_name:~(.+)/)
       if (!m) continue
       const re = new RegExp(m[1], 'i')
       if (re.test(n)) {
-        tagged += 1
-        if (preview.length < 30) {
-          preview.push({
-            table: col.table_name,
-            column: col.name,
-            tag: rule.tag,
-          })
-        }
+        colTags.push(rule.tag)
         break
       }
     }
+    if (!colTags.length) continue
+    tagged += 1
+    if (preview.length < 30) {
+      preview.push({
+        table: col.table_name,
+        column: col.name,
+        tag: colTags[0],
+      })
+    }
+    await query(
+      `UPDATE schema_columns SET meta_json = COALESCE(meta_json, '{}'::jsonb) || $2::jsonb
+       WHERE id = $1`,
+      [col.id, JSON.stringify({ piiTags: colTags })],
+    )
   }
 
   return {
@@ -183,6 +204,6 @@ export async function applyPiiPolicyPack(workspaceId, packId = null) {
     scannedColumns: cols.length,
     tagged,
     preview,
-    note: 'Tags are advisory metadata for stewards — Que does not rewrite warehouse columns.',
+    note: 'PII tags persisted to schema_columns.meta_json — used for grid masking.',
   }
 }

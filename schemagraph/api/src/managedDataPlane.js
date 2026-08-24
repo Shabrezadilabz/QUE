@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { query } from './db.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { recordAuditEvent } from './auditLog.js'
+import { getConnectionSecrets } from './connections.js'
 
 function slugify(name) {
   return (
@@ -328,6 +329,70 @@ export async function landManagedDatasetFromJobRun(
     userId,
   })
   return { landed: true, source, item }
+}
+
+/**
+ * Auto-land scrubbed pinned samples after sync when source is set to managed_plane.
+ */
+export async function landManagedFromConnectionSync(
+  workspaceId,
+  connectionId,
+  { userId = null } = {},
+) {
+  if (!(await isManagedPlaneEnabled(workspaceId))) {
+    return { landed: false, reason: 'managed_plane_off' }
+  }
+
+  const conn = await getConnectionSecrets(workspaceId, connectionId)
+  if (!conn) return { landed: false, reason: 'connection_not_found' }
+
+  const { rows: pins } = await query(
+    `SELECT table_name, row_count, columns_json, rows_json
+     FROM pinned_table_samples
+     WHERE workspace_id = $1 AND connection_id = $2
+     ORDER BY table_name`,
+    [workspaceId, connectionId],
+  )
+
+  if (!pins.length) {
+    return { landed: false, reason: 'no_pinned_samples' }
+  }
+
+  const datasets = []
+  for (const pin of pins) {
+    const pinRows = Array.isArray(pin.rows_json) ? pin.rows_json : []
+    if (!pinRows.length) continue
+    const cols = Array.isArray(pin.columns_json) ? pin.columns_json : []
+    const ds = await upsertManagedDatasetFromJob(workspaceId, {
+      name: `${conn.name} · ${pin.table_name}`,
+      description: `Auto-landed from sync — scrubbed pinned samples (${pin.row_count || pinRows.length} rows)`,
+      columns: cols,
+      rows: pinRows,
+      certify: false,
+      userId,
+    })
+    datasets.push(ds)
+  }
+
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId: userId,
+    action: 'managed_dataset.sync_land',
+    resourceType: 'connection',
+    resourceId: connectionId,
+    summary: `Auto-landed ${datasets.length} managed dataset(s) from sync`,
+    meta: {
+      connectionName: conn.name,
+      tableCount: datasets.length,
+      totalRows: datasets.reduce((n, d) => n + (d.rowCount || 0), 0),
+    },
+  })
+
+  return {
+    landed: datasets.length > 0,
+    datasets,
+    tableCount: datasets.length,
+  }
 }
 
 /**

@@ -3,6 +3,7 @@ import type { DataSource } from '@/types/dataSource'
 import type { StitchJob } from '@/services/stitchApi'
 import {
   fetchWorkspaceSources,
+  fetchMaterializations,
   materializeJob,
 } from '@/services/stitchApi'
 
@@ -38,6 +39,32 @@ export function MaterializePanel({
   const [schema, setSchema] = useState('')
   const [replace, setReplace] = useState(false)
   const [confirm, setConfirm] = useState(false)
+  const [planned, setPlanned] = useState<
+    { id: string; connectionName: string | null; createdAt: string }[]
+  >([])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchMaterializations({ jobId: job.id, limit: 10 })
+      .then((events) => {
+        if (cancelled) return
+        setPlanned(
+          events
+            .filter((e) => e.status === 'planned')
+            .map((e) => ({
+              id: e.id,
+              connectionName: e.connectionName,
+              createdAt: e.createdAt,
+            })),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setPlanned([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [job.id])
 
   useEffect(() => {
     let cancelled = false
@@ -99,6 +126,26 @@ export function MaterializePanel({
           Result rows stay there — Que stores audit metadata only.
         </p>
       )}
+
+      {planned.length > 0 ? (
+        <div className="mt-md rounded-lg border border-secondary/30 bg-secondary/5 px-md py-sm">
+          <p className="font-label text-[11px] font-semibold text-secondary">
+            Sync queued materialize ({planned.length})
+          </p>
+          <p className="mt-1 font-body text-[12px] text-on-surface-variant">
+            Source sync planned CTAS/VIEW for this job — review SQL, pick destination,
+            then confirm below (no silent DDL).
+          </p>
+          <ul className="mt-sm space-y-1 font-body text-[11px] text-on-surface-variant">
+            {planned.map((p) => (
+              <li key={p.id}>
+                · {p.connectionName || 'connection'} ·{' '}
+                {new Date(p.createdAt).toLocaleString()}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {!sources.length ? (
         <p className="mt-md font-body text-[12px] text-on-surface-variant">

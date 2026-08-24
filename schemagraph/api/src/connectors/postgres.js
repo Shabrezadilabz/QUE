@@ -32,6 +32,7 @@ function inferSsl(config = {}) {
     host.startsWith('192.168.') ||
     host.startsWith('10.') ||
     host === 'host.docker.internal'
+  // Neon, Supabase, RDS, Render, etc. require TLS from remote API hosts.
   return local ? false : { rejectUnauthorized: false }
 }
 

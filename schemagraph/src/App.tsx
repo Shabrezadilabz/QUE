@@ -36,6 +36,7 @@ import { StewardPage } from '@/pages/StewardPage'
 import { TeamSettingsPage } from '@/pages/settings/TeamSettingsPage'
 import { EnterpriseSettingsPage } from '@/pages/settings/EnterpriseSettingsPage'
 import { ManagedDatasetsPage } from '@/pages/ManagedDatasetsPage'
+import { ManagedPlanePage } from '@/pages/ManagedPlanePage'
 import { BiChartsPage } from '@/pages/BiChartsPage'
 import { CompliancePage } from '@/pages/CompliancePage'
 import { ProductPage } from '@/pages/ProductPage'
@@ -185,6 +186,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <ManagedDatasetsPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/plane"
+              element={
+                <RequireAuth>
+                  <ManagedPlanePage />
                 </RequireAuth>
               }
             />

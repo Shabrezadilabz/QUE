@@ -26,6 +26,7 @@ import { appendTurn } from './ai/feedback.js'
 import { vectorExtensionReady } from './ai/vectorStore.js'
 import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
+import { enrichChatWithPlaneScope } from './chatScope.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { bestJoinOnClause } from './inferJoins.js'
@@ -89,9 +90,9 @@ function mergeCitations(...lists) {
   return [...new Set(lists.flat().filter(Boolean))]
 }
 
-function finalizeChatResult(result, pack) {
-  // UI “Verify rows” shows these — hard-cap 5–10 scrubbed samples (never managed dump)
-  return attachSamplePreviews(result, pack, 4, 10)
+function finalizeChatResult(result, pack, userMessage = '') {
+  const withSamples = attachSamplePreviews(result, pack, 4, 10)
+  return enrichChatWithPlaneScope(userMessage, withSamples, pack)
 }
 
 /**
@@ -208,7 +209,7 @@ export async function answerChat(
       driftBlocking: hasOpenHighDrift,
     }
     await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
-    return finalizeChatResult(out, pack)
+    return finalizeChatResult(out, pack, trimmed)
   }
 
   // Pinned scrubbed samples for AI (default ON) — never managed rows
@@ -288,7 +289,7 @@ export async function answerChat(
           driftBlocking: hasOpenHighDrift,
         }
         await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
-        return finalizeChatResult(out, pack)
+        return finalizeChatResult(out, pack, trimmed)
       }
     } catch (err) {
       console.warn('[Que chat] RAG-LLM failed:', err.message || err)
@@ -310,7 +311,7 @@ export async function answerChat(
     driftBlocking: hasOpenHighDrift,
   }
   await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
-  return finalizeChatResult(out, pack)
+  return finalizeChatResult(out, pack, trimmed)
 }
 
 async function persistTurns(workspaceId, sessionId, userMsg, assistant) {

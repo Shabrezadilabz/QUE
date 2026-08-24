@@ -22,6 +22,12 @@ export type DataSourceType =
   | 'csv'
   | 'kafka'
 
+/** Per-source data landing preference (stored in connection config). */
+export type DataLandingMode =
+  | 'schema_only'
+  | 'managed_plane'
+  | 'customer_warehouse'
+
 export interface DataSource {
   /** Stable id — use for selection + API keys later */
   id: string
@@ -53,4 +59,7 @@ export interface DataSource {
   syncNextAt?: string | null
   /** Last scheduler-driven sync (ISO) */
   lastScheduledSyncAt?: string | null
+  /** Sprint 4 — where row data should land when sync/materialize is enabled */
+  dataLandingMode?: DataLandingMode
 }
+

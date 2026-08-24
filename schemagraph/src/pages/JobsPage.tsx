@@ -5,6 +5,7 @@ import {
   JobsMonitorView,
   type LiveLogRow,
 } from '@/components/jobs/JobsMonitorView'
+import { TransformDraftsPanel } from '@/components/jobs/TransformDraftsPanel'
 import { JobDeployPanel } from '@/components/jobs/JobDeployPanel'
 import { JobManagedDataLayer } from '@/components/jobs/JobManagedDataLayer'
 import { JobValidationLayer } from '@/components/jobs/JobValidationLayer'
@@ -229,6 +230,35 @@ export function JobsPage() {
       cancelled = true
     }
   }, [jobs, selectedId, streamPaused])
+
+  /** Poll monitor + active runs while jobs are in flight. */
+  useEffect(() => {
+    const monitorActive = !selectedId && !streamPaused
+    const runActive =
+      running ||
+      latestRun?.status === 'running' ||
+      recentRuns.some(
+        (r) => r.status === 'running' || r.status === 'queued',
+      )
+    if (!monitorActive && !runActive) return
+    const id = window.setInterval(() => {
+      void reload()
+      if (selectedId) {
+        void fetchJobRuns(selectedId)
+          .then((runs) => {
+            if (runs[0]) setLatestRun(runs[0])
+          })
+          .catch(() => undefined)
+      }
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [
+    selectedId,
+    streamPaused,
+    running,
+    latestRun?.status,
+    recentRuns,
+  ])
 
   function closeEditor() {
     if (
@@ -683,6 +713,13 @@ export function JobsPage() {
               </button>
             </p>
           ) : null}
+            <TransformDraftsPanel
+              canWrite={canWrite}
+              onApplied={(jobId) => {
+                void reload()
+                openJob(jobId)
+              }}
+            />
             <JobsMonitorView
               jobs={jobs}
               filtered={filtered}

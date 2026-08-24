@@ -295,6 +295,14 @@ export async function reviewTransformDraft(
        WHERE workspace_id = $1 AND id = $2`,
       [workspaceId, draftId, userId],
     )
+    void recordAuditEvent({
+      workspaceId,
+      actorUserId: userId,
+      action: 'transform_draft.reject',
+      resourceType: 'transform_draft',
+      resourceId: draftId,
+      summary: `Rejected transform draft`,
+    })
     return getTransformDraft(workspaceId, draftId)
   }
 
@@ -304,6 +312,14 @@ export async function reviewTransformDraft(
        WHERE workspace_id = $1 AND id = $2`,
       [workspaceId, draftId, userId],
     )
+    void recordAuditEvent({
+      workspaceId,
+      actorUserId: userId,
+      action: 'transform_draft.approve',
+      resourceType: 'transform_draft',
+      resourceId: draftId,
+      summary: `Approved transform draft`,
+    })
     return getTransformDraft(workspaceId, draftId)
   }
 

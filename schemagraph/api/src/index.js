@@ -164,6 +164,7 @@ import {
   deletePolicyPack,
   ensureDefaultPolicyPacks,
   applyPiiPolicyPack,
+  loadPiiTaggedColumnNames,
 } from './policyPacks.js'
 import {
   listGovernanceTickets,
@@ -195,6 +196,7 @@ import {
   listAbacPolicies,
   createAbacPolicy,
   deleteAbacPolicy,
+  requireAbac,
 } from './abac.js'
 import {
   listBreakGlass,
@@ -257,6 +259,7 @@ import {
   getPinnedSample,
   ensurePinnedSamplesForConnection,
 } from './pinnedSamples.js'
+import { scrubGridRows } from './privacy/gridScrub.js'
 import {
   listManagedDatasets,
   getManagedDataset,
@@ -269,6 +272,19 @@ import {
   purgeExpiredManagedDatasets,
   landManagedDatasetFromJobRun,
 } from './managedDataPlane.js'
+import {
+  listPlaneActivityEvents,
+  countUnreadPlaneActivityEvents,
+  createPlaneActivityEvent,
+  markPlaneActivityEventsRead,
+} from './planeActivity.js'
+import { generatePlaneSqlFromNlp } from './planeNlp.js'
+import {
+  previewPlaneQuery,
+  listPlanePreviewConnections,
+  noteSourceLandingAfterSync,
+  normalizeDataLandingMode,
+} from './planeQuery.js'
 import { collectOpsSnapshot, formatPrometheus } from './opsMetrics.js'
 import {
   listWorkspaceRules,
@@ -276,6 +292,8 @@ import {
   updateWorkspaceRule,
   deleteWorkspaceRule,
   learnRuleFromPromote,
+  ensureDefaultPrivacyRule,
+  isHidePiiRuleEnabled,
 } from './workspaceRules.js'
 import { listJoinComments, addJoinComment } from './joinComments.js'
 import {
@@ -384,6 +402,7 @@ import {
   runGoldenEvalNow,
   startGoldenEvalLoop,
 } from './scheduledGoldenEval.js'
+import { startSiemExportLoop } from './scheduledSiemExport.js'
 import {
   syncWithRetries,
   getConnectorReliabilityStatus,
@@ -1475,6 +1494,15 @@ app.post(
           tables: result?.tablesUpserted ?? result?.applied?.tables ?? null,
         },
       })
+      try {
+        await noteSourceLandingAfterSync(
+          workspaceId,
+          connectionId,
+          req.user?.id ?? null,
+        )
+      } catch (landErr) {
+        console.warn('[Que] source landing note:', landErr.message || landErr)
+      }
       res.json({ ok: true, ...result })
     } catch (err) {
       const status = err.status || 500
@@ -1579,6 +1607,24 @@ app.post(
       mentions,
       { modelId, sessionId },
     )
+    if (answer?.sql) {
+      try {
+        await createPlaneActivityEvent(
+          req.params.workspaceId,
+          {
+            kind: 'drafted',
+            source: 'chat',
+            actor: 'ai_chat',
+            title: 'SQL draft from AI Chat',
+            detail: String(message).slice(0, 240),
+            sql: answer.sql,
+          },
+          req.user?.id ?? null,
+        )
+      } catch (planeErr) {
+        console.warn('[Que] plane activity (chat sql):', planeErr.message || planeErr)
+      }
+    }
     res.json({ ok: true, ...answer })
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) })
@@ -2102,6 +2148,7 @@ app.get('/workspaces/:workspaceId/lineage', async (req, res) => {
 app.post(
   '/workspaces/:workspaceId/jobs/:jobId/run',
   requireMinRole('member'),
+  requireAbac('job.run', 'job'),
   async (req, res) => {
     try {
       const job = await getJob(req.params.workspaceId, req.params.jobId)
@@ -2145,8 +2192,30 @@ app.post(
           sqlText: job.sqlText,
         }).catch(() => {})
       }
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: run.status === 'failed' ? 'job.run_failed' : 'job.run',
+        resourceType: 'job',
+        resourceId: req.params.jobId,
+        summary: `Job run ${run.status} · ${job.title}`,
+        meta: {
+          runId: run.id,
+          mode: run.mode || req.body?.mode || 'dry_run',
+          scope: run.scope || req.body?.scope || null,
+        },
+      })
       res.status(201).json({ ok: true, run })
     } catch (err) {
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id,
+        action: 'job.run_failed',
+        resourceType: 'job',
+        resourceId: req.params.jobId,
+        summary: `Job run error`,
+        meta: { error: String(err.message || err).slice(0, 500) },
+      }).catch(() => {})
       res.status(err.status || 500).json({ error: String(err.message || err) })
     }
   },
@@ -4372,6 +4441,25 @@ app.post(
         samplePreviews: run.output?.samplePreviews || [],
         userId: req.user?.id ?? null,
       })
+      if (land?.landed && land?.item) {
+        try {
+          await createPlaneActivityEvent(
+            req.params.workspaceId,
+            {
+              kind: 'landed',
+              source: 'job',
+              actor: 'system',
+              title: `Landed dataset ${land.item.name}`,
+              detail: land.source ? `From ${land.source} run` : undefined,
+              datasetId: land.item.id,
+              rowCount: land.item.rowCount,
+            },
+            req.user?.id ?? null,
+          )
+        } catch (planeErr) {
+          console.warn('[Que] plane activity (land):', planeErr.message || planeErr)
+        }
+      }
       res.json({ ok: true, ...land })
     } catch (err) {
       res.status(err.status || 500).json({
@@ -4411,7 +4499,25 @@ app.get(
         req.params.datasetId,
         { limit: req.query.limit, offset: req.query.offset },
       )
-      res.json({ ok: true, ...result })
+      const hidePii = await isHidePiiRuleEnabled(req.params.workspaceId)
+      const taggedNames = hidePii
+        ? await loadPiiTaggedColumnNames(req.params.workspaceId)
+        : null
+      const colNames = (result.dataset.columns || []).map((c) => c.name)
+      const maskedRows = hidePii
+        ? result.rows.map((r) => ({
+            ...r,
+            data:
+              scrubGridRows([r.data || {}], colNames, { taggedNames })[0] ||
+              r.data,
+          }))
+        : result.rows
+      res.json({
+        ok: true,
+        ...result,
+        rows: maskedRows,
+        displayMasked: hidePii,
+      })
     } catch (err) {
       res.status(err.status || 500).json({
         error: String(err.message || err),
@@ -4450,6 +4556,22 @@ app.post(
         req.params.datasetId,
         req.user?.id ?? null,
       )
+      try {
+        await createPlaneActivityEvent(
+          req.params.workspaceId,
+          {
+            kind: 'certified',
+            source: 'job',
+            actor: 'user',
+            title: `Certified ${item.name}`,
+            datasetId: item.id,
+            rowCount: item.rowCount,
+          },
+          req.user?.id ?? null,
+        )
+      } catch (planeErr) {
+        console.warn('[Que] plane activity (certify):', planeErr.message || planeErr)
+      }
       res.json({ ok: true, item })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
@@ -4472,6 +4594,144 @@ app.delete(
     }
   },
 )
+
+/* ── Managed Plane activity feed ── */
+app.get('/workspaces/:workspaceId/plane/activity', async (req, res) => {
+  try {
+    const source =
+      typeof req.query.source === 'string' ? req.query.source : undefined
+    const items = await listPlaneActivityEvents(req.params.workspaceId, {
+      limit: req.query.limit,
+      offset: req.query.offset,
+      source,
+    })
+    const unread = await countUnreadPlaneActivityEvents(req.params.workspaceId)
+    res.json({ ok: true, items, unread })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/plane/activity/unread', async (req, res) => {
+  try {
+    const unread = await countUnreadPlaneActivityEvents(req.params.workspaceId)
+    res.json({ ok: true, unread })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/plane/activity',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const body = req.body || {}
+      if (!body.kind || !body.source || !body.title) {
+        res.status(400).json({ error: 'kind, source, and title required' })
+        return
+      }
+      const item = await createPlaneActivityEvent(
+        req.params.workspaceId,
+        {
+          kind: body.kind,
+          source: body.source,
+          actor: body.actor || 'user',
+          title: body.title,
+          detail: body.detail,
+          sql: body.sql,
+          datasetId: body.datasetId,
+          connectionId: body.connectionId,
+          rowCount: body.rowCount,
+          durationMs: body.durationMs,
+        },
+        req.user?.id ?? null,
+      )
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/plane/activity/mark-read',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await markPlaneActivityEventsRead(req.params.workspaceId)
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/plane/nlp-to-sql',
+  requireMinRole('member'),
+  async (req, res) => {
+    const question = req.body?.question
+    if (!question || typeof question !== 'string') {
+      res.status(400).json({ error: 'body.question string required' })
+      return
+    }
+    try {
+      const result = await generatePlaneSqlFromNlp(req.params.workspaceId, {
+        question,
+        datasetId:
+          typeof req.body?.datasetId === 'string' ? req.body.datasetId : null,
+        modelId:
+          typeof req.body?.modelId === 'string' ? req.body.modelId : null,
+        userId: req.user?.id ?? null,
+      })
+      res.json(result)
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/plane/query/preview',
+  requireMinRole('member'),
+  requireAbac('plane.query', 'plane'),
+  async (req, res) => {
+    const sql = req.body?.sql
+    if (!sql || typeof sql !== 'string') {
+      res.status(400).json({ error: 'body.sql string required' })
+      return
+    }
+    try {
+      const result = await previewPlaneQuery(req.params.workspaceId, {
+        sql,
+        connectionId:
+          typeof req.body?.connectionId === 'string'
+            ? req.body.connectionId
+            : null,
+        datasetId:
+          typeof req.body?.datasetId === 'string' ? req.body.datasetId : null,
+        maxRows: req.body?.maxRows,
+        userId: req.user?.id ?? null,
+      })
+      res.json(result)
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/plane/preview-connections', async (req, res) => {
+  try {
+    const items = await listPlanePreviewConnections(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
 
 /* ── Production: external job status bridge ── */
 app.post(
@@ -4877,6 +5137,9 @@ app.get('/status', async (_req, res) => {
 /* ── Gap close: workspace rules ── */
 app.get('/workspaces/:workspaceId/rules', async (req, res) => {
   try {
+    if (req.query.ensureDefaults === '1') {
+      await ensureDefaultPrivacyRule(req.params.workspaceId)
+    }
     const items = await listWorkspaceRules(req.params.workspaceId)
     res.json({ ok: true, items })
   } catch (err) {
@@ -5490,6 +5753,7 @@ ensureDevUserPassword()
       startScheduledSyncLoop()
       startScheduledJobsLoop()
       startGoldenEvalLoop()
+      startSiemExportLoop()
       // Offer B retention — purge expired managed datasets hourly
       setInterval(() => {
         void purgeExpiredManagedDatasets().catch((err) =>

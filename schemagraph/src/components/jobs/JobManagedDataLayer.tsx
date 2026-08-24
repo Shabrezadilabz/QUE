@@ -6,6 +6,7 @@ import {
   fetchManagedDatasets,
   type ManagedDataset,
 } from '@/services/stitchApi'
+import { formatGridCell } from '@/utils/maskGridCell'
 
 type Props = {
   jobId: string
@@ -30,6 +31,7 @@ export function JobManagedDataLayer({
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [displayMasked, setDisplayMasked] = useState(false)
 
   const reload = useCallback(async () => {
     setError(null)
@@ -58,7 +60,10 @@ export function JobManagedDataLayer({
       return
     }
     void fetchManagedDatasetRows(selectedId, { limit: compact ? 12 : 40 })
-      .then((r) => setRows(r.rows.map((x) => x.data)))
+      .then((r) => {
+        setDisplayMasked(Boolean(r.displayMasked))
+        setRows(r.rows.map((x) => x.data))
+      })
       .catch(() => setRows([]))
   }, [selectedId, compact])
 
@@ -146,6 +151,7 @@ export function JobManagedDataLayer({
           <p className="mt-0.5 text-[11px] text-on-surface-variant">
             {selected?.rowCount ?? 0} rows ·{' '}
             {selected?.certified ? 'certified for BI' : 'draft — certify to use in Report Studio'}
+            {displayMasked ? ' · PII masked' : ''}
             {' · '}
             AI denied row payloads
           </p>
@@ -225,7 +231,7 @@ export function JobManagedDataLayer({
                 >
                   {cols.map((c) => (
                     <td key={c} className="px-sm py-1.5 font-mono text-on-surface">
-                      {String(row[c] ?? '')}
+                      {formatGridCell(c, row[c], { forceMask: displayMasked })}
                     </td>
                   ))}
                 </tr>

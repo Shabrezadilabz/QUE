@@ -5,6 +5,7 @@
 import { query } from './db.js'
 import { syncWithRetries } from './connectorReliability.js'
 import { recordAuditEvent } from './auditLog.js'
+import { noteSourceLandingAfterSync } from './planeQuery.js'
 
 export const SYNC_SCHEDULES = new Set(['off', 'hourly', 'daily'])
 
@@ -239,6 +240,11 @@ export async function runScheduledSyncTick(opts = {}) {
           durationMs: Date.now() - started,
         },
       })
+      try {
+        await noteSourceLandingAfterSync(row.workspace_id, row.id, null)
+      } catch (landErr) {
+        console.warn('[Que] scheduled sync landing:', landErr.message || landErr)
+      }
       results.push({
         connectionId: row.id,
         workspaceId: row.workspace_id,

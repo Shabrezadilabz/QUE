@@ -163,7 +163,7 @@ export async function getWorkspaceSettings(workspaceId) {
   }
 
   let secretsStatus = null
-  let keys = { openai: null, anthropic: null }
+  let keys = { openai: null, anthropic: null, openrouter: null }
   try {
     secretsStatus = await getSecretsStatus(workspaceId)
     keys = await resolveProviderKeys(workspaceId)
@@ -172,7 +172,7 @@ export async function getWorkspaceSettings(workspaceId) {
   }
 
   const models = listAvailableModels(keys)
-  const embMode = embeddingMode(keys.openai)
+  const embMode = embeddingMode(keys)
 
   return {
     workspace: {
@@ -209,8 +209,10 @@ export async function getWorkspaceSettings(workspaceId) {
       llm: {
         openaiConfigured: Boolean(keys.openai),
         anthropicConfigured: Boolean(keys.anthropic),
+        openrouterConfigured: Boolean(keys.openrouter),
         openaiSource: keys.openaiSource,
         anthropicSource: keys.anthropicSource,
+        openrouterSource: keys.openrouterSource,
         byok: true,
       },
       secrets: secretsStatus,

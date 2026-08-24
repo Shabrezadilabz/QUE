@@ -1,12 +1,34 @@
 /**
  * Embeddings for Que RAG.
- * OpenAI text-embedding-3-small when a key is available (BYOK or env);
+ * OpenAI or OpenRouter text-embedding-3-small when a key is available (BYOK or env);
  * deterministic local bag-of-tokens → 1536-d otherwise (always searchable).
  */
+import {
+  embedOpenRouter,
+  embedOpenRouterBatch,
+} from './openrouter.js'
+
 const DIM = 1536
 
-export function embeddingMode(openaiKey = null) {
-  return openaiKey || process.env.OPENAI_API_KEY ? 'openai' : 'local'
+function normalizeEmbedKeys(openaiKeyOrKeys = null) {
+  if (openaiKeyOrKeys && typeof openaiKeyOrKeys === 'object') {
+    return {
+      openai: openaiKeyOrKeys.openai || process.env.OPENAI_API_KEY || null,
+      openrouter:
+        openaiKeyOrKeys.openrouter || process.env.OPENROUTER_API_KEY || null,
+    }
+  }
+  return {
+    openai: openaiKeyOrKeys || process.env.OPENAI_API_KEY || null,
+    openrouter: process.env.OPENROUTER_API_KEY || null,
+  }
+}
+
+export function embeddingMode(openaiKeyOrKeys = null) {
+  const keys = normalizeEmbedKeys(openaiKeyOrKeys)
+  if (keys.openai) return 'openai'
+  if (keys.openrouter) return 'openrouter'
+  return 'local'
 }
 
 export function embeddingDimensions() {
@@ -15,19 +37,28 @@ export function embeddingDimensions() {
 
 /**
  * @param {string} text
- * @param {string | null} [openaiKey]
+ * @param {string | { openai?: string|null, openrouter?: string|null } | null} [openaiKeyOrKeys]
  * @returns {Promise<number[]>}
  */
-export async function embedText(text, openaiKey = null) {
+export async function embedText(text, openaiKeyOrKeys = null) {
   const cleaned = String(text || '').trim().slice(0, 8000)
   if (!cleaned) return zeroVec()
 
-  const key = openaiKey || process.env.OPENAI_API_KEY
-  if (key) {
+  const keys = normalizeEmbedKeys(openaiKeyOrKeys)
+  if (keys.openai) {
     try {
-      return await embedOpenAI(key, cleaned)
+      return await embedOpenAI(keys.openai, cleaned)
     } catch (err) {
-      console.warn('[Que embed] OpenAI failed, using local:', err.message || err)
+      console.warn('[Que embed] OpenAI failed, trying fallback:', err.message || err)
+    }
+  }
+  if (keys.openrouter) {
+    try {
+      const vec = await embedOpenRouter(keys.openrouter, cleaned)
+      if (Array.isArray(vec) && vec.length === DIM) return vec
+      if (Array.isArray(vec)) return padOrTrim(vec, DIM)
+    } catch (err) {
+      console.warn('[Que embed] OpenRouter failed, using local:', err.message || err)
     }
   }
   return embedLocal(cleaned)
@@ -35,17 +66,27 @@ export async function embedText(text, openaiKey = null) {
 
 /**
  * @param {string[]} texts
- * @param {string | null} [openaiKey]
+ * @param {string | { openai?: string|null, openrouter?: string|null } | null} [openaiKeyOrKeys]
  * @returns {Promise<number[][]>}
  */
-export async function embedTexts(texts, openaiKey = null) {
-  const key = openaiKey || process.env.OPENAI_API_KEY
+export async function embedTexts(texts, openaiKeyOrKeys = null) {
+  const keys = normalizeEmbedKeys(openaiKeyOrKeys)
   const list = texts.map((t) => String(t || '').trim().slice(0, 8000))
-  if (key && list.some(Boolean)) {
+  if (keys.openai && list.some(Boolean)) {
     try {
-      return await embedOpenAIBatch(key, list)
+      return await embedOpenAIBatch(keys.openai, list)
     } catch (err) {
-      console.warn('[Que embed] batch failed, using local:', err.message || err)
+      console.warn('[Que embed] batch OpenAI failed, trying fallback:', err.message || err)
+    }
+  }
+  if (keys.openrouter && list.some(Boolean)) {
+    try {
+      const vectors = await embedOpenRouterBatch(keys.openrouter, list)
+      return vectors.map((vec) =>
+        Array.isArray(vec) && vec.length === DIM ? vec : padOrTrim(vec, DIM),
+      )
+    } catch (err) {
+      console.warn('[Que embed] batch OpenRouter failed, using local:', err.message || err)
     }
   }
   return list.map((t) => (t ? embedLocal(t) : zeroVec()))
@@ -73,7 +114,6 @@ async function embedOpenAI(apiKey, text) {
 }
 
 async function embedOpenAIBatch(apiKey, texts) {
-  // Preserve empty slots
   const indexed = texts.map((t, i) => ({ t, i })).filter((x) => x.t)
   if (indexed.length === 0) return texts.map(() => zeroVec())
 
@@ -98,6 +138,13 @@ async function embedOpenAIBatch(apiKey, texts) {
   return out
 }
 
+function padOrTrim(vec, dim) {
+  if (!Array.isArray(vec)) return zeroVec()
+  if (vec.length === dim) return vec
+  if (vec.length > dim) return vec.slice(0, dim)
+  return [...vec, ...new Array(dim - vec.length).fill(0)]
+}
+
 /** Deterministic hashed bag-of-tokens → unit L2 vector (1536-d). */
 export function embedLocal(text) {
   const vec = new Float64Array(DIM)
@@ -115,7 +162,6 @@ export function embedLocal(text) {
     const i2 = h2 % DIM
     vec[i1] += 1
     vec[i2] += 0.5
-    // bigrams
     if (tok.length > 3) {
       for (let i = 0; i < tok.length - 2; i++) {
         const g = tok.slice(i, i + 3)

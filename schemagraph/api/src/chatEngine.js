@@ -140,7 +140,7 @@ export async function answerChat(
       ragChunks = await retrieveForQuery(workspaceId, trimmed, {
         topK,
         includeDocs,
-        openaiKey: keys.openai,
+        embedKeys: keys,
       })
     } catch (err) {
       console.warn('[Que chat] RAG retrieve failed:', err.message || err)

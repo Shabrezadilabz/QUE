@@ -50,7 +50,7 @@ import {
   spreadsheetMemoryUploadMiddleware,
   spreadsheetUploadMiddleware,
 } from './uploads.js'
-import { getSecretsStatus, setSecret } from './secrets.js'
+import { getSecretsStatus, resolveProviderKeys, setSecret } from './secrets.js'
 import {
   authDisabled,
   createWorkspace,
@@ -1664,20 +1664,20 @@ app.post(
 app.get('/workspaces/:workspaceId/ai/status', async (req, res) => {
   try {
     const workspaceId = req.params.workspaceId
+    const keys = await resolveProviderKeys(workspaceId)
+    const models = listAvailableModels(keys)
     const vectorReady = await vectorExtensionReady()
     const stats = vectorReady ? await getAiChunkStats(workspaceId) : null
     res.json({
       ok: true,
       vectorReady,
-      embeddingMode: embeddingMode(),
-      models: listAvailableModels(),
+      embeddingMode: embeddingMode(keys),
+      models,
       stats,
       pillars: {
         nlp: true,
         rag: vectorReady,
-        generativeInference:
-          Boolean(process.env.OPENAI_API_KEY) ||
-          Boolean(process.env.ANTHROPIC_API_KEY),
+        generativeInference: models.length > 0,
         agenticSkills: true,
         recommendationJoins: true,
         limitedMemory: true,
@@ -1747,7 +1747,7 @@ app.patch(
 
 /**
  * BYOK — set/clear workspace LLM keys (admin only). Never returns plaintext.
- * Body: { openaiApiKey?: string | null, anthropicApiKey?: string | null }
+ * Body: { openaiApiKey?: string | null, anthropicApiKey?: string | null, openrouterApiKey?: string | null }
  * Pass empty string or null to clear. Omit field to leave unchanged.
  */
 app.put(
@@ -1769,6 +1769,13 @@ app.put(
           req.params.workspaceId,
           'anthropic_api_key',
           body.anthropicApiKey == null ? '' : String(body.anthropicApiKey),
+        )
+      }
+      if ('openrouterApiKey' in body) {
+        out.openrouter = await setSecret(
+          req.params.workspaceId,
+          'openrouter_api_key',
+          body.openrouterApiKey == null ? '' : String(body.openrouterApiKey),
         )
       }
       if ('githubToken' in body) {

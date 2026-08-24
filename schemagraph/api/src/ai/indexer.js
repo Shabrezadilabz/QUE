@@ -44,7 +44,7 @@ export async function reindexWorkspace(workspaceId) {
     return {
       ok: false,
       error: 'pgvector not installed — use pgvector/pgvector:pg16 and apply 007_ai_rag.sql',
-      embeddingMode: embeddingMode(keys.openai),
+      embeddingMode: embeddingMode(keys),
     }
   }
 
@@ -59,7 +59,7 @@ export async function reindexWorkspace(workspaceId) {
     const batch = chunks.slice(i, i + batchSize)
     const vectors = await embedTexts(
       batch.map((c) => c.content),
-      keys.openai,
+      keys,
     )
     for (let j = 0; j < batch.length; j++) {
       await upsertChunk(batch[j], vectors[j], workspaceId)
@@ -71,7 +71,7 @@ export async function reindexWorkspace(workspaceId) {
   return {
     ok: true,
     upserted,
-    embeddingMode: embeddingMode(keys.openai),
+    embeddingMode: embeddingMode(keys),
     stats,
   }
 }

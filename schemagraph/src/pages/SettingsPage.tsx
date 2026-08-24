@@ -102,6 +102,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
   const [toast, setToast] = useState<string | null>(null)
   const [openaiKeyDraft, setOpenaiKeyDraft] = useState('')
   const [anthropicKeyDraft, setAnthropicKeyDraft] = useState('')
+  const [openrouterKeyDraft, setOpenrouterKeyDraft] = useState('')
   const [memberQuery, setMemberQuery] = useState('')
   const [memberRoleFilter, setMemberRoleFilter] = useState<'all' | WorkspaceMemberRole>('all')
   const [memberPage, setMemberPage] = useState(0)
@@ -373,6 +374,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
   async function saveLlmSecrets(patch: {
     openaiApiKey?: string | null
     anthropicApiKey?: string | null
+    openrouterApiKey?: string | null
     githubToken?: string | null
   }) {
     if (!canAdmin) return
@@ -387,6 +389,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
       })
       if ('openaiApiKey' in patch) setOpenaiKeyDraft('')
       if ('anthropicApiKey' in patch) setAnthropicKeyDraft('')
+      if ('openrouterApiKey' in patch) setOpenrouterKeyDraft('')
       setToast('API keys updated')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -765,6 +768,15 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                               : 'Not configured')
                           }
                         />
+                        <KeyRow
+                          name="OpenRouter"
+                          hint={
+                            data.capabilities.secrets?.openrouter?.hint ||
+                            (data.capabilities.secrets?.openrouter?.configured
+                              ? 'sk_••••••••'
+                              : 'Not configured')
+                          }
+                        />
                         <button
                           type="button"
                           disabled={!canAdmin}
@@ -1110,6 +1122,8 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                         setOpenaiKeyDraft={setOpenaiKeyDraft}
                         anthropicKeyDraft={anthropicKeyDraft}
                         setAnthropicKeyDraft={setAnthropicKeyDraft}
+                        openrouterKeyDraft={openrouterKeyDraft}
+                        setOpenrouterKeyDraft={setOpenrouterKeyDraft}
                         save={save}
                         saveLlmSecrets={saveLlmSecrets}
                         reindexing={reindexing}
@@ -1856,6 +1870,8 @@ function PolicyAndAiBlocks({
   setOpenaiKeyDraft,
   anthropicKeyDraft,
   setAnthropicKeyDraft,
+  openrouterKeyDraft,
+  setOpenrouterKeyDraft,
   save,
   saveLlmSecrets,
   reindexing,
@@ -1878,10 +1894,13 @@ function PolicyAndAiBlocks({
   setOpenaiKeyDraft: (v: string) => void
   anthropicKeyDraft: string
   setAnthropicKeyDraft: (v: string) => void
+  openrouterKeyDraft: string
+  setOpenrouterKeyDraft: (v: string) => void
   save: () => Promise<void>
   saveLlmSecrets: (patch: {
     openaiApiKey?: string | null
     anthropicApiKey?: string | null
+    openrouterApiKey?: string | null
     githubToken?: string | null
   }) => Promise<void>
   reindexing: boolean
@@ -2217,16 +2236,19 @@ function PolicyAndAiBlocks({
     label="Prefer LLM for AI chat"
     hint={
       data.capabilities.llm.openaiConfigured ||
-      data.capabilities.llm.anthropicConfigured
+      data.capabilities.llm.anthropicConfigured ||
+      data.capabilities.llm.openrouterConfigured
         ? `Uses RAG + key from ${
             data.capabilities.secrets?.openai?.source ===
               'workspace' ||
             data.capabilities.secrets?.anthropic?.source ===
+              'workspace' ||
+            data.capabilities.secrets?.openrouter?.source ===
               'workspace'
               ? 'workspace BYOK'
               : 'server env'
           }`
-        : 'No LLM key — add BYOK below or set OPENAI_API_KEY / ANTHROPIC_API_KEY on the API'
+        : 'No LLM key — add BYOK below or set OPENROUTER_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY on the API'
     }
     checked={draft.preferLlmChat}
     disabled={!canAdmin}
@@ -2491,10 +2513,10 @@ function PolicyAndAiBlocks({
   meta="YOUR KEY · YOUR BILL · ENCRYPTED AT REST"
 >
   <p className="mb-md font-body text-[12px] text-on-surface-variant">
-    Bring your own OpenAI / Anthropic key for this workspace.
-    Que still proxies calls server-side with schema-only prompts —
-    plaintext is never returned to the browser. Env keys remain a
-    demo/ops fallback when no workspace key is set.
+    Bring your own OpenAI, Anthropic, or OpenRouter key for this workspace.
+    OpenRouter is the easiest path — one key unlocks GPT, Claude, Gemini, and
+    more. Que still proxies calls server-side with schema-only prompts —
+    plaintext is never returned to the browser.
   </p>
   {!canAdmin ? (
     <p className="mb-md font-label text-[11px] tracking-widest text-on-surface-variant">
@@ -2502,6 +2524,19 @@ function PolicyAndAiBlocks({
     </p>
   ) : null}
   <div className="grid gap-md md:grid-cols-2">
+    <SecretKeyField
+      label="OpenRouter API key (recommended)"
+      status={data.capabilities.secrets?.openrouter}
+      value={openrouterKeyDraft}
+      disabled={!canAdmin || secretsBusy}
+      onChange={setOpenrouterKeyDraft}
+      onSave={() =>
+        void saveLlmSecrets({ openrouterApiKey: openrouterKeyDraft })
+      }
+      onClear={() =>
+        void saveLlmSecrets({ openrouterApiKey: null })
+      }
+    />
     <SecretKeyField
       label="OpenAI API key"
       status={data.capabilities.secrets?.openai}
@@ -2778,6 +2813,9 @@ function PolicyAndAiBlocks({
       </span>
     </p>
     <p className="font-body text-[12px] text-on-surface-variant">
+      OpenRouter:{' '}
+      <Flag on={Boolean(data.capabilities.llm.openrouterConfigured)} />
+      {' · '}
       OpenAI:{' '}
       <Flag on={data.capabilities.llm.openaiConfigured} />
       {' · '}

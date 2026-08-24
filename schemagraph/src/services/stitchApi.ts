@@ -2234,8 +2234,10 @@ export interface WorkspaceSettingsPayload {
     llm: {
       openaiConfigured: boolean
       anthropicConfigured: boolean
+      openrouterConfigured?: boolean
       openaiSource?: 'workspace' | 'env' | 'none'
       anthropicSource?: 'workspace' | 'env' | 'none'
+      openrouterSource?: 'workspace' | 'env' | 'none'
       byok?: boolean
     }
     secrets?: WorkspaceSecretsStatus
@@ -2267,6 +2269,7 @@ export interface WorkspaceSecretSlot {
 export interface WorkspaceSecretsStatus {
   openai: WorkspaceSecretSlot
   anthropic: WorkspaceSecretSlot
+  openrouter?: WorkspaceSecretSlot
   github?: WorkspaceSecretSlot
   byok: boolean
   secretsKeyConfigured?: boolean
@@ -2304,6 +2307,7 @@ export async function updateWorkspaceLlmSecrets(
   patch: {
     openaiApiKey?: string | null
     anthropicApiKey?: string | null
+    openrouterApiKey?: string | null
     githubToken?: string | null
   },
   workspaceId: string = getActiveWorkspaceId(),

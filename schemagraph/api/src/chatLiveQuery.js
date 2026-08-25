@@ -20,7 +20,6 @@ import { leafName, norm } from './inferJoins.js'
 import { scrubGridRows } from './privacy/gridScrub.js'
 import { isHidePiiRuleEnabled } from './workspaceRules.js'
 import { loadPiiTaggedColumnNames } from './policyPacks.js'
-import { callChatModel } from './ai/models.js'
 
 const WRITE_RE =
   /\b(insert|update|delete|drop|alter|truncate|merge|create|grant|revoke|load into)\b/i

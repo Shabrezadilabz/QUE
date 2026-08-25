@@ -704,12 +704,58 @@ thead.pdf-table-head-row {
   justify-content: flex-start;
 }
 .pdf-chat-bubble-content {
-  padding: 14px 16px;
-  font-size: 14px;
-  line-height: 1.55;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .pdf-chat-message-text {
   color: var(--pdf-text-primary);
+  font-size: 12px;
+}
+.pdf-chat-message-text--ceo {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--pdf-text-primary);
+}
+.pdf-chat-audience-select__control {
+  appearance: none;
+  cursor: pointer;
+  border-radius: 9999px;
+  border: 1px solid rgba(122, 236, 208, 0.45);
+  background: rgba(122, 236, 208, 0.1)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%237aecd0' d='M1 1l4 4 4-4'/%3E%3C/svg%3E")
+    no-repeat right 10px center;
+  padding: 3px 28px 3px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7aecd0;
+}
+.pdf-chat-audience-select__control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.que-live-results--compact {
+  border-color: var(--pdf-border);
+  background: transparent;
+}
+.que-live-results__hint {
+  margin: 0;
+  padding: 0 0 6px;
+  font-size: 10px;
+  color: var(--pdf-text-faint);
+  border-bottom: 1px solid color-mix(in srgb, var(--pdf-border) 70%, transparent);
+}
+.que-live-results--compact .que-live-results__scroll {
+  max-height: 280px;
+}
+.que-live-results--compact .que-live-results__table {
+  font-size: 11px;
+}
+.que-live-results--compact .que-live-results__table th,
+.que-live-results--compact .que-live-results__table td {
+  padding: 6px 10px;
 }
 .pdf-chat-assistant-body {
   max-width: calc(100% - 52px);
@@ -992,7 +1038,7 @@ thead.pdf-table-head-row {
   padding: 16px;
 }
 .pdf-chat-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--pdf-text-faint);
   padding-left: 48px;
 }

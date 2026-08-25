@@ -1141,6 +1141,8 @@ export interface RetrievedChunk {
 
 export type ChatPlaneScope = 'in_scope' | 'needs_plane' | 'blocked'
 
+export type ChatAudience = 'ceo' | 'engineer'
+
 export interface ChatLiveQueryResult {
   ok: boolean
   columns?: string[]
@@ -1153,6 +1155,7 @@ export interface ChatLiveQueryResult {
   policy?: string
   aiIsolation?: string
   error?: string
+  compact?: boolean
 }
 
 export interface ChatCapabilities {
@@ -1178,6 +1181,7 @@ export interface ChatResponse {
   chatCapabilities?: ChatCapabilities
   systemNotes?: string | null
   liveQuery?: ChatLiveQueryResult | null
+  audience?: ChatAudience
   contextStats?: {
     tableCount: number
     columnCount: number
@@ -1197,6 +1201,7 @@ export async function sendChatMessage(
     mentions?: { tables: string[]; columns: { table: string; column: string }[] }
     modelId?: string
     sessionId?: string
+    audience?: ChatAudience
   },
 ): Promise<ChatResponse> {
   const res = await apiFetch(`/workspaces/${workspaceId}/chat`, {
@@ -1207,6 +1212,7 @@ export async function sendChatMessage(
       mentions: opts?.mentions ?? undefined,
       modelId: opts?.modelId,
       sessionId: opts?.sessionId,
+      audience: opts?.audience ?? 'ceo',
     }),
     signal: opts?.signal,
   })

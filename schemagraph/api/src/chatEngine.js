@@ -104,6 +104,7 @@ async function finalizeChatResult(result, pack, userMessage = '', finalizeOpts =
       mentions: finalizeOpts.mentions,
       userId: finalizeOpts.userId,
       hasSlashSkill: finalizeOpts.hasSlashSkill,
+      audience: finalizeOpts.audience,
     },
   )
   return enrichChatWithPlaneScope(userMessage, withLive, pack)
@@ -192,6 +193,7 @@ export async function answerChat(
   const replyPrefix = ''
 
   const skill = detectSkill(trimmed)
+  const audience = opts?.audience === 'engineer' ? 'engineer' : 'ceo'
   const finalizeOpts = {
     workspaceId,
     model,
@@ -199,6 +201,7 @@ export async function answerChat(
     mentions,
     userId: opts?.userId ?? null,
     hasSlashSkill: Boolean(skill?.id),
+    audience,
   }
 
   // 1) Skill path (deterministic + RAG note)
@@ -237,7 +240,6 @@ export async function answerChat(
     return finalizeChatResult(out, pack, trimmed, finalizeOpts)
   }
 
-  // Pinned scrubbed samples for AI (default ON) — never managed rows
   let pinnedAiBlock = ''
   let managedSchemaBlock = ''
   let rulesBlock = ''
@@ -302,6 +304,7 @@ export async function answerChat(
         pinnedAiBlock,
         managedSchemaBlock,
         rulesBlock,
+        audience,
       })
       if (llm) {
         const out = {
@@ -310,6 +313,7 @@ export async function answerChat(
           citations: mergeCitations(llm.citations, linCites),
           lineageCitations: linCites,
           systemNotes,
+          audience,
           contextStats: pack.stats,
           vectorReady,
           driftBlocking: hasOpenHighDrift,
@@ -330,6 +334,7 @@ export async function answerChat(
     citations: mergeCitations(heuristic.citations, ragCitations, linCites),
     lineageCitations: linCites,
     systemNotes,
+    audience,
     retrievedChunks: retrievedChunkSummary(ragChunks),
     model: null,
     contextStats: pack.stats,
@@ -379,9 +384,15 @@ async function tryRagLlmAnswer({
   pinnedAiBlock = '',
   managedSchemaBlock = '',
   rulesBlock = '',
+  audience = 'ceo',
 }) {
+  const ceoNote =
+    audience === 'ceo'
+      ? `\nAudience: CEO — use plain business English. No schema jargon, SQL, or pipeline talk unless the user explicitly asks.\n`
+      : `\nAudience: Data engineer — be precise; SQL drafts and schema detail are welcome.\n`
   const system =
     `You are Que AI — a schema-only data engineering assistant.\n` +
+    ceoNote +
     `Answer ONLY from the retrieved context and schema stats below. Never invent tables.\n` +
     `You may use pinned scrubbed sample grids when provided (5–10 rows, not the lake).\n` +
     `Never request or assume access to managed dataset row payloads or full warehouse facts.\n` +
@@ -409,7 +420,7 @@ async function tryRagLlmAnswer({
     ].filter(Boolean),
     jobDraft: null,
     referencedTables: refs.map(compactTable),
-    sql: extractSql(text),
+    sql: audience === 'engineer' ? extractSql(text) : null,
     mode: 'rag-llm',
     model: model.id,
     retrievedChunks: retrievedChunkSummary(ragChunks),

@@ -20,6 +20,7 @@ import { leafName, norm } from './inferJoins.js'
 import { scrubGridRows } from './privacy/gridScrub.js'
 import { isHidePiiRuleEnabled } from './workspaceRules.js'
 import { loadPiiTaggedColumnNames } from './policyPacks.js'
+import { callChatModel } from './ai/models.js'
 
 const WRITE_RE =
   /\b(insert|update|delete|drop|alter|truncate|merge|create|grant|revoke|load into)\b/i
@@ -355,21 +356,22 @@ export async function enrichChatWithLiveQuery(workspaceId, question, result, opt
   }
 
   const focusTable = resolveFocusTable(opts.pack, question, opts.mentions)
-  const intro =
-    live.explanation ||
-    `Fetched **${live.rowCount}** row(s) from **${live.connectionName}**.`
+  const audience = opts.audience === 'engineer' ? 'engineer' : 'ceo'
+  const focusName = focusTable?.name || null
 
-  const cleanReply = stripInternalPrefixes(result?.reply || '')
   const reply =
-    `${intro}\n\n` +
-    (cleanReply && !isMetadataOnlyReply(cleanReply)
-      ? `${cleanReply}\n\n`
-      : '') +
-    `_Live warehouse data (${live.rowCount} row${live.rowCount === 1 ? '' : 's'}) is shown in the table below. Those values were **not** sent to the AI model._`
+    audience === 'ceo'
+      ? await buildCeoSummary(question, live, {
+          model: opts.model,
+          keys: opts.keys,
+          focusTableName: focusName,
+        })
+      : buildEngineerLiveReply(live, result)
 
   return {
     ...result,
     reply,
+    audience,
     sql: live.sql,
     liveQuery: {
       ok: true,
@@ -382,27 +384,106 @@ export async function enrichChatWithLiveQuery(workspaceId, question, result, opt
       displayMasked: live.displayMasked,
       policy: live.policy,
       aiIsolation: live.aiIsolation,
+      compact: audience === 'ceo',
     },
     planeScope: 'in_scope',
     planeScopeHint: null,
     mode: result?.mode ? `${result.mode}+live` : 'live',
-    referencedTables: result?.referencedTables?.length
-      ? result.referencedTables
-      : focusTable
-        ? [
-            {
-              name: focusTable.name,
-              connection: focusTable.connection,
-              sourceType: focusTable.sourceType,
-              columns: (focusTable.columns || []).slice(0, 12).map((c) => ({
-                name: c.name,
-                dataType: c.dataType,
-                keyKind: c.keyKind,
-              })),
-            },
-          ]
-        : result?.referencedTables || [],
+    referencedTables:
+      audience === 'engineer'
+        ? result?.referencedTables?.length
+          ? result.referencedTables
+          : focusTable
+            ? [
+                {
+                  name: focusTable.name,
+                  connection: focusTable.connection,
+                  sourceType: focusTable.sourceType,
+                  columns: (focusTable.columns || []).slice(0, 12).map((c) => ({
+                    name: c.name,
+                    dataType: c.dataType,
+                    keyKind: c.keyKind,
+                  })),
+                },
+              ]
+            : result?.referencedTables || []
+        : [],
+    retrievedChunks: audience === 'ceo' ? [] : result?.retrievedChunks,
+    samplePreviews: audience === 'ceo' ? [] : result?.samplePreviews,
   }
+}
+
+function heuristicCeoSummary(question, live, focusTableName) {
+  const n = live.rowCount ?? (live.rows || []).length
+  const cols = (live.columns || []).slice(0, 5).join(', ')
+  const subject = focusTableName || 'your data'
+  if (n === 0) {
+    return `I checked ${subject} and didn’t find any matching records for that question.`
+  }
+  if (n === 1) {
+    return `I found one record related to your question${cols ? ` (${cols})` : ''}. The details are in the table below.`
+  }
+  return `I found ${n} records related to your question${cols ? ` — including ${cols}` : ''}. See the table below for the full list.`
+}
+
+/**
+ * One-shot CEO summary using live rows — ephemeral; not stored in RAG / chat AI context.
+ */
+async function buildCeoSummary(question, live, { model, keys, focusTableName }) {
+  const rows = live.rows || []
+  const columns = live.columns || []
+  if (!rows.length) {
+    return heuristicCeoSummary(question, live, focusTableName)
+  }
+  if (!model) {
+    return heuristicCeoSummary(question, live, focusTableName)
+  }
+
+  const sampleLines = rows
+    .slice(0, 20)
+    .map((row, i) => {
+      const parts = columns.map((c) => `${c}: ${formatCeoCell(row[c])}`)
+      return `${i + 1}. ${parts.join(' · ')}`
+    })
+    .join('\n')
+
+  const system =
+    `You write short answers for a business executive (CEO).\n` +
+    `Rules:\n` +
+    `- 2–4 sentences, plain English, confident and clear\n` +
+    `- Answer the question directly using the result rows\n` +
+    `- No SQL, no database/connection/table names, no technical jargon\n` +
+    `- Do not mention AI, models, queries, or how data was fetched\n` +
+    `- You may name brands, products, numbers, and regions from the rows`
+
+  const userMsg =
+    `Question: ${question}\n\n` +
+    `Result rows (${live.rowCount} total, sample below):\n${sampleLines}`
+
+  try {
+    const text = await callChatModel(model, system, userMsg, [], keys)
+    return String(text || '').trim() || heuristicCeoSummary(question, live, focusTableName)
+  } catch {
+    return heuristicCeoSummary(question, live, focusTableName)
+  }
+}
+
+function formatCeoCell(v) {
+  if (v == null) return '—'
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v).slice(0, 80)
+}
+
+function buildEngineerLiveReply(live, result) {
+  const intro =
+    live.explanation ||
+    `Fetched **${live.rowCount}** row(s) from **${live.connectionName}**.`
+  const cleanReply = stripInternalPrefixes(result?.reply || '')
+  return (
+    `${intro}\n\n` +
+    (cleanReply && !isMetadataOnlyReply(cleanReply) ? `${cleanReply}\n\n` : '') +
+    `_Live warehouse data (${live.rowCount} row${live.rowCount === 1 ? '' : 's'}) is shown in the table below. Those values were **not** sent to the AI model._`
+  )
 }
 
 function stripInternalPrefixes(text) {

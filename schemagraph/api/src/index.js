@@ -1595,6 +1595,8 @@ app.post(
     typeof req.body?.modelId === 'string' ? req.body.modelId : undefined
   const sessionId =
     typeof req.body?.sessionId === 'string' ? req.body.sessionId : 'default'
+  const audience =
+    req.body?.audience === 'engineer' ? 'engineer' : 'ceo'
   if (!message || typeof message !== 'string') {
     res.status(400).json({ error: 'body.message string required' })
     return
@@ -1605,7 +1607,7 @@ app.post(
       message,
       history,
       mentions,
-      { modelId, sessionId },
+      { modelId, sessionId, audience },
     )
     if (answer?.sql) {
       try {

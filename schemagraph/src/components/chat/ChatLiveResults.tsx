@@ -2,7 +2,7 @@
 
 export interface ChatLiveQueryResult {
   ok: boolean
-  columns?: string[]
+  columns?: string[] | { name: string; dataType?: string }[]
   rows?: Record<string, unknown>[]
   rowCount?: number
   connectionName?: string | null
@@ -12,6 +12,7 @@ export interface ChatLiveQueryResult {
   policy?: string
   aiIsolation?: string
   error?: string
+  compact?: boolean
 }
 
 export function ChatLiveResults({
@@ -33,31 +34,39 @@ export function ChatLiveResults({
 
   const columns = normalizeColumns(liveQuery.columns)
   const rows = liveQuery.rows || []
+  const compact = liveQuery.compact === true
 
   return (
-    <div className="que-live-results">
-      <div className="que-live-results__header">
-        <div className="que-live-results__badges">
-          <span className="que-live-results__badge que-live-results__badge--live">
-            Live data
-          </span>
-          {liveQuery.displayMasked ? (
-            <span className="que-live-results__badge que-live-results__badge--pii">
-              PII masked
-            </span>
-          ) : null}
-          <span className="que-live-results__badge que-live-results__badge--shield">
-            Not sent to AI
-          </span>
-        </div>
-        <p className="que-live-results__meta">
-          {liveQuery.connectionName || 'Warehouse'}
-          {' · '}
-          {liveQuery.rowCount ?? rows.length} row
+    <div className={compact ? 'que-live-results que-live-results--compact' : 'que-live-results'}>
+      {compact ? (
+        <p className="que-live-results__hint">
+          Live results · {liveQuery.rowCount ?? rows.length} row
           {(liveQuery.rowCount ?? rows.length) === 1 ? '' : 's'}
-          {liveQuery.durationMs != null ? ` · ${liveQuery.durationMs}ms` : ''}
         </p>
-      </div>
+      ) : (
+        <div className="que-live-results__header">
+          <div className="que-live-results__badges">
+            <span className="que-live-results__badge que-live-results__badge--live">
+              Live data
+            </span>
+            {liveQuery.displayMasked ? (
+              <span className="que-live-results__badge que-live-results__badge--pii">
+                PII masked
+              </span>
+            ) : null}
+            <span className="que-live-results__badge que-live-results__badge--shield">
+              Not sent to AI
+            </span>
+          </div>
+          <p className="que-live-results__meta">
+            {liveQuery.connectionName || 'Warehouse'}
+            {' · '}
+            {liveQuery.rowCount ?? rows.length} row
+            {(liveQuery.rowCount ?? rows.length) === 1 ? '' : 's'}
+            {liveQuery.durationMs != null ? ` · ${liveQuery.durationMs}ms` : ''}
+          </p>
+        </div>
+      )}
       <div className="que-live-results__scroll">
         <table className="que-live-results__table">
           <thead>

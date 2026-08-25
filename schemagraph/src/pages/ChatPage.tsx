@@ -14,6 +14,12 @@ import {
 import { LandingComposer } from '@/components/assistant/LandingComposer'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { ChatLiveResults } from '@/components/chat/ChatLiveResults'
+import {
+  ChatAudienceSelect,
+  loadChatAudience,
+  saveChatAudience,
+  type ChatAudience,
+} from '@/components/chat/ChatAudienceSelect'
 import { CHAT } from '@/components/chat/chatUi'
 import { SqlHighlight } from '@/components/code/SqlHighlight'
 import { OpenInManagedPlaneButton } from '@/components/plane/OpenInManagedPlaneButton'
@@ -121,14 +127,14 @@ interface UiMessage {
   planeHandoffQuestion?: string | null
   liveQuery?: ChatLiveQueryResult | null
   systemNotes?: string | null
+  audience?: ChatAudience
 }
 
 /**
  * Single assistant chat — schema Q&A, Outcome plans, and Stitch Agent HITL.
  */
 export function ChatPage() {
-  const { canWrite, canOwner } = useWorkspaceRole()
-  const isCeo = canOwner
+  const { canWrite } = useWorkspaceRole()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { workspaceId, workspaces, user } = useAuth()
@@ -172,6 +178,9 @@ export function ChatPage() {
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null)
   const [modelId, setModelId] = useState<string>('')
   const [reindexing, setReindexing] = useState(false)
+  const [chatAudience, setChatAudience] = useState<ChatAudience>(() =>
+    loadChatAudience(),
+  )
 
   const messagesScrollRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
@@ -320,6 +329,7 @@ export function ChatPage() {
         content,
         outcome,
         mode: 'outcome',
+        audience: 'engineer',
         at: stamp(),
       }
       if (idx == null) return [...prev, nextMsg]
@@ -342,6 +352,7 @@ export function ChatPage() {
         content,
         agentSession: session,
         mode: 'agent',
+        audience: 'engineer',
         at: stamp(),
       }
       if (idx == null) return [...prev, nextMsg]
@@ -889,6 +900,8 @@ export function ChatPage() {
 
     // Stitch Agent plan in the same thread
     if (looksLikeAgentPrompt(message)) {
+      setChatAudience('engineer')
+      saveChatAudience('engineer')
       try {
         if (stitchAgentEnabled === false) {
           setMessages((prev) => [
@@ -935,6 +948,8 @@ export function ChatPage() {
 
     // Outcome plan build in the same thread
     if (looksLikeOutcomePrompt(message)) {
+      setChatAudience('engineer')
+      saveChatAudience('engineer')
       try {
         const promptText =
           stripOutcomeSlash(message) ||
@@ -942,9 +957,7 @@ export function ChatPage() {
         const outcome = await createOutcomeApi(promptText)
         upsertOutcomeMessage(
           outcome,
-          isCeo
-            ? 'CEO Outcome plan ready. Review steps below, Promote Yellow/Red joins, then Ship to BI.'
-            : 'Outcome plan ready. Review steps below — Promote stays HITL for Yellow/Red.',
+          'Outcome plan ready. Review steps below — Promote stays HITL for Yellow/Red.',
         )
         pushToast('Outcome plan built in chat', 'success')
       } catch (err) {
@@ -1044,6 +1057,7 @@ export function ChatPage() {
         mentions,
         modelId: modelId || undefined,
         sessionId: `ws-${workspaceId}`,
+        audience: chatAudience,
       })
       const assistant: UiMessage = {
         id: `a-${Date.now()}`,
@@ -1064,6 +1078,7 @@ export function ChatPage() {
         planeHandoffQuestion: message,
         liveQuery: res.liveQuery ?? null,
         systemNotes: res.systemNotes ?? null,
+        audience: (res.audience as ChatAudience) ?? chatAudience,
         feedback: null,
         at: new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -1270,16 +1285,23 @@ export function ChatPage() {
           <PdfPageHeader
             compact
             title={
-              <span className="inline-flex items-center gap-[10px]">
-                Assistant
-                {isCeo ? (
-                  <span className="rounded-[2px] border border-solid border-[rgba(122,236,208,0.35)] bg-[rgba(122,236,208,0.1)] px-[7px] py-[2px] text-[10px] font-bold tracking-[0.8px] text-[#7aecd0] uppercase">
-                    CEO
-                  </span>
-                ) : null}
+              <span className="inline-flex items-center gap-[8px]">
+                <span className="text-[15px] font-semibold">Assistant</span>
+                <ChatAudienceSelect
+                  value={chatAudience}
+                  disabled={busy}
+                  onChange={(next) => {
+                    setChatAudience(next)
+                    saveChatAudience(next)
+                  }}
+                />
               </span>
             }
-            subtitle={`Ask about your data — Que runs read-only warehouse queries and shows results here (never sent back to the AI)${busy ? ' · thinking…' : ''}`}
+            subtitle={
+              chatAudience === 'ceo'
+                ? `Plain-English answers from your live data${busy ? ' · thinking…' : ''}`
+                : `Schema, SQL, joins, and pipeline detail${busy ? ' · thinking…' : ''}`
+            }
             actions={
               <div className="hidden flex-wrap items-center gap-[8px] sm:flex">
                 <PdfGhostButton type="button" onClick={() => setShowSkills((v) => !v)}>
@@ -2030,6 +2052,8 @@ function ChatBubble({
   onInsertMention?: (token: string) => void
   onFeedback?: (rating: 1 | -1) => void
 }) {
+  const isEngineer = (message.audience ?? 'ceo') === 'engineer'
+
   if (message.role === 'user') {
     return (
       <div className="pdf-chat-row pdf-chat-row--user">
@@ -2074,8 +2098,8 @@ function ChatBubble({
               </>
             ) : null}
           </div>
-          <AssistantBody text={message.content} />
-          {message.systemNotes ? (
+          <AssistantBody text={message.content} compact={!isEngineer} />
+          {isEngineer && message.systemNotes ? (
             <details className="pdf-chat-system-notes">
               <summary>Schema alerts</summary>
               <AssistantBody text={message.systemNotes} />
@@ -2084,7 +2108,7 @@ function ChatBubble({
           {message.liveQuery ? (
             <ChatLiveResults liveQuery={message.liveQuery} />
           ) : null}
-          {message.planeScope && message.planeScope !== 'in_scope' ? (
+          {isEngineer && message.planeScope && message.planeScope !== 'in_scope' ? (
             <ChatPlaneBoundaryCard
               scope={message.planeScope}
               hint={message.planeScopeHint}
@@ -2092,7 +2116,7 @@ function ChatBubble({
               question={message.planeHandoffQuestion}
             />
           ) : null}
-          {message.outcome ? (
+          {isEngineer && message.outcome ? (
             <OutcomePlanCard
               outcome={message.outcome}
               busy={busy}
@@ -2117,7 +2141,7 @@ function ChatBubble({
               }
             />
           ) : null}
-          {message.agentSession ? (
+          {isEngineer && message.agentSession ? (
             <AgentPlanCard
               session={message.agentSession}
               busy={busy}
@@ -2138,7 +2162,9 @@ function ChatBubble({
               }
             />
           ) : null}
-          {message.referencedTables && message.referencedTables.length > 0 ? (
+          {isEngineer &&
+          message.referencedTables &&
+          message.referencedTables.length > 0 ? (
             <div className="my-md flex flex-col items-stretch gap-lg rounded-lg border border-outline-variant bg-surface-container-low/50 p-md md:flex-row md:items-center">
               <div className="flex w-full flex-col items-center gap-sm md:w-1/3">
                 {message.referencedTables.slice(0, 2).map((t, i) => (
@@ -2187,7 +2213,7 @@ function ChatBubble({
               </div>
             </div>
           ) : null}
-          {message.sql ? (
+          {isEngineer && message.sql ? (
             <div className="relative overflow-hidden rounded-[4px] border border-solid border-[#424850] bg-[#0d1117] p-[12px]">
               <span className="absolute top-0 right-0 rounded-bl-[4px] border-b border-l border-solid border-[#424850] bg-[#121619] px-[8px] py-[4px] text-[9px] font-bold tracking-[0.6px] text-[#7aecd0] uppercase">
                 SQL
@@ -2212,12 +2238,14 @@ function ChatBubble({
               </p>
             </div>
           ) : null}
+          {isEngineer ? (
           <VerifyScrubbedSamples
             previews={message.samplePreviews}
             hasSql={Boolean(message.sql)}
             hasTables={Boolean(message.referencedTables?.length)}
           />
-          {message.retrievedChunks && message.retrievedChunks.length > 0 ? (
+          ) : null}
+          {isEngineer && message.retrievedChunks && message.retrievedChunks.length > 0 ? (
             <div className="flex flex-wrap gap-xs">
               <span className="w-full font-label text-[10px] tracking-widest text-on-surface-variant">
                 Retrieved
@@ -2233,7 +2261,7 @@ function ChatBubble({
               ))}
             </div>
           ) : null}
-          {message.jobDraft ? (
+          {isEngineer && message.jobDraft ? (
             <div className="rounded-xl border border-secondary/25 bg-surface-container-low p-md">
               <p className="font-label text-[11px] tracking-widest text-secondary">
                 Job draft · {message.jobDraft.status}
@@ -2269,15 +2297,15 @@ function ChatBubble({
               </div>
             </div>
           ) : null}
-          {message.citations && message.citations.length > 0 ? (
+          {isEngineer && message.citations && message.citations.length > 0 ? (
             <p className="font-label text-[11px] text-on-surface-variant/60">
               Cited: {message.citations.slice(0, 10).join(' · ')}
             </p>
           ) : null}
         </div>
         <span className={CHAT.meta}>
-          {message.mode ? message.mode : 'assistant'}
-          {message.model ? ` · ${message.model}` : ''}
+          {isEngineer ? (message.mode ? message.mode : 'engineer') : 'ceo'}
+          {message.model && isEngineer ? ` · ${message.model}` : ''}
         </span>
       </div>
     </div>
@@ -2476,10 +2504,15 @@ function formatCell(value: unknown): string {
   return String(value)
 }
 
-function AssistantBody({ text }: { text: string }) {
+function AssistantBody({ text, compact }: { text: string; compact?: boolean }) {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
   return (
-    <p className="font-body text-[13px] leading-snug text-on-surface whitespace-pre-wrap">
+    <p
+      className={[
+        'font-body leading-snug text-on-surface whitespace-pre-wrap',
+        compact ? 'pdf-chat-message-text pdf-chat-message-text--ceo' : 'text-[13px]',
+      ].join(' ')}
+    >
       {parts.map((part, i) => {
         if (part.startsWith('`') && part.endsWith('`')) {
           return (

@@ -14,6 +14,13 @@ import {
 import { LandingComposer } from '@/components/assistant/LandingComposer'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { ChatLiveResults } from '@/components/chat/ChatLiveResults'
+import { ChatContextSidebar } from '@/components/chat/ChatContextSidebar'
+import {
+  ChatAudienceSelect,
+  loadChatAudience,
+  saveChatAudience,
+  type ChatAudience,
+} from '@/components/chat/ChatAudienceSelect'
 import { CHAT } from '@/components/chat/chatUi'
 import { SqlHighlight } from '@/components/code/SqlHighlight'
 import { OpenInManagedPlaneButton } from '@/components/plane/OpenInManagedPlaneButton'
@@ -121,14 +128,14 @@ interface UiMessage {
   planeHandoffQuestion?: string | null
   liveQuery?: ChatLiveQueryResult | null
   systemNotes?: string | null
+  audience?: ChatAudience
 }
 
 /**
  * Single assistant chat — schema Q&A, Outcome plans, and Stitch Agent HITL.
  */
 export function ChatPage() {
-  const { canWrite, canOwner } = useWorkspaceRole()
-  const isCeo = canOwner
+  const { canWrite } = useWorkspaceRole()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { workspaceId, workspaces, user } = useAuth()
@@ -172,6 +179,9 @@ export function ChatPage() {
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null)
   const [modelId, setModelId] = useState<string>('')
   const [reindexing, setReindexing] = useState(false)
+  const [chatAudience, setChatAudience] = useState<ChatAudience>(() =>
+    loadChatAudience(),
+  )
 
   const messagesScrollRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
@@ -320,6 +330,7 @@ export function ChatPage() {
         content,
         outcome,
         mode: 'outcome',
+        audience: 'engineer',
         at: stamp(),
       }
       if (idx == null) return [...prev, nextMsg]
@@ -342,6 +353,7 @@ export function ChatPage() {
         content,
         agentSession: session,
         mode: 'agent',
+        audience: 'engineer',
         at: stamp(),
       }
       if (idx == null) return [...prev, nextMsg]
@@ -889,6 +901,8 @@ export function ChatPage() {
 
     // Stitch Agent plan in the same thread
     if (looksLikeAgentPrompt(message)) {
+      setChatAudience('engineer')
+      saveChatAudience('engineer')
       try {
         if (stitchAgentEnabled === false) {
           setMessages((prev) => [
@@ -935,6 +949,8 @@ export function ChatPage() {
 
     // Outcome plan build in the same thread
     if (looksLikeOutcomePrompt(message)) {
+      setChatAudience('engineer')
+      saveChatAudience('engineer')
       try {
         const promptText =
           stripOutcomeSlash(message) ||
@@ -942,9 +958,7 @@ export function ChatPage() {
         const outcome = await createOutcomeApi(promptText)
         upsertOutcomeMessage(
           outcome,
-          isCeo
-            ? 'CEO Outcome plan ready. Review steps below, Promote Yellow/Red joins, then Ship to BI.'
-            : 'Outcome plan ready. Review steps below — Promote stays HITL for Yellow/Red.',
+          'Outcome plan ready. Review steps below — Promote stays HITL for Yellow/Red.',
         )
         pushToast('Outcome plan built in chat', 'success')
       } catch (err) {
@@ -1044,6 +1058,7 @@ export function ChatPage() {
         mentions,
         modelId: modelId || undefined,
         sessionId: `ws-${workspaceId}`,
+        audience: chatAudience,
       })
       const assistant: UiMessage = {
         id: `a-${Date.now()}`,
@@ -1064,6 +1079,7 @@ export function ChatPage() {
         planeHandoffQuestion: message,
         liveQuery: res.liveQuery ?? null,
         systemNotes: res.systemNotes ?? null,
+        audience: (res.audience as ChatAudience) ?? chatAudience,
         feedback: null,
         at: new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -1270,16 +1286,23 @@ export function ChatPage() {
           <PdfPageHeader
             compact
             title={
-              <span className="inline-flex items-center gap-[10px]">
-                Assistant
-                {isCeo ? (
-                  <span className="rounded-[2px] border border-solid border-[rgba(122,236,208,0.35)] bg-[rgba(122,236,208,0.1)] px-[7px] py-[2px] text-[10px] font-bold tracking-[0.8px] text-[#7aecd0] uppercase">
-                    CEO
-                  </span>
-                ) : null}
+              <span className="inline-flex items-center gap-[8px]">
+                <span className="text-[15px] font-semibold">Assistant</span>
+                <ChatAudienceSelect
+                  value={chatAudience}
+                  disabled={busy}
+                  onChange={(next) => {
+                    setChatAudience(next)
+                    saveChatAudience(next)
+                  }}
+                />
               </span>
             }
-            subtitle={`Ask about your data — Que runs read-only warehouse queries and shows results here (never sent back to the AI)${busy ? ' · thinking…' : ''}`}
+            subtitle={
+              chatAudience === 'ceo'
+                ? `Plain-English answers from your live data${busy ? ' · thinking…' : ''}`
+                : `Schema, SQL, joins, and pipeline detail${busy ? ' · thinking…' : ''}`
+            }
             actions={
               <div className="hidden flex-wrap items-center gap-[8px] sm:flex">
                 <PdfGhostButton type="button" onClick={() => setShowSkills((v) => !v)}>
@@ -1349,7 +1372,7 @@ export function ChatPage() {
             onScroll={onMessagesScroll}
             className="pdf-chat-scroll-region pdf-chat-messages min-h-0 px-[16px] py-[12px] md:px-[24px]"
           >
-            <div className="pdf-chat-messages-inner space-y-[20px]">
+            <div className="pdf-chat-messages-inner space-y-[14px]">
             {messages.map((m) => (
                 <ChatBubble
                   key={m.id}
@@ -1396,8 +1419,8 @@ export function ChatPage() {
                   <span className="pdf-chat-typing-dot" />
                   <span className="pdf-chat-typing-dot" />
                   <span className="pdf-chat-typing-dot" />
-                  <span className="ml-2 text-[13px] text-[var(--pdf-text-secondary)]">
-                    Querying warehouse…
+                  <span className="ml-2 text-[12px] text-[var(--pdf-text-faint)]">
+                    Thinking…
                   </span>
                 </div>
               </div>
@@ -1406,7 +1429,7 @@ export function ChatPage() {
             </div>
           </div>
 
-          <div className="min-h-0 shrink-0 space-y-[12px] px-[16px] pb-[12px] md:px-[24px]">
+          <div className="min-h-0 shrink-0 space-y-[8px] px-[16px] pb-[10px] md:px-[24px]">
             {activeMentions.length > 0 ? (
               <div className="flex flex-wrap gap-[6px]">
                 {activeMentions.map((name) => (
@@ -1426,7 +1449,8 @@ export function ChatPage() {
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-[8px]">
+            {chatAudience === 'engineer' ? (
+            <div className="pdf-chat-quick-pills">
               <button
                 type="button"
                 disabled={!canWrite}
@@ -1482,8 +1506,9 @@ export function ChatPage() {
                 </button>
               ) : null}
             </div>
+            ) : null}
 
-            <div className="relative">
+            <div className="relative max-w-[42rem] mx-auto w-full">
               {suggestOpen && suggestions.length > 0 ? (
                 <div className="absolute bottom-full left-0 right-0 z-20 mb-xs max-h-56 overflow-y-auto rounded-xl border border-outline-variant/40 bg-surface-container-low">
                   {suggestions.map((s, i) => {
@@ -1643,17 +1668,17 @@ export function ChatPage() {
                       void ask(input)
                     }
                   }}
-                  rows={2}
+                  rows={1}
                   disabled={!canWrite}
                   placeholder={
                     canWrite
-                      ? 'Ask Que anything about your pipelines…  @table  /sql'
-                      : 'Read-only — viewer cannot send chat'
+                      ? 'Message Que…'
+                      : 'Read-only'
                   }
-                  className="max-h-32 min-h-[2.5rem] w-full resize-none border-none bg-transparent px-[4px] py-[4px] text-[13px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
+                  className="pdf-chat-composer-input max-h-24 min-h-[1.5rem] w-full resize-none border-none bg-transparent px-[2px] py-[2px] text-[13px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
                 />
 
-                <div className="mt-[10px] flex flex-wrap items-center gap-[6px] border-t border-solid border-[#424850] pt-[10px]">
+                <div className="pdf-chat-composer-footer flex flex-wrap items-center gap-[4px]">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1669,7 +1694,7 @@ export function ChatPage() {
                     type="button"
                     disabled={!canWrite}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex size-[36px] items-center justify-center rounded-full text-[#a3afbe] transition-colors hover:bg-[#1e2328] disabled:opacity-40"
+                    className="pdf-chat-composer-icon disabled:opacity-40"
                     title="Attach schema note (.sql, .md, .txt…)"
                     aria-label="Attach file"
                   >
@@ -1696,7 +1721,7 @@ export function ChatPage() {
                         ta.setSelectionRange(nextCaret, nextCaret)
                       })
                     }}
-                    className="flex size-[36px] items-center justify-center rounded-full text-sm font-bold text-[#a3afbe] transition-colors hover:bg-[#1e2328] disabled:opacity-40"
+                    className="pdf-chat-composer-icon text-sm font-bold disabled:opacity-40"
                     title="Mention a table"
                     aria-label="Mention table"
                   >
@@ -1710,7 +1735,7 @@ export function ChatPage() {
                       setInput((prev) => (prev.startsWith('/') ? prev : '/'))
                       requestAnimationFrame(() => textareaRef.current?.focus())
                     }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full font-label text-sm text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                    className="pdf-chat-composer-icon font-label text-sm disabled:opacity-40"
                     title="Skills / commands"
                     aria-label="Open skills"
                   >
@@ -1721,10 +1746,8 @@ export function ChatPage() {
                     disabled={!canWrite}
                     onClick={toggleVoiceInput}
                     className={[
-                      'flex size-[36px] items-center justify-center rounded-full transition-colors disabled:opacity-40',
-                      listening
-                        ? 'bg-[rgba(255,107,107,0.12)] text-[#ff6b6b]'
-                        : 'text-[#a3afbe] hover:bg-[#1e2328]',
+                      'pdf-chat-composer-icon disabled:opacity-40',
+                      listening ? 'text-[#ff6b6b]' : '',
                     ].join(' ')}
                     title={listening ? 'Stop listening' : 'Voice input'}
                     aria-label={listening ? 'Stop voice input' : 'Voice input'}
@@ -1733,31 +1756,28 @@ export function ChatPage() {
                     <MicIcon />
                   </button>
 
-                  <div className="ml-auto flex items-center gap-sm">
-                    <label className="flex max-w-[11rem] items-center gap-1 rounded-[12px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[6px]">
-                      <span className="sr-only">Model</span>
-                      <select
-                        value={modelId}
-                        onChange={(e) => setModelId(e.target.value)}
-                        disabled={!canWrite || !aiStatus?.models?.length}
-                        className="max-w-[9.5rem] truncate border-none bg-transparent text-[12px] font-medium text-[#d4dbe3] outline-none disabled:opacity-40"
-                        title="Generation model"
-                      >
-                        {(aiStatus?.models?.length
-                          ? aiStatus.models
-                          : [{ id: '', label: 'heuristic' }]
-                        ).map((m) => (
-                          <option key={m.id || 'heuristic'} value={m.id}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  <div className="ml-auto flex items-center gap-[6px]">
+                    <select
+                      value={modelId}
+                      onChange={(e) => setModelId(e.target.value)}
+                      disabled={!canWrite || !aiStatus?.models?.length}
+                      className="pdf-chat-composer-model max-w-[9rem] truncate outline-none disabled:opacity-40"
+                      title="Generation model"
+                    >
+                      {(aiStatus?.models?.length
+                        ? aiStatus.models
+                        : [{ id: '', label: 'heuristic' }]
+                      ).map((m) => (
+                        <option key={m.id || 'heuristic'} value={m.id}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
                     {busy ? (
                       <button
                         type="button"
                         onClick={stopAsk}
-                        className="flex h-10 items-center justify-center rounded-full border border-outline-variant px-md font-label text-xs font-bold text-on-surface-variant hover:bg-secondary-container"
+                        className="pdf-chat-composer-icon text-[10px] font-semibold"
                       >
                         Stop
                       </button>
@@ -1769,7 +1789,7 @@ export function ChatPage() {
                           (!input.trim() && attachments.length === 0)
                         }
                         onClick={() => void ask(input)}
-                        className="pdf-btn-primary flex size-[40px] shrink-0 items-center justify-center rounded-full text-[14px] font-bold disabled:opacity-40"
+                        className="pdf-chat-composer-send flex shrink-0 items-center justify-center text-[13px] font-bold disabled:opacity-40"
                         aria-label="Send"
                       >
                         →
@@ -1779,9 +1799,9 @@ export function ChatPage() {
                 </div>
               </div>
             </div>
-            <p className="pb-[8px] text-center text-[11px] text-[#6b7380]">
+            <p className="pdf-chat-footer-note pb-[6px]">
               AI can make mistakes. Verify critical schema changes.
-              {contextError ? ` · Context error: ${contextError}` : ''}
+              {contextError ? ` · ${contextError}` : ''}
             </p>
           </div>
             </div>
@@ -1789,215 +1809,32 @@ export function ChatPage() {
         </main>
 
         {!isLanding ? (
-        <aside className="hidden h-full min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#111416] xl:flex">
-          <div className="pdf-chat-scroll-region min-h-0 flex-1 py-[16px] pr-[20px] pl-[4px]">
-          <div className="flex flex-col gap-[16px]">
-          <div className={`space-y-[14px] p-[16px] ${CHAT.panel}`}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
-                Active Context
-              </h3>
-              <button
-                type="button"
-                onClick={() => void reloadContext()}
-                className="text-[10px] text-[#a3afbe] hover:text-[#d4dbe3]"
-              >
-                {contextRefreshing ? '…' : 'Refresh'}
-              </button>
-            </div>
-            <div className="space-y-[8px]">
-              <div className="flex items-center justify-between gap-[8px]">
-                <span className="text-[12px] text-[#a3afbe]">Selected model</span>
-                <span className="truncate text-[12px] font-semibold text-[#7aecd0]">
-                  {modelId || aiStatus?.models?.[0]?.label || 'heuristic'}
-                </span>
-              </div>
-              <div className="h-[4px] w-full overflow-hidden rounded-full bg-[#1e2328]">
-                <div
-                  className="h-full rounded-full bg-[#7aecd0] transition-all"
-                  style={{
-                    width: aiStatus?.vectorReady ? '75%' : '40%',
-                  }}
-                />
-              </div>
-            </div>
-            <div className="space-y-[8px] pt-[4px]">
-              <p className="text-[12px] font-semibold text-[#d4dbe3]">Referenced tables</p>
-              <input
-                value={sidebarQuery}
-                onChange={(e) => setSidebarQuery(e.target.value)}
-                placeholder="Filter tables…"
-                className="mb-[8px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[7px] text-[12px] text-[#d4dbe3] outline-none placeholder:text-[#6b7380] focus:border-[#6b7380]"
-              />
-              <ul className="max-h-64 space-y-xs overflow-y-auto">
-                {sidebarTables.slice(0, 24).map((t) => {
-                  const key = `${t.connection}:${t.name}`
-                  const open =
-                    expandedTables[key] ||
-                    (sidebarQuery.trim().length > 0 &&
-                      t.columns.some((c) =>
-                        c.name
-                          .toLowerCase()
-                          .includes(sidebarQuery.trim().toLowerCase()),
-                      ))
-                  return (
-                    <li key={key} className="rounded-[4px] hover:bg-[#1e2328]">
-                      <div className="flex items-center gap-[2px]">
-                        <button
-                          type="button"
-                          aria-expanded={open}
-                          aria-label={
-                            open
-                              ? `Collapse columns for ${t.name}`
-                              : `Expand columns for ${t.name}`
-                          }
-                          onClick={() => toggleTableExpand(key)}
-                          className="flex size-[32px] shrink-0 items-center justify-center rounded-[4px] text-[#8a9099] hover:bg-[#252a30] hover:text-[#d4dbe3]"
-                        >
-                          <span
-                            className={`inline-block text-[10px] transition-transform ${open ? 'rotate-90' : ''}`}
-                            aria-hidden
-                          >
-                            ▸
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!canWrite}
-                          draggable={canWrite}
-                          onDragStart={(e) =>
-                            onMentionDragStart(e, `@${t.name}`)
-                          }
-                          onClick={() => insertFromSidebar(`@${t.name}`)}
-                          title={
-                            canWrite
-                              ? `Click or drag @${t.name} into chat`
-                              : t.name
-                          }
-                          className="flex min-w-0 flex-1 items-center gap-[8px] rounded-[4px] px-[6px] py-[6px] text-left text-[13px] text-[#c8cdd3] hover:text-[#d4dbe3] disabled:cursor-default disabled:opacity-40"
-                        >
-                          <span className="text-[#7aecd0]" aria-hidden>
-                            ▤
-                          </span>
-                          <span className="truncate font-medium">{t.name}</span>
-                          <span className="ml-auto shrink-0 text-[9px] text-[#6b7380]">
-                            {t.columns.length}
-                          </span>
-                        </button>
-                      </div>
-                      {open ? (
-                        <ul className="mb-xs ml-7 space-y-0.5 border-l border-outline-variant/30 pl-sm">
-                          {t.columns.length === 0 ? (
-                            <li className="py-xs font-body text-[11px] text-on-surface-variant">
-                              No columns in context pack
-                            </li>
-                          ) : (
-                            t.columns.map((c) => (
-                              <li key={`${key}:${c.name}`}>
-                                <button
-                                  type="button"
-                                  disabled={!canWrite}
-                                  draggable={canWrite}
-                                  onDragStart={(e) =>
-                                    onMentionDragStart(
-                                      e,
-                                      `@${t.name}.${c.name}`,
-                                    )
-                                  }
-                                  onClick={() =>
-                                    insertFromSidebar(`@${t.name}.${c.name}`)
-                                  }
-                                  title={
-                                    canWrite
-                                      ? `Click or drag @${t.name}.${c.name}`
-                                      : c.name
-                                  }
-                                  className="flex w-full items-center gap-sm rounded-md px-xs py-1 text-left font-body text-[12px] text-on-surface-variant hover:bg-surface-container-highest hover:text-secondary disabled:opacity-40"
-                                >
-                                  <span
-                                    className="font-mono text-[10px] text-secondary/70"
-                                    aria-hidden
-                                  >
-                                    ·
-                                  </span>
-                                  <span className="truncate">{c.name}</span>
-                                  <span className="ml-auto shrink-0 font-label text-[9px] uppercase tracking-wide text-on-surface-variant/45">
-                                    {c.keyKind && c.keyKind !== 'none'
-                                      ? c.keyKind
-                                      : c.dataType}
-                                  </span>
-                                </button>
-                              </li>
-                            ))
-                          )}
-                        </ul>
-                      ) : null}
-                    </li>
-                  )
-                })}
-                {sidebarTables.length === 0 ? (
-                  <li className="font-body text-xs text-on-surface-variant">
-                    No tables yet — sync a source first.
-                  </li>
-                ) : null}
-              </ul>
-            </div>
-            <div className="pt-[12px]">
-              <Link
-                to="/workspace"
-                className="pdf-btn-ghost block w-full rounded-[4px] py-[10px] text-center text-[12px] font-semibold"
-              >
-                View Graph Representation
-              </Link>
-            </div>
-          </div>
-
-          <div className={CHAT.tipCard}>
-            <div className="mb-[8px] flex items-center gap-[8px] text-[#7aecd0]">
-              <span
-                className="flex size-[20px] items-center justify-center rounded-full border border-solid border-[rgba(122,236,208,0.45)] bg-[rgba(122,236,208,0.12)] text-[10px] font-bold"
-                aria-hidden
-              >
-                ✓
-              </span>
-              <span className="text-[13px] font-semibold text-[#d4dbe3]">
-                Optimization Tip
-              </span>
-            </div>
-            <p className="text-[12px] leading-relaxed text-[#c8cdd3]">
-              {context?.stats?.suggestedJoins
-                ? `You have ${context.stats.suggestedJoins} suggested join(s) waiting for review. Promote accepted joins before shipping a dbt PR.`
-                : 'Ask about your data — Que runs read-only warehouse queries and shows results in chat (never sent back to the AI).'}{' '}
-              Type{' '}
-              <button
-                type="button"
-                className="underline"
-                onClick={() => {
-                  void ask(
-                    '/outcome I want revenue by region from connected sources',
-                  )
-                }}
-              >
-                /outcome …
-              </button>{' '}
-              in this chat for CEO-style plans → Ship to BI. Type{' '}
-              <button
-                type="button"
-                className="underline"
-                onClick={() => {
-                  void ask(
-                    '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
-                  )
-                }}
-              >
-                /agent …
-              </button>{' '}
-              for the multi-step HITL stitch pipeline.
-            </p>
-          </div>
-          </div>
-          </div>
-        </aside>
+          <ChatContextSidebar
+            contextRefreshing={contextRefreshing}
+            onRefreshContext={() => void reloadContext()}
+            modelId={modelId}
+            aiStatus={aiStatus}
+            sidebarQuery={sidebarQuery}
+            onSidebarQueryChange={setSidebarQuery}
+            sidebarTables={sidebarTables}
+            expandedTables={expandedTables}
+            onToggleTableExpand={toggleTableExpand}
+            canWrite={canWrite}
+            onMentionDragStart={onMentionDragStart}
+            onInsertFromSidebar={insertFromSidebar}
+            context={context}
+            chatAudience={chatAudience}
+            onAskOutcome={() => {
+              void ask(
+                '/outcome I want revenue by region from connected sources',
+              )
+            }}
+            onAskAgent={() => {
+              void ask(
+                '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+              )
+            }}
+          />
         ) : null}
       </div>
     </QueAppChrome>
@@ -2030,10 +1867,12 @@ function ChatBubble({
   onInsertMention?: (token: string) => void
   onFeedback?: (rating: 1 | -1) => void
 }) {
+  const isEngineer = (message.audience ?? 'ceo') === 'engineer'
+
   if (message.role === 'user') {
     return (
       <div className="pdf-chat-row pdf-chat-row--user">
-        <div className={`${CHAT.bubbleUser} pdf-chat-bubble-content`}>
+        <div className={`${CHAT.bubbleUser} pdf-chat-bubble-content pdf-chat-bubble-content--boxed`}>
           <p className="pdf-chat-message-text whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
@@ -2045,8 +1884,9 @@ function ChatBubble({
       <div className={CHAT.avatarAi} aria-hidden>
         Q
       </div>
-      <div className="pdf-chat-assistant-body min-w-0 flex-1 space-y-[10px]">
-        <div className={`${CHAT.bubbleAi} pdf-chat-bubble-content space-y-[12px]`}>
+      <div className="pdf-chat-assistant-body min-w-0 flex-1 space-y-[8px]">
+        <div className={`${CHAT.bubbleAi} pdf-chat-bubble-content space-y-[8px]`}>
+          {!isEngineer ? null : (
           <div className="pdf-chat-toolbar">
             {onCopy ? (
               <button type="button" onClick={onCopy} className="pdf-chat-tool-btn">
@@ -2074,8 +1914,9 @@ function ChatBubble({
               </>
             ) : null}
           </div>
-          <AssistantBody text={message.content} />
-          {message.systemNotes ? (
+          )}
+          <AssistantBody text={message.content} compact={!isEngineer} />
+          {isEngineer && message.systemNotes ? (
             <details className="pdf-chat-system-notes">
               <summary>Schema alerts</summary>
               <AssistantBody text={message.systemNotes} />
@@ -2084,7 +1925,7 @@ function ChatBubble({
           {message.liveQuery ? (
             <ChatLiveResults liveQuery={message.liveQuery} />
           ) : null}
-          {message.planeScope && message.planeScope !== 'in_scope' ? (
+          {isEngineer && message.planeScope && message.planeScope !== 'in_scope' ? (
             <ChatPlaneBoundaryCard
               scope={message.planeScope}
               hint={message.planeScopeHint}
@@ -2092,7 +1933,7 @@ function ChatBubble({
               question={message.planeHandoffQuestion}
             />
           ) : null}
-          {message.outcome ? (
+          {isEngineer && message.outcome ? (
             <OutcomePlanCard
               outcome={message.outcome}
               busy={busy}
@@ -2117,7 +1958,7 @@ function ChatBubble({
               }
             />
           ) : null}
-          {message.agentSession ? (
+          {isEngineer && message.agentSession ? (
             <AgentPlanCard
               session={message.agentSession}
               busy={busy}
@@ -2138,7 +1979,9 @@ function ChatBubble({
               }
             />
           ) : null}
-          {message.referencedTables && message.referencedTables.length > 0 ? (
+          {isEngineer &&
+          message.referencedTables &&
+          message.referencedTables.length > 0 ? (
             <div className="my-md flex flex-col items-stretch gap-lg rounded-lg border border-outline-variant bg-surface-container-low/50 p-md md:flex-row md:items-center">
               <div className="flex w-full flex-col items-center gap-sm md:w-1/3">
                 {message.referencedTables.slice(0, 2).map((t, i) => (
@@ -2187,7 +2030,7 @@ function ChatBubble({
               </div>
             </div>
           ) : null}
-          {message.sql ? (
+          {isEngineer && message.sql ? (
             <div className="relative overflow-hidden rounded-[4px] border border-solid border-[#424850] bg-[#0d1117] p-[12px]">
               <span className="absolute top-0 right-0 rounded-bl-[4px] border-b border-l border-solid border-[#424850] bg-[#121619] px-[8px] py-[4px] text-[9px] font-bold tracking-[0.6px] text-[#7aecd0] uppercase">
                 SQL
@@ -2212,12 +2055,14 @@ function ChatBubble({
               </p>
             </div>
           ) : null}
+          {isEngineer ? (
           <VerifyScrubbedSamples
             previews={message.samplePreviews}
             hasSql={Boolean(message.sql)}
             hasTables={Boolean(message.referencedTables?.length)}
           />
-          {message.retrievedChunks && message.retrievedChunks.length > 0 ? (
+          ) : null}
+          {isEngineer && message.retrievedChunks && message.retrievedChunks.length > 0 ? (
             <div className="flex flex-wrap gap-xs">
               <span className="w-full font-label text-[10px] tracking-widest text-on-surface-variant">
                 Retrieved
@@ -2233,7 +2078,7 @@ function ChatBubble({
               ))}
             </div>
           ) : null}
-          {message.jobDraft ? (
+          {isEngineer && message.jobDraft ? (
             <div className="rounded-xl border border-secondary/25 bg-surface-container-low p-md">
               <p className="font-label text-[11px] tracking-widest text-secondary">
                 Job draft · {message.jobDraft.status}
@@ -2269,15 +2114,15 @@ function ChatBubble({
               </div>
             </div>
           ) : null}
-          {message.citations && message.citations.length > 0 ? (
+          {isEngineer && message.citations && message.citations.length > 0 ? (
             <p className="font-label text-[11px] text-on-surface-variant/60">
               Cited: {message.citations.slice(0, 10).join(' · ')}
             </p>
           ) : null}
         </div>
         <span className={CHAT.meta}>
-          {message.mode ? message.mode : 'assistant'}
-          {message.model ? ` · ${message.model}` : ''}
+          {isEngineer ? (message.mode ? message.mode : 'engineer') : 'ceo'}
+          {message.model && isEngineer ? ` · ${message.model}` : ''}
         </span>
       </div>
     </div>
@@ -2476,28 +2321,33 @@ function formatCell(value: unknown): string {
   return String(value)
 }
 
-function AssistantBody({ text }: { text: string }) {
+function AssistantBody({ text, compact }: { text: string; compact?: boolean }) {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
   return (
-    <p className="font-body text-[13px] leading-snug text-on-surface whitespace-pre-wrap">
+    <div
+      className={[
+        'pdf-chat-message-text whitespace-pre-wrap',
+        compact ? 'pdf-chat-message-text--ceo' : '',
+      ].join(' ')}
+    >
       {parts.map((part, i) => {
         if (part.startsWith('`') && part.endsWith('`')) {
           return (
-            <code key={i} className="rounded bg-secondary-container px-1 text-[12px] text-secondary">
+            <code key={i} className="rounded bg-secondary-container/60 px-1 text-[12px] text-secondary">
               {part.slice(1, -1)}
             </code>
           )
         }
         if (part.startsWith('**') && part.endsWith('**')) {
           return (
-            <strong key={i} className="font-bold text-on-surface">
+            <strong key={i} className="font-semibold text-on-surface">
               {part.slice(2, -2)}
             </strong>
           )
         }
         return <span key={i}>{part}</span>
       })}
-    </p>
+    </div>
   )
 }
 

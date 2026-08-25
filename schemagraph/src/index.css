@@ -679,7 +679,7 @@ thead.pdf-table-head-row {
   -webkit-overflow-scrolling: touch;
 }
 .pdf-chat-messages-inner {
-  max-width: 48rem;
+  max-width: 42rem;
   margin-left: auto;
   margin-right: auto;
   width: 100%;
@@ -693,7 +693,7 @@ thead.pdf-table-head-row {
 }
 .pdf-chat-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
   align-items: flex-start;
 }
@@ -704,15 +704,68 @@ thead.pdf-table-head-row {
   justify-content: flex-start;
 }
 .pdf-chat-bubble-content {
-  padding: 14px 16px;
-  font-size: 14px;
-  line-height: 1.55;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.pdf-chat-bubble-content--boxed {
+  padding: 8px 12px;
 }
 .pdf-chat-message-text {
   color: var(--pdf-text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.pdf-chat-message-text--ceo {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--pdf-text-primary);
+}
+.pdf-chat-message-text code {
+  font-size: 12px;
+}
+.pdf-chat-audience-select__control {
+  appearance: none;
+  cursor: pointer;
+  border-radius: 9999px;
+  border: 1px solid rgba(122, 236, 208, 0.45);
+  background: rgba(122, 236, 208, 0.1)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%237aecd0' d='M1 1l4 4 4-4'/%3E%3C/svg%3E")
+    no-repeat right 10px center;
+  padding: 3px 28px 3px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7aecd0;
+}
+.pdf-chat-audience-select__control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.que-live-results--compact {
+  border-color: var(--pdf-border);
+  background: transparent;
+}
+.que-live-results__hint {
+  margin: 0;
+  padding: 0 0 6px;
+  font-size: 10px;
+  color: var(--pdf-text-faint);
+  border-bottom: 1px solid color-mix(in srgb, var(--pdf-border) 70%, transparent);
+}
+.que-live-results--compact .que-live-results__scroll {
+  max-height: 280px;
+}
+.que-live-results--compact .que-live-results__table {
+  font-size: 11px;
+}
+.que-live-results--compact .que-live-results__table th,
+.que-live-results--compact .que-live-results__table td {
+  padding: 6px 10px;
 }
 .pdf-chat-assistant-body {
-  max-width: calc(100% - 52px);
+  max-width: calc(100% - 40px);
 }
 .pdf-chat-panel {
   border-radius: 12px;
@@ -725,57 +778,58 @@ thead.pdf-table-head-row {
   background: var(--pdf-bg-elevated);
 }
 .pdf-chat-bubble-ai {
-  border-radius: 18px;
-  border-top-left-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--pdf-border) 80%, transparent);
-  background: color-mix(in srgb, var(--pdf-bg-panel) 92%, var(--pdf-bg-elevated));
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--pdf-border) 40%, transparent);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .pdf-chat-bubble-user {
-  border-radius: 18px;
-  border-top-right-radius: 6px;
+  border-radius: 14px;
+  border-top-right-radius: 4px;
   border: 1px solid var(--pdf-user-bubble-border);
   background: var(--pdf-user-bubble-bg);
-  max-width: min(85%, 36rem);
+  max-width: min(82%, 28rem);
 }
 .pdf-chat-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  opacity: 0.85;
+  gap: 4px;
+  opacity: 0;
+  margin-bottom: 2px;
+  transition: opacity 0.15s ease;
+}
+.pdf-chat-row--assistant:hover .pdf-chat-toolbar,
+.pdf-chat-row--assistant:focus-within .pdf-chat-toolbar {
+  opacity: 1;
 }
 .pdf-chat-tool-btn {
-  border-radius: 8px;
-  border: 1px solid var(--pdf-border);
+  border-radius: 6px;
+  border: none;
   background: transparent;
-  padding: 4px 10px;
-  font-size: 11px;
+  padding: 2px 6px;
+  font-size: 10px;
   font-weight: 500;
-  color: var(--pdf-text-secondary);
+  color: var(--pdf-text-faint);
   transition:
-    border-color 0.15s ease,
     color 0.15s ease,
     background-color 0.15s ease;
 }
 .pdf-chat-tool-btn:hover:not(:disabled) {
-  border-color: var(--pdf-btn-ghost-hover-border);
   color: var(--pdf-text-primary);
   background: var(--pdf-bg-elevated);
 }
 .pdf-chat-tool-btn:disabled {
   color: var(--pdf-accent);
-  border-color: var(--pdf-accent-border);
 }
 .pdf-chat-tool-btn--muted:hover:not(:disabled) {
   color: var(--pdf-danger);
-  border-color: color-mix(in srgb, var(--pdf-danger) 40%, transparent);
 }
 .pdf-chat-system-notes {
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--pdf-danger) 35%, var(--pdf-border));
   background: color-mix(in srgb, var(--pdf-danger-surface) 60%, transparent);
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: 6px 10px;
+  font-size: 11px;
 }
 .pdf-chat-system-notes summary {
   cursor: pointer;
@@ -790,7 +844,7 @@ thead.pdf-table-head-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  min-height: 44px;
+  min-height: 28px;
 }
 .pdf-chat-typing-dot {
   width: 7px;
@@ -912,8 +966,8 @@ thead.pdf-table-head-row {
   border-radius: 9999px;
   border: 1px solid var(--pdf-border);
   background: var(--pdf-bg-elevated);
-  padding: 6px 14px;
-  font-size: 11px;
+  padding: 4px 10px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--pdf-text-secondary);
   transition:
@@ -929,8 +983,8 @@ thead.pdf-table-head-row {
   border-radius: 9999px;
   border: 1px solid var(--pdf-accent-border);
   background: var(--pdf-accent-surface);
-  padding: 6px 14px;
-  font-size: 11px;
+  padding: 4px 10px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--pdf-accent);
   transition: background-color 0.15s ease;
@@ -940,8 +994,8 @@ thead.pdf-table-head-row {
 }
 .pdf-chat-avatar-ai {
   display: flex;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -949,41 +1003,75 @@ thead.pdf-table-head-row {
   border: 1px solid var(--pdf-accent-border);
   background: linear-gradient(
     145deg,
-    color-mix(in srgb, var(--pdf-accent) 22%, var(--pdf-bg-panel)),
+    color-mix(in srgb, var(--pdf-accent) 18%, var(--pdf-bg-panel)),
     var(--pdf-bg-panel)
   );
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--pdf-accent);
 }
 .pdf-chat-avatar-user {
-  display: flex;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  border: 1px solid var(--pdf-user-bubble-border);
-  background: var(--pdf-user-bubble-bg);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--pdf-text-heading);
+  display: none;
 }
 .pdf-chat-composer {
   position: relative;
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid var(--pdf-border);
   background: var(--pdf-bg-input);
-  padding: 12px 14px;
-  box-shadow: 0 2px 12px color-mix(in srgb, #000 25%, transparent);
+  padding: 8px 10px;
+  box-shadow: 0 1px 6px color-mix(in srgb, #000 18%, transparent);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .pdf-chat-composer:focus-within {
   border-color: var(--pdf-btn-ghost-hover-border);
   box-shadow:
-    0 2px 16px color-mix(in srgb, #000 30%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--pdf-accent) 15%, transparent);
+    0 1px 8px color-mix(in srgb, #000 22%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--pdf-accent) 12%, transparent);
+}
+.pdf-chat-composer-footer {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--pdf-border) 80%, transparent);
+}
+.pdf-chat-composer-icon {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--pdf-text-faint);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.pdf-chat-composer-icon:hover:not(:disabled) {
+  background: var(--pdf-bg-elevated);
+  color: var(--pdf-text-secondary);
+}
+.pdf-chat-composer-model {
+  font-size: 11px;
+  color: var(--pdf-text-faint);
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+}
+.pdf-chat-composer-send {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: none;
+  background: var(--pdf-text-primary);
+  color: var(--pdf-bg-canvas);
+}
+.pdf-chat-quick-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pdf-chat-footer-note {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--pdf-text-faint);
+  text-align: center;
 }
 .pdf-chat-tip {
   border-radius: 12px;
@@ -992,12 +1080,136 @@ thead.pdf-table-head-row {
   padding: 16px;
 }
 .pdf-chat-meta {
-  font-size: 11px;
+  font-size: 9px;
   color: var(--pdf-text-faint);
-  padding-left: 48px;
+  padding-left: 38px;
 }
 .pdf-chat-accent {
   color: var(--pdf-accent);
+}
+
+/* Collapsible chat context sidebar (right rail) */
+.que-chat-context-sidebar {
+  display: none;
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  flex-shrink: 0;
+  flex-direction: row;
+  background: #111416;
+  border-left: 1px solid rgba(66, 72, 80, 0.45);
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+@media (min-width: 1280px) {
+  .que-chat-context-sidebar {
+    display: flex;
+  }
+}
+.que-chat-context-sidebar.is-open {
+  width: 240px;
+}
+.que-chat-context-sidebar.is-collapsed {
+  width: 28px;
+}
+.que-chat-context-sidebar__toggle {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  min-width: 28px;
+  height: 100%;
+  border: none;
+  border-right: 1px solid rgba(66, 72, 80, 0.35);
+  background: #15191e;
+  color: #8a9099;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+.que-chat-context-sidebar__toggle:hover,
+.que-chat-context-sidebar__toggle:focus-visible {
+  color: #7aecd0;
+  background: #1e2328;
+  outline: none;
+}
+.que-chat-context-sidebar__toggle.is-intro .que-chat-context-sidebar__chevron {
+  animation: que-context-pull-hint 1.35s ease-in-out infinite;
+}
+@keyframes que-context-pull-hint {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateX(-5px);
+    opacity: 1;
+  }
+}
+.que-chat-context-sidebar__chevron--right {
+  transform: none;
+}
+.que-chat-context-sidebar__pull-hint {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(122, 236, 208, 0.35);
+  background: #1e2328;
+  color: #d4dbe3;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  animation: que-context-hint-in 0.18s ease-out;
+}
+.que-chat-context-sidebar__pull-hint::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #1e2328;
+  border-right: 1px solid rgba(122, 236, 208, 0.35);
+  border-top: 1px solid rgba(122, 236, 208, 0.35);
+}
+@keyframes que-context-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+.que-chat-context-sidebar__panel {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+.que-chat-context-sidebar.is-collapsed .que-chat-context-sidebar__panel {
+  opacity: 0;
+  pointer-events: none;
+}
+.que-chat-context-sidebar__scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .pdf-link {

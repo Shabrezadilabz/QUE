@@ -31,7 +31,7 @@ export function ChatLiveResults({
     return null
   }
 
-  const columns = liveQuery.columns || []
+  const columns = normalizeColumns(liveQuery.columns)
   const rows = liveQuery.rows || []
 
   return (
@@ -97,4 +97,18 @@ function formatCell(value: unknown) {
   if (typeof value === 'object') return JSON.stringify(value)
   const s = String(value)
   return s.length > 120 ? `${s.slice(0, 117)}…` : s
+}
+
+function normalizeColumns(
+  columns: ChatLiveQueryResult['columns'],
+): string[] {
+  return (columns || [])
+    .map((c) => {
+      if (typeof c === 'string') return c.trim()
+      if (c && typeof c === 'object' && 'name' in c) {
+        return String((c as { name: string }).name).trim()
+      }
+      return null
+    })
+    .filter((c): c is string => Boolean(c))
 }

@@ -34,6 +34,17 @@ export const WANTS_LIVE_DATA_RE =
 const SCHEMA_ONLY_RE =
   /\b(describe|schema|columns?|fields?|join draft|suggested join|\/help|privacy policy|list tables)\b/i
 
+/** Postgres/Snowflake connectors may return { name, dataType } — chat UI needs string names. */
+export function normalizeLiveColumns(columns) {
+  return (columns || [])
+    .map((c) => {
+      if (typeof c === 'string') return c.trim()
+      if (c && typeof c === 'object' && c.name) return String(c.name).trim()
+      return null
+    })
+    .filter(Boolean)
+}
+
 function extractSqlFromText(text) {
   const raw = String(text || '').trim()
   if (!raw) return null
@@ -277,10 +288,11 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
     }
   }
 
+  const columnNames = normalizeLiveColumns(exec.columns)
   const hidePii = await isHidePiiRuleEnabled(workspaceId)
   const taggedNames = hidePii ? await loadPiiTaggedColumnNames(workspaceId) : null
   const scrubbedRows = hidePii
-    ? scrubGridRows(exec.rows || [], exec.columns || [], { taggedNames })
+    ? scrubGridRows(exec.rows || [], columnNames, { taggedNames })
     : exec.rows || []
   const masked =
     hidePii &&
@@ -292,7 +304,7 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
     explanation,
     connectionId: connection.id,
     connectionName: connection.name,
-    columns: exec.columns || [],
+    columns: columnNames,
     rows: scrubbedRows,
     rowCount: scrubbedRows.length,
     durationMs: Date.now() - started,

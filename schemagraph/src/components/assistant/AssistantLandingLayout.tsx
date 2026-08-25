@@ -24,7 +24,7 @@ export function AssistantLandingLayout({
   footer?: ReactNode
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-[920px] flex-col gap-[40px] px-[16px] py-[32px] md:px-[24px] md:py-[48px]">
+    <div className="flex w-full flex-col gap-[40px] px-[20px] py-[32px] md:px-[28px] md:py-[48px] lg:px-[36px]">
       <header className="space-y-[8px]">
         <p className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] text-[var(--pdf-text-heading)] md:text-[40px]">
           {greeting}

@@ -1,5 +1,9 @@
 import type { Dispatch, DragEvent, RefObject, SetStateAction } from 'react'
 import { LandingSparkleIcon } from '@/components/assistant/AssistantLandingLayout'
+import {
+  ChatAudienceSelect,
+  type ChatAudience,
+} from '@/components/chat/ChatAudienceSelect'
 import type { ChatSkill } from '@/chat/skills'
 import type { MentionSuggestion } from '@/chat/mentions'
 import { extractMentions } from '@/chat/mentions'
@@ -33,6 +37,8 @@ export function LandingComposer({
   fileInputRef,
   onPickAttachments,
   textareaRef,
+  chatAudience,
+  onChatAudienceChange,
 }: {
   canWrite: boolean
   busy: boolean
@@ -62,6 +68,8 @@ export function LandingComposer({
   fileInputRef: RefObject<HTMLInputElement | null>
   onPickAttachments: (files: FileList | null) => void | Promise<void>
   textareaRef: RefObject<HTMLTextAreaElement | null>
+  chatAudience: ChatAudience
+  onChatAudienceChange: (next: ChatAudience) => void
 }) {
   return (
     <div className="relative">
@@ -238,15 +246,23 @@ export function LandingComposer({
               e.target.value = ''
             }}
           />
-          <button
-            type="button"
-            disabled={!canWrite}
-            onClick={() => fileInputRef.current?.click()}
-            className="pdf-btn-ghost inline-flex items-center gap-[8px] rounded-full px-[14px] py-[8px] text-[12px] font-medium disabled:opacity-40"
-          >
-            <PaperclipIcon />
-            Attach file
-          </button>
+          <div className="flex min-w-0 flex-wrap items-center gap-[8px]">
+            <button
+              type="button"
+              disabled={!canWrite}
+              onClick={() => fileInputRef.current?.click()}
+              className="pdf-btn-ghost inline-flex items-center gap-[8px] rounded-full px-[14px] py-[8px] text-[12px] font-medium disabled:opacity-40"
+            >
+              <PaperclipIcon />
+              Attach file
+            </button>
+            <ChatAudienceSelect
+              value={chatAudience}
+              disabled={!canWrite || busy}
+              onChange={onChatAudienceChange}
+              className="pdf-chat-audience-select__control--landing"
+            />
+          </div>
 
           <button
             type="button"

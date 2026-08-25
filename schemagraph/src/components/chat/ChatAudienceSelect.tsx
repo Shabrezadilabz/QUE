@@ -9,10 +9,12 @@ export function ChatAudienceSelect({
   value,
   onChange,
   disabled,
+  className,
 }: {
   value: ChatAudience
   onChange: (next: ChatAudience) => void
   disabled?: boolean
+  className?: string
 }) {
   return (
     <label className="pdf-chat-audience-select">
@@ -21,7 +23,9 @@ export function ChatAudienceSelect({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value as ChatAudience)}
-        className="pdf-chat-audience-select__control"
+        className={['pdf-chat-audience-select__control', className]
+          .filter(Boolean)
+          .join(' ')}
       >
         {OPTIONS.map((o) => (
           <option key={o.id} value={o.id}>

@@ -1249,6 +1249,122 @@ export async function sendChatFeedback(
   return { ok: true, id: body.id || '' }
 }
 
+export interface ChatSessionRecord {
+  id: string
+  title: string
+  status: 'active' | 'archived' | 'deleted'
+  audience: ChatAudience
+  preview: string | null
+  messageCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChatSessionTurn {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  model?: string | null
+  mode?: string | null
+  sql?: string | null
+  audience?: ChatAudience | null
+  at: string
+}
+
+export async function fetchChatSessions(
+  status: 'active' | 'archived' | 'all' = 'active',
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ChatSessionRecord[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/chat/sessions?status=${encodeURIComponent(status)}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    sessions?: ChatSessionRecord[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `chat sessions ${res.status}`)
+  return body.sessions ?? []
+}
+
+export async function createChatSessionApi(
+  opts?: { title?: string; audience?: ChatAudience },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ChatSessionRecord> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/chat/sessions`, {
+    method: 'POST',
+    body: JSON.stringify({
+      title: opts?.title ?? 'New chat',
+      audience: opts?.audience ?? 'ceo',
+    }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    session?: ChatSessionRecord
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `create chat session ${res.status}`)
+  if (!body.session) throw new Error('create chat session returned no session')
+  return body.session
+}
+
+export async function fetchChatSessionTurns(
+  sessionId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ session: ChatSessionRecord; turns: ChatSessionTurn[] }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/chat/sessions/${encodeURIComponent(sessionId)}/turns`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    session?: ChatSessionRecord
+    turns?: ChatSessionTurn[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `chat turns ${res.status}`)
+  if (!body.session) throw new Error('chat turns returned no session')
+  return { session: body.session, turns: body.turns ?? [] }
+}
+
+export async function updateChatSessionApi(
+  sessionId: string,
+  patch: {
+    title?: string
+    status?: 'active' | 'archived' | 'deleted'
+    audience?: ChatAudience
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ChatSessionRecord> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/chat/sessions/${encodeURIComponent(sessionId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    session?: ChatSessionRecord
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `update chat session ${res.status}`)
+  if (!body.session) throw new Error('update chat session returned no session')
+  return body.session
+}
+
+export async function deleteChatSessionApi(
+  sessionId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ChatSessionRecord> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/chat/sessions/${encodeURIComponent(sessionId)}`,
+    { method: 'DELETE' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    session?: ChatSessionRecord
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `delete chat session ${res.status}`)
+  if (!body.session) throw new Error('delete chat session returned no session')
+  return body.session
+}
+
 export interface AiModelInfo {
   id: string
   provider: string

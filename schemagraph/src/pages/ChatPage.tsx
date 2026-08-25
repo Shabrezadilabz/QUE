@@ -15,6 +15,7 @@ import { LandingComposer } from '@/components/assistant/LandingComposer'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { ChatLiveResults } from '@/components/chat/ChatLiveResults'
 import { ChatContextSidebar } from '@/components/chat/ChatContextSidebar'
+import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar'
 import {
   ChatAudienceSelect,
   loadChatAudience,
@@ -89,6 +90,13 @@ import {
   advanceOutcomeAgentApi,
   sendChatFeedback,
   sendChatMessage,
+  createChatSessionApi,
+  fetchChatSessions,
+  fetchChatSessionTurns,
+  updateChatSessionApi,
+  deleteChatSessionApi,
+  type ChatSessionRecord,
+  type ChatSessionTurn,
   type AiStatus,
   type AgentSession,
   type ChatJobDraft,
@@ -102,6 +110,43 @@ import {
   type SamplePreview,
 } from '@/services/stitchApi'
 import { subscribeSchemaChanged } from '@/utils/schemaChangeBus'
+
+function loadActiveChatSessionId(workspaceId: string): string | null {
+  try {
+    return localStorage.getItem(`que.chatSession.${workspaceId}`)
+  } catch {
+    return null
+  }
+}
+
+function saveActiveChatSessionId(workspaceId: string, sessionId: string | null) {
+  try {
+    const key = `que.chatSession.${workspaceId}`
+    if (sessionId) localStorage.setItem(key, sessionId)
+    else localStorage.removeItem(key)
+  } catch {
+    /* ignore */
+  }
+}
+
+function turnsToUiMessages(turns: ChatSessionTurn[]): UiMessage[] {
+  return turns.map((t) => ({
+    id: t.id,
+    role: t.role,
+    content: t.content,
+    sql: t.sql ?? null,
+    mode: t.mode ?? undefined,
+    model: t.model ?? null,
+    audience:
+      t.audience === 'engineer' || t.audience === 'ceo'
+        ? t.audience
+        : undefined,
+    at: new Date(t.at).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  }))
+}
 
 interface UiMessage {
   id: string
@@ -182,6 +227,15 @@ export function ChatPage() {
   const [chatAudience, setChatAudience] = useState<ChatAudience>(() =>
     loadChatAudience(),
   )
+  const [chatSessions, setChatSessions] = useState<ChatSessionRecord[]>([])
+  const [archivedChatSessions, setArchivedChatSessions] = useState<
+    ChatSessionRecord[]
+  >([])
+  const [activeChatSessionId, setActiveChatSessionId] = useState<string | null>(
+    null,
+  )
+  const [historyOpen, setHistoryOpen] = useState(true)
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const messagesScrollRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
@@ -234,21 +288,76 @@ export function ChatPage() {
     }
   }, [])
 
+  const reloadChatSessions = useCallback(async () => {
+    if (!workspaceId) return
+    setHistoryLoading(true)
+    try {
+      const [active, archived] = await Promise.all([
+        fetchChatSessions('active', workspaceId),
+        fetchChatSessions('archived', workspaceId),
+      ])
+      setChatSessions(active)
+      setArchivedChatSessions(archived)
+    } catch {
+      setChatSessions([])
+      setArchivedChatSessions([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [workspaceId])
+
+  const openChatSession = useCallback(
+    async (sessionId: string) => {
+      if (!workspaceId) return
+      try {
+        const { session, turns } = await fetchChatSessionTurns(
+          sessionId,
+          workspaceId,
+        )
+        setActiveChatSessionId(session.id)
+        saveActiveChatSessionId(workspaceId, session.id)
+        setChatAudience(session.audience)
+        saveChatAudience(session.audience)
+        setMessages(turnsToUiMessages(turns))
+        setFocusTables([])
+        setActiveMentions([])
+        setActiveOutcomeId(null)
+        setActiveAgentId(null)
+      } catch (err) {
+        pushToast(
+          err instanceof Error ? err.message : 'Could not load chat',
+          'error',
+        )
+      }
+    },
+    [workspaceId, pushToast],
+  )
+
   const agentBootDone = useRef(false)
 
   useEffect(() => {
     agentBootDone.current = false
-    setMessages([])
-    setFocusTables([])
-    setActiveMentions([])
     setActiveOutcomeId(null)
     setActiveAgentId(null)
     void reloadContext()
     void reloadAiStatus()
+    void reloadChatSessions()
     void fetchWorkspaceSettings()
       .then((s) => setStitchAgentEnabled(s.settings.enableStitchAgent === true))
       .catch(() => setStitchAgentEnabled(false))
-  }, [workspaceId, reloadContext, reloadAiStatus])
+
+    const saved = loadActiveChatSessionId(workspaceId)
+    if (saved) {
+      void openChatSession(saved).catch(() => {
+        setMessages([])
+        setActiveChatSessionId(null)
+        saveActiveChatSessionId(workspaceId, null)
+      })
+    } else {
+      setMessages([])
+      setActiveChatSessionId(null)
+    }
+  }, [workspaceId, reloadContext, reloadAiStatus, reloadChatSessions, openChatSession])
 
   useEffect(() => {
     const q = searchParams.get('q')
@@ -1052,12 +1161,24 @@ export function ChatPage() {
     const ctrl = new AbortController()
     abortRef.current = ctrl
 
+    let sessionId = activeChatSessionId
+    if (!sessionId) {
+      const created = await createChatSessionApi(
+        { audience: chatAudience },
+        workspaceId,
+      )
+      sessionId = created.id
+      setActiveChatSessionId(created.id)
+      saveActiveChatSessionId(workspaceId, created.id)
+      setChatSessions((prev) => [created, ...prev])
+    }
+
     try {
       const res = await sendChatMessage(message, history, workspaceId, {
         signal: ctrl.signal,
         mentions,
         modelId: modelId || undefined,
-        sessionId: `ws-${workspaceId}`,
+        sessionId,
         audience: chatAudience,
       })
       const assistant: UiMessage = {
@@ -1095,6 +1216,7 @@ export function ChatPage() {
       }
       await reloadContext({ quiet: true })
       void reloadAiStatus()
+      void reloadChatSessions()
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         setMessages((prev) => [
@@ -1192,6 +1314,70 @@ export function ChatPage() {
     }
   }
 
+  async function startNewChat() {
+    if (!canWrite || !workspaceId) return
+    try {
+      const created = await createChatSessionApi(
+        { audience: chatAudience },
+        workspaceId,
+      )
+      setActiveChatSessionId(created.id)
+      saveActiveChatSessionId(workspaceId, created.id)
+      setChatSessions((prev) => [created, ...prev.filter((s) => s.id !== created.id)])
+      setMessages([])
+      setFocusTables([])
+      setActiveMentions([])
+      setActiveOutcomeId(null)
+      setActiveAgentId(null)
+      setInput('')
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Could not start chat', 'error')
+    }
+  }
+
+  async function archiveChatSession(sessionId: string) {
+    if (!canWrite || !workspaceId) return
+    try {
+      await updateChatSessionApi(sessionId, { status: 'archived' }, workspaceId)
+      if (activeChatSessionId === sessionId) {
+        setActiveChatSessionId(null)
+        saveActiveChatSessionId(workspaceId, null)
+        setMessages([])
+      }
+      await reloadChatSessions()
+      pushToast('Chat archived', 'success')
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Archive failed', 'error')
+    }
+  }
+
+  async function deleteChatSessionById(sessionId: string) {
+    if (!canWrite || !workspaceId) return
+    try {
+      await deleteChatSessionApi(sessionId, workspaceId)
+      if (activeChatSessionId === sessionId) {
+        setActiveChatSessionId(null)
+        saveActiveChatSessionId(workspaceId, null)
+        setMessages([])
+      }
+      await reloadChatSessions()
+      pushToast('Chat deleted', 'success')
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Delete failed', 'error')
+    }
+  }
+
+  async function restoreChatSession(sessionId: string) {
+    if (!canWrite || !workspaceId) return
+    try {
+      await updateChatSessionApi(sessionId, { status: 'active' }, workspaceId)
+      await reloadChatSessions()
+      pushToast('Chat restored', 'success')
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Restore failed', 'error')
+    }
+  }
+
   const sidebarTables = useMemo(() => {
     const q = sidebarQuery.trim().toLowerCase()
     const base =
@@ -1236,10 +1422,25 @@ export function ChatPage() {
       <div className={`flex h-full min-h-0 flex-1 overflow-hidden ${CHAT.page}`}>
         <main
           className={[
-            'relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+            'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden',
             isLanding ? '' : 'border-r border-solid border-[#424850]',
           ].join(' ')}
         >
+          <ChatHistorySidebar
+            open={historyOpen}
+            onToggle={() => setHistoryOpen((v) => !v)}
+            sessions={chatSessions}
+            archivedSessions={archivedChatSessions}
+            activeSessionId={activeChatSessionId}
+            loading={historyLoading}
+            canWrite={canWrite}
+            onNewChat={() => void startNewChat()}
+            onSelectSession={(id) => void openChatSession(id)}
+            onArchiveSession={(id) => void archiveChatSession(id)}
+            onDeleteSession={(id) => void deleteChatSessionById(id)}
+            onRestoreSession={(id) => void restoreChatSession(id)}
+          />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isLanding ? (
             <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto">
               <AssistantLandingLayout
@@ -1276,6 +1477,11 @@ export function ChatPage() {
                     fileInputRef={fileInputRef}
                     onPickAttachments={onPickAttachments}
                     textareaRef={textareaRef}
+                    chatAudience={chatAudience}
+                    onChatAudienceChange={(next) => {
+                      setChatAudience(next)
+                      saveChatAudience(next)
+                    }}
                   />
                 }
               />
@@ -1325,15 +1531,8 @@ export function ChatPage() {
                     Stop
                   </PdfGhostButton>
                 ) : null}
-                <PdfGhostButton
-                  type="button"
-                  onClick={() => {
-                    setMessages([])
-                    setFocusTables([])
-                    setActiveMentions([])
-                  }}
-                >
-                  Clear
+                <PdfGhostButton type="button" onClick={() => void startNewChat()}>
+                  New chat
                 </PdfGhostButton>
               </div>
             }
@@ -1810,6 +2009,7 @@ export function ChatPage() {
           </div>
             </div>
           )}
+          </div>
         </main>
 
         {!isLanding ? (

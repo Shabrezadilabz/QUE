@@ -236,7 +236,7 @@ export async function answerChat(
       vectorReady,
       driftBlocking: hasOpenHighDrift,
     }
-    await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
+    await persistTurns(workspaceId, opts?.sessionId, trimmed, out, { audience })
     return finalizeChatResult(out, pack, trimmed, finalizeOpts)
   }
 
@@ -318,7 +318,7 @@ export async function answerChat(
           vectorReady,
           driftBlocking: hasOpenHighDrift,
         }
-        await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
+        await persistTurns(workspaceId, opts?.sessionId, trimmed, out, { audience })
         return finalizeChatResult(out, pack, trimmed, finalizeOpts)
       }
     } catch (err) {
@@ -342,11 +342,11 @@ export async function answerChat(
     vectorReady,
     driftBlocking: hasOpenHighDrift,
   }
-  await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
+  await persistTurns(workspaceId, opts?.sessionId, trimmed, out, { audience })
   return finalizeChatResult(out, pack, trimmed, finalizeOpts)
 }
 
-async function persistTurns(workspaceId, sessionId, userMsg, assistant) {
+async function persistTurns(workspaceId, sessionId, userMsg, assistant, opts = {}) {
   try {
     const sid = sessionId || 'default'
     await appendTurn(workspaceId, {
@@ -365,8 +365,17 @@ async function persistTurns(workspaceId, sessionId, userMsg, assistant) {
         retrieved: assistant.retrievedChunks || [],
         liveQueryRowCount: assistant.liveQuery?.rowCount ?? null,
         liveQueryOk: assistant.liveQuery?.ok ?? null,
+        sql: assistant.sql || null,
+        audience: assistant.audience || opts.audience || null,
       },
     })
+    if (sid && sid !== 'default') {
+      await touchChatSession(workspaceId, sid, {
+        userMessage: userMsg,
+        assistantMessage: assistant.reply,
+        audience: assistant.audience || opts.audience,
+      })
+    }
   } catch (err) {
     console.warn('[Que chat] turn persist skipped:', err.message || err)
   }

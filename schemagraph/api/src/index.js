@@ -29,6 +29,15 @@ import {
 import { reindexAll, reindexWorkspace } from './ai/indexer.js'
 import { saveFeedback } from './ai/feedback.js'
 import {
+  createChatSession,
+  deleteChatSession,
+  getChatSession,
+  listChatSessions,
+  loadChatSessionTurns,
+  touchChatSession,
+  updateChatSession,
+} from './chatSessions.js'
+import {
   getAiChunkStats,
   vectorExtensionReady,
 } from './ai/vectorStore.js'
@@ -1632,6 +1641,150 @@ app.post(
     res.status(500).json({ error: String(err.message || err) })
   }
 })
+
+/** Chat session history — list, create, load turns, archive, delete */
+app.get(
+  '/workspaces/:workspaceId/chat/sessions',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const status =
+        req.query.status === 'archived' ||
+        req.query.status === 'all' ||
+        req.query.status === 'deleted'
+          ? req.query.status
+          : 'active'
+      const sessions = await listChatSessions(req.params.workspaceId, {
+        status,
+        limit: Number(req.query.limit) || 40,
+        userId: req.user?.id ?? null,
+      })
+      res.json({ ok: true, sessions })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/chat/sessions',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const session = await createChatSession(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+        {
+          title:
+            typeof req.body?.title === 'string' ? req.body.title : 'New chat',
+          audience:
+            req.body?.audience === 'engineer' ? 'engineer' : 'ceo',
+        },
+      )
+      res.json({ ok: true, session })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/chat/sessions/:sessionId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const session = await getChatSession(
+        req.params.workspaceId,
+        req.params.sessionId,
+      )
+      if (!session) {
+        res.status(404).json({ error: 'Session not found' })
+        return
+      }
+      res.json({ ok: true, session })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/chat/sessions/:sessionId/turns',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const session = await getChatSession(
+        req.params.workspaceId,
+        req.params.sessionId,
+      )
+      if (!session) {
+        res.status(404).json({ error: 'Session not found' })
+        return
+      }
+      const turns = await loadChatSessionTurns(
+        req.params.workspaceId,
+        req.params.sessionId,
+        Number(req.query.limit) || 200,
+      )
+      res.json({ ok: true, session, turns })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/chat/sessions/:sessionId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const patch = {}
+      if (typeof req.body?.title === 'string') patch.title = req.body.title
+      if (
+        req.body?.status === 'active' ||
+        req.body?.status === 'archived' ||
+        req.body?.status === 'deleted'
+      ) {
+        patch.status = req.body.status
+      }
+      if (req.body?.audience === 'ceo' || req.body?.audience === 'engineer') {
+        patch.audience = req.body.audience
+      }
+      const session = await updateChatSession(
+        req.params.workspaceId,
+        req.params.sessionId,
+        patch,
+      )
+      if (!session) {
+        res.status(404).json({ error: 'Session not found' })
+        return
+      }
+      res.json({ ok: true, session })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/chat/sessions/:sessionId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const session = await deleteChatSession(
+        req.params.workspaceId,
+        req.params.sessionId,
+      )
+      if (!session) {
+        res.status(404).json({ error: 'Session not found' })
+        return
+      }
+      res.json({ ok: true, session })
+    } catch (err) {
+      res.status(500).json({ error: String(err.message || err) })
+    }
+  },
+)
 
 /** Thumbs feedback (RLHF-lite) */
 app.post(

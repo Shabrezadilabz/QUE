@@ -1,8 +1,8 @@
 /**
- * Schema-only chat engine with RAG, model switching, and skill runtime.
- * Never sends raw warehouse rows — metadata + product docs only.
+ * Schema chat engine with RAG, model switching, skill runtime, and live warehouse reads.
+ * Live row payloads are executed server-side and returned to the UI only — never to the LLM.
  * Pinned scrubbed samples (5–10) may be included when aiMayUsePinnedSamples.
- * Managed dataset row payloads are never included.
+ * Managed dataset row payloads are never included in AI context.
  */
 import {
   buildSchemaContextPack,
@@ -27,6 +27,7 @@ import { vectorExtensionReady } from './ai/vectorStore.js'
 import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
 import { enrichChatWithPlaneScope } from './chatScope.js'
+import { enrichChatWithLiveQuery } from './chatLiveQuery.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { bestJoinOnClause } from './inferJoins.js'
@@ -90,9 +91,22 @@ function mergeCitations(...lists) {
   return [...new Set(lists.flat().filter(Boolean))]
 }
 
-function finalizeChatResult(result, pack, userMessage = '') {
+async function finalizeChatResult(result, pack, userMessage = '', finalizeOpts = {}) {
   const withSamples = attachSamplePreviews(result, pack, 4, 10)
-  return enrichChatWithPlaneScope(userMessage, withSamples, pack)
+  const withLive = await enrichChatWithLiveQuery(
+    finalizeOpts.workspaceId,
+    userMessage,
+    withSamples,
+    {
+      pack,
+      model: finalizeOpts.model,
+      keys: finalizeOpts.keys,
+      mentions: finalizeOpts.mentions,
+      userId: finalizeOpts.userId,
+      hasSlashSkill: finalizeOpts.hasSlashSkill,
+    },
+  )
+  return enrichChatWithPlaneScope(userMessage, withLive, pack)
 }
 
 /**
@@ -174,10 +188,20 @@ export async function answerChat(
     lineagePrefix =
       `_Lineage anchors:_ ${linCites.slice(0, 4).join(' · ')}\n\n`
   }
-  const replyPrefix = `${driftPrefix}${lineagePrefix}`
+  const systemNotes = [driftPrefix, lineagePrefix].filter(Boolean).join('').trim() || null
+  const replyPrefix = ''
+
+  const skill = detectSkill(trimmed)
+  const finalizeOpts = {
+    workspaceId,
+    model,
+    keys,
+    mentions,
+    userId: opts?.userId ?? null,
+    hasSlashSkill: Boolean(skill?.id),
+  }
 
   // 1) Skill path (deterministic + RAG note)
-  const skill = detectSkill(trimmed)
   if (skill) {
     const result = runSkill(
       pack,
@@ -202,6 +226,7 @@ export async function answerChat(
       reply: `${replyPrefix}${result.reply}`,
       citations: mergeCitations(result.citations, ragCitations, linCites),
       lineageCitations: linCites,
+      systemNotes,
       retrievedChunks: retrievedChunkSummary(ragChunks),
       model: model?.id || null,
       contextStats: pack.stats,
@@ -209,7 +234,7 @@ export async function answerChat(
       driftBlocking: hasOpenHighDrift,
     }
     await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
-    return finalizeChatResult(out, pack, trimmed)
+    return finalizeChatResult(out, pack, trimmed, finalizeOpts)
   }
 
   // Pinned scrubbed samples for AI (default ON) — never managed rows
@@ -284,12 +309,13 @@ export async function answerChat(
           reply: `${replyPrefix}${llm.reply}`,
           citations: mergeCitations(llm.citations, linCites),
           lineageCitations: linCites,
+          systemNotes,
           contextStats: pack.stats,
           vectorReady,
           driftBlocking: hasOpenHighDrift,
         }
         await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
-        return finalizeChatResult(out, pack, trimmed)
+        return finalizeChatResult(out, pack, trimmed, finalizeOpts)
       }
     } catch (err) {
       console.warn('[Que chat] RAG-LLM failed:', err.message || err)
@@ -303,6 +329,7 @@ export async function answerChat(
     reply: `${replyPrefix}${heuristic.reply}`,
     citations: mergeCitations(heuristic.citations, ragCitations, linCites),
     lineageCitations: linCites,
+    systemNotes,
     retrievedChunks: retrievedChunkSummary(ragChunks),
     model: null,
     contextStats: pack.stats,
@@ -311,7 +338,7 @@ export async function answerChat(
     driftBlocking: hasOpenHighDrift,
   }
   await persistTurns(workspaceId, opts?.sessionId, trimmed, out)
-  return finalizeChatResult(out, pack, trimmed)
+  return finalizeChatResult(out, pack, trimmed, finalizeOpts)
 }
 
 async function persistTurns(workspaceId, sessionId, userMsg, assistant) {
@@ -331,6 +358,8 @@ async function persistTurns(workspaceId, sessionId, userMsg, assistant) {
       metadata: {
         citations: assistant.citations || [],
         retrieved: assistant.retrievedChunks || [],
+        liveQueryRowCount: assistant.liveQuery?.rowCount ?? null,
+        liveQueryOk: assistant.liveQuery?.ok ?? null,
       },
     })
   } catch (err) {

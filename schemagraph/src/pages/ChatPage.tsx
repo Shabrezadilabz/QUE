@@ -12,8 +12,8 @@ import {
   AssistantLandingLayout,
 } from '@/components/assistant/AssistantLandingLayout'
 import { LandingComposer } from '@/components/assistant/LandingComposer'
-import { WarehouseRunsStrip } from '@/components/WarehouseRunsStrip'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
+import { ChatLiveResults } from '@/components/chat/ChatLiveResults'
 import { CHAT } from '@/components/chat/chatUi'
 import { SqlHighlight } from '@/components/code/SqlHighlight'
 import { OpenInManagedPlaneButton } from '@/components/plane/OpenInManagedPlaneButton'
@@ -87,6 +87,7 @@ import {
   type ChatJobDraft,
   type ChatMessage,
   type ChatPlaneScope,
+  type ChatLiveQueryResult,
   type ChatReferencedTable,
   type ContextPackSummary,
   type OutcomeRecord,
@@ -118,6 +119,8 @@ interface UiMessage {
   planeScopeHint?: string | null
   /** Original user question — for Managed Plane NLP handoff */
   planeHandoffQuestion?: string | null
+  liveQuery?: ChatLiveQueryResult | null
+  systemNotes?: string | null
 }
 
 /**
@@ -1059,6 +1062,8 @@ export function ChatPage() {
         planeScope: res.planeScope ?? 'in_scope',
         planeScopeHint: res.planeScopeHint ?? null,
         planeHandoffQuestion: message,
+        liveQuery: res.liveQuery ?? null,
+        systemNotes: res.systemNotes ?? null,
         feedback: null,
         at: new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -1262,7 +1267,6 @@ export function ChatPage() {
           ) : (
             <div className="pdf-chat-thread-grid min-h-0 flex-1">
           <div className="min-h-0 shrink-0 px-[16px] pt-[12px] md:px-[24px] md:pt-[16px]">
-          <WarehouseRunsStrip />
           <PdfPageHeader
             compact
             title={
@@ -1275,7 +1279,7 @@ export function ChatPage() {
                 ) : null}
               </span>
             }
-            subtitle={`Schema Q&A, Outcome plans, and Stitch Agent HITL in one chat${busy ? ' · thinking…' : ''}`}
+            subtitle={`Ask about your data — Que runs read-only warehouse queries and shows results here (never sent back to the AI)${busy ? ' · thinking…' : ''}`}
             actions={
               <div className="hidden flex-wrap items-center gap-[8px] sm:flex">
                 <PdfGhostButton type="button" onClick={() => setShowSkills((v) => !v)}>
@@ -1343,8 +1347,9 @@ export function ChatPage() {
           <div
             ref={messagesScrollRef}
             onScroll={onMessagesScroll}
-            className="pdf-chat-scroll-region min-h-0 space-y-[16px] px-[16px] py-[12px] md:px-[24px]"
+            className="pdf-chat-scroll-region pdf-chat-messages min-h-0 px-[16px] py-[12px] md:px-[24px]"
           >
+            <div className="pdf-chat-messages-inner space-y-[20px]">
             {messages.map((m) => (
                 <ChatBubble
                   key={m.id}
@@ -1385,14 +1390,20 @@ export function ChatPage() {
                 />
               ))}
             {busy ? (
-              <div className="flex gap-[12px]">
+              <div className="pdf-chat-row pdf-chat-row--assistant">
                 <div className={CHAT.avatarAi}>…</div>
-                <p className={`px-[14px] py-[10px] ${CHAT.bubbleAi} text-[12px] text-[#a3afbe]`}>
-                  Reading schema pack…
-                </p>
+                <div className={`${CHAT.bubbleAi} pdf-chat-bubble-content pdf-chat-typing`}>
+                  <span className="pdf-chat-typing-dot" />
+                  <span className="pdf-chat-typing-dot" />
+                  <span className="pdf-chat-typing-dot" />
+                  <span className="ml-2 text-[13px] text-[var(--pdf-text-secondary)]">
+                    Querying warehouse…
+                  </span>
+                </div>
               </div>
             ) : null}
             <div ref={bottomRef} />
+            </div>
           </div>
 
           <div className="min-h-0 shrink-0 space-y-[12px] px-[16px] pb-[12px] md:px-[24px]">
@@ -1956,7 +1967,7 @@ export function ChatPage() {
             <p className="text-[12px] leading-relaxed text-[#c8cdd3]">
               {context?.stats?.suggestedJoins
                 ? `You have ${context.stats.suggestedJoins} suggested join(s) waiting for review. Promote accepted joins before shipping a dbt PR.`
-                : 'Ask about joins with /suggested, or mention tables with @name for schema-only answers — never raw warehouse rows.'}{' '}
+                : 'Ask about your data — Que runs read-only warehouse queries and shows results in chat (never sent back to the AI).'}{' '}
               Type{' '}
               <button
                 type="button"
@@ -2021,32 +2032,24 @@ function ChatBubble({
 }) {
   if (message.role === 'user') {
     return (
-      <div className="ml-auto flex max-w-[56rem] flex-row-reverse gap-[12px]">
-        <div className={CHAT.avatarUser}>You</div>
-        <div className="space-y-[6px] text-right">
-          <div className={`p-[14px] text-left ${CHAT.bubbleUser}`}>
-            <p className="text-[13px] leading-snug whitespace-pre-wrap text-[#ecf0f4]">
-              {message.content}
-            </p>
-          </div>
-          <span className={`mr-1 ${CHAT.meta}`}>You · {message.at}</span>
+      <div className="pdf-chat-row pdf-chat-row--user">
+        <div className={`${CHAT.bubbleUser} pdf-chat-bubble-content`}>
+          <p className="pdf-chat-message-text whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex max-w-[64rem] gap-[12px]">
-      <div className={CHAT.avatarAi}>AI</div>
-      <div className="w-full min-w-0 space-y-[6px]">
-        <div className={`space-y-[12px] p-[14px] ${CHAT.bubbleAi}`}>
-          <div className="mb-xs flex flex-wrap items-center gap-sm">
+    <div className="pdf-chat-row pdf-chat-row--assistant">
+      <div className={CHAT.avatarAi} aria-hidden>
+        Q
+      </div>
+      <div className="pdf-chat-assistant-body min-w-0 flex-1 space-y-[10px]">
+        <div className={`${CHAT.bubbleAi} pdf-chat-bubble-content space-y-[12px]`}>
+          <div className="pdf-chat-toolbar">
             {onCopy ? (
-              <button
-                type="button"
-                onClick={onCopy}
-                className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-secondary"
-              >
+              <button type="button" onClick={onCopy} className="pdf-chat-tool-btn">
                 Copy
               </button>
             ) : null}
@@ -2056,22 +2059,31 @@ function ChatBubble({
                   type="button"
                   disabled={message.feedback === 1}
                   onClick={() => onFeedback(1)}
-                  className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-secondary disabled:border-secondary disabled:text-secondary"
+                  className="pdf-chat-tool-btn"
                 >
-                  +1
+                  Good
                 </button>
                 <button
                   type="button"
                   disabled={message.feedback === -1}
                   onClick={() => onFeedback(-1)}
-                  className="rounded-lg border border-outline-variant px-sm py-px font-label text-[10px] text-on-surface-variant hover:border-error disabled:border-error disabled:text-error"
+                  className="pdf-chat-tool-btn pdf-chat-tool-btn--muted"
                 >
-                  -1
+                  Bad
                 </button>
               </>
             ) : null}
           </div>
           <AssistantBody text={message.content} />
+          {message.systemNotes ? (
+            <details className="pdf-chat-system-notes">
+              <summary>Schema alerts</summary>
+              <AssistantBody text={message.systemNotes} />
+            </details>
+          ) : null}
+          {message.liveQuery ? (
+            <ChatLiveResults liveQuery={message.liveQuery} />
+          ) : null}
           {message.planeScope && message.planeScope !== 'in_scope' ? (
             <ChatPlaneBoundaryCard
               scope={message.planeScope}
@@ -2196,7 +2208,7 @@ function ChatBubble({
                 />
               </div>
               <p className="mt-[6px] text-[10px] text-[var(--pdf-text-faint)]">
-                Run preview in Managed Plane — row results never enter AI context.
+                Read-only · max 20 rows · results shown above are not sent to the AI model.
               </p>
             </div>
           ) : null}
@@ -2263,9 +2275,8 @@ function ChatBubble({
             </p>
           ) : null}
         </div>
-        <span className={`ml-1 ${CHAT.meta}`}>
-          Assistant · {message.at}
-          {message.mode ? ` · ${message.mode}` : ''}
+        <span className={CHAT.meta}>
+          {message.mode ? message.mode : 'assistant'}
           {message.model ? ` · ${message.model}` : ''}
         </span>
       </div>

@@ -64,6 +64,15 @@ export function classifyChatPlaneScope(message, ctx = {}) {
 
 /** Attach scope fields to a chat result object. */
 export function enrichChatWithPlaneScope(userMessage, result, pack) {
+  if (result?.liveQuery?.ok) {
+    return {
+      ...result,
+      planeScope: 'in_scope',
+      planeScopeHint: null,
+      chatCapabilities: buildChatCapabilities(true),
+    }
+  }
+
   const mentioned = pack?.tables
     ? pack.tables.filter((t) =>
         String(userMessage || '')
@@ -79,22 +88,33 @@ export function enrichChatWithPlaneScope(userMessage, result, pack) {
     ...result,
     planeScope,
     planeScopeHint,
-    chatCapabilities: {
-      chatMay: [
-        'Explain schema & joins (metadata only)',
-        'Draft SQL / job proposals',
-        'Use 5–10 scrubbed pinned samples when enabled',
-      ],
-      chatMayNot: [
-        'Run warehouse queries or return live row results',
-        'Read managed-plane row payloads',
-        'Execute writes / DDL',
-      ],
-      planeMay: [
-        'Run read-only SQL preview (max 20 rows)',
-        'NLP → SQL via Plane SSM',
-        'Show results to humans only — never to AI',
-      ],
-    },
+    chatCapabilities: buildChatCapabilities(false),
+  }
+}
+
+function buildChatCapabilities(hasLiveResults) {
+  return {
+    chatMay: hasLiveResults
+      ? [
+          'Explain schema & joins (metadata only)',
+          'Draft SQL / job proposals',
+          'Run read-only warehouse queries (max 20 rows)',
+          'Show live results to you — never back to the AI',
+        ]
+      : [
+          'Explain schema & joins (metadata only)',
+          'Draft SQL / job proposals',
+          'Use 5–10 scrubbed pinned samples when enabled',
+        ],
+    chatMayNot: [
+      'Send live warehouse row payloads into the AI model',
+      'Read managed-plane row payloads into AI context',
+      'Execute writes / DDL',
+    ],
+    planeMay: [
+      'Run read-only SQL preview (max 20 rows)',
+      'NLP → SQL via Plane SSM',
+      'Complex analytics with full result grid',
+    ],
   }
 }

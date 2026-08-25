@@ -1141,6 +1141,20 @@ export interface RetrievedChunk {
 
 export type ChatPlaneScope = 'in_scope' | 'needs_plane' | 'blocked'
 
+export interface ChatLiveQueryResult {
+  ok: boolean
+  columns?: string[]
+  rows?: Record<string, unknown>[]
+  rowCount?: number
+  connectionName?: string | null
+  connectionId?: string | null
+  durationMs?: number
+  displayMasked?: boolean
+  policy?: string
+  aiIsolation?: string
+  error?: string
+}
+
 export interface ChatCapabilities {
   chatMay: string[]
   chatMayNot: string[]
@@ -1162,6 +1176,8 @@ export interface ChatResponse {
   planeScope?: ChatPlaneScope
   planeScopeHint?: string | null
   chatCapabilities?: ChatCapabilities
+  systemNotes?: string | null
+  liveQuery?: ChatLiveQueryResult | null
   contextStats?: {
     tableCount: number
     columnCount: number

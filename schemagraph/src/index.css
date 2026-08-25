@@ -666,7 +666,7 @@ thead.pdf-table-head-row {
   color: var(--pdf-danger);
 }
 
-/* Chat surfaces */
+/* Chat surfaces — ChatGPT / Claude inspired thread */
 .pdf-chat-page {
   background: var(--pdf-bg-canvas);
 }
@@ -678,6 +678,12 @@ thead.pdf-table-head-row {
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
+.pdf-chat-messages-inner {
+  max-width: 48rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
 .pdf-chat-thread-grid {
   display: grid;
   min-height: 0;
@@ -685,33 +691,228 @@ thead.pdf-table-head-row {
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
 }
+.pdf-chat-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  align-items: flex-start;
+}
+.pdf-chat-row--user {
+  justify-content: flex-end;
+}
+.pdf-chat-row--assistant {
+  justify-content: flex-start;
+}
+.pdf-chat-bubble-content {
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.pdf-chat-message-text {
+  color: var(--pdf-text-primary);
+}
+.pdf-chat-assistant-body {
+  max-width: calc(100% - 52px);
+}
 .pdf-chat-panel {
-  border-radius: 4px;
+  border-radius: 12px;
   border: 1px solid var(--pdf-border);
   background: var(--pdf-bg-panel);
 }
 .pdf-chat-panel-inner {
-  border-radius: 4px;
+  border-radius: 12px;
   border: 1px solid var(--pdf-border);
   background: var(--pdf-bg-elevated);
 }
 .pdf-chat-bubble-ai {
-  border-radius: 4px;
-  border-top-left-radius: 0;
-  border: 1px solid var(--pdf-border);
-  background: var(--pdf-bg-panel);
+  border-radius: 18px;
+  border-top-left-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--pdf-border) 80%, transparent);
+  background: color-mix(in srgb, var(--pdf-bg-panel) 92%, var(--pdf-bg-elevated));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--pdf-border) 40%, transparent);
 }
 .pdf-chat-bubble-user {
-  border-radius: 4px;
-  border-top-right-radius: 0;
+  border-radius: 18px;
+  border-top-right-radius: 6px;
   border: 1px solid var(--pdf-user-bubble-border);
   background: var(--pdf-user-bubble-bg);
+  max-width: min(85%, 36rem);
+}
+.pdf-chat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  opacity: 0.85;
+}
+.pdf-chat-tool-btn {
+  border-radius: 8px;
+  border: 1px solid var(--pdf-border);
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pdf-text-secondary);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+.pdf-chat-tool-btn:hover:not(:disabled) {
+  border-color: var(--pdf-btn-ghost-hover-border);
+  color: var(--pdf-text-primary);
+  background: var(--pdf-bg-elevated);
+}
+.pdf-chat-tool-btn:disabled {
+  color: var(--pdf-accent);
+  border-color: var(--pdf-accent-border);
+}
+.pdf-chat-tool-btn--muted:hover:not(:disabled) {
+  color: var(--pdf-danger);
+  border-color: color-mix(in srgb, var(--pdf-danger) 40%, transparent);
+}
+.pdf-chat-system-notes {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--pdf-danger) 35%, var(--pdf-border));
+  background: color-mix(in srgb, var(--pdf-danger-surface) 60%, transparent);
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.pdf-chat-system-notes summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--pdf-text-secondary);
+  list-style: none;
+}
+.pdf-chat-system-notes summary::-webkit-details-marker {
+  display: none;
+}
+.pdf-chat-typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+}
+.pdf-chat-typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--pdf-text-faint);
+  animation: pdf-chat-typing 1.2s ease-in-out infinite;
+}
+.pdf-chat-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.pdf-chat-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes pdf-chat-typing {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+.que-live-results {
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--pdf-accent) 35%, var(--pdf-border));
+  background: color-mix(in srgb, var(--pdf-bg-elevated) 85%, #000);
+  overflow: hidden;
+}
+.que-live-results--error {
+  border-color: color-mix(in srgb, var(--pdf-danger) 45%, var(--pdf-border));
+  padding: 12px 14px;
+}
+.que-live-results__header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--pdf-border);
+  background: color-mix(in srgb, var(--pdf-accent-surface) 50%, transparent);
+}
+.que-live-results__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pdf-text-primary);
+}
+.que-live-results__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.que-live-results__badge {
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.que-live-results__badge--live {
+  background: color-mix(in srgb, var(--pdf-accent) 18%, transparent);
+  color: var(--pdf-accent);
+  border: 1px solid var(--pdf-accent-border);
+}
+.que-live-results__badge--pii {
+  background: color-mix(in srgb, var(--pdf-danger) 12%, transparent);
+  color: var(--pdf-danger);
+  border: 1px solid color-mix(in srgb, var(--pdf-danger) 35%, transparent);
+}
+.que-live-results__badge--shield {
+  background: var(--pdf-bg-panel);
+  color: var(--pdf-text-secondary);
+  border: 1px solid var(--pdf-border);
+}
+.que-live-results__meta {
+  font-size: 11px;
+  color: var(--pdf-text-faint);
+}
+.que-live-results__scroll {
+  max-height: 320px;
+  overflow: auto;
+}
+.que-live-results__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.que-live-results__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--pdf-text-secondary);
+  background: var(--pdf-bg-panel);
+  border-bottom: 1px solid var(--pdf-border);
+  white-space: nowrap;
+}
+.que-live-results__table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--pdf-border) 70%, transparent);
+  color: var(--pdf-text-primary);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.que-live-results__table tr:hover td {
+  background: color-mix(in srgb, var(--pdf-bg-elevated) 80%, transparent);
+}
+.que-live-results__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--pdf-text-faint);
 }
 .pdf-chat-pill {
-  border-radius: 12px;
+  border-radius: 9999px;
   border: 1px solid var(--pdf-border);
   background: var(--pdf-bg-elevated);
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 11px;
   font-weight: 600;
   color: var(--pdf-text-secondary);
@@ -725,10 +926,10 @@ thead.pdf-table-head-row {
   color: var(--pdf-text-primary);
 }
 .pdf-chat-pill-accent {
-  border-radius: 12px;
+  border-radius: 9999px;
   border: 1px solid var(--pdf-accent-border);
   background: var(--pdf-accent-surface);
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 11px;
   font-weight: 600;
   color: var(--pdf-accent);
@@ -739,22 +940,26 @@ thead.pdf-table-head-row {
 }
 .pdf-chat-avatar-ai {
   display: flex;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 1px solid var(--pdf-border);
-  background: var(--pdf-ai-avatar-bg);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--pdf-text-accent);
+  border: 1px solid var(--pdf-accent-border);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--pdf-accent) 22%, var(--pdf-bg-panel)),
+    var(--pdf-bg-panel)
+  );
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--pdf-accent);
 }
 .pdf-chat-avatar-user {
   display: flex;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -767,17 +972,21 @@ thead.pdf-table-head-row {
 }
 .pdf-chat-composer {
   position: relative;
-  border-radius: 4px;
+  border-radius: 20px;
   border: 1px solid var(--pdf-border);
   background: var(--pdf-bg-input);
-  padding: 14px;
-  transition: border-color 0.15s ease;
+  padding: 12px 14px;
+  box-shadow: 0 2px 12px color-mix(in srgb, #000 25%, transparent);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .pdf-chat-composer:focus-within {
   border-color: var(--pdf-btn-ghost-hover-border);
+  box-shadow:
+    0 2px 16px color-mix(in srgb, #000 30%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--pdf-accent) 15%, transparent);
 }
 .pdf-chat-tip {
-  border-radius: 4px;
+  border-radius: 12px;
   border: 1px solid var(--pdf-accent-border);
   background: var(--pdf-accent-surface);
   padding: 16px;
@@ -785,6 +994,7 @@ thead.pdf-table-head-row {
 .pdf-chat-meta {
   font-size: 11px;
   color: var(--pdf-text-faint);
+  padding-left: 48px;
 }
 .pdf-chat-accent {
   color: var(--pdf-accent);

@@ -670,6 +670,14 @@ thead.pdf-table-head-row {
 .pdf-chat-page {
   background: var(--pdf-bg-canvas);
 }
+.pdf-chat-scroll-region {
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
 .pdf-chat-panel {
   border-radius: 4px;
   border: 1px solid var(--pdf-border);

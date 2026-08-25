@@ -29,10 +29,27 @@ const SKIP_LIVE_RE =
 
 /** User wants factual row answers, not schema metadata only. */
 export const WANTS_LIVE_DATA_RE =
-  /\b(what|which|how many|show me|show|list|tell me|explain what|do we have|we have|are there|exists?|give me|get me|lookup|find)\b/i
+  /\b(what|which|how many|how much|show me|show|list|tell me|let me know|explain what|do we have|we have|are there|exists?|give me|get me|lookup|find|can you|could you|whats|what's|what is|what are|what was|who|when|where)\b/i
+
+/** Revenue / KPI / business-metric questions — always try a warehouse read. */
+export const METRIC_QUESTION_RE =
+  /\b(revenue|sales|total|amount|profit|margin|cost|price|orders?|customers?|units|inventory|stock|spend|budget|kpi|metric|performance|growth|turnover|earnings|avg|average|sum|count)\b/i
 
 const SCHEMA_ONLY_RE =
-  /\b(describe|schema|columns?|fields?|join draft|suggested join|\/help|privacy policy|list tables)\b/i
+  /\b(describe|schema|columns?|fields?|join draft|suggested join|\/help|privacy policy|list tables|how do i join|slash skill|\/list|\/describe|\/joins|\/sql)\b/i
+
+/**
+ * Natural-language question that should trigger a live warehouse read.
+ * @param {string} message
+ */
+export function looksLikeDataQuestion(message) {
+  const q = String(message || '').trim().toLowerCase()
+  if (!q || q.length < 4) return false
+  if (WANTS_LIVE_DATA_RE.test(q)) return true
+  if (METRIC_QUESTION_RE.test(q)) return true
+  if (/\?\s*$/.test(q)) return true
+  return false
+}
 
 /** Postgres/Snowflake connectors may return { name, dataType } — chat UI needs string names. */
 export function normalizeLiveColumns(columns) {
@@ -73,8 +90,19 @@ function resolveFocusTable(pack, question, mentions = null) {
   const mentioned = findTablesMentioned(pack, question, explicit)
   if (mentioned.length) return mentioned[0]
 
-  const tokens = String(question || '')
-    .toLowerCase()
+  const q = String(question || '').toLowerCase()
+
+  if (/\b(revenue|sales|order total|turnover)\b/.test(q)) {
+    const orders = pack.tables.find((t) => /\borders?\b/i.test(t.name))
+    if (orders) return orders
+  }
+
+  if (/\b(brand|puma|nike|adidas|reebok)\b/.test(q)) {
+    const brands = pack.tables.find((t) => /\bbrands?\b/i.test(t.name))
+    if (brands) return brands
+  }
+
+  const tokens = q
     .replace(/[^a-z0-9_@.\s]+/g, ' ')
     .split(/\s+/)
     .filter((t) => t.length > 2)
@@ -162,6 +190,8 @@ async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, 
     `You are Que SQL generator — schema metadata ONLY (no row access).\n` +
     `Write ONE read-only PostgreSQL SELECT or WITH for the user's question.\n` +
     `Use ONLY tables/columns from context. Never invent names.\n` +
+    `When the question names a brand, product, customer, or region, JOIN tables via FK relationships in context and filter (e.g. WHERE LOWER(brand.name) LIKE '%puma%').\n` +
+    `For revenue, sales, totals, or counts, use SUM/COUNT/AVG with GROUP BY when aggregating.\n` +
     `No INSERT/UPDATE/DELETE/DDL. Include LIMIT ${LIVE_VALIDATE_MAX_ROWS} or lower.\n` +
     `Respond with JSON only: {"sql":"...","explanation":"one short sentence for the user"}\n\n` +
     schemaBlock
@@ -210,10 +240,21 @@ export function shouldRunChatLiveQuery(message, ctx = {}) {
   if (!q || ctx.hasSlashSkill) return false
   if (SKIP_LIVE_RE.test(q)) return false
   if (WRITE_RE.test(q.toLowerCase())) return false
-  if (SCHEMA_ONLY_RE.test(q.toLowerCase()) && !WANTS_LIVE_DATA_RE.test(q.toLowerCase())) {
+  const lower = q.toLowerCase()
+  if (SCHEMA_ONLY_RE.test(lower) && !looksLikeDataQuestion(q)) {
     return false
   }
-  return WANTS_LIVE_DATA_RE.test(q.toLowerCase())
+  if (looksLikeDataQuestion(q)) return true
+  // CEO mode: conversational questions should prefer live reads over schema help.
+  if (
+    ctx.audience === 'ceo' &&
+    !SCHEMA_ONLY_RE.test(lower) &&
+    q.length >= 10 &&
+    !/^(hi|hello|hey|thanks|thank you)\b/i.test(lower)
+  ) {
+    return true
+  }
+  return false
 }
 
 /**
@@ -332,16 +373,22 @@ export async function enrichChatWithLiveQuery(workspaceId, question, result, opt
   })
 
   if (!live.ok) {
+    const audience = opts.audience === 'engineer' ? 'engineer' : 'ceo'
+    const failReply = buildLiveFailureReply(question, live, audience)
+
     if (live.skipped && live.reason === 'live_disabled') {
       return {
         ...result,
+        reply: failReply,
         liveQuerySkipped: live.reason,
         liveQueryHint: live.message,
+        audience,
       }
     }
     if (live.error) {
       return {
         ...result,
+        reply: failReply,
         liveQuery: {
           ok: false,
           error: live.error,
@@ -349,9 +396,15 @@ export async function enrichChatWithLiveQuery(workspaceId, question, result, opt
           connectionName: live.connectionName || null,
         },
         sql: live.sql || result?.sql || null,
+        audience,
       }
     }
-    return result
+    return {
+      ...result,
+      reply: failReply,
+      liveQuerySkipped: live.reason || 'skipped',
+      audience,
+    }
   }
 
   const focusTable = resolveFocusTable(opts.pack, question, opts.mentions)
@@ -410,6 +463,23 @@ export async function enrichChatWithLiveQuery(workspaceId, question, result, opt
     retrievedChunks: audience === 'ceo' ? [] : result?.retrievedChunks,
     samplePreviews: audience === 'ceo' ? [] : result?.samplePreviews,
   }
+}
+
+function buildLiveFailureReply(question, live, audience) {
+  if (audience === 'ceo') {
+    if (live.reason === 'live_disabled') {
+      return 'Live data reads are turned off for this workspace. Ask an admin to enable them in Settings → AI & Policy.'
+    }
+    if (live.reason === 'no_connection') {
+      return 'I couldn’t reach your warehouse yet. Connect a Postgres or SQL source first, then ask again.'
+    }
+    if (live.error) {
+      return `I tried to look that up but the query didn’t succeed. ${String(live.error).slice(0, 160)}`
+    }
+    return `I couldn’t find live data for “${String(question || '').slice(0, 80)}” right now. Try naming a table with @ or check your warehouse connection.`
+  }
+  const base = live.message || live.error || live.reason || 'Live query skipped'
+  return `**Live read failed** — ${base}`
 }
 
 function heuristicCeoSummary(question, live, focusTableName) {

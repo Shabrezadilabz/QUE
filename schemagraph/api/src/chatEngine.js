@@ -27,7 +27,7 @@ import { vectorExtensionReady } from './ai/vectorStore.js'
 import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
 import { enrichChatWithPlaneScope } from './chatScope.js'
-import { enrichChatWithLiveQuery } from './chatLiveQuery.js'
+import { enrichChatWithLiveQuery, looksLikeDataQuestion } from './chatLiveQuery.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { bestJoinOnClause } from './inferJoins.js'
@@ -495,6 +495,17 @@ function heuristicAnswer(pack, message, mentions = null) {
 
   if (mentioned.length >= 2) {
     return explainJoins(pack, mentioned)
+  }
+
+  if (looksLikeDataQuestion(message)) {
+    return {
+      reply: 'Checking your warehouse for an answer…',
+      citations: [],
+      jobDraft: null,
+      referencedTables: [],
+      sql: null,
+      mode: 'live-pending',
+    }
   }
 
   return helpSkills(pack)

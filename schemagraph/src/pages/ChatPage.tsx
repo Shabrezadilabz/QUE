@@ -170,6 +170,7 @@ export function ChatPage() {
   const [modelId, setModelId] = useState<string>('')
   const [reindexing, setReindexing] = useState(false)
 
+  const messagesScrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -517,7 +518,9 @@ export function ChatPage() {
   }, [reloadContext])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesScrollRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [messages, busy])
 
   const atSuggestions = useMemo(
@@ -1196,10 +1199,10 @@ export function ChatPage() {
 
   return (
     <QueAppChrome flush>
-      <div className={`flex min-h-0 flex-1 overflow-hidden ${CHAT.page}`}>
+      <div className={`flex h-full min-h-0 flex-1 overflow-hidden ${CHAT.page}`}>
         <main
           className={[
-            'relative flex min-w-0 flex-1 flex-col overflow-hidden',
+            'relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
             isLanding ? '' : 'border-r border-solid border-[#424850]',
           ].join(' ')}
         >
@@ -1324,7 +1327,10 @@ export function ChatPage() {
 
           </div>
 
-          <div className="min-h-0 flex-1 space-y-[16px] overflow-y-auto px-[16px] md:px-[24px]">
+          <div
+            ref={messagesScrollRef}
+            className="pdf-chat-scroll-region space-y-[16px] px-[16px] md:px-[24px]"
+          >
             {messages.map((m) => (
                 <ChatBubble
                   key={m.id}
@@ -1758,7 +1764,8 @@ export function ChatPage() {
         </main>
 
         {!isLanding ? (
-        <aside className="hidden w-[300px] shrink-0 flex-col gap-[16px] overflow-y-auto bg-[#111416] py-[16px] pr-[20px] pl-[4px] xl:flex">
+        <aside className="hidden h-full min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#111416] xl:flex">
+          <div className="pdf-chat-scroll-region flex flex-col gap-[16px] py-[16px] pr-[20px] pl-[4px]">
           <div className={`space-y-[14px] p-[16px] ${CHAT.panel}`}>
             <div className="flex items-center justify-between">
               <h3 className="text-[11px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
@@ -1961,6 +1968,7 @@ export function ChatPage() {
               </button>{' '}
               for the multi-step HITL stitch pipeline.
             </p>
+          </div>
           </div>
         </aside>
         ) : null}

@@ -672,11 +672,18 @@ thead.pdf-table-head-row {
 }
 .pdf-chat-scroll-region {
   min-height: 0;
-  flex: 1 1 0%;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+.pdf-chat-thread-grid {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 0%;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
 }
 .pdf-chat-panel {
   border-radius: 4px;

@@ -171,6 +171,7 @@ export function ChatPage() {
   const [reindexing, setReindexing] = useState(false)
 
   const messagesScrollRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -519,9 +520,19 @@ export function ChatPage() {
 
   useEffect(() => {
     const el = messagesScrollRef.current
-    if (!el) return
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    if (!el || !stickToBottomRef.current) return
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: busy ? 'auto' : 'smooth',
+    })
   }, [messages, busy])
+
+  const onMessagesScroll = useCallback(() => {
+    const el = messagesScrollRef.current
+    if (!el) return
+    stickToBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 96
+  }, [])
 
   const atSuggestions = useMemo(
     () =>
@@ -805,6 +816,8 @@ export function ChatPage() {
     const expanded = expandSkillInput(attachmentBlock + rawText, focusNames)
     const message = expanded.trim()
     if (!message) return
+
+    stickToBottomRef.current = true
 
     await reloadContext({ quiet: true })
 
@@ -1247,8 +1260,8 @@ export function ChatPage() {
               />
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 px-[16px] pt-[12px] md:px-[24px] md:pt-[16px]">
+            <div className="pdf-chat-thread-grid min-h-0 flex-1">
+          <div className="min-h-0 shrink-0 px-[16px] pt-[12px] md:px-[24px] md:pt-[16px]">
           <WarehouseRunsStrip />
           <PdfPageHeader
             compact
@@ -1329,7 +1342,8 @@ export function ChatPage() {
 
           <div
             ref={messagesScrollRef}
-            className="pdf-chat-scroll-region space-y-[16px] px-[16px] md:px-[24px]"
+            onScroll={onMessagesScroll}
+            className="pdf-chat-scroll-region min-h-0 space-y-[16px] px-[16px] py-[12px] md:px-[24px]"
           >
             {messages.map((m) => (
                 <ChatBubble
@@ -1381,7 +1395,7 @@ export function ChatPage() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="mt-[12px] shrink-0 space-y-[12px] px-[16px] pb-[12px] md:px-[24px]">
+          <div className="min-h-0 shrink-0 space-y-[12px] px-[16px] pb-[12px] md:px-[24px]">
             {activeMentions.length > 0 ? (
               <div className="flex flex-wrap gap-[6px]">
                 {activeMentions.map((name) => (
@@ -1765,7 +1779,8 @@ export function ChatPage() {
 
         {!isLanding ? (
         <aside className="hidden h-full min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#111416] xl:flex">
-          <div className="pdf-chat-scroll-region flex flex-col gap-[16px] py-[16px] pr-[20px] pl-[4px]">
+          <div className="pdf-chat-scroll-region min-h-0 flex-1 py-[16px] pr-[20px] pl-[4px]">
+          <div className="flex flex-col gap-[16px]">
           <div className={`space-y-[14px] p-[16px] ${CHAT.panel}`}>
             <div className="flex items-center justify-between">
               <h3 className="text-[11px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
@@ -1968,6 +1983,7 @@ export function ChatPage() {
               </button>{' '}
               for the multi-step HITL stitch pipeline.
             </p>
+          </div>
           </div>
           </div>
         </aside>

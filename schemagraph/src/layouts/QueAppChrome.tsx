@@ -43,7 +43,7 @@ export function QueAppChrome({
           className={[
             'min-h-0 flex-1',
             flush
-              ? 'flex flex-col overflow-hidden'
+              ? 'flex h-full min-h-0 flex-col overflow-hidden'
               : 'overflow-y-auto',
           ].join(' ')}
         >

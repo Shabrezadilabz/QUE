@@ -16,21 +16,52 @@ export function PdfPageHeader({
     <header
       className={[
         'pdf-page-header shrink-0 border-b border-solid',
-        compact ? 'px-0 pb-[16px] pt-0' : 'px-[24px] pb-[32px] pt-[32px]',
+        compact ? 'pdf-page-header--compact px-0 pb-[10px] pt-0' : 'px-[24px] pb-[32px] pt-[32px]',
       ].join(' ')}
     >
-      <div className="flex flex-wrap items-start justify-between gap-[16px]">
-        <div className="flex min-w-0 flex-col gap-[4px]">
-          <h1 className="text-[24px] font-bold leading-[32px] tracking-[-0.48px] text-[var(--pdf-text-primary)]">
+      <div
+        className={[
+          'flex flex-wrap items-start justify-between',
+          compact ? 'gap-[10px]' : 'gap-[16px]',
+        ].join(' ')}
+      >
+        <div
+          className={[
+            'flex min-w-0 flex-col',
+            compact ? 'gap-[2px]' : 'gap-[4px]',
+          ].join(' ')}
+        >
+          <h1
+            className={
+              compact
+                ? 'text-[13px] font-semibold leading-[18px] tracking-[-0.2px] text-[var(--pdf-text-primary)]'
+                : 'text-[24px] font-bold leading-[32px] tracking-[-0.48px] text-[var(--pdf-text-primary)]'
+            }
+          >
             {title}
           </h1>
           {subtitle ? (
-            <p className="text-[12px] leading-[18px] text-[var(--pdf-text-secondary)] md:text-[14px] md:leading-[20px]">
+            <p
+              className={
+                compact
+                  ? 'text-[10px] leading-[14px] text-[var(--pdf-text-secondary)]'
+                  : 'text-[12px] leading-[18px] text-[var(--pdf-text-secondary)] md:text-[14px] md:leading-[20px]'
+              }
+            >
               {subtitle}
             </p>
           ) : null}
         </div>
-        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-[12px]">{actions}</div> : null}
+        {actions ? (
+          <div
+            className={[
+              'flex shrink-0 flex-wrap items-center',
+              compact ? 'gap-[6px]' : 'gap-[12px]',
+            ].join(' ')}
+          >
+            {actions}
+          </div>
+        ) : null}
       </div>
     </header>
   )

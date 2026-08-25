@@ -1282,12 +1282,13 @@ export function ChatPage() {
             </div>
           ) : (
             <div className="pdf-chat-thread-grid min-h-0 flex-1">
-          <div className="min-h-0 shrink-0 px-[16px] pt-[12px] md:px-[24px] md:pt-[16px]">
+          <div className="min-h-0 shrink-0 px-[16px] pt-[8px] md:px-[20px] md:pt-[10px]">
+          <div className="pdf-chat-column">
           <PdfPageHeader
             compact
             title={
-              <span className="inline-flex items-center gap-[8px]">
-                <span className="text-[15px] font-semibold">Assistant</span>
+              <span className="inline-flex items-center gap-[6px]">
+                <span>Assistant</span>
                 <ChatAudienceSelect
                   value={chatAudience}
                   disabled={busy}
@@ -1366,6 +1367,7 @@ export function ChatPage() {
           ) : null}
 
           </div>
+          </div>
 
           <div
             ref={messagesScrollRef}
@@ -1429,7 +1431,8 @@ export function ChatPage() {
             </div>
           </div>
 
-          <div className="min-h-0 shrink-0 space-y-[8px] px-[16px] pb-[10px] md:px-[24px]">
+          <div className="min-h-0 shrink-0 px-[16px] pb-[10px] md:px-[24px]">
+            <div className="pdf-chat-column space-y-[8px]">
             {activeMentions.length > 0 ? (
               <div className="flex flex-wrap gap-[6px]">
                 {activeMentions.map((name) => (
@@ -1508,7 +1511,7 @@ export function ChatPage() {
             </div>
             ) : null}
 
-            <div className="relative max-w-[42rem] mx-auto w-full">
+            <div className="relative w-full">
               {suggestOpen && suggestions.length > 0 ? (
                 <div className="absolute bottom-full left-0 right-0 z-20 mb-xs max-h-56 overflow-y-auto rounded-xl border border-outline-variant/40 bg-surface-container-low">
                   {suggestions.map((s, i) => {
@@ -1803,6 +1806,7 @@ export function ChatPage() {
               AI can make mistakes. Verify critical schema changes.
               {contextError ? ` · ${contextError}` : ''}
             </p>
+            </div>
           </div>
             </div>
           )}

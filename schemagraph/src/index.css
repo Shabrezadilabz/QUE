@@ -678,7 +678,8 @@ thead.pdf-table-head-row {
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
-.pdf-chat-messages-inner {
+.pdf-chat-messages-inner,
+.pdf-chat-column {
   max-width: 42rem;
   margin-left: auto;
   margin-right: auto;
@@ -731,13 +732,19 @@ thead.pdf-table-head-row {
   border: 1px solid rgba(122, 236, 208, 0.45);
   background: rgba(122, 236, 208, 0.1)
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%237aecd0' d='M1 1l4 4 4-4'/%3E%3C/svg%3E")
-    no-repeat right 10px center;
-  padding: 3px 28px 3px 10px;
-  font-size: 10px;
+    no-repeat right 8px center;
+  padding: 2px 24px 2px 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #7aecd0;
+}
+.pdf-page-header--compact .pdf-btn-ghost {
+  padding: 4px 9px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 .pdf-chat-audience-select__control:disabled {
   opacity: 0.5;
@@ -1107,7 +1114,7 @@ thead.pdf-table-head-row {
   }
 }
 .que-chat-context-sidebar.is-open {
-  width: 240px;
+  width: 245px;
 }
 .que-chat-context-sidebar.is-collapsed {
   width: 28px;

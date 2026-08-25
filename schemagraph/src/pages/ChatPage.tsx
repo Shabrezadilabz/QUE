@@ -14,6 +14,7 @@ import {
 import { LandingComposer } from '@/components/assistant/LandingComposer'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { ChatLiveResults } from '@/components/chat/ChatLiveResults'
+import { ChatContextSidebar } from '@/components/chat/ChatContextSidebar'
 import {
   ChatAudienceSelect,
   loadChatAudience,
@@ -1808,215 +1809,32 @@ export function ChatPage() {
         </main>
 
         {!isLanding ? (
-        <aside className="hidden h-full min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#111416] xl:flex">
-          <div className="pdf-chat-scroll-region min-h-0 flex-1 py-[16px] pr-[20px] pl-[4px]">
-          <div className="flex flex-col gap-[16px]">
-          <div className={`space-y-[14px] p-[16px] ${CHAT.panel}`}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
-                Active Context
-              </h3>
-              <button
-                type="button"
-                onClick={() => void reloadContext()}
-                className="text-[10px] text-[#a3afbe] hover:text-[#d4dbe3]"
-              >
-                {contextRefreshing ? '…' : 'Refresh'}
-              </button>
-            </div>
-            <div className="space-y-[8px]">
-              <div className="flex items-center justify-between gap-[8px]">
-                <span className="text-[12px] text-[#a3afbe]">Selected model</span>
-                <span className="truncate text-[12px] font-semibold text-[#7aecd0]">
-                  {modelId || aiStatus?.models?.[0]?.label || 'heuristic'}
-                </span>
-              </div>
-              <div className="h-[4px] w-full overflow-hidden rounded-full bg-[#1e2328]">
-                <div
-                  className="h-full rounded-full bg-[#7aecd0] transition-all"
-                  style={{
-                    width: aiStatus?.vectorReady ? '75%' : '40%',
-                  }}
-                />
-              </div>
-            </div>
-            <div className="space-y-[8px] pt-[4px]">
-              <p className="text-[12px] font-semibold text-[#d4dbe3]">Referenced tables</p>
-              <input
-                value={sidebarQuery}
-                onChange={(e) => setSidebarQuery(e.target.value)}
-                placeholder="Filter tables…"
-                className="mb-[8px] w-full rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[7px] text-[12px] text-[#d4dbe3] outline-none placeholder:text-[#6b7380] focus:border-[#6b7380]"
-              />
-              <ul className="max-h-64 space-y-xs overflow-y-auto">
-                {sidebarTables.slice(0, 24).map((t) => {
-                  const key = `${t.connection}:${t.name}`
-                  const open =
-                    expandedTables[key] ||
-                    (sidebarQuery.trim().length > 0 &&
-                      t.columns.some((c) =>
-                        c.name
-                          .toLowerCase()
-                          .includes(sidebarQuery.trim().toLowerCase()),
-                      ))
-                  return (
-                    <li key={key} className="rounded-[4px] hover:bg-[#1e2328]">
-                      <div className="flex items-center gap-[2px]">
-                        <button
-                          type="button"
-                          aria-expanded={open}
-                          aria-label={
-                            open
-                              ? `Collapse columns for ${t.name}`
-                              : `Expand columns for ${t.name}`
-                          }
-                          onClick={() => toggleTableExpand(key)}
-                          className="flex size-[32px] shrink-0 items-center justify-center rounded-[4px] text-[#8a9099] hover:bg-[#252a30] hover:text-[#d4dbe3]"
-                        >
-                          <span
-                            className={`inline-block text-[10px] transition-transform ${open ? 'rotate-90' : ''}`}
-                            aria-hidden
-                          >
-                            ▸
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!canWrite}
-                          draggable={canWrite}
-                          onDragStart={(e) =>
-                            onMentionDragStart(e, `@${t.name}`)
-                          }
-                          onClick={() => insertFromSidebar(`@${t.name}`)}
-                          title={
-                            canWrite
-                              ? `Click or drag @${t.name} into chat`
-                              : t.name
-                          }
-                          className="flex min-w-0 flex-1 items-center gap-[8px] rounded-[4px] px-[6px] py-[6px] text-left text-[13px] text-[#c8cdd3] hover:text-[#d4dbe3] disabled:cursor-default disabled:opacity-40"
-                        >
-                          <span className="text-[#7aecd0]" aria-hidden>
-                            ▤
-                          </span>
-                          <span className="truncate font-medium">{t.name}</span>
-                          <span className="ml-auto shrink-0 text-[9px] text-[#6b7380]">
-                            {t.columns.length}
-                          </span>
-                        </button>
-                      </div>
-                      {open ? (
-                        <ul className="mb-xs ml-7 space-y-0.5 border-l border-outline-variant/30 pl-sm">
-                          {t.columns.length === 0 ? (
-                            <li className="py-xs font-body text-[11px] text-on-surface-variant">
-                              No columns in context pack
-                            </li>
-                          ) : (
-                            t.columns.map((c) => (
-                              <li key={`${key}:${c.name}`}>
-                                <button
-                                  type="button"
-                                  disabled={!canWrite}
-                                  draggable={canWrite}
-                                  onDragStart={(e) =>
-                                    onMentionDragStart(
-                                      e,
-                                      `@${t.name}.${c.name}`,
-                                    )
-                                  }
-                                  onClick={() =>
-                                    insertFromSidebar(`@${t.name}.${c.name}`)
-                                  }
-                                  title={
-                                    canWrite
-                                      ? `Click or drag @${t.name}.${c.name}`
-                                      : c.name
-                                  }
-                                  className="flex w-full items-center gap-sm rounded-md px-xs py-1 text-left font-body text-[12px] text-on-surface-variant hover:bg-surface-container-highest hover:text-secondary disabled:opacity-40"
-                                >
-                                  <span
-                                    className="font-mono text-[10px] text-secondary/70"
-                                    aria-hidden
-                                  >
-                                    ·
-                                  </span>
-                                  <span className="truncate">{c.name}</span>
-                                  <span className="ml-auto shrink-0 font-label text-[9px] uppercase tracking-wide text-on-surface-variant/45">
-                                    {c.keyKind && c.keyKind !== 'none'
-                                      ? c.keyKind
-                                      : c.dataType}
-                                  </span>
-                                </button>
-                              </li>
-                            ))
-                          )}
-                        </ul>
-                      ) : null}
-                    </li>
-                  )
-                })}
-                {sidebarTables.length === 0 ? (
-                  <li className="font-body text-xs text-on-surface-variant">
-                    No tables yet — sync a source first.
-                  </li>
-                ) : null}
-              </ul>
-            </div>
-            <div className="pt-[12px]">
-              <Link
-                to="/workspace"
-                className="pdf-btn-ghost block w-full rounded-[4px] py-[10px] text-center text-[12px] font-semibold"
-              >
-                View Graph Representation
-              </Link>
-            </div>
-          </div>
-
-          <div className={CHAT.tipCard}>
-            <div className="mb-[8px] flex items-center gap-[8px] text-[#7aecd0]">
-              <span
-                className="flex size-[20px] items-center justify-center rounded-full border border-solid border-[rgba(122,236,208,0.45)] bg-[rgba(122,236,208,0.12)] text-[10px] font-bold"
-                aria-hidden
-              >
-                ✓
-              </span>
-              <span className="text-[13px] font-semibold text-[#d4dbe3]">
-                Optimization Tip
-              </span>
-            </div>
-            <p className="text-[12px] leading-relaxed text-[#c8cdd3]">
-              {context?.stats?.suggestedJoins
-                ? `You have ${context.stats.suggestedJoins} suggested join(s) waiting for review. Promote accepted joins before shipping a dbt PR.`
-                : 'Ask about your data — Que runs read-only warehouse queries and shows results in chat (never sent back to the AI).'}{' '}
-              Type{' '}
-              <button
-                type="button"
-                className="underline"
-                onClick={() => {
-                  void ask(
-                    '/outcome I want revenue by region from connected sources',
-                  )
-                }}
-              >
-                /outcome …
-              </button>{' '}
-              in this chat for CEO-style plans → Ship to BI. Type{' '}
-              <button
-                type="button"
-                className="underline"
-                onClick={() => {
-                  void ask(
-                    '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
-                  )
-                }}
-              >
-                /agent …
-              </button>{' '}
-              for the multi-step HITL stitch pipeline.
-            </p>
-          </div>
-          </div>
-          </div>
-        </aside>
+          <ChatContextSidebar
+            contextRefreshing={contextRefreshing}
+            onRefreshContext={() => void reloadContext()}
+            modelId={modelId}
+            aiStatus={aiStatus}
+            sidebarQuery={sidebarQuery}
+            onSidebarQueryChange={setSidebarQuery}
+            sidebarTables={sidebarTables}
+            expandedTables={expandedTables}
+            onToggleTableExpand={toggleTableExpand}
+            canWrite={canWrite}
+            onMentionDragStart={onMentionDragStart}
+            onInsertFromSidebar={insertFromSidebar}
+            context={context}
+            chatAudience={chatAudience}
+            onAskOutcome={() => {
+              void ask(
+                '/outcome I want revenue by region from connected sources',
+              )
+            }}
+            onAskAgent={() => {
+              void ask(
+                '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+              )
+            }}
+          />
         ) : null}
       </div>
     </QueAppChrome>

@@ -1371,7 +1371,7 @@ export function ChatPage() {
             onScroll={onMessagesScroll}
             className="pdf-chat-scroll-region pdf-chat-messages min-h-0 px-[16px] py-[12px] md:px-[24px]"
           >
-            <div className="pdf-chat-messages-inner space-y-[20px]">
+            <div className="pdf-chat-messages-inner space-y-[14px]">
             {messages.map((m) => (
                 <ChatBubble
                   key={m.id}
@@ -1418,8 +1418,8 @@ export function ChatPage() {
                   <span className="pdf-chat-typing-dot" />
                   <span className="pdf-chat-typing-dot" />
                   <span className="pdf-chat-typing-dot" />
-                  <span className="ml-2 text-[13px] text-[var(--pdf-text-secondary)]">
-                    Querying warehouse…
+                  <span className="ml-2 text-[12px] text-[var(--pdf-text-faint)]">
+                    Thinking…
                   </span>
                 </div>
               </div>
@@ -1428,7 +1428,7 @@ export function ChatPage() {
             </div>
           </div>
 
-          <div className="min-h-0 shrink-0 space-y-[12px] px-[16px] pb-[12px] md:px-[24px]">
+          <div className="min-h-0 shrink-0 space-y-[8px] px-[16px] pb-[10px] md:px-[24px]">
             {activeMentions.length > 0 ? (
               <div className="flex flex-wrap gap-[6px]">
                 {activeMentions.map((name) => (
@@ -1448,7 +1448,8 @@ export function ChatPage() {
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-[8px]">
+            {chatAudience === 'engineer' ? (
+            <div className="pdf-chat-quick-pills">
               <button
                 type="button"
                 disabled={!canWrite}
@@ -1504,8 +1505,9 @@ export function ChatPage() {
                 </button>
               ) : null}
             </div>
+            ) : null}
 
-            <div className="relative">
+            <div className="relative max-w-[42rem] mx-auto w-full">
               {suggestOpen && suggestions.length > 0 ? (
                 <div className="absolute bottom-full left-0 right-0 z-20 mb-xs max-h-56 overflow-y-auto rounded-xl border border-outline-variant/40 bg-surface-container-low">
                   {suggestions.map((s, i) => {
@@ -1665,17 +1667,17 @@ export function ChatPage() {
                       void ask(input)
                     }
                   }}
-                  rows={2}
+                  rows={1}
                   disabled={!canWrite}
                   placeholder={
                     canWrite
-                      ? 'Ask Que anything about your pipelines…  @table  /sql'
-                      : 'Read-only — viewer cannot send chat'
+                      ? 'Message Que…'
+                      : 'Read-only'
                   }
-                  className="max-h-32 min-h-[2.5rem] w-full resize-none border-none bg-transparent px-[4px] py-[4px] text-[13px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
+                  className="pdf-chat-composer-input max-h-24 min-h-[1.5rem] w-full resize-none border-none bg-transparent px-[2px] py-[2px] text-[13px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
                 />
 
-                <div className="mt-[10px] flex flex-wrap items-center gap-[6px] border-t border-solid border-[#424850] pt-[10px]">
+                <div className="pdf-chat-composer-footer flex flex-wrap items-center gap-[4px]">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1691,7 +1693,7 @@ export function ChatPage() {
                     type="button"
                     disabled={!canWrite}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex size-[36px] items-center justify-center rounded-full text-[#a3afbe] transition-colors hover:bg-[#1e2328] disabled:opacity-40"
+                    className="pdf-chat-composer-icon disabled:opacity-40"
                     title="Attach schema note (.sql, .md, .txt…)"
                     aria-label="Attach file"
                   >
@@ -1718,7 +1720,7 @@ export function ChatPage() {
                         ta.setSelectionRange(nextCaret, nextCaret)
                       })
                     }}
-                    className="flex size-[36px] items-center justify-center rounded-full text-sm font-bold text-[#a3afbe] transition-colors hover:bg-[#1e2328] disabled:opacity-40"
+                    className="pdf-chat-composer-icon text-sm font-bold disabled:opacity-40"
                     title="Mention a table"
                     aria-label="Mention table"
                   >
@@ -1732,7 +1734,7 @@ export function ChatPage() {
                       setInput((prev) => (prev.startsWith('/') ? prev : '/'))
                       requestAnimationFrame(() => textareaRef.current?.focus())
                     }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full font-label text-sm text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                    className="pdf-chat-composer-icon font-label text-sm disabled:opacity-40"
                     title="Skills / commands"
                     aria-label="Open skills"
                   >
@@ -1743,10 +1745,8 @@ export function ChatPage() {
                     disabled={!canWrite}
                     onClick={toggleVoiceInput}
                     className={[
-                      'flex size-[36px] items-center justify-center rounded-full transition-colors disabled:opacity-40',
-                      listening
-                        ? 'bg-[rgba(255,107,107,0.12)] text-[#ff6b6b]'
-                        : 'text-[#a3afbe] hover:bg-[#1e2328]',
+                      'pdf-chat-composer-icon disabled:opacity-40',
+                      listening ? 'text-[#ff6b6b]' : '',
                     ].join(' ')}
                     title={listening ? 'Stop listening' : 'Voice input'}
                     aria-label={listening ? 'Stop voice input' : 'Voice input'}
@@ -1755,31 +1755,28 @@ export function ChatPage() {
                     <MicIcon />
                   </button>
 
-                  <div className="ml-auto flex items-center gap-sm">
-                    <label className="flex max-w-[11rem] items-center gap-1 rounded-[12px] border border-solid border-[#424850] bg-[#121619] px-[10px] py-[6px]">
-                      <span className="sr-only">Model</span>
-                      <select
-                        value={modelId}
-                        onChange={(e) => setModelId(e.target.value)}
-                        disabled={!canWrite || !aiStatus?.models?.length}
-                        className="max-w-[9.5rem] truncate border-none bg-transparent text-[12px] font-medium text-[#d4dbe3] outline-none disabled:opacity-40"
-                        title="Generation model"
-                      >
-                        {(aiStatus?.models?.length
-                          ? aiStatus.models
-                          : [{ id: '', label: 'heuristic' }]
-                        ).map((m) => (
-                          <option key={m.id || 'heuristic'} value={m.id}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  <div className="ml-auto flex items-center gap-[6px]">
+                    <select
+                      value={modelId}
+                      onChange={(e) => setModelId(e.target.value)}
+                      disabled={!canWrite || !aiStatus?.models?.length}
+                      className="pdf-chat-composer-model max-w-[9rem] truncate outline-none disabled:opacity-40"
+                      title="Generation model"
+                    >
+                      {(aiStatus?.models?.length
+                        ? aiStatus.models
+                        : [{ id: '', label: 'heuristic' }]
+                      ).map((m) => (
+                        <option key={m.id || 'heuristic'} value={m.id}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
                     {busy ? (
                       <button
                         type="button"
                         onClick={stopAsk}
-                        className="flex h-10 items-center justify-center rounded-full border border-outline-variant px-md font-label text-xs font-bold text-on-surface-variant hover:bg-secondary-container"
+                        className="pdf-chat-composer-icon text-[10px] font-semibold"
                       >
                         Stop
                       </button>
@@ -1791,7 +1788,7 @@ export function ChatPage() {
                           (!input.trim() && attachments.length === 0)
                         }
                         onClick={() => void ask(input)}
-                        className="pdf-btn-primary flex size-[40px] shrink-0 items-center justify-center rounded-full text-[14px] font-bold disabled:opacity-40"
+                        className="pdf-chat-composer-send flex shrink-0 items-center justify-center text-[13px] font-bold disabled:opacity-40"
                         aria-label="Send"
                       >
                         →
@@ -1801,9 +1798,9 @@ export function ChatPage() {
                 </div>
               </div>
             </div>
-            <p className="pb-[8px] text-center text-[11px] text-[#6b7380]">
+            <p className="pdf-chat-footer-note pb-[6px]">
               AI can make mistakes. Verify critical schema changes.
-              {contextError ? ` · Context error: ${contextError}` : ''}
+              {contextError ? ` · ${contextError}` : ''}
             </p>
           </div>
             </div>
@@ -2057,7 +2054,7 @@ function ChatBubble({
   if (message.role === 'user') {
     return (
       <div className="pdf-chat-row pdf-chat-row--user">
-        <div className={`${CHAT.bubbleUser} pdf-chat-bubble-content`}>
+        <div className={`${CHAT.bubbleUser} pdf-chat-bubble-content pdf-chat-bubble-content--boxed`}>
           <p className="pdf-chat-message-text whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
@@ -2069,8 +2066,9 @@ function ChatBubble({
       <div className={CHAT.avatarAi} aria-hidden>
         Q
       </div>
-      <div className="pdf-chat-assistant-body min-w-0 flex-1 space-y-[10px]">
-        <div className={`${CHAT.bubbleAi} pdf-chat-bubble-content space-y-[12px]`}>
+      <div className="pdf-chat-assistant-body min-w-0 flex-1 space-y-[8px]">
+        <div className={`${CHAT.bubbleAi} pdf-chat-bubble-content space-y-[8px]`}>
+          {!isEngineer ? null : (
           <div className="pdf-chat-toolbar">
             {onCopy ? (
               <button type="button" onClick={onCopy} className="pdf-chat-tool-btn">
@@ -2098,6 +2096,7 @@ function ChatBubble({
               </>
             ) : null}
           </div>
+          )}
           <AssistantBody text={message.content} compact={!isEngineer} />
           {isEngineer && message.systemNotes ? (
             <details className="pdf-chat-system-notes">
@@ -2507,30 +2506,30 @@ function formatCell(value: unknown): string {
 function AssistantBody({ text, compact }: { text: string; compact?: boolean }) {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
   return (
-    <p
+    <div
       className={[
-        'font-body leading-snug text-on-surface whitespace-pre-wrap',
-        compact ? 'pdf-chat-message-text pdf-chat-message-text--ceo' : 'text-[13px]',
+        'pdf-chat-message-text whitespace-pre-wrap',
+        compact ? 'pdf-chat-message-text--ceo' : '',
       ].join(' ')}
     >
       {parts.map((part, i) => {
         if (part.startsWith('`') && part.endsWith('`')) {
           return (
-            <code key={i} className="rounded bg-secondary-container px-1 text-[12px] text-secondary">
+            <code key={i} className="rounded bg-secondary-container/60 px-1 text-[12px] text-secondary">
               {part.slice(1, -1)}
             </code>
           )
         }
         if (part.startsWith('**') && part.endsWith('**')) {
           return (
-            <strong key={i} className="font-bold text-on-surface">
+            <strong key={i} className="font-semibold text-on-surface">
               {part.slice(2, -2)}
             </strong>
           )
         }
         return <span key={i}>{part}</span>
       })}
-    </p>
+    </div>
   )
 }
 

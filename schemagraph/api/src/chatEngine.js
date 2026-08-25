@@ -388,7 +388,7 @@ async function tryRagLlmAnswer({
 }) {
   const ceoNote =
     audience === 'ceo'
-      ? `\nAudience: CEO — use plain business English. No schema jargon, SQL, or pipeline talk unless the user explicitly asks.\n`
+      ? `\nAudience: CEO — reply in 1–3 short sentences. Plain business English only. No schema jargon, SQL, or pipeline talk.\n`
       : `\nAudience: Data engineer — be precise; SQL drafts and schema detail are welcome.\n`
   const system =
     `You are Que AI — a schema-only data engineering assistant.\n` +

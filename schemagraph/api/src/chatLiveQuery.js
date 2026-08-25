@@ -418,12 +418,12 @@ function heuristicCeoSummary(question, live, focusTableName) {
   const cols = (live.columns || []).slice(0, 5).join(', ')
   const subject = focusTableName || 'your data'
   if (n === 0) {
-    return `I checked ${subject} and didn’t find any matching records for that question.`
+    return `I didn’t find any matching records for that question.`
   }
   if (n === 1) {
-    return `I found one record related to your question${cols ? ` (${cols})` : ''}. The details are in the table below.`
+    return `I found one record — details are in the table below.`
   }
-  return `I found ${n} records related to your question${cols ? ` — including ${cols}` : ''}. See the table below for the full list.`
+  return `I found ${n} records — see the table below.`
 }
 
 /**
@@ -450,8 +450,9 @@ async function buildCeoSummary(question, live, { model, keys, focusTableName }) 
   const system =
     `You write short answers for a business executive (CEO).\n` +
     `Rules:\n` +
-    `- 2–4 sentences, plain English, confident and clear\n` +
+    `- 1–2 short sentences max, plain English, confident and clear\n` +
     `- Answer the question directly using the result rows\n` +
+    `- No bullet lists unless the user asked for a list\n` +
     `- No SQL, no database/connection/table names, no technical jargon\n` +
     `- Do not mention AI, models, queries, or how data was fetched\n` +
     `- You may name brands, products, numbers, and regions from the rows`

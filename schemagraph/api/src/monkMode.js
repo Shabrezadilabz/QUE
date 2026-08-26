@@ -4,10 +4,8 @@
  */
 import { query } from './db.js'
 import { buildSchemaContextPack } from './schemaContext.js'
-import {
-  getIndustryPack,
-  scorePackAgainstSchema,
-} from './templateMatcher.js'
+import { getIndustryPack, scorePackAgainstSchema } from './templateMatcher.js'
+import { resolveWorkspacePack } from './customPacks.js'
 import {
   profileWorkspaceColumns,
   seedQualityIssuesFromPack,
@@ -34,6 +32,7 @@ import {
   getPackCertMinRecall,
 } from './packPolicies.js'
 import { runMonkAgentTools } from './monkAgent.js'
+import { runMonkAutopilotCertLoop } from './monkAutopilot.js'
 
 const PHASES = ['discover', 'map', 'clean', 'build', 'certify', 'done']
 
@@ -212,7 +211,9 @@ function buildCapabilityMap(pack, matchResult, profileResult, buildResult, certR
  */
 export async function startMonkModeRun(workspaceId, opts = {}) {
   const packId = opts.packId || 'ecommerce-v1'
-  const pack = getIndustryPack(packId)
+  const pack =
+    (await resolveWorkspacePack(workspaceId, packId)) ||
+    getIndustryPack(packId)
   if (!pack) {
     const err = new Error('industry pack not found')
     err.status = 404
@@ -459,38 +460,97 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
     await setRunPhase(runId, 'certify')
     let certResult = null
     let agentResult = null
+    let autopilotResult = null
     const minRecall = getPackCertMinRecall(pack)
+
     try {
-      certResult = await runPackCertificationGate(workspaceId, {
-        packId: pack.id,
-        runId,
-        minRecall,
-        requiredOk: matchResult.requiredOk,
-      })
-      const recallPct = certResult.report?.goldenPairs
-        ? (certResult.report.recall * 100).toFixed(1)
-        : null
-      await appendEvent(
-        runId,
+      autopilotResult = await runMonkAutopilotCertLoop(
         workspaceId,
-        'certify',
-        certResult.passed
-          ? recallPct
-            ? `Certified — golden recall ${recallPct}%`
-            : 'Certified — template match and KPI gates passed'
-          : recallPct
-            ? `Certification pending — recall ${recallPct}% (need ${(minRecall * 100).toFixed(0)}%). Promote joins on /joins.`
-            : 'Certification pending — complete required tables and steward review',
-        { level: certResult.passed ? 'success' : 'warn', detail: certResult.report },
+        pack,
+        {
+          runId,
+          userId: opts.userId ?? null,
+          requiredOk: matchResult.requiredOk,
+          matchResult,
+        },
       )
+      certResult = autopilotResult.certResult || null
+      for (const step of autopilotResult.steps || []) {
+        await appendEvent(
+          runId,
+          workspaceId,
+          'certify',
+          `Autopilot · ${step.id}: ${step.message}`,
+          {
+            level: step.ok ? 'success' : 'warn',
+            detail: step.detail || {},
+          },
+        )
+      }
+      if (certResult) {
+        const recallPct = certResult.report?.goldenPairs
+          ? (certResult.report.recall * 100).toFixed(1)
+          : null
+        await appendEvent(
+          runId,
+          workspaceId,
+          'certify',
+          certResult.passed
+            ? recallPct
+              ? `Autopilot certified — golden recall ${recallPct}%`
+              : 'Autopilot certified — template and KPI gates passed'
+            : recallPct
+              ? `Autopilot cert pending — recall ${recallPct}% (need ${(minRecall * 100).toFixed(0)}%)`
+              : 'Autopilot cert pending — complete required tables',
+          {
+            level: certResult.passed ? 'success' : 'warn',
+            detail: certResult.report,
+          },
+        )
+      }
     } catch (err) {
       await appendEvent(
         runId,
         workspaceId,
         'certify',
-        `Certification check skipped: ${err.message || err}`,
+        `Autopilot loop failed: ${err.message || err}`,
         { level: 'warn' },
       )
+    }
+
+    if (!certResult) {
+      try {
+        certResult = await runPackCertificationGate(workspaceId, {
+          packId: pack.id,
+          runId,
+          minRecall,
+          requiredOk: matchResult.requiredOk,
+        })
+        const recallPct = certResult.report?.goldenPairs
+          ? (certResult.report.recall * 100).toFixed(1)
+          : null
+        await appendEvent(
+          runId,
+          workspaceId,
+          'certify',
+          certResult.passed
+            ? recallPct
+              ? `Certified — golden recall ${recallPct}%`
+              : 'Certified — template match and KPI gates passed'
+            : recallPct
+              ? `Certification pending — recall ${recallPct}% (need ${(minRecall * 100).toFixed(0)}%). Promote joins on /joins.`
+              : 'Certification pending — complete required tables and steward review',
+          { level: certResult.passed ? 'success' : 'warn', detail: certResult.report },
+        )
+      } catch (err) {
+        await appendEvent(
+          runId,
+          workspaceId,
+          'certify',
+          `Certification check skipped: ${err.message || err}`,
+          { level: 'warn' },
+        )
+      }
     }
 
     try {
@@ -498,7 +558,11 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
         workspaceId,
         pack,
         matchResult,
-        { runId, userId: opts.userId ?? null },
+        {
+          runId,
+          userId: opts.userId ?? null,
+          skipGoldenEval: Boolean(certResult?.passed),
+        },
       )
       for (const step of agentResult.steps || []) {
         await appendEvent(
@@ -555,6 +619,7 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
         dashboards: buildResult.dashboards,
         legacyJobId: buildResult.legacyJob?.id || null,
         certification: certResult?.certification || null,
+        autopilot: autopilotResult,
         agent: agentResult,
         entityCount: entityMappings.length,
         policies: pack.policies || {},

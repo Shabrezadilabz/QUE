@@ -5562,3 +5562,172 @@ export async function seedPackDashboardsApi(
   if (!res.ok) throw new Error(body.error || `seed dashboards ${res.status}`)
   return body
 }
+
+/* ── Phase 6: Pack Studio ── */
+
+export type CustomPackRecord = {
+  packId: string
+  displayName: string
+  industry: string
+  definition?: Record<string, unknown>
+}
+
+export async function fetchPackStudioSuggest(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/pack-studio/suggest`)
+  const body = (await res.json().catch(() => ({}))) as {
+    ranked?: { packId: string; displayName: string; scorePct: number }[]
+    blended?: Record<string, unknown>
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `pack suggest ${res.status}`)
+  return body
+}
+
+export async function saveBlendedPackApi(
+  blended: Record<string, unknown>,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/pack-studio/save-blend`, {
+    method: 'POST',
+    body: JSON.stringify({ blended }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: CustomPackRecord
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `save blend ${res.status}`)
+  return body.item!
+}
+
+export async function upsertCustomPackApi(
+  payload: Record<string, unknown>,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/pack-studio/custom-packs`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: CustomPackRecord
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `custom pack ${res.status}`)
+  return body.item!
+}
+
+export async function fetchEntityMappings(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams({ packId })
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/entity-mappings?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      entity: string
+      tableName: string
+      columnMap?: Record<string, string>
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `entity mappings ${res.status}`)
+  return body.items || []
+}
+
+export async function updateColumnMapsApi(
+  packId: string,
+  mappings: { entity: string; columnMap: Record<string, string> }[],
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/pack-studio/column-maps`, {
+    method: 'PATCH',
+    body: JSON.stringify({ packId, mappings }),
+  })
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `column maps ${res.status}`)
+}
+
+export async function learnGoldenPairsApi(
+  connectionId?: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/pack-studio/learn-golden-pairs`,
+    { method: 'POST', body: JSON.stringify({ connectionId }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    learnedCount?: number
+    pairs?: { fromTable: string; fromColumn: string; toTable: string; toColumn: string }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `learn golden ${res.status}`)
+  return body
+}
+
+export async function fetchLearnedGoldenPairs(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/pack-studio/golden-pairs`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: { fromTable: string; fromColumn: string; toTable: string; toColumn: string; hitCount?: number }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `golden pairs ${res.status}`)
+  return body.items || []
+}
+
+export async function fetchReplicationPipelines(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/replication/pipelines`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: { id: string; tableNames: string[]; lastStatus?: string; lastRowCount?: number | null }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `pipelines ${res.status}`)
+  return body.items || []
+}
+
+export async function runReplicationPipelineApi(
+  pipelineId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/replication/pipelines/${pipelineId}/run`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `replication run ${res.status}`)
+  return body
+}
+
+export async function fetchLookerExport(
+  opts: { reportId?: string; format?: 'json' | 'markdown' } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.reportId) q.set('reportId', opts.reportId)
+  if (opts.format) q.set('format', opts.format)
+  const res = await apiFetch(`/workspaces/${workspaceId}/export/looker?${q}`)
+  if (opts.format === 'markdown') return res.text()
+  const body = (await res.json().catch(() => ({}))) as { export?: unknown; error?: string }
+  if (!res.ok) throw new Error(body.error || `looker export ${res.status}`)
+  return body.export
+}
+
+export async function fetchMetabaseExport(
+  opts: { reportId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.reportId) q.set('reportId', opts.reportId)
+  const res = await apiFetch(`/workspaces/${workspaceId}/export/metabase?${q}`)
+  const body = (await res.json().catch(() => ({}))) as { export?: unknown; error?: string }
+  if (!res.ok) throw new Error(body.error || `metabase export ${res.status}`)
+  return body.export
+}

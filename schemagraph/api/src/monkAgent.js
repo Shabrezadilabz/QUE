@@ -84,25 +84,33 @@ export async function runMonkAgentTools(
     }
   }
 
-  try {
-    const cert = await runPackCertificationGate(workspaceId, {
-      packId: pack.id,
-      runId: opts.runId ?? null,
-      minRecall,
-    })
+  if (!opts.skipGoldenEval) {
+    try {
+      const cert = await runPackCertificationGate(workspaceId, {
+        packId: pack.id,
+        runId: opts.runId ?? null,
+        minRecall,
+      })
+      steps.push({
+        tool: 'golden_eval',
+        ok: cert.passed,
+        message: cert.passed
+          ? `Certified — recall ${(cert.report.recall * 100).toFixed(1)}%`
+          : `Recall ${(cert.report.recall * 100).toFixed(1)}% (need ${(minRecall * 100).toFixed(0)}%)`,
+        detail: cert,
+      })
+    } catch (err) {
+      steps.push({
+        tool: 'golden_eval',
+        ok: false,
+        message: err.message || String(err),
+      })
+    }
+  } else {
     steps.push({
       tool: 'golden_eval',
-      ok: cert.passed,
-      message: cert.passed
-        ? `Certified — recall ${(cert.report.recall * 100).toFixed(1)}%`
-        : `Recall ${(cert.report.recall * 100).toFixed(1)}% (need ${(minRecall * 100).toFixed(0)}%)`,
-      detail: cert,
-    })
-  } catch (err) {
-    steps.push({
-      tool: 'golden_eval',
-      ok: false,
-      message: err.message || String(err),
+      ok: true,
+      message: 'Skipped — autopilot cert already passed',
     })
   }
 

@@ -328,6 +328,12 @@ export function MonkModePage() {
           actions={
             <div className="flex flex-wrap justify-end gap-[8px]">
               <Link
+                to="/pack-studio"
+                className="rounded-[12px] border border-solid border-[#424850] bg-[#0f1215] px-[13px] py-[6px] text-[12px] font-semibold text-[#c8cdd3] hover:bg-[#15191e]"
+              >
+                Pack Studio →
+              </Link>
+              <Link
                 to="/steward"
                 className="rounded-[12px] border border-solid border-[#424850] bg-[#0f1215] px-[13px] py-[6px] text-[12px] font-semibold text-[#c8cdd3] hover:bg-[#15191e]"
               >

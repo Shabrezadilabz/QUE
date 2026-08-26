@@ -47,6 +47,7 @@ import { MetricsPage } from '@/pages/MetricsPage'
 import { EvalPage } from '@/pages/EvalPage'
 import { MarketplacePage } from '@/pages/MarketplacePage'
 import { MonkModePage } from '@/pages/MonkModePage'
+import { PackStudioPage } from '@/pages/PackStudioPage'
 import { JobTemplatesPage } from '@/pages/JobTemplatesPage'
 import { OutcomePage } from '@/pages/OutcomePage'
 import { ShipPage } from '@/pages/ShipPage'
@@ -275,6 +276,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <MonkModePage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/pack-studio"
+              element={
+                <RequireAuth>
+                  <PackStudioPage />
                 </RequireAuth>
               }
             />

@@ -364,6 +364,31 @@ import {
   getLatestPackCertification,
   seedSportedgeGoldenSchedule,
 } from './packCertification.js'
+import { runMonkAutopilotCertLoop } from './monkAutopilot.js'
+import {
+  listCustomPacks,
+  upsertCustomPack,
+  suggestBlendedPack,
+  saveBlendedPackAsCustom,
+} from './customPacks.js'
+import {
+  bulkUpdateColumnMaps,
+  updateEntityColumnMap,
+} from './columnMapping.js'
+import {
+  learnAndSyncGoldenPairs,
+  listLearnedGoldenPairs,
+} from './learnGoldenPairs.js'
+import {
+  listReplicationPipelines,
+  upsertReplicationPipeline,
+  runReplicationPipeline,
+} from './connectionReplication.js'
+import {
+  exportLookerPack,
+  exportMetabasePack,
+  formatBiExportMarkdown,
+} from './biPlatformExport.js'
 import { listEntityMappings } from './templateMapper.js'
 import { getPageAutofill } from './pageAutofill.js'
 import { computeHealthScorecard } from './healthScorecard.js'
@@ -5923,6 +5948,30 @@ app.post(
   async (req, res) => {
     try {
       const packId = req.body?.packId || 'ecommerce-v1'
+      const pack = getIndustryPack(packId)
+      if (!pack) {
+        res.status(404).json({ error: 'industry pack not found' })
+        return
+      }
+      const useAutopilot = req.body?.autopilot !== false
+      if (useAutopilot) {
+        const autopilot = await runMonkAutopilotCertLoop(
+          req.params.workspaceId,
+          pack,
+          {
+            runId: req.params.runId,
+            userId: req.user?.id ?? null,
+          },
+        )
+        res.json({
+          ok: true,
+          passed: autopilot.passed,
+          report: autopilot.certResult?.report,
+          autopilot: autopilot.steps,
+          ...autopilot.certResult,
+        })
+        return
+      }
       const result = await runPackCertificationGate(req.params.workspaceId, {
         packId,
         runId: req.params.runId,
@@ -6066,6 +6115,173 @@ app.get('/workspaces/:workspaceId/monk/evidence', async (req, res) => {
       return
     }
     res.json({ ok: true, evidence: pack })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/* ── Pack Studio (Phase 6): custom packs, replication, BI/dbt export ── */
+app.get('/workspaces/:workspaceId/pack-studio/suggest', async (req, res) => {
+  try {
+    const out = await suggestBlendedPack(req.params.workspaceId, {
+      minScorePct: Number(req.query.minScorePct) || 35,
+    })
+    res.json({ ok: true, ...out })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/pack-studio/custom-packs', async (req, res) => {
+  try {
+    const items = await listCustomPacks(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/pack-studio/custom-packs',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await upsertCustomPack(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/pack-studio/save-blend',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await saveBlendedPackAsCustom(
+        req.params.workspaceId,
+        req.body?.blended,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/pack-studio/column-maps',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const packId = req.body?.packId || 'ecommerce-v1'
+      const items = await bulkUpdateColumnMaps(
+        req.params.workspaceId,
+        packId,
+        req.body?.mappings,
+      )
+      res.json({ ok: true, items })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/pack-studio/learn-golden-pairs',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await learnAndSyncGoldenPairs(req.params.workspaceId, {
+        connectionId: req.body?.connectionId,
+      })
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/pack-studio/golden-pairs', async (req, res) => {
+  try {
+    const items = await listLearnedGoldenPairs(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/replication/pipelines', async (req, res) => {
+  try {
+    const items = await listReplicationPipelines(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/replication/pipelines',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const item = await upsertReplicationPipeline(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/replication/pipelines/:pipelineId/run',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await runReplicationPipeline(
+        req.params.workspaceId,
+        req.params.pipelineId,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/export/looker', async (req, res) => {
+  try {
+    const pack = await exportLookerPack(req.params.workspaceId, {
+      reportId: req.query.reportId,
+      packId: req.query.packId,
+    })
+    if (req.query.format === 'markdown') {
+      res.type('text/markdown').send(formatBiExportMarkdown(pack))
+      return
+    }
+    res.json({ ok: true, export: pack })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/export/metabase', async (req, res) => {
+  try {
+    const pack = await exportMetabasePack(req.params.workspaceId, {
+      reportId: req.query.reportId,
+    })
+    res.json({ ok: true, export: pack })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
   }

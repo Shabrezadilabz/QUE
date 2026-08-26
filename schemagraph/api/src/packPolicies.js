@@ -63,3 +63,28 @@ export function shouldSkipMartMaterialize(pack) {
 export function shouldUseTemplateFallback(pack) {
   return pack?.templatePackId || null
 }
+
+/** Autopilot golden recall bootstrap threshold per pack (Phase 5). */
+export function getPackAutopilotMinRecall(pack) {
+  const cert = getPackCertMinRecall(pack)
+  return Math.min(cert, Number(process.env.QUE_MONK_AUTOPILOT_MIN_RECALL || 0.35))
+}
+
+/** Min join confidence for Monk autopilot promote (healthcare = 95%). */
+export function getMonkAutopilotPromoteMinConfidence(pack) {
+  const p = pack?.policies?.minJoinPromoteConfidence
+  if (typeof p === 'number') return p
+  if (pack?.policies?.hipaaStrict) return 0.95
+  return 0.92
+}
+
+export function allowMonkAutopilotCrossSource(pack) {
+  if (pack?.policies?.hipaaStrict && pack?.policies?.noAutoPromoteJoins) {
+    return false
+  }
+  return true
+}
+
+export function shouldEnableMonkAutopilot(pack) {
+  return pack?.policies?.disableMonkAutopilot !== true
+}

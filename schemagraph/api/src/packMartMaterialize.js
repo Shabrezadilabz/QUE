@@ -132,3 +132,63 @@ export async function planPackMartMaterializations(
 
   return { planned: planned.length, items: planned, skipped: false }
 }
+
+/**
+ * Finance pack — queue marts in scratch schema (no prod writes).
+ */
+export async function planFinanceStagingMarts(workspaceId, pack, opts = {}) {
+  if (!pack?.policies?.noAutoMaterialize) {
+    return { planned: 0, items: [], skipped: true, reason: 'not_finance_gated' }
+  }
+
+  const stagedPack = {
+    ...pack,
+    jobs: (pack.jobs || []).map((j) =>
+      j.materialize
+        ? {
+            ...j,
+            materialize: {
+              ...j.materialize,
+              schema: 'que_staging',
+              kind: 'view',
+            },
+          }
+        : j,
+    ),
+  }
+
+  const jobList = await findPackJobs(workspaceId, pack.id)
+  const out = await planPackMartMaterializations(
+    workspaceId,
+    stagedPack,
+    { jobs: jobList },
+    opts,
+  )
+
+  if (out.items?.length) {
+    for (const item of out.items) {
+      if (item.id) {
+        await query(
+          `UPDATE job_materializations
+           SET meta_json = COALESCE(meta_json, '{}'::jsonb) || $3::jsonb
+           WHERE id = $1 AND workspace_id = $2`,
+          [
+            item.id,
+            workspaceId,
+            JSON.stringify({
+              financeStaging: true,
+              requiresHumanConfirm: true,
+              targetSchema: 'que_staging',
+            }),
+          ],
+        ).catch(() => undefined)
+      }
+    }
+  }
+
+  return {
+    ...out,
+    stagingSchema: 'que_staging',
+    requiresHumanConfirm: true,
+  }
+}

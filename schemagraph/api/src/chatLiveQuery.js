@@ -7,6 +7,7 @@ import {
   findTablesMentioned,
 } from './schemaContext.js'
 import { buildChatGraphContext } from './chatGraphContext.js'
+import { buildPinnedSamplesAiPack } from './pinnedSamples.js'
 import {
   validateSqlAgainstSchema,
   filterPackForConnection,
@@ -198,23 +199,47 @@ function pickValidatedSql(question, pack, draft, connectionName) {
   }
 }
 
+async function loadPinnedSamplesForSql(workspaceId) {
+  try {
+    const settings = (await getWorkspaceSettings(workspaceId))?.settings || {}
+    if (settings.aiMayUsePinnedSamples === false) return []
+    return await buildPinnedSamplesAiPack(workspaceId, { maxTables: 12 })
+  } catch {
+    return []
+  }
+}
+
+function buildSqlUserMessage(question, tableNames = []) {
+  const list =
+    tableNames.length > 0
+      ? tableNames.slice(0, 30).join(', ')
+      : '(see SCHEMA PRIMER)'
+  return (
+    `Before writing SQL, confirm you will use ONLY these tables: ${list}.\n` +
+    `Use column sample values in SCHEMA PRIMER to pick correct filters (e.g. brand names).\n\n` +
+    `Question: ${question}`
+  )
+}
+
 async function generateLiveSqlDraft(
   workspaceId,
   question,
-  { pack, model, keys, mentions, graphCtx, audience, connectionName },
+  { pack, model, keys, mentions, graphCtx, audience, connectionName, pinnedSamples },
 ) {
   const scopedPack = filterPackForConnection(pack, connectionName)
-  const ctx =
-    graphCtx ||
-    buildChatGraphContext(
-      scopedPack,
-      question,
-      findTablesMentioned(scopedPack, question, mentions?.tables || []),
-      [],
-      {
-        audience: audience === 'engineer' ? 'engineer' : 'ceo',
-      },
-    )
+  const pins = pinnedSamples ?? (await loadPinnedSamplesForSql(workspaceId))
+  const ctx = buildChatGraphContext(
+    scopedPack,
+    question,
+    findTablesMentioned(scopedPack, question, mentions?.tables || []),
+    [],
+    {
+      audience: audience === 'engineer' ? 'engineer' : 'ceo',
+      connectionName,
+      pinnedSamples: pins,
+      includeSamples: true,
+    },
+  )
 
   const focusTable =
     ctx.focusTables[0] || resolveFocusTable(scopedPack, question, mentions)
@@ -259,19 +284,26 @@ async function generateLiveSqlDraft(
         : ''
 
   const system =
-    `You are Que SQL generator — schema metadata ONLY (no row access).\n` +
-    `Write ONE read-only PostgreSQL SELECT or WITH for the user's question.\n` +
-    `Use ONLY tables/columns from the focus schema graph below. Never invent table or column names.\n` +
+    `You are Que SQL generator.\n` +
+    `STEP 1 — Read SCHEMA PRIMER first (exact tables, columns, sample values).\n` +
+    `STEP 2 — Read join paths and relationships.\n` +
+    `STEP 3 — Write ONE read-only PostgreSQL SELECT or WITH using ONLY names from SCHEMA PRIMER.\n` +
+    `Never invent tables or columns. If revenue + brand: join orders to brands using FK paths.\n` +
     allowBlock +
     joinPathNote +
-    `When the question names a brand, product, customer, or region, JOIN tables via FK paths and filter (e.g. WHERE LOWER(brand.name) LIKE '%puma%').\n` +
-    `For revenue, sales, totals, or counts, use SUM/COUNT/AVG with GROUP BY when aggregating.\n` +
+    `Use sample values to verify filters (e.g. WHERE LOWER(b.name) LIKE '%puma%').\n` +
+    `For revenue/sales/totals use SUM/COUNT/AVG with GROUP BY when aggregating.\n` +
     `No INSERT/UPDATE/DELETE/DDL. Include LIMIT ${LIVE_VALIDATE_MAX_ROWS} or lower.\n` +
-    `Respond with JSON only: {"sql":"...","explanation":"one short sentence for the user"}\n\n` +
+    `Respond with JSON only: {"sql":"...","explanation":"one short sentence"}\n\n` +
     ctx.promptBlock
 
+  const userMsg = buildSqlUserMessage(
+    question,
+    ctx.focusTables?.map((t) => t.name) || [],
+  )
+
   try {
-    const raw = await callChatModel(model, system, question, [], keys)
+    const raw = await callChatModel(model, system, userMsg, [], keys)
     let sql = extractSqlFromText(raw)
     let explanation = null
     try {
@@ -374,15 +406,20 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
 
   const connectionName = connection.name || null
   const scopedPack = filterPackForConnection(pack, connectionName)
-  let graphCtx =
-    opts.graphCtx ||
-    buildChatGraphContext(
-      scopedPack,
-      question,
-      findTablesMentioned(scopedPack, question, opts.mentions?.tables || []),
-      [],
-      { audience },
-    )
+  const pinnedSamples = await loadPinnedSamplesForSql(workspaceId)
+  let graphCtx = buildChatGraphContext(
+    scopedPack,
+    question,
+    findTablesMentioned(scopedPack, question, opts.mentions?.tables || []),
+    opts.ragChunks || [],
+    {
+      audience,
+      connectionName,
+      pinnedSamples,
+      includeSamples: true,
+    },
+  )
+  graphCtx.primerReady = true
 
   let sql = opts.sqlHint ? extractSqlFromText(opts.sqlHint) : null
   let explanation = null
@@ -396,6 +433,7 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
       graphCtx,
       audience,
       connectionName,
+      pinnedSamples,
     })
     graphCtx = draft.graphCtx || graphCtx
     if (draft.error === 'blocked' || draft.error === 'no_tables' || draft.error === 'invalid_tables') {

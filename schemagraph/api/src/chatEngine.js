@@ -169,11 +169,24 @@ export async function answerChat(
     formatRagContext(ragChunks)
   const mentioned = resolveMentioned(pack, trimmed, mentions)
   const audience = opts?.audience === 'engineer' ? 'engineer' : 'ceo'
+
+  let pinnedSamples = []
+  if (settings.aiMayUsePinnedSamples !== false) {
+    try {
+      pinnedSamples = await buildPinnedSamplesAiPack(workspaceId, { maxTables: 16 })
+    } catch {
+      /* pins optional */
+    }
+  }
+
   const graphCtx = buildChatGraphContext(pack, trimmed, mentioned, ragChunks, {
     audience,
     graphHops: 1,
     maxTables: 35,
+    includeSamples: true,
+    pinnedSamples,
   })
+  graphCtx.primerReady = true
   const linCites = await lineageCitations(workspaceId, trimmed)
 
   // Drift gate note for AI (does not hard-block chat — jobs/export do)
@@ -258,28 +271,21 @@ export async function answerChat(
   } catch {
     /* rules optional until migrate */
   }
-  if (settings.aiMayUsePinnedSamples !== false) {
-    try {
-      const pins = await buildPinnedSamplesAiPack(workspaceId, { maxTables: 16 })
-      if (pins.length) {
-        pinnedAiBlock =
-          `\n## Pinned scrubbed samples (fixed 5–10 rows; not live warehouse)\n` +
-          pins
-            .map((p) => {
-              const header = p.columns.join(' | ')
-              const body = (p.rows || [])
-                .slice(0, 10)
-                .map((row) =>
-                  p.columns.map((c) => String(row?.[c] ?? '')).join(' | '),
-                )
-                .join('\n')
-              return `### ${p.table}\n${header}\n${body}`
-            })
-            .join('\n\n')
-      }
-    } catch {
-      /* pins optional */
-    }
+  if (pinnedSamples.length) {
+    pinnedAiBlock =
+      `\n## Pinned scrubbed samples (fixed 5–10 rows; not live warehouse)\n` +
+      pinnedSamples
+        .map((p) => {
+          const header = p.columns.join(' | ')
+          const body = (p.rows || [])
+            .slice(0, 10)
+            .map((row) =>
+              p.columns.map((c) => String(row?.[c] ?? '')).join(' | '),
+            )
+            .join('\n')
+          return `### ${p.table}\n${header}\n${body}`
+        })
+        .join('\n\n')
   }
   try {
     const managedMeta = await managedDatasetsSchemaForAi(workspaceId)
@@ -312,6 +318,7 @@ export async function answerChat(
       mentions,
       graphCtx,
       audience,
+      ragChunks,
     })
     if (live.ok) {
       const base = {
@@ -468,8 +475,9 @@ async function tryRagLlmAnswer({
   const system =
     `You are Que AI — a schema-only data engineering assistant.\n` +
     ceoNote +
-    `Answer ONLY from the focus schema graph and retrieved context below. Never invent tables.\n` +
-    `You may use pinned scrubbed sample grids when provided (5–10 rows, not the lake).\n` +
+    `STEP 1 — Read SCHEMA PRIMER first (exact tables, columns, sample values).\n` +
+    `Answer ONLY from SCHEMA PRIMER, join paths, and retrieved context. Never invent tables.\n` +
+    `Use column sample values and pinned rows to verify names before answering.\n` +
     `Never request or assume access to managed dataset row payloads or full warehouse facts.\n` +
     `For factual row questions, say live warehouse data will appear in the table below (you do not see those rows).\n` +
     `Cite table.column / doc titles. When proposing SQL, mark it as a draft.\n` +

@@ -7,7 +7,12 @@
  *
  * Row payloads never enter this module — schema metadata only.
  */
-import { findTablesMentioned, formatContextForPrompt } from './schemaContext.js'
+import {
+  findTablesMentioned,
+  formatSchemaPrimerBlock,
+  formatRelationshipsBlock,
+  formatPinnedSamplesBlock,
+} from './schemaContext.js'
 
 const METRIC_PLAN_RE =
   /\b(revenue|sales|total|amount|profit|margin|cost|price|orders?|customers?|units|inventory|stock|spend|budget|kpi|metric|performance|growth|turnover|earnings|avg|average|sum|count)\b/i
@@ -294,19 +299,36 @@ export function buildFocusedPack(pack, tableIds, maxTables = 35) {
  * @param {ReturnType<typeof findJoinPaths>} joinPaths
  * @param {ReturnType<typeof analyzeQueryPlan>} plan
  * @param {object[]} [ragChunks]
+ * @param {{ connectionName?: string|null, pinnedSamples?: object[], includeSamples?: boolean }} [opts]
  */
-export function formatGraphContextBlock(focusedPack, joinPaths, plan, ragChunks = []) {
+export function formatGraphContextBlock(focusedPack, joinPaths, plan, ragChunks = [], opts = {}) {
+  const includeSamples = opts.includeSamples !== false
+  const focusNames = (focusedPack.tables || []).map((t) => t.name)
+
   const lines = [
+    formatSchemaPrimerBlock(focusedPack, {
+      includeSamples,
+      connectionName: opts.connectionName ?? null,
+      maxTables: 40,
+    }),
+  ]
+
+  if (opts.pinnedSamples?.length) {
+    const pinBlock = formatPinnedSamplesBlock(opts.pinnedSamples, focusNames)
+    if (pinBlock) lines.push(pinBlock)
+  }
+
+  lines.push(
+    '',
+    '---',
+    '',
     '## Query plan (decomposed — use for SQL and grounding)',
     `Intent: ${plan.intent}`,
     plan.metrics.length ? `Metrics: ${plan.metrics.join(', ')}` : 'Metrics: (none detected)',
     plan.filters.length ? `Filters: ${plan.filters.join(', ')}` : 'Filters: (none detected)',
     `Needs joins: ${plan.needsJoins ? 'yes' : 'no'} · Complexity: ${plan.complexity}`,
     plan.sqlHint ? `SQL hint: ${plan.sqlHint}` : '',
-    '',
-    '## Focus schema graph (workspace slice — metadata only)',
-    `Focus tables: ${focusedPack.tables.length} · Relationships in slice: ${focusedPack.relationships.length}`,
-  ].filter((l) => l !== '')
+  )
 
   if (joinPaths.length) {
     lines.push('', '### Join paths between focus tables')
@@ -321,7 +343,7 @@ export function formatGraphContextBlock(focusedPack, joinPaths, plan, ragChunks 
     )
   }
 
-  lines.push('', formatContextForPrompt(focusedPack))
+  lines.push('', formatRelationshipsBlock(focusedPack))
 
   const relHits = (ragChunks || []).filter((c) => c.sourceKind === 'relationship')
   if (relHits.length) {
@@ -331,7 +353,7 @@ export function formatGraphContextBlock(focusedPack, joinPaths, plan, ragChunks 
     }
   }
 
-  return lines.join('\n')
+  return lines.filter((l) => l !== '').join('\n')
 }
 
 /**
@@ -340,7 +362,7 @@ export function formatGraphContextBlock(focusedPack, joinPaths, plan, ragChunks 
  * @param {string} question
  * @param {object[]} mentionedTables from findTablesMentioned
  * @param {object[]} [ragChunks]
- * @param {{ graphHops?: number, maxTables?: number }} [opts]
+ * @param {{ graphHops?: number, maxTables?: number, audience?: string, connectionName?: string|null, pinnedSamples?: object[], includeSamples?: boolean }} [opts]
  */
 export function buildChatGraphContext(
   pack,
@@ -390,6 +412,11 @@ export function buildChatGraphContext(
     joinPaths,
     plan,
     ragChunks,
+    {
+      connectionName: opts.connectionName ?? null,
+      pinnedSamples: opts.pinnedSamples ?? [],
+      includeSamples: opts.includeSamples !== false,
+    },
   )
 
   return {

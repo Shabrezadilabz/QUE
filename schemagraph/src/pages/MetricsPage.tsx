@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { SqlHighlight } from '@/components/code/SqlHighlight'
 import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
+import { fetchMetricsDefs } from '@/services/stitchApi'
 
 type Metric = {
   id: string
@@ -18,82 +19,77 @@ type Metric = {
   lineage: { label: string; sub: string }[]
 }
 
-const METRICS: Metric[] = [
-  {
-    id: 'mau',
-    name: 'Monthly Active Users',
-    code: 'MAU',
-    certified: true,
-    description:
-      'Count of distinct users who performed at least one activity within a 30-day rolling window.',
-    sql: 'COUNT(DISTINCT user_id)',
-    source: 'core_events_master',
-    updated: 'Updated 2h ago',
-    lineage: [
-      { label: 'raw_events', sub: 'Postgres DB' },
-      { label: 'stg_events', sub: 'dbt model' },
-      { label: 'Monthly Active Users', sub: 'core_events_master' },
-    ],
-  },
-  {
-    id: 'arr',
-    name: 'Annual Recurring Revenue',
-    code: 'ARR',
-    certified: true,
-    description: 'Sum of normalized subscription revenue over a trailing 12-month period.',
-    sql: 'SUM(mrr) * 12',
-    source: 'finance_subscriptions',
-    updated: 'Updated 4h ago',
-    lineage: [
-      { label: 'raw_subscriptions', sub: 'Snowflake' },
-      { label: 'stg_mrr', sub: 'dbt model' },
-      { label: 'Annual Recurring Revenue', sub: 'finance_subscriptions' },
-    ],
-  },
-  {
-    id: 'nps',
-    name: 'Net Promoter Score',
-    code: 'NPS',
-    certified: false,
-    pending: true,
-    description: 'Percentage of promoters minus detractors from quarterly survey cohorts.',
-    sql: 'AVG(nps_score)',
-    source: 'survey_responses',
-    updated: 'Review pending',
-    lineage: [
-      { label: 'survey_raw', sub: 'Postgres DB' },
-      { label: 'stg_nps', sub: 'dbt model' },
-      { label: 'Net Promoter Score', sub: 'survey_responses' },
-    ],
-  },
-  {
-    id: 'cac',
-    name: 'Customer Acquisition Cost',
-    code: 'CAC',
-    certified: true,
-    description: 'Total sales & marketing spend divided by new customers acquired.',
-    sql: 'SUM(spend) / COUNT(new_customers)',
-    source: 'growth_spend_daily',
-    updated: 'Updated 1d ago',
-    lineage: [
-      { label: 'marketing_spend', sub: 'BigQuery' },
-      { label: 'stg_cac', sub: 'dbt model' },
-      { label: 'Customer Acquisition Cost', sub: 'growth_spend_daily' },
-    ],
-  },
-]
+function metricCode(name: string) {
+  const parts = name.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return parts
+      .slice(0, 3)
+      .map((p) => p[0])
+      .join('')
+      .toUpperCase()
+  }
+  return name.slice(0, 4).toUpperCase()
+}
 
-/** Metrics & Semantic Layer — PDF page-04 layout. */
+function formatUpdated(iso?: string) {
+  if (!iso) return 'Recently added'
+  const d = new Date(iso)
+  const mins = Math.round((Date.now() - d.getTime()) / 60000)
+  if (mins < 60) return `Updated ${mins}m ago`
+  if (mins < 1440) return `Updated ${Math.round(mins / 60)}h ago`
+  return `Updated ${d.toLocaleDateString()}`
+}
+
+/** Metrics & Semantic Layer — live KPI registry from Monk Mode + manual defs. */
 export function MetricsPage() {
-  const [selectedId, setSelectedId] = useState(METRICS[0].id)
+  const [metrics, setMetrics] = useState<Metric[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [certFilter, setCertFilter] = useState<'all' | 'certified' | 'pending'>('all')
 
-  const selected = METRICS.find((m) => m.id === selectedId) ?? METRICS[0]
+  useEffect(() => {
+    void fetchMetricsDefs()
+      .then((items) => {
+        const mapped: Metric[] = items.map((m) => {
+          const tables = (m.lineage?.tables as string[] | undefined) || []
+          const source =
+            tables[0] ||
+            (Array.isArray(m.tags) && m.tags.includes('monk-mode')
+              ? 'Monk Mode · Ecommerce'
+              : 'Semantic layer')
+          return {
+            id: m.id,
+            name: m.name,
+            code: metricCode(m.name),
+            certified: m.certified,
+            pending: !m.certified,
+            description: m.description || '',
+            sql: m.expressionSql || '-- no SQL',
+            source,
+            updated: formatUpdated(m.updatedAt),
+            lineage: tables.length
+              ? tables.map((t, i) => ({
+                  label: t,
+                  sub: i === tables.length - 1 ? m.name : 'source table',
+                }))
+              : [{ label: m.name, sub: source }],
+          }
+        })
+        setMetrics(mapped)
+        if (mapped[0]) setSelectedId(mapped[0].id)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const selected =
+    metrics.find((m) => m.id === selectedId) ?? metrics[0] ?? null
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return METRICS.filter((m) => {
+    return metrics.filter((m) => {
       if (certFilter === 'certified' && !m.certified) return false
       if (certFilter === 'pending' && !m.pending) return false
       if (!q) return true
@@ -103,7 +99,7 @@ export function MetricsPage() {
         m.description.toLowerCase().includes(q)
       )
     })
-  }, [query, certFilter])
+  }, [query, certFilter, metrics])
 
   return (
     <QueAppChrome flush>
@@ -111,16 +107,44 @@ export function MetricsPage() {
         <PdfPageHeader
           title="Metrics"
           actions={
-            <Link
-              to="/bi?focus=data"
-              className="pdf-btn-primary rounded-[4px] px-[16px] py-[8px] text-[12px] font-semibold tracking-[0.6px]"
-            >
-              Create New Metric
-            </Link>
+            <div className="flex gap-[8px]">
+              <Link
+                to="/monk"
+                className="rounded-[4px] border border-solid border-[#424850] px-[14px] py-[8px] text-[12px] font-semibold text-[#c8cdd3] hover:bg-[#15191e]"
+              >
+                Monk Mode KPIs
+              </Link>
+              <Link
+                to="/bi?focus=data"
+                className="pdf-btn-primary rounded-[4px] px-[16px] py-[8px] text-[12px] font-semibold tracking-[0.6px]"
+              >
+                Create New Metric
+              </Link>
+            </div>
           }
         />
 
         <div className="flex min-h-0 flex-1 gap-[16px] p-[24px]">
+          {error ? (
+            <p className="text-[13px] text-rose-300">{error}</p>
+          ) : loading ? (
+            <p className="text-[13px] text-[#a3afbe]">Loading metrics…</p>
+          ) : !metrics.length ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-[12px] rounded-[8px] border border-dashed border-[#424850] p-[32px] text-center">
+              <p className="text-[15px] font-semibold text-[#d4dbe3]">No KPIs yet</p>
+              <p className="max-w-[360px] text-[13px] text-[#a3afbe]">
+                Run Monk Mode on your Ecommerce workspace to seed revenue, order count, and AOV
+                metrics automatically.
+              </p>
+              <Link
+                to="/monk"
+                className="pdf-btn-primary rounded-[4px] px-[16px] py-[8px] text-[12px] font-semibold"
+              >
+                Start Monk Mode →
+              </Link>
+            </div>
+          ) : (
+          <>
           {/* Semantic layer — scrollable grid */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-[16px]">
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-[12px]">
@@ -196,31 +220,33 @@ export function MetricsPage() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[8px] px-[17px] py-[24px]">
-              {selected.lineage.map((node, i) => {
-                const isActive = i === selected.lineage.length - 1
-                return (
-                  <div key={node.label} className="flex w-full flex-col items-center">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(selected.id)}
-                      className={[
-                        'w-full rounded-[4px] border border-solid px-[12px] py-[10px] text-left transition-colors',
-                        isActive
-                          ? 'border-[#d0d8e0] bg-[#1e2328] shadow-[inset_3px_0_0_0_#d0d8e0]'
-                          : 'border-[#424850] bg-[#121619] hover:border-[#6b7380]',
-                      ].join(' ')}
-                    >
-                      <p className="text-[13px] font-medium text-[#d4dbe3]">{node.label}</p>
-                      <p className="text-[11px] text-[#c8cdd3]">{node.sub}</p>
-                    </button>
-                    {i < selected.lineage.length - 1 ? (
-                      <span className="my-[6px] text-[#424850]" aria-hidden>
-                        ↓
-                      </span>
-                    ) : null}
-                  </div>
-                )
-              })}
+              {selected
+                ? selected.lineage.map((node, i) => {
+                    const isActive = i === selected.lineage.length - 1
+                    return (
+                      <div key={node.label} className="flex w-full flex-col items-center">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(selected.id)}
+                          className={[
+                            'w-full rounded-[4px] border border-solid px-[12px] py-[10px] text-left transition-colors',
+                            isActive
+                              ? 'border-[#d0d8e0] bg-[#1e2328] shadow-[inset_3px_0_0_0_#d0d8e0]'
+                              : 'border-[#424850] bg-[#121619] hover:border-[#6b7380]',
+                          ].join(' ')}
+                        >
+                          <p className="text-[13px] font-medium text-[#d4dbe3]">{node.label}</p>
+                          <p className="text-[11px] text-[#c8cdd3]">{node.sub}</p>
+                        </button>
+                        {i < selected.lineage.length - 1 ? (
+                          <span className="my-[6px] text-[#424850]" aria-hidden>
+                            ↓
+                          </span>
+                        ) : null}
+                      </div>
+                    )
+                  })
+                : null}
             </div>
 
             <div className="shrink-0 border-t border-solid border-[#424850] p-[17px]">
@@ -232,6 +258,8 @@ export function MetricsPage() {
               </Link>
             </div>
           </aside>
+          </>
+          )}
         </div>
       </div>
     </QueAppChrome>

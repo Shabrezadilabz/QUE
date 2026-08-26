@@ -107,6 +107,12 @@ export function MarketplacePage() {
           subtitle="Accelerate your data pipelines with industry-specific schemas and logic."
           actions={
             <div className="flex flex-wrap justify-end gap-[8px]">
+              <Link
+                to="/monk"
+                className="shrink-0 rounded-[12px] border border-solid border-[#5c6773] bg-[#2e343b] px-[13px] py-[6px] text-[12px] font-semibold tracking-[0.6px] text-[#e8edf2] hover:bg-[#3a424b]"
+              >
+                Monk Mode →
+              </Link>
               {filters.map((f, i) => (
                 <button
                   key={f}

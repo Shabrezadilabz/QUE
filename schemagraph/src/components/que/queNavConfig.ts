@@ -124,7 +124,7 @@ export const QUE_PDF_NAV: QueNavItem[] = [
 
     label: 'Compliance',
 
-    match: ['/compliance', '/product', '/eval', '/rules', '/catalog', '/glossary'],
+    match: ['/compliance', '/product', '/eval', '/rules', '/catalog', '/glossary', '/steward'],
 
   },
 
@@ -136,7 +136,7 @@ export const QUE_PDF_NAV: QueNavItem[] = [
 
     label: 'Marketplace',
 
-    match: ['/marketplace'],
+    match: ['/marketplace', '/monk'],
 
   },
 

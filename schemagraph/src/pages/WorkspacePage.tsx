@@ -17,6 +17,8 @@ import {
   type WorkspaceLoadError,
 } from '@/services/stitchApi'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
+import { HealthScorecard, PageAutofillBanner } from '@/components/autofill/PageAutofill'
+import { usePageAutofill } from '@/hooks/usePageAutofill'
 import type { DataSource } from '@/types/dataSource'
 import type { SchemaRelationship, SchemaTable } from '@/types/schema'
 
@@ -53,6 +55,7 @@ export function WorkspacePage() {
   const [pendingIncorrect, setPendingIncorrect] =
     useState<PendingIncorrectJoin | null>(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
+  const { page: autofillPage, health } = usePageAutofill('workspace')
 
   const hydrate = useCallback(async () => {
     const data = await loadWorkspaceData(workspaceId)
@@ -371,7 +374,18 @@ export function WorkspacePage() {
 
   return (
     <QueAppChrome flush>
-      <div className="relative h-full min-h-0">
+      <div className="relative flex h-full min-h-0 flex-col">
+        <div className="shrink-0 space-y-[8px] border-b border-solid border-[#2a3038] bg-[#111416] px-[16px] py-[10px] md:px-[20px]">
+          <div className="flex flex-wrap items-center gap-[12px]">
+            {health ? (
+              <HealthScorecard score={health.score} grade={health.grade} compact />
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <PageAutofillBanner page={autofillPage} compact />
+            </div>
+          </div>
+        </div>
+      <div className="relative min-h-0 flex-1">
       <DiagramProvider initialTables={tables}>
         <StitchSessionDialog
           open={stitchOpen}
@@ -412,6 +426,7 @@ export function WorkspacePage() {
           syncing={syncing}
         />
       </DiagramProvider>
+      </div>
       </div>
     </QueAppChrome>
   )

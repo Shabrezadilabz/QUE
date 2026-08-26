@@ -46,6 +46,7 @@ import { ProposalsPage } from '@/pages/ProposalsPage'
 import { MetricsPage } from '@/pages/MetricsPage'
 import { EvalPage } from '@/pages/EvalPage'
 import { MarketplacePage } from '@/pages/MarketplacePage'
+import { MonkModePage } from '@/pages/MonkModePage'
 import { JobTemplatesPage } from '@/pages/JobTemplatesPage'
 import { OutcomePage } from '@/pages/OutcomePage'
 import { ShipPage } from '@/pages/ShipPage'
@@ -266,6 +267,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <MarketplacePage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/monk"
+              element={
+                <RequireAuth>
+                  <MonkModePage />
                 </RequireAuth>
               }
             />

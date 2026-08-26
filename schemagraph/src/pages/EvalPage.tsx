@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
@@ -6,8 +7,11 @@ import {
   fetchEvalDashboard,
   fetchGoldenEvalSchedule,
   fetchIndustryTemplates,
+  fetchMonkCertification,
   runGoldenEvalScheduleApi,
+  seedSportedgeGoldenApi,
   upsertGoldenEvalScheduleApi,
+  type PackCertification,
 } from '@/services/stitchApi'
 
 type GoldenSchedule = {
@@ -27,19 +31,22 @@ export function EvalPage() {
     { id: string; industry: string; title: string; description: string }[]
   >([])
   const [schedule, setSchedule] = useState<GoldenSchedule | null>(null)
+  const [monkCert, setMonkCert] = useState<PackCertification | null>(null)
   const [pairsText, setPairsText] = useState('[]')
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   async function reload() {
-    const [d, t, s] = await Promise.all([
+    const [d, t, s, cert] = await Promise.all([
       fetchEvalDashboard(),
       fetchIndustryTemplates(),
       fetchGoldenEvalSchedule(),
+      fetchMonkCertification(),
     ])
     setDash(d)
     setTemplates(t)
     setSchedule(s)
+    setMonkCert(cert)
     setPairsText(JSON.stringify(s.pairs || [], null, 2))
   }
 
@@ -138,6 +145,67 @@ export function EvalPage() {
             value={String(joins.promotesLast30d ?? '—')}
           />
         </div>
+
+        <section className="mt-lg rounded-xl border border-secondary/30 bg-secondary/10 p-md">
+          <h2 className="font-headline text-base font-semibold">
+            Monk Mode certification
+          </h2>
+          <p className="mt-xs text-[13px] text-on-surface-variant">
+            Ecommerce pack golden join recall gate — promote joins on /joins, then re-run certify from Monk Mode.
+          </p>
+          <div className="mt-md grid gap-md sm:grid-cols-4 text-[13px]">
+            <Card
+              label="Cert status"
+              value={monkCert?.status ?? 'not run'}
+            />
+            <Card
+              label="Golden recall"
+              value={
+                monkCert?.goldenRecall != null
+                  ? `${(monkCert.goldenRecall * 100).toFixed(1)}%`
+                  : '—'
+              }
+            />
+            <Card
+              label="KPIs seeded"
+              value={String(monkCert?.kpiCount ?? '—')}
+            />
+            <Card
+              label="Certified at"
+              value={
+                monkCert?.certifiedAt
+                  ? new Date(monkCert.certifiedAt).toLocaleDateString()
+                  : '—'
+              }
+            />
+          </div>
+          {canWrite ? (
+            <div className="mt-md flex flex-wrap gap-sm">
+              <button
+                type="button"
+                onClick={() =>
+                  void seedSportedgeGoldenApi()
+                    .then((out) => {
+                      setToast(`Loaded ${out.pairs ?? 0} SportEdge golden pairs`)
+                      return reload()
+                    })
+                    .catch((e) =>
+                      setError(e instanceof Error ? e.message : String(e)),
+                    )
+                }
+                className="rounded bg-secondary px-md py-1.5 text-[12px] font-semibold text-on-secondary"
+              >
+                Load SportEdge pairs
+              </button>
+              <Link
+                to="/monk"
+                className="rounded-lg border border-secondary px-md py-1.5 text-[12px] text-secondary"
+              >
+                Open Monk Mode →
+              </Link>
+            </div>
+          ) : null}
+        </section>
 
         <section className="mt-xl rounded-xl border border-outline-variant/30 bg-surface-container-low p-md">
           <h2 className="font-headline text-base font-semibold">

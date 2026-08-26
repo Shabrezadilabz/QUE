@@ -340,6 +340,42 @@ import {
   applyIndustryTemplatePack,
   listPackInstalls,
 } from './industryTemplates.js'
+import {
+  startMonkModeRun,
+  listMonkRuns,
+  getMonkRun,
+  listMonkEvents,
+  getMonkCapabilityPreview,
+  PHASES as MONK_PHASES,
+} from './monkMode.js'
+import { rankPacksForWorkspace, listIndustryPacks, getIndustryPack } from './templateMatcher.js'
+import {
+  listStewardInboxIssues,
+  getStewardInboxSummary,
+  updateStewardIssueStatus,
+} from './stewardInbox.js'
+import {
+  profileWorkspaceColumns,
+  listColumnProfiles,
+} from './columnProfiling.js'
+import { seedMetricsFromPack } from './metricPackSeed.js'
+import {
+  runPackCertificationGate,
+  getLatestPackCertification,
+  seedSportedgeGoldenSchedule,
+} from './packCertification.js'
+import { listEntityMappings } from './templateMapper.js'
+import { getPageAutofill } from './pageAutofill.js'
+import { computeHealthScorecard } from './healthScorecard.js'
+import { buildMonkEvidencePack, formatMonkEvidenceMarkdown } from './monkEvidenceExport.js'
+import {
+  listWorkspaceMemory,
+  getWorkspaceMemoryHints,
+} from './workspaceMemory.js'
+import { MONK_AGENT_TOOLS } from './monkAgent.js'
+import { seedDashboardsFromPack } from './dashboardTemplates.js'
+import { planPackMartMaterializations } from './packMartMaterialize.js'
+import { getPackDashboardTemplates } from './dashboardTemplates.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { reportExternalJobStatus } from './jobStatusBridge.js'
 import {
@@ -5511,6 +5547,33 @@ app.post(
   },
 )
 
+app.post(
+  '/workspaces/:workspaceId/metrics-defs/seed-from-pack',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const packId = req.body?.packId || 'ecommerce-v1'
+      const pack = getIndustryPack(packId)
+      if (!pack) {
+        return res.status(404).json({ error: 'pack not found' })
+      }
+      const { buildSchemaContextPack } = await import('./schemaContext.js')
+      const { scorePackAgainstSchema } = await import('./templateMatcher.js')
+      const packCtx = await buildSchemaContextPack(req.params.workspaceId)
+      const matchResult = scorePackAgainstSchema(packCtx.tables, pack)
+      const result = await seedMetricsFromPack(
+        req.params.workspaceId,
+        pack,
+        matchResult,
+        { userId: req.user?.id ?? null },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.get(
   '/workspaces/:workspaceId/metrics-defs/:metricId',
   async (req, res) => {
@@ -5695,6 +5758,318 @@ app.post(
     }
   },
 )
+
+/* ── Monk Mode + Steward inbox (Phase 1) ── */
+app.get('/workspaces/:workspaceId/monk/packs', async (req, res) => {
+  try {
+    res.json({ ok: true, packs: listIndustryPacks() })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/monk/preview', async (req, res) => {
+  try {
+    const packId = req.query.packId || 'ecommerce-v1'
+    const capability = await getMonkCapabilityPreview(
+      req.params.workspaceId,
+      packId,
+    )
+    const { buildSchemaContextPack } = await import('./schemaContext.js')
+    const packCtx = await buildSchemaContextPack(req.params.workspaceId)
+    const ranked = rankPacksForWorkspace(packCtx.tables)
+    res.json({
+      ok: true,
+      capability,
+      ranked,
+      phases: MONK_PHASES,
+    })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/monk/runs', async (req, res) => {
+  try {
+    const items = await listMonkRuns(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/monk/runs/:runId', async (req, res) => {
+  try {
+    const run = await getMonkRun(req.params.workspaceId, req.params.runId)
+    if (!run) {
+      return res.status(404).json({ error: 'run not found' })
+    }
+    const events = await listMonkEvents(req.params.runId)
+    res.json({ ok: true, run, events })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get(
+  '/workspaces/:workspaceId/monk/runs/:runId/events',
+  async (req, res) => {
+    try {
+      const events = await listMonkEvents(req.params.runId, {
+        since: req.query.since,
+      })
+      res.json({ ok: true, events })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/monk/start',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const run = await startMonkModeRun(req.params.workspaceId, {
+        packId: req.body?.packId || 'ecommerce-v1',
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, run })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/steward/inbox', async (req, res) => {
+  try {
+    const [items, summary] = await Promise.all([
+      listStewardInboxIssues(req.params.workspaceId, {
+        status: req.query.status || 'open',
+        limit: req.query.limit,
+      }),
+      getStewardInboxSummary(req.params.workspaceId),
+    ])
+    res.json({ ok: true, items, summary })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/steward/inbox/:issueId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const issue = await updateStewardIssueStatus(
+        req.params.workspaceId,
+        req.params.issueId,
+        req.body?.status,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, issue })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/profiling/run',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await profileWorkspaceColumns(req.params.workspaceId, {
+        maxTables: req.body?.maxTables,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/profiling/columns', async (req, res) => {
+  try {
+    const items = await listColumnProfiles(req.params.workspaceId, {
+      tableName: req.query.table,
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/* ── Monk Mode Phase 2: certification + entity map ── */
+app.get('/workspaces/:workspaceId/monk/certification', async (req, res) => {
+  try {
+    const packId = req.query.packId || 'ecommerce-v1'
+    const cert = await getLatestPackCertification(
+      req.params.workspaceId,
+      packId,
+    )
+    res.json({ ok: true, certification: cert })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/monk/runs/:runId/certify',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const packId = req.body?.packId || 'ecommerce-v1'
+      const result = await runPackCertificationGate(req.params.workspaceId, {
+        packId,
+        runId: req.params.runId,
+        minRecall: req.body?.minRecall,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/monk/entity-mappings', async (req, res) => {
+  try {
+    const items = await listEntityMappings(
+      req.params.workspaceId,
+      req.query.packId || null,
+    )
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/golden-eval/seed-sportedge',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await seedSportedgeGoldenSchedule(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/* ── Phase 3: autofill + health scorecard + dashboards ── */
+app.get('/workspaces/:workspaceId/autofill', async (req, res) => {
+  try {
+    const out = await getPageAutofill(
+      req.params.workspaceId,
+      req.query.page || null,
+    )
+    res.json({ ok: true, ...out })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/health-scorecard', async (req, res) => {
+  try {
+    const scorecard = await computeHealthScorecard(
+      req.params.workspaceId,
+      req.query.packId || 'ecommerce-v1',
+    )
+    res.json({ ok: true, scorecard })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/dashboards/templates', async (req, res) => {
+  try {
+    const pack = getIndustryPack(req.query.packId || 'ecommerce-v1')
+    if (!pack) return res.status(404).json({ error: 'pack not found' })
+    res.json({ ok: true, templates: getPackDashboardTemplates(pack) })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/dashboards/seed-from-pack',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const pack = getIndustryPack(req.body?.packId || 'ecommerce-v1')
+      if (!pack) return res.status(404).json({ error: 'pack not found' })
+      const result = await seedDashboardsFromPack(
+        req.params.workspaceId,
+        pack,
+        { userId: req.user?.id ?? null },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/monk/runs/:runId/materialize-marts',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const pack = getIndustryPack(req.body?.packId || 'ecommerce-v1')
+      if (!pack) return res.status(404).json({ error: 'pack not found' })
+      const result = await planPackMartMaterializations(
+        req.params.workspaceId,
+        pack,
+        null,
+        { userId: req.user?.id ?? null },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/monk/agent-tools', async (req, res) => {
+  res.json({ ok: true, tools: MONK_AGENT_TOOLS })
+})
+
+app.get('/workspaces/:workspaceId/workspace-memory', async (req, res) => {
+  try {
+    const items = await listWorkspaceMemory(req.params.workspaceId, {
+      kind: req.query.kind,
+      limit: req.query.limit,
+    })
+    const hints = await getWorkspaceMemoryHints(req.params.workspaceId)
+    res.json({ ok: true, items, hints })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/monk/evidence', async (req, res) => {
+  try {
+    const pack = await buildMonkEvidencePack(req.params.workspaceId, {
+      packId: req.query.packId || null,
+      limit: req.query.limit,
+    })
+    const format = req.query.format || 'json'
+    if (format === 'markdown') {
+      res.type('text/markdown').send(formatMonkEvidenceMarkdown(pack))
+      return
+    }
+    res.json({ ok: true, evidence: pack })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
 
 /* ── P2: presence ── */
 app.get('/workspaces/:workspaceId/presence', async (req, res) => {

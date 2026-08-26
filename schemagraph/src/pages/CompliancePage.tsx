@@ -21,6 +21,7 @@ import {
   buildWarehouseDigestApi,
   createBackupApi,
   fetchConnectorReliability,
+  fetchMonkEvidenceMarkdown,
   fetchSaasOps,
   fetchWarehouseDigests,
   getActiveWorkspaceId,
@@ -198,6 +199,26 @@ export function CompliancePage() {
     URL.revokeObjectURL(url)
   }
 
+  async function downloadMonkEvidence() {
+    setBusy(true)
+    setError(null)
+    try {
+      const md = await fetchMonkEvidenceMarkdown({ limit: 10 })
+      const blob = new Blob([md], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'que-monk-sox-evidence.md'
+      a.click()
+      URL.revokeObjectURL(url)
+      setToast('Monk Mode SOX evidence downloaded')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <CatalogSplitPage
       title="Compliance & Evidence"
@@ -209,9 +230,12 @@ export function CompliancePage() {
           </PdfGhostButton>
           {markdown ? (
             <PdfGhostButton type="button" onClick={downloadMd}>
-              Download pack
+              Download SOC2 pack
             </PdfGhostButton>
           ) : null}
+          <PdfGhostButton type="button" disabled={busy} onClick={() => void downloadMonkEvidence()}>
+            Monk SOX export
+          </PdfGhostButton>
           {canAdmin ? (
             <Link to="/settings/enterprise" className="pdf-btn-primary rounded-[4px] px-[14px] py-[8px] text-[12px] font-semibold">
               Enterprise

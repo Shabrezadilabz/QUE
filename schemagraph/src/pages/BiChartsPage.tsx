@@ -9,6 +9,8 @@ import {
   PdfGhostButton,
 } from '@/components/pdf/PdfUi'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
+import { PageAutofillBanner } from '@/components/autofill/PageAutofill'
+import { usePageAutofill } from '@/hooks/usePageAutofill'
 import {
   apiFetch,
   createBiChartApi,
@@ -82,6 +84,7 @@ export function BiChartsPage() {
   const canAdmin = role === 'admin' || role === 'owner'
   const [searchParams, setSearchParams] = useSearchParams()
   const reportFilter = searchParams.get('report') || ''
+  const { page: autofillPage } = usePageAutofill('bi')
 
   const [ribbon, setRibbon] = useState<
     'home' | 'insert' | 'data' | 'view' | 'format'
@@ -124,7 +127,11 @@ export function BiChartsPage() {
   const pageCharts = useMemo(() => {
     let list = charts
     if (reportFilter) {
-      list = list.filter((c) => String(c.config?.reportId || '') === reportFilter)
+      list = list.filter(
+        (c) =>
+          String(c.config?.reportId || '') === reportFilter ||
+          String(c.config?.dashboardId || '') === reportFilter,
+      )
     }
     list = list.filter(
       (c) => String(c.config?.pageId || 'page1') === pageId,
@@ -656,6 +663,9 @@ export function BiChartsPage() {
 
           {/* Canvas — dashboard / report studio */}
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#111416]">
+            <div className="px-[16px] pt-[12px] lg:px-[24px]">
+              <PageAutofillBanner page={autofillPage} compact />
+            </div>
             {pageCharts.length === 0 ? (
               <BiPdfDemoDashboard
                 canWrite={canWrite}

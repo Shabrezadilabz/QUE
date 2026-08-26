@@ -4469,8 +4469,12 @@ export async function fetchMetricsDefs(
       id: string
       name: string
       expressionSql: string
+      description?: string
       datasetId: string | null
       certified: boolean
+      tags?: string[]
+      lineage?: Record<string, unknown>
+      updatedAt?: string
     }[]
     error?: string
   }
@@ -5089,4 +5093,472 @@ export async function linkShipMaterializationApi(
   }
   if (!res.ok) throw new Error(body.error || `link mat ${res.status}`)
   return body.ship!
+}
+
+/* ── Monk Mode + Steward inbox (Phase 1) ── */
+
+export type MonkPhase =
+  | 'discover'
+  | 'map'
+  | 'clean'
+  | 'build'
+  | 'certify'
+  | 'done'
+
+export type MonkRun = {
+  id: string
+  workspaceId: string
+  packId: string
+  industry: string
+  status: string
+  phase: MonkPhase
+  matchScore: number | null
+  capability: MonkCapabilityMap
+  summary: Record<string, unknown>
+  errorMessage?: string | null
+  startedAt?: string | null
+  completedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type MonkEvent = {
+  id: string
+  phase: string
+  level: 'info' | 'success' | 'warn' | 'error'
+  message: string
+  detail: Record<string, unknown>
+  createdAt: string
+}
+
+export type MonkCapabilityItem = {
+  id: string
+  label: string
+  href?: string
+  reason?: string
+}
+
+export type MonkCapabilityMap = {
+  ready: MonkCapabilityItem[]
+  review: MonkCapabilityItem[]
+  unavailable: MonkCapabilityItem[]
+  matchScorePct?: number
+  profiledColumns?: number
+}
+
+export type IndustryPackMeta = {
+  id: string
+  industry: string
+  displayName: string
+  description: string
+  minMatchScore?: number
+  kpiCount?: number
+  featured?: boolean
+  policies?: {
+    hipaaStrict?: boolean
+    noAutoMaterialize?: boolean
+    noAutoFixApply?: boolean
+    immutableMonkLog?: boolean
+    minCertRecall?: number
+  }
+  kpis?: { id: string; label: string; ceoQuestion?: string }[]
+}
+
+export type RankedIndustryPack = {
+  pack: IndustryPackMeta
+  scorePct: number
+  canRunMonk: boolean
+  missing: string[]
+}
+
+export type MonkEvidencePack = {
+  disclaimer: string
+  generatedAt: string
+  workspaceId: string
+  packId: string | null
+  runCount: number
+  runs: unknown[]
+  certification: PackCertification | null
+  stewardDecisions: unknown[]
+  workspaceMemory: WorkspaceMemoryEntry[]
+  controls: { id: string; title: string; status: string; evidence: string }[]
+}
+
+export type WorkspaceMemoryEntry = {
+  id: string
+  kind: string
+  key: string
+  value: Record<string, unknown>
+  source: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type StewardInboxIssue = {
+  id: string
+  workspaceId: string
+  runId?: string | null
+  issueKind: string
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  status: string
+  title: string
+  description?: string | null
+  tableName?: string | null
+  columnName?: string | null
+  proposalSql?: string | null
+  proposal: Record<string, unknown>
+  resolvedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type StewardInboxSummary = {
+  open: number
+  high: number
+  resolved: number
+  breakdown: { status: string; severity: string; n: number }[]
+}
+
+export async function fetchMonkPacks(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/monk/packs`)
+  const body = (await res.json().catch(() => ({}))) as {
+    packs?: IndustryPackMeta[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk packs ${res.status}`)
+  return body.packs || []
+}
+
+export async function fetchMonkPreview(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams({ packId })
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/preview?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    capability?: MonkCapabilityMap
+    ranked?: RankedIndustryPack[]
+    phases?: MonkPhase[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk preview ${res.status}`)
+  return body
+}
+
+export async function fetchMonkEvidenceMarkdown(
+  opts: { packId?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.packId) q.set('packId', opts.packId)
+  q.set('format', 'markdown')
+  if (opts.limit) q.set('limit', String(opts.limit))
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/evidence?${q}`,
+  )
+  if (!res.ok) {
+    const errBody = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(errBody.error || `monk evidence ${res.status}`)
+  }
+  return res.text()
+}
+
+export async function fetchMonkEvidence(
+  opts: { packId?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.packId) q.set('packId', opts.packId)
+  if (opts.limit) q.set('limit', String(opts.limit))
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/evidence?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    evidence?: MonkEvidencePack
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk evidence ${res.status}`)
+  return body.evidence!
+}
+
+export async function fetchWorkspaceMemory(
+  opts: { kind?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.kind) q.set('kind', opts.kind)
+  if (opts.limit) q.set('limit', String(opts.limit))
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/workspace-memory?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: WorkspaceMemoryEntry[]
+    hints?: { kind: string; key: string; hint: string }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `workspace memory ${res.status}`)
+  return { items: body.items || [], hints: body.hints || [] }
+}
+
+export async function fetchMonkRuns(
+  workspaceId: string = getActiveWorkspaceId(),
+  limit = 10,
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/runs?limit=${limit}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: MonkRun[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk runs ${res.status}`)
+  return body.items || []
+}
+
+export async function fetchMonkRun(
+  runId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/runs/${runId}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    run?: MonkRun
+    events?: MonkEvent[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk run ${res.status}`)
+  return { run: body.run!, events: body.events || [] }
+}
+
+export async function fetchMonkEvents(
+  runId: string,
+  since?: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = since ? `?since=${encodeURIComponent(since)}` : ''
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/runs/${runId}/events${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    events?: MonkEvent[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk events ${res.status}`)
+  return body.events || []
+}
+
+export async function startMonkModeApi(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/monk/start`, {
+    method: 'POST',
+    body: JSON.stringify({ packId }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    run?: MonkRun
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk start ${res.status}`)
+  return body.run!
+}
+
+export async function fetchStewardInbox(
+  opts: { status?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.status) q.set('status', opts.status)
+  if (opts.limit) q.set('limit', String(opts.limit))
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/steward/inbox?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: StewardInboxIssue[]
+    summary?: StewardInboxSummary
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `steward inbox ${res.status}`)
+  return { items: body.items || [], summary: body.summary! }
+}
+
+export async function updateStewardIssueApi(
+  issueId: string,
+  status: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/steward/inbox/${issueId}`,
+    { method: 'PATCH', body: JSON.stringify({ status }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    issue?: StewardInboxIssue
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `steward update ${res.status}`)
+  return body.issue!
+}
+
+export async function runProfilingApi(
+  maxTables?: number,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/profiling/run`, {
+    method: 'POST',
+    body: JSON.stringify({ maxTables }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    tableCount?: number
+    columnCount?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `profiling ${res.status}`)
+  return body
+}
+
+export type PackCertification = {
+  id: string
+  status: 'pending' | 'passed' | 'failed'
+  goldenRecall: number | null
+  promotedRecall: number | null
+  kpiCount: number
+  certifiedAt?: string | null
+}
+
+export async function fetchMonkCertification(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams({ packId })
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/certification?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    certification?: PackCertification | null
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk cert ${res.status}`)
+  return body.certification ?? null
+}
+
+export async function certifyMonkRunApi(
+  runId: string,
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/runs/${runId}/certify`,
+    { method: 'POST', body: JSON.stringify({ packId }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    passed?: boolean
+    report?: { recall?: number; promotedRecall?: number }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk certify ${res.status}`)
+  return body
+}
+
+export async function seedSportedgeGoldenApi(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/golden-eval/seed-sportedge`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    pairs?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `seed golden ${res.status}`)
+  return body
+}
+
+export async function seedMetricsFromPackApi(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/metrics-defs/seed-from-pack`,
+    { method: 'POST', body: JSON.stringify({ packId }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    created?: number
+    updated?: number
+    total?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `seed metrics ${res.status}`)
+  return body
+}
+
+/* ── Phase 3: autofill + health + dashboards ── */
+
+export type AutofillPageInfo = {
+  status: 'ready' | 'review' | 'empty' | 'unavailable'
+  headline: string
+  hints: string[]
+  href: string
+  cta: string
+}
+
+export type HealthScorecardData = {
+  score: number
+  grade: string
+  breakdown: { key: string; label: string; score: number; weight: number; detail: string }[]
+  signals: Record<string, unknown>
+}
+
+export async function fetchPageAutofill(
+  pageId?: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = pageId ? `?page=${encodeURIComponent(pageId)}` : ''
+  const res = await apiFetch(`/workspaces/${workspaceId}/autofill${q}`)
+  const body = (await res.json().catch(() => ({}))) as {
+    page?: AutofillPageInfo
+    pages?: Record<string, AutofillPageInfo>
+    global?: Record<string, unknown>
+    health?: HealthScorecardData
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `autofill ${res.status}`)
+  return body
+}
+
+export async function fetchHealthScorecard(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/health-scorecard?packId=${encodeURIComponent(packId)}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    scorecard?: HealthScorecardData
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `health ${res.status}`)
+  return body.scorecard!
+}
+
+export async function seedPackDashboardsApi(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/dashboards/seed-from-pack`,
+    { method: 'POST', body: JSON.stringify({ packId }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    created?: number
+    updated?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `seed dashboards ${res.status}`)
+  return body
 }

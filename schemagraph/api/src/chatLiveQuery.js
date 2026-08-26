@@ -7,6 +7,12 @@ import {
   findTablesMentioned,
 } from './schemaContext.js'
 import { buildChatGraphContext } from './chatGraphContext.js'
+import {
+  validateSqlAgainstSchema,
+  filterPackForConnection,
+  heuristicBrandRevenueSql,
+  isMissingRelationError,
+} from './chatSqlGuard.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { callChatModel, resolveModel } from './ai/models.js'
 import { resolveProviderKeys } from './secrets.js'
@@ -153,15 +159,65 @@ function heuristicLiveSql(question, pack, focusTable) {
   }
 }
 
-async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, mentions, graphCtx, audience }) {
+function pickValidatedSql(question, pack, draft, connectionName) {
+  if (!draft?.sql) return draft
+  const check = validateSqlAgainstSchema(draft.sql, pack, connectionName)
+  if (check.ok) return draft
+
+  const heuristic = heuristicBrandRevenueSql(question, pack)
+  if (heuristic?.sql) {
+    const hCheck = validateSqlAgainstSchema(heuristic.sql, pack, connectionName)
+    if (hCheck.ok) {
+      return {
+        ...heuristic,
+        graphCtx: draft.graphCtx,
+        sqlCorrected: true,
+        correctionReason: `Removed unknown tables: ${check.unknown.join(', ')}`,
+      }
+    }
+  }
+
+  const focusTable = resolveFocusTable(pack, question, null)
+  const fallback = heuristicLiveSql(question, pack, focusTable)
+  if (fallback?.sql) {
+    const fCheck = validateSqlAgainstSchema(fallback.sql, pack, connectionName)
+    if (fCheck.ok) {
+      return {
+        ...fallback,
+        graphCtx: draft.graphCtx,
+        sqlCorrected: true,
+        correctionReason: `Unknown tables in model SQL: ${check.unknown.join(', ')}`,
+      }
+    }
+  }
+
+  return {
+    ...draft,
+    error: 'invalid_tables',
+    explanation: `SQL referenced tables not in schema: ${check.unknown.join(', ')}. Allowed: ${check.allowedNames.slice(0, 12).join(', ')}…`,
+  }
+}
+
+async function generateLiveSqlDraft(
+  workspaceId,
+  question,
+  { pack, model, keys, mentions, graphCtx, audience, connectionName },
+) {
+  const scopedPack = filterPackForConnection(pack, connectionName)
   const ctx =
     graphCtx ||
-    buildChatGraphContext(pack, question, findTablesMentioned(pack, question, mentions?.tables || []), [], {
-      audience: audience === 'engineer' ? 'engineer' : 'ceo',
-    })
+    buildChatGraphContext(
+      scopedPack,
+      question,
+      findTablesMentioned(scopedPack, question, mentions?.tables || []),
+      [],
+      {
+        audience: audience === 'engineer' ? 'engineer' : 'ceo',
+      },
+    )
 
   const focusTable =
-    ctx.focusTables[0] || resolveFocusTable(pack, question, mentions)
+    ctx.focusTables[0] || resolveFocusTable(scopedPack, question, mentions)
   if (!focusTable) {
     return {
       sql: null,
@@ -171,10 +227,29 @@ async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, 
     }
   }
 
+  const brandHeuristic = heuristicBrandRevenueSql(question, scopedPack)
+  if (brandHeuristic?.sql) {
+    const check = validateSqlAgainstSchema(
+      brandHeuristic.sql,
+      scopedPack,
+      connectionName,
+    )
+    if (check.ok) {
+      return { ...brandHeuristic, graphCtx: ctx, source: 'heuristic-brand-revenue' }
+    }
+  }
+
   if (!model) {
-    const h = heuristicLiveSql(question, pack, focusTable)
+    const h = heuristicLiveSql(question, scopedPack, focusTable)
     return { ...h, graphCtx: ctx }
   }
+
+  const allowed = validateSqlAgainstSchema('SELECT 1 FROM x', scopedPack, connectionName)
+    .allowedNames
+  const allowBlock =
+    allowed.length > 0
+      ? `\nALLOWED TABLE NAMES (use ONLY these — never invent):\n${allowed.slice(0, 50).join(', ')}\n`
+      : ''
 
   const joinPathNote =
     ctx.joinPaths.length > 0
@@ -186,7 +261,8 @@ async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, 
   const system =
     `You are Que SQL generator — schema metadata ONLY (no row access).\n` +
     `Write ONE read-only PostgreSQL SELECT or WITH for the user's question.\n` +
-    `Use ONLY tables/columns from the focus schema graph below. Never invent names.\n` +
+    `Use ONLY tables/columns from the focus schema graph below. Never invent table or column names.\n` +
+    allowBlock +
     joinPathNote +
     `When the question names a brand, product, customer, or region, JOIN tables via FK paths and filter (e.g. WHERE LOWER(brand.name) LIKE '%puma%').\n` +
     `For revenue, sales, totals, or counts, use SUM/COUNT/AVG with GROUP BY when aggregating.\n` +
@@ -209,7 +285,7 @@ async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, 
       /* ignore */
     }
     if (!sql) {
-      const h = heuristicLiveSql(question, pack, focusTable)
+      const h = heuristicLiveSql(question, scopedPack, focusTable)
       return { ...h, graphCtx: ctx }
     }
     if (WRITE_RE.test(sql)) {
@@ -220,15 +296,16 @@ async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, 
         graphCtx: ctx,
       }
     }
-    return {
+    const draft = {
       sql,
       explanation:
         explanation ||
         `Query generated from focus graph (${ctx.focusTables.length} tables) for **${focusTable.name}**. Live rows shown below only.`,
       graphCtx: ctx,
     }
+    return pickValidatedSql(question, scopedPack, draft, connectionName)
   } catch {
-    const h = heuristicLiveSql(question, pack, focusTable)
+    const h = heuristicLiveSql(question, scopedPack, focusTable)
     return { ...h, graphCtx: ctx }
   }
 }
@@ -283,37 +360,6 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
     resolveModel(settings, opts.modelId, keys)
   const audience = opts.audience === 'engineer' ? 'engineer' : 'ceo'
 
-  let sql = opts.sqlHint ? extractSqlFromText(opts.sqlHint) : null
-  let explanation = null
-  let graphCtx = opts.graphCtx || null
-
-  if (!sql) {
-    const draft = await generateLiveSqlDraft(workspaceId, question, {
-      pack,
-      model,
-      keys,
-      mentions: opts.mentions,
-      graphCtx: opts.graphCtx,
-      audience,
-    })
-    graphCtx = draft.graphCtx || graphCtx
-    if (draft.error === 'blocked' || draft.error === 'no_tables') {
-      return {
-        ok: false,
-        skipped: true,
-        reason: draft.error,
-        message: draft.explanation,
-        graphCtx,
-      }
-    }
-    sql = draft.sql
-    explanation = draft.explanation
-  }
-
-  if (!sql) {
-    return { ok: false, skipped: true, reason: 'no_sql', graphCtx }
-  }
-
   let connection
   try {
     connection = await resolveLiveTarget(workspaceId, {}, opts.connectionId || null)
@@ -326,6 +372,70 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
     }
   }
 
+  const connectionName = connection.name || null
+  const scopedPack = filterPackForConnection(pack, connectionName)
+  let graphCtx =
+    opts.graphCtx ||
+    buildChatGraphContext(
+      scopedPack,
+      question,
+      findTablesMentioned(scopedPack, question, opts.mentions?.tables || []),
+      [],
+      { audience },
+    )
+
+  let sql = opts.sqlHint ? extractSqlFromText(opts.sqlHint) : null
+  let explanation = null
+
+  if (!sql) {
+    const draft = await generateLiveSqlDraft(workspaceId, question, {
+      pack: scopedPack,
+      model,
+      keys,
+      mentions: opts.mentions,
+      graphCtx,
+      audience,
+      connectionName,
+    })
+    graphCtx = draft.graphCtx || graphCtx
+    if (draft.error === 'blocked' || draft.error === 'no_tables' || draft.error === 'invalid_tables') {
+      return {
+        ok: false,
+        skipped: true,
+        reason: draft.error,
+        message: draft.explanation,
+        graphCtx,
+      }
+    }
+    sql = draft.sql
+    explanation = draft.explanation
+  } else {
+    const check = validateSqlAgainstSchema(sql, scopedPack, connectionName)
+    if (!check.ok) {
+      const fixed = pickValidatedSql(
+        question,
+        scopedPack,
+        { sql, explanation, graphCtx },
+        connectionName,
+      )
+      if (fixed.error) {
+        return {
+          ok: false,
+          skipped: true,
+          reason: fixed.error,
+          message: fixed.explanation,
+          graphCtx,
+        }
+      }
+      sql = fixed.sql
+      explanation = fixed.explanation || explanation
+    }
+  }
+
+  if (!sql) {
+    return { ok: false, skipped: true, reason: 'no_sql', graphCtx }
+  }
+
   const started = Date.now()
   let exec
   try {
@@ -333,12 +443,57 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
       maxRows: LIVE_VALIDATE_MAX_ROWS,
     })
   } catch (err) {
-    return {
-      ok: false,
-      error: err.message || 'Live query failed',
-      sql,
-      explanation,
-      connectionName: connection.name,
+    const errMsg = err.message || 'Live query failed'
+    if (isMissingRelationError(errMsg)) {
+      const retry = heuristicBrandRevenueSql(question, scopedPack)
+      if (retry?.sql && retry.sql !== sql) {
+        const check = validateSqlAgainstSchema(retry.sql, scopedPack, connectionName)
+        if (check.ok) {
+          try {
+            exec = await executeLiveSql(connection, retry.sql, {
+              maxRows: LIVE_VALIDATE_MAX_ROWS,
+            })
+            sql = retry.sql
+            explanation = retry.explanation
+          } catch (retryErr) {
+            return {
+              ok: false,
+              error: retryErr.message || errMsg,
+              sql,
+              explanation,
+              connectionName: connection.name,
+              graphCtx,
+            }
+          }
+        } else {
+          return {
+            ok: false,
+            error: errMsg,
+            sql,
+            explanation,
+            connectionName: connection.name,
+            graphCtx,
+          }
+        }
+      } else {
+        return {
+          ok: false,
+          error: errMsg,
+          sql,
+          explanation,
+          connectionName: connection.name,
+          graphCtx,
+        }
+      }
+    } else {
+      return {
+        ok: false,
+        error: errMsg,
+        sql,
+        explanation,
+        connectionName: connection.name,
+        graphCtx,
+      }
     }
   }
 

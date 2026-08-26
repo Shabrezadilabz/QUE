@@ -1,9 +1,40 @@
 /**
  * RAG retrieve + assemble grounded context for Que chat.
+ * Hybrid: dense vector search + graph-aware reranking (relationship / metric boosts).
  */
 import { embedText } from './embeddings.js'
 import { searchChunks } from './vectorStore.js'
 import { getBoostedSourceRefs } from './feedback.js'
+
+const METRIC_BOOST_RE =
+  /\b(revenue|sales|total|profit|margin|orders?|customers?|sum|count|avg|kpi|metric)\b/i
+const JOIN_BOOST_RE =
+  /\b(join|relate|relationship|link|across|between|via|brand|customer|product)\b/i
+
+/**
+ * Rerank vector hits — boost relationship + table chunks when query implies joins/metrics.
+ * @param {object[]} hits
+ * @param {string} queryText
+ */
+export function rerankRagHitsForGraph(hits, queryText) {
+  const q = String(queryText || '')
+  const wantMetric = METRIC_BOOST_RE.test(q)
+  const wantJoin = JOIN_BOOST_RE.test(q)
+  if (!wantMetric && !wantJoin) return hits
+
+  return [...hits]
+    .map((h) => {
+      let boost = 0
+      if (h.sourceKind === 'relationship' && (wantJoin || wantMetric)) boost += 0.12
+      if (h.sourceKind === 'schema_table' && wantMetric) boost += 0.04
+      if (h.sourceKind === 'schema_column' && wantJoin) boost += 0.03
+      if (wantMetric && /revenue|sales|amount|total|price|cost/i.test(h.content || '')) {
+        boost += 0.06
+      }
+      return { ...h, score: h.score + boost }
+    })
+    .sort((a, b) => b.score - a.score)
+}
 
 /**
  * @param {string} workspaceId
@@ -37,7 +68,18 @@ export async function retrieveForQuery(workspaceId, queryText, opts = {}) {
     /* feedback table may be missing during migrate */
   }
 
+  hits = rerankRagHitsForGraph(hits, queryText)
   return hits.slice(0, topK)
+}
+
+/**
+ * Vector retrieve + graph-aware rerank (alias for retrieveForQuery).
+ * @param {string} workspaceId
+ * @param {string} queryText
+ * @param {object} [opts]
+ */
+export async function retrieveForQueryHybrid(workspaceId, queryText, opts = {}) {
+  return retrieveForQuery(workspaceId, queryText, opts)
 }
 
 /**

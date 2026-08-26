@@ -27,7 +27,8 @@ import { vectorExtensionReady } from './ai/vectorStore.js'
 import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
 import { enrichChatWithPlaneScope } from './chatScope.js'
-import { enrichChatWithLiveQuery, looksLikeDataQuestion } from './chatLiveQuery.js'
+import { enrichChatWithLiveQuery, looksLikeDataQuestion, runChatLiveQuery, shouldRunChatLiveQuery, formatLiveQuerySuccessResult } from './chatLiveQuery.js'
+import { buildChatGraphContext } from './chatGraphContext.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { bestJoinOnClause } from './inferJoins.js'
@@ -105,6 +106,8 @@ async function finalizeChatResult(result, pack, userMessage = '', finalizeOpts =
       userId: finalizeOpts.userId,
       hasSlashSkill: finalizeOpts.hasSlashSkill,
       audience: finalizeOpts.audience,
+      graphCtx: finalizeOpts.graphCtx,
+      skipLive: finalizeOpts.skipLive,
     },
   )
   return enrichChatWithPlaneScope(userMessage, withLive, pack)
@@ -165,6 +168,12 @@ export async function answerChat(
   const { block: ragBlock, citations: ragCitations } =
     formatRagContext(ragChunks)
   const mentioned = resolveMentioned(pack, trimmed, mentions)
+  const audience = opts?.audience === 'engineer' ? 'engineer' : 'ceo'
+  const graphCtx = buildChatGraphContext(pack, trimmed, mentioned, ragChunks, {
+    audience,
+    graphHops: 1,
+    maxTables: 35,
+  })
   const linCites = await lineageCitations(workspaceId, trimmed)
 
   // Drift gate note for AI (does not hard-block chat — jobs/export do)
@@ -193,7 +202,6 @@ export async function answerChat(
   const replyPrefix = ''
 
   const skill = detectSkill(trimmed)
-  const audience = opts?.audience === 'engineer' ? 'engineer' : 'ceo'
   const finalizeOpts = {
     workspaceId,
     model,
@@ -202,6 +210,7 @@ export async function answerChat(
     userId: opts?.userId ?? null,
     hasSlashSkill: Boolean(skill?.id),
     audience,
+    graphCtx,
   }
 
   // 1) Skill path (deterministic + RAG note)
@@ -289,7 +298,57 @@ export async function answerChat(
     /* managed plane optional */
   }
 
-  // 2) RAG + LLM when preferred and model available
+  // 2) Live-first for data questions — graph plan → SQL → warehouse → grounded answer
+  if (
+    shouldRunChatLiveQuery(trimmed, {
+      hasSlashSkill: false,
+      audience,
+    })
+  ) {
+    const live = await runChatLiveQuery(workspaceId, trimmed, {
+      pack,
+      model,
+      keys,
+      mentions,
+      graphCtx,
+      audience,
+    })
+    if (live.ok) {
+      const base = {
+        reply: '',
+        citations: mergeCitations(ragCitations, linCites),
+        jobDraft: null,
+        lineageCitations: linCites,
+        systemNotes,
+        audience,
+        contextStats: pack.stats,
+        vectorReady,
+        driftBlocking: hasOpenHighDrift,
+        model: model?.id || null,
+        retrievedChunks: retrievedChunkSummary(ragChunks),
+        graphContext: {
+          plan: graphCtx.plan,
+          joinPaths: graphCtx.joinPaths,
+          focusTableCount: graphCtx.focusTables.length,
+        },
+        mode: 'live-graph',
+      }
+      const out = await formatLiveQuerySuccessResult(trimmed, live, base, {
+        pack,
+        model,
+        keys,
+        mentions,
+        audience,
+        graphCtx: live.graphCtx || graphCtx,
+      })
+      out.reply = `${replyPrefix}${out.reply}`
+      await persistTurns(workspaceId, opts?.sessionId, trimmed, out, { audience })
+      const withSamples = attachSamplePreviews(out, pack, 4, 10)
+      return enrichChatWithPlaneScope(trimmed, withSamples, pack)
+    }
+  }
+
+  // 3) RAG + LLM when preferred and model available
   if (preferLlm && model) {
     try {
       const llm = await tryRagLlmAnswer({
@@ -297,6 +356,7 @@ export async function answerChat(
         message: trimmed,
         history,
         ragBlock,
+        graphBlock: graphCtx.promptBlock,
         ragChunks,
         model,
         mentioned,
@@ -326,7 +386,7 @@ export async function answerChat(
     }
   }
 
-  // 3) Heuristic fallback (always stable)
+  // 4) Heuristic fallback (always stable)
   const heuristic = heuristicAnswer(pack, trimmed, mentions)
   const out = {
     ...heuristic,
@@ -335,6 +395,11 @@ export async function answerChat(
     lineageCitations: linCites,
     systemNotes,
     audience,
+    graphContext: {
+      plan: graphCtx.plan,
+      joinPaths: graphCtx.joinPaths,
+      focusTableCount: graphCtx.focusTables.length,
+    },
     retrievedChunks: retrievedChunkSummary(ragChunks),
     model: null,
     contextStats: pack.stats,
@@ -386,6 +451,7 @@ async function tryRagLlmAnswer({
   message,
   history,
   ragBlock,
+  graphBlock = '',
   ragChunks,
   model,
   mentioned,
@@ -397,19 +463,21 @@ async function tryRagLlmAnswer({
 }) {
   const ceoNote =
     audience === 'ceo'
-      ? `\nAudience: CEO — reply in 1–3 short sentences. Plain business English only. No schema jargon, SQL, or pipeline talk.\n`
-      : `\nAudience: Data engineer — be precise; SQL drafts and schema detail are welcome.\n`
+      ? `\nAudience: CEO — reply in 1–3 short sentences. Plain business English only. No schema jargon, SQL, or pipeline talk unless they explicitly ask.\n`
+      : `\nAudience: Data engineer — be precise; SQL drafts, join paths, and schema detail are welcome.\n`
   const system =
     `You are Que AI — a schema-only data engineering assistant.\n` +
     ceoNote +
-    `Answer ONLY from the retrieved context and schema stats below. Never invent tables.\n` +
+    `Answer ONLY from the focus schema graph and retrieved context below. Never invent tables.\n` +
     `You may use pinned scrubbed sample grids when provided (5–10 rows, not the lake).\n` +
     `Never request or assume access to managed dataset row payloads or full warehouse facts.\n` +
+    `For factual row questions, say live warehouse data will appear in the table below (you do not see those rows).\n` +
     `Cite table.column / doc titles. When proposing SQL, mark it as a draft.\n` +
     `Always obey workspace rules below (org memory from Promote + admins).\n\n` +
     `## Workspace stats\n` +
     `Tables: ${pack.stats.tableCount} · Columns: ${pack.stats.columnCount} · ` +
     `Relationships: ${pack.stats.relationshipCount} · Suggested: ${pack.stats.suggestedJoins}\n\n` +
+    (graphBlock ? `${graphBlock}\n\n` : '') +
     ragBlock +
     rulesBlock +
     pinnedAiBlock +
@@ -430,7 +498,7 @@ async function tryRagLlmAnswer({
     jobDraft: null,
     referencedTables: refs.map(compactTable),
     sql: audience === 'engineer' ? extractSql(text) : null,
-    mode: 'rag-llm',
+    mode: 'rag-llm-graph',
     model: model.id,
     retrievedChunks: retrievedChunkSummary(ragChunks),
   }

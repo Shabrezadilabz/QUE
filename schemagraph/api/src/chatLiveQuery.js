@@ -5,8 +5,8 @@
 import {
   buildSchemaContextPack,
   findTablesMentioned,
-  formatContextForPrompt,
 } from './schemaContext.js'
+import { buildChatGraphContext } from './chatGraphContext.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { callChatModel, resolveModel } from './ai/models.js'
 import { resolveProviderKeys } from './secrets.js'
@@ -71,19 +71,6 @@ function extractSqlFromText(text) {
   return null
 }
 
-function compactPackForChat(pack, question, focusTables = []) {
-  const mentioned = findTablesMentioned(pack, question, focusTables)
-  const focusIds = new Set(mentioned.map((t) => t.id))
-  const tables = [
-    ...pack.tables.filter((t) => focusIds.has(t.id)),
-    ...pack.tables.filter((t) => !focusIds.has(t.id)),
-  ].slice(0, 30)
-  return {
-    ...pack,
-    tables,
-    relationships: pack.relationships.slice(0, 20),
-  }
-}
 
 function resolveFocusTable(pack, question, mentions = null) {
   const explicit = Array.isArray(mentions?.tables) ? mentions.tables : []
@@ -166,35 +153,46 @@ function heuristicLiveSql(question, pack, focusTable) {
   }
 }
 
-async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, mentions }) {
-  const focusTable = resolveFocusTable(pack, question, mentions)
+async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, mentions, graphCtx, audience }) {
+  const ctx =
+    graphCtx ||
+    buildChatGraphContext(pack, question, findTablesMentioned(pack, question, mentions?.tables || []), [], {
+      audience: audience === 'engineer' ? 'engineer' : 'ceo',
+    })
+
+  const focusTable =
+    ctx.focusTables[0] || resolveFocusTable(pack, question, mentions)
   if (!focusTable) {
     return {
       sql: null,
       explanation: null,
       error: 'no_tables',
+      graphCtx: ctx,
     }
   }
 
   if (!model) {
-    return heuristicLiveSql(question, pack, focusTable)
+    const h = heuristicLiveSql(question, pack, focusTable)
+    return { ...h, graphCtx: ctx }
   }
 
-  const compact = compactPackForChat(
-    pack,
-    question,
-    mentions?.tables || [],
-  )
-  const schemaBlock = formatContextForPrompt(compact)
+  const joinPathNote =
+    ctx.joinPaths.length > 0
+      ? `\nPrefer JOIN paths listed in the graph (e.g. ${ctx.joinPaths[0].path.join(' → ')}).\n`
+      : ctx.plan.needsJoins
+        ? '\nQuestion likely needs JOINs — follow FK relationships in the graph.\n'
+        : ''
+
   const system =
     `You are Que SQL generator — schema metadata ONLY (no row access).\n` +
     `Write ONE read-only PostgreSQL SELECT or WITH for the user's question.\n` +
-    `Use ONLY tables/columns from context. Never invent names.\n` +
-    `When the question names a brand, product, customer, or region, JOIN tables via FK relationships in context and filter (e.g. WHERE LOWER(brand.name) LIKE '%puma%').\n` +
+    `Use ONLY tables/columns from the focus schema graph below. Never invent names.\n` +
+    joinPathNote +
+    `When the question names a brand, product, customer, or region, JOIN tables via FK paths and filter (e.g. WHERE LOWER(brand.name) LIKE '%puma%').\n` +
     `For revenue, sales, totals, or counts, use SUM/COUNT/AVG with GROUP BY when aggregating.\n` +
     `No INSERT/UPDATE/DELETE/DDL. Include LIMIT ${LIVE_VALIDATE_MAX_ROWS} or lower.\n` +
     `Respond with JSON only: {"sql":"...","explanation":"one short sentence for the user"}\n\n` +
-    schemaBlock
+    ctx.promptBlock
 
   try {
     const raw = await callChatModel(model, system, question, [], keys)
@@ -211,23 +209,27 @@ async function generateLiveSqlDraft(workspaceId, question, { pack, model, keys, 
       /* ignore */
     }
     if (!sql) {
-      return heuristicLiveSql(question, pack, focusTable)
+      const h = heuristicLiveSql(question, pack, focusTable)
+      return { ...h, graphCtx: ctx }
     }
     if (WRITE_RE.test(sql)) {
       return {
         sql: null,
         explanation: 'Blocked: only read-only SELECT/WITH is allowed.',
         error: 'blocked',
+        graphCtx: ctx,
       }
     }
     return {
       sql,
       explanation:
         explanation ||
-        `Query generated from schema metadata for **${focusTable.name}**. Live rows shown below only.`,
+        `Query generated from focus graph (${ctx.focusTables.length} tables) for **${focusTable.name}**. Live rows shown below only.`,
+      graphCtx: ctx,
     }
   } catch {
-    return heuristicLiveSql(question, pack, focusTable)
+    const h = heuristicLiveSql(question, pack, focusTable)
+    return { ...h, graphCtx: ctx }
   }
 }
 
@@ -279,9 +281,11 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
   const model =
     opts.model ||
     resolveModel(settings, opts.modelId, keys)
+  const audience = opts.audience === 'engineer' ? 'engineer' : 'ceo'
 
   let sql = opts.sqlHint ? extractSqlFromText(opts.sqlHint) : null
   let explanation = null
+  let graphCtx = opts.graphCtx || null
 
   if (!sql) {
     const draft = await generateLiveSqlDraft(workspaceId, question, {
@@ -289,16 +293,25 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
       model,
       keys,
       mentions: opts.mentions,
+      graphCtx: opts.graphCtx,
+      audience,
     })
+    graphCtx = draft.graphCtx || graphCtx
     if (draft.error === 'blocked' || draft.error === 'no_tables') {
-      return { ok: false, skipped: true, reason: draft.error, message: draft.explanation }
+      return {
+        ok: false,
+        skipped: true,
+        reason: draft.error,
+        message: draft.explanation,
+        graphCtx,
+      }
     }
     sql = draft.sql
     explanation = draft.explanation
   }
 
   if (!sql) {
-    return { ok: false, skipped: true, reason: 'no_sql' }
+    return { ok: false, skipped: true, reason: 'no_sql', graphCtx }
   }
 
   let connection
@@ -352,6 +365,97 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
     displayMasked: masked,
     policy: 'chat-live-readonly-capped',
     aiIsolation: 'row_payloads_never_sent_to_model',
+    graphCtx,
+  }
+}
+
+/**
+ * Merge successful live warehouse execution into a chat result object.
+ * @param {string} question
+ * @param {object} live from runChatLiveQuery (ok: true)
+ * @param {object} result base chat result
+ * @param {object} opts
+ */
+export async function formatLiveQuerySuccessResult(question, live, result, opts = {}) {
+  const graphCtx = live.graphCtx || opts.graphCtx || null
+  const focusTable =
+    graphCtx?.focusTables?.[0] ||
+    resolveFocusTable(opts.pack, question, opts.mentions)
+  const audience = opts.audience === 'engineer' ? 'engineer' : 'ceo'
+  const focusName = focusTable?.name || null
+
+  const reply =
+    audience === 'ceo'
+      ? await buildCeoSummary(question, live, {
+          model: opts.model,
+          keys: opts.keys,
+          focusTableName: focusName,
+        })
+      : buildEngineerLiveReply(live, result, graphCtx)
+
+  const engineerTables =
+    graphCtx?.focusTables?.slice(0, 8).map((t) => ({
+      name: t.name,
+      connection: t.connection,
+      sourceType: t.sourceType,
+      columns: (t.columns || []).slice(0, 12).map((c) => ({
+        name: c.name,
+        dataType: c.dataType,
+        keyKind: c.keyKind,
+      })),
+    })) || []
+
+  return {
+    ...result,
+    reply,
+    audience,
+    sql: live.sql,
+    graphContext: graphCtx
+      ? {
+          plan: graphCtx.plan,
+          joinPaths: graphCtx.joinPaths,
+          focusTableCount: graphCtx.focusTables?.length ?? 0,
+        }
+      : null,
+    liveQuery: {
+      ok: true,
+      columns: live.columns,
+      rows: live.rows,
+      rowCount: live.rowCount,
+      connectionName: live.connectionName,
+      connectionId: live.connectionId,
+      durationMs: live.durationMs,
+      displayMasked: live.displayMasked,
+      policy: live.policy,
+      aiIsolation: live.aiIsolation,
+      compact: audience === 'ceo',
+    },
+    planeScope: 'in_scope',
+    planeScopeHint: null,
+    mode: result?.mode ? `${result.mode}+live` : 'live-graph',
+    referencedTables:
+      audience === 'engineer'
+        ? engineerTables.length
+          ? engineerTables
+          : result?.referencedTables?.length
+            ? result.referencedTables
+            : focusTable
+              ? [
+                  {
+                    name: focusTable.name,
+                    connection: focusTable.connection,
+                    sourceType: focusTable.sourceType,
+                    columns: (focusTable.columns || []).slice(0, 12).map((c) => ({
+                      name: c.name,
+                      dataType: c.dataType,
+                      keyKind: c.keyKind,
+                    })),
+                  },
+                ]
+              : result?.referencedTables || []
+        : [],
+    retrievedChunks: audience === 'ceo' ? [] : result?.retrievedChunks,
+    samplePreviews: audience === 'ceo' ? [] : result?.samplePreviews,
   }
 }
 
@@ -359,6 +463,7 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
  * Attach live query to chat result when eligible. Mutates/extends result object.
  */
 export async function enrichChatWithLiveQuery(workspaceId, question, result, opts = {}) {
+  if (opts.skipLive) return result
   if (!shouldRunChatLiveQuery(question, opts)) {
     return result
   }
@@ -370,6 +475,8 @@ export async function enrichChatWithLiveQuery(workspaceId, question, result, opt
     mentions: opts.mentions,
     sqlHint: result?.sql,
     userId: opts.userId,
+    graphCtx: opts.graphCtx,
+    audience: opts.audience,
   })
 
   if (!live.ok) {
@@ -407,62 +514,7 @@ export async function enrichChatWithLiveQuery(workspaceId, question, result, opt
     }
   }
 
-  const focusTable = resolveFocusTable(opts.pack, question, opts.mentions)
-  const audience = opts.audience === 'engineer' ? 'engineer' : 'ceo'
-  const focusName = focusTable?.name || null
-
-  const reply =
-    audience === 'ceo'
-      ? await buildCeoSummary(question, live, {
-          model: opts.model,
-          keys: opts.keys,
-          focusTableName: focusName,
-        })
-      : buildEngineerLiveReply(live, result)
-
-  return {
-    ...result,
-    reply,
-    audience,
-    sql: live.sql,
-    liveQuery: {
-      ok: true,
-      columns: live.columns,
-      rows: live.rows,
-      rowCount: live.rowCount,
-      connectionName: live.connectionName,
-      connectionId: live.connectionId,
-      durationMs: live.durationMs,
-      displayMasked: live.displayMasked,
-      policy: live.policy,
-      aiIsolation: live.aiIsolation,
-      compact: audience === 'ceo',
-    },
-    planeScope: 'in_scope',
-    planeScopeHint: null,
-    mode: result?.mode ? `${result.mode}+live` : 'live',
-    referencedTables:
-      audience === 'engineer'
-        ? result?.referencedTables?.length
-          ? result.referencedTables
-          : focusTable
-            ? [
-                {
-                  name: focusTable.name,
-                  connection: focusTable.connection,
-                  sourceType: focusTable.sourceType,
-                  columns: (focusTable.columns || []).slice(0, 12).map((c) => ({
-                    name: c.name,
-                    dataType: c.dataType,
-                    keyKind: c.keyKind,
-                  })),
-                },
-              ]
-            : result?.referencedTables || []
-        : [],
-    retrievedChunks: audience === 'ceo' ? [] : result?.retrievedChunks,
-    samplePreviews: audience === 'ceo' ? [] : result?.samplePreviews,
-  }
+  return formatLiveQuerySuccessResult(question, live, result, opts)
 }
 
 function buildLiveFailureReply(question, live, audience) {
@@ -544,15 +596,54 @@ function formatCeoCell(v) {
   return String(v).slice(0, 80)
 }
 
-function buildEngineerLiveReply(live, result) {
+function buildEngineerLiveReply(live, result, graphCtx = null) {
   const intro =
     live.explanation ||
     `Fetched **${live.rowCount}** row(s) from **${live.connectionName}**.`
+
+  const plan = graphCtx?.plan
+  const planBlock = plan
+    ? `**Query plan:** ${plan.intent}` +
+      (plan.metrics.length ? ` · metrics: ${plan.metrics.join(', ')}` : '') +
+      (plan.needsJoins ? ' · joins required' : '') +
+      '\n'
+    : ''
+
+  const pathBlock =
+    graphCtx?.joinPaths?.length > 0
+      ? `**Join path used:** ${graphCtx.joinPaths[0].path.join(' → ')}\n`
+      : ''
+
+  const tablesBlock =
+    graphCtx?.focusTables?.length > 0
+      ? `**Focus tables (${graphCtx.focusTables.length}):** ${graphCtx.focusTables
+          .slice(0, 6)
+          .map((t) => t.name)
+          .join(', ')}${graphCtx.focusTables.length > 6 ? '…' : ''}\n`
+      : ''
+
+  const sqlBlock = live.sql
+    ? `\`\`\`sql\n${live.sql}\n\`\`\`\n`
+    : ''
+
+  const execBlock =
+    `**Execution:** ${live.connectionName}` +
+    (live.durationMs != null ? ` · ${live.durationMs}ms` : '') +
+    ` · ${live.rowCount} row(s) · read-only · max ${LIVE_VALIDATE_MAX_ROWS}\n`
+
   const cleanReply = stripInternalPrefixes(result?.reply || '')
+  const contextNote =
+    cleanReply && !isMetadataOnlyReply(cleanReply) ? `${cleanReply}\n\n` : ''
+
   return (
     `${intro}\n\n` +
-    (cleanReply && !isMetadataOnlyReply(cleanReply) ? `${cleanReply}\n\n` : '') +
-    `_Live warehouse data (${live.rowCount} row${live.rowCount === 1 ? '' : 's'}) is shown in the table below. Those values were **not** sent to the AI model._`
+    planBlock +
+    pathBlock +
+    tablesBlock +
+    sqlBlock +
+    execBlock +
+    contextNote +
+    `_Live warehouse data is in the table below. Row values were **not** sent to the AI model._`
   )
 }
 

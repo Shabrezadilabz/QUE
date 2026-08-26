@@ -13,10 +13,20 @@ import {
   filterPackForConnection,
   filterPackByLiveTables,
   heuristicBrandRevenueSql,
+  heuristicBrandRevenueSqlFromLive,
   isMissingRelationError,
   isBrandRevenueQuestion,
   missingRelationName,
 } from './chatSqlGuard.js'
+
+function resolveLiveTableRefForCheck(liveSet, baseName) {
+  const b = String(baseName || '').toLowerCase()
+  if (liveSet.has(b)) return b
+  for (const n of liveSet) {
+    if (n === b || n.endsWith(`.${b}`) || leafName(n).toLowerCase() === b) return n
+  }
+  return null
+}
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { callChatModel, resolveModel } from './ai/models.js'
 import { resolveProviderKeys } from './secrets.js'
@@ -175,15 +185,17 @@ function tryBrandRevenueSql(question, pack, connectionName, graphCtx) {
 
 async function resolveLiveScopedPack(pack, connection) {
   let scoped = filterPackForConnection(pack, connection.name || null)
+  /** @type {string[]} */
+  let liveNames = []
   if (connection.type === 'postgresql') {
     try {
-      const liveNames = await listLiveTableNames(connection.config)
+      liveNames = await listLiveTableNames(connection.config)
       scoped = filterPackByLiveTables(scoped, liveNames)
     } catch (err) {
       console.warn('[Que chat] live table list skipped:', err.message || err)
     }
   }
-  return scoped
+  return { scopedPack: scoped, liveNames }
 }
 
 function pickValidatedSql(question, pack, draft, connectionName) {
@@ -445,8 +457,48 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
   }
 
   const connectionName = connection.name || null
-  const scopedPack = await resolveLiveScopedPack(pack, connection)
+  const { scopedPack, liveNames } = await resolveLiveScopedPack(pack, connection)
+  const liveSet = new Set(liveNames.map((n) => String(n).toLowerCase()))
   const pinnedSamples = await loadPinnedSamplesForSql(workspaceId)
+
+  if (isBrandRevenueQuestion(question)) {
+    const fromLive = heuristicBrandRevenueSqlFromLive(liveSet, question)
+    if (fromLive?.sql) {
+      const started = Date.now()
+      try {
+        const exec = await executeLiveSql(connection, fromLive.sql, {
+          maxRows: LIVE_VALIDATE_MAX_ROWS,
+        })
+        const columnNames = normalizeLiveColumns(exec.columns)
+        const hidePii = await isHidePiiRuleEnabled(workspaceId)
+        const taggedNames = hidePii ? await loadPiiTaggedColumnNames(workspaceId) : null
+        const scrubbedRows = hidePii
+          ? scrubGridRows(exec.rows || [], columnNames, { taggedNames })
+          : exec.rows || []
+        return {
+          ok: true,
+          sql: exec.sqlExecuted || prepareReadonlySql(fromLive.sql),
+          explanation: fromLive.explanation,
+          connectionId: connection.id,
+          connectionName: connection.name,
+          columns: columnNames,
+          rows: scrubbedRows,
+          rowCount: scrubbedRows.length,
+          durationMs: Date.now() - started,
+          displayMasked:
+            hidePii &&
+            JSON.stringify(scrubbedRows) !== JSON.stringify(exec.rows || []),
+          policy: 'chat-live-readonly-capped',
+          aiIsolation: 'row_payloads_never_sent_to_model',
+          graphCtx: null,
+          source: 'heuristic-brand-revenue-live',
+        }
+      } catch (err) {
+        console.warn('[Que chat] live brand revenue fast path failed:', err.message || err)
+      }
+    }
+  }
+
   let graphCtx = buildChatGraphContext(
     scopedPack,
     question,
@@ -477,12 +529,12 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
       pinnedSamples,
     })
     graphCtx = draft.graphCtx || graphCtx
-    if (draft.error === 'blocked' || draft.error === 'no_tables' || draft.error === 'invalid_tables') {
+    if (draft.error === 'blocked' || draft.error === 'no_tables' || draft.error === 'invalid_tables' || draft.error === 'no_sql') {
       return {
         ok: false,
         skipped: true,
         reason: draft.error,
-        message: draft.explanation,
+        message: draft.explanation || 'Could not generate SQL for this question.',
         graphCtx,
       }
     }
@@ -512,7 +564,12 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
   }
 
   if (!sql) {
-    return { ok: false, skipped: true, reason: 'no_sql', graphCtx }
+    const hint =
+      isBrandRevenueQuestion(question) &&
+      !resolveLiveTableRefForCheck(liveSet, 'orders')
+        ? 'Your live Postgres is missing **orders** and/or **brands** — run SportEdge bootstrap or re-sync Sources.'
+        : 'Could not generate SQL for this question.'
+    return { ok: false, skipped: true, reason: 'no_sql', message: hint, graphCtx }
   }
 
   const started = Date.now()
@@ -769,14 +826,22 @@ function buildLiveFailureReply(question, live, audience) {
     if (live.reason === 'no_connection') {
       return 'I couldn’t reach your warehouse yet. Connect a Postgres or SQL source first, then ask again.'
     }
+    if (live.message) {
+      return String(live.message).replace(/\*\*/g, '')
+    }
     if (live.error) {
       return `I tried to look that up but the query didn’t succeed. ${String(live.error).slice(0, 160)}`
+    }
+    if (live.reason === 'no_sql') {
+      return 'I couldn’t build a query for that question. Make sure **orders** and **brands** exist on your Postgres source, then re-sync.'
     }
     return `I couldn’t find live data for “${String(question || '').slice(0, 80)}” right now. Try naming a table with @ or check your warehouse connection.`
   }
   const base = live.message || live.error || live.reason || 'Live query skipped'
   return `**Live read failed** — ${base}`
 }
+
+export { buildLiveFailureReply }
 
 function heuristicCeoSummary(question, live, focusTableName) {
   const n = live.rowCount ?? (live.rows || []).length

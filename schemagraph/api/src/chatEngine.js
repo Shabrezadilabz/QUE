@@ -27,7 +27,7 @@ import { vectorExtensionReady } from './ai/vectorStore.js'
 import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
 import { enrichChatWithPlaneScope } from './chatScope.js'
-import { enrichChatWithLiveQuery, looksLikeDataQuestion, runChatLiveQuery, shouldRunChatLiveQuery, formatLiveQuerySuccessResult } from './chatLiveQuery.js'
+import { enrichChatWithLiveQuery, looksLikeDataQuestion, runChatLiveQuery, shouldRunChatLiveQuery, formatLiveQuerySuccessResult, buildLiveFailureReply } from './chatLiveQuery.js'
 import { buildChatGraphContext } from './chatGraphContext.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
@@ -353,6 +353,40 @@ export async function answerChat(
       const withSamples = attachSamplePreviews(out, pack, 4, 10)
       return enrichChatWithPlaneScope(trimmed, withSamples, pack)
     }
+
+    const failReply = buildLiveFailureReply(trimmed, live, audience)
+    const failOut = {
+      reply: `${replyPrefix}${failReply}`,
+      citations: mergeCitations(ragCitations, linCites),
+      jobDraft: null,
+      lineageCitations: linCites,
+      systemNotes,
+      audience,
+      contextStats: pack.stats,
+      vectorReady,
+      driftBlocking: hasOpenHighDrift,
+      model: model?.id || null,
+      retrievedChunks: retrievedChunkSummary(ragChunks),
+      graphContext: {
+        plan: graphCtx.plan,
+        joinPaths: graphCtx.joinPaths,
+        focusTableCount: graphCtx.focusTables.length,
+      },
+      mode: 'live-failed',
+      liveQuerySkipped: live.reason || 'skipped',
+      liveQueryHint: live.message || null,
+      liveQuery: live.error
+        ? {
+            ok: false,
+            error: live.error,
+            sql: live.sql || null,
+            connectionName: live.connectionName || null,
+          }
+        : null,
+      planeScope: 'in_scope',
+    }
+    await persistTurns(workspaceId, opts?.sessionId, trimmed, failOut, { audience })
+    return enrichChatWithPlaneScope(trimmed, failOut, pack)
   }
 
   // 3) RAG + LLM when preferred and model available

@@ -234,6 +234,61 @@ export function heuristicBrandRevenueSql(question, pack) {
   }
 }
 
+/**
+ * Brand revenue SQL using only live information_schema table list (no Que sync required).
+ * @param {Set<string>|string[]} liveNames
+ * @param {string} question
+ */
+export function heuristicBrandRevenueSqlFromLive(liveNames, question) {
+  const live =
+    liveNames instanceof Set
+      ? liveNames
+      : new Set((liveNames || []).map((n) => String(n).toLowerCase()))
+  if (!live.size) return null
+
+  const ordersTbl = resolveLiveTableRef(live, 'orders')
+  const brandsTbl = resolveLiveTableRef(live, 'brands')
+  if (!ordersTbl || !brandsTbl) return null
+
+  const brandToken = extractBrandToken(question)
+  const oAlias = 'o'
+  const bAlias = 'b'
+  const ordersQ = quoteTable(ordersTbl)
+  const brandsQ = quoteTable(brandsTbl)
+
+  let where = ''
+  if (brandToken) {
+    where =
+      `\nWHERE (LOWER(${bAlias}.name) LIKE '%${escapeLike(brandToken)}%'` +
+      ` OR LOWER(${bAlias}.brand_code) LIKE '%${escapeLike(brandToken)}%')`
+  }
+
+  const sql =
+    `SELECT SUM(${oAlias}.order_total) AS revenue,\n` +
+    `       ${bAlias}.name AS brand\n` +
+    `FROM ${ordersQ} ${oAlias}\n` +
+    `JOIN ${brandsQ} ${bAlias} ON ${bAlias}.brand_id = ${oAlias}.brand_id` +
+    where +
+    `\nGROUP BY ${bAlias}.name`
+
+  return {
+    sql,
+    explanation: brandToken
+      ? `Total revenue for **${brandToken}** from live **orders** × **brands**.`
+      : `Revenue by brand from live **orders** joined to **brands**.`,
+  }
+}
+
+function resolveLiveTableRef(live, baseName) {
+  const b = String(baseName || '').toLowerCase()
+  if (live.has(b)) return b
+  for (const n of live) {
+    const leaf = leafName(n).toLowerCase()
+    if (n === b || leaf === b || n.endsWith(`.${b}`)) return n
+  }
+  return null
+}
+
 function quoteTable(name) {
   const n = String(name || '')
   if (/^[a-z_][\w]*$/i.test(n)) return n

@@ -190,6 +190,9 @@ export function heuristicBrandRevenueSql(question, pack) {
   const brandNameCol =
     (brands.columns || []).find((c) => /^name$/i.test(c.name)) ||
     (brands.columns || []).find((c) => /name/i.test(c.name))
+  const brandCodeCol = (brands.columns || []).find((c) =>
+    /brand_code/i.test(c.name),
+  )
 
   const sumExpr = totalCol
     ? `SUM(${oAlias}.${totalCol.name})`
@@ -200,10 +203,19 @@ export function heuristicBrandRevenueSql(question, pack) {
       : `${oAlias}.brand_id = ${bAlias}.brand_id`
 
   let where = ''
-  if (brandToken && brandNameCol) {
-    where = `\nWHERE LOWER(${bAlias}.${brandNameCol.name}) LIKE '%${escapeLike(brandToken)}%'`
-  } else if (brandToken && (brands.columns || []).some((c) => /brand_code/i.test(c.name))) {
-    where = `\nWHERE LOWER(${bAlias}.brand_code) LIKE '%${escapeLike(brandToken)}%'`
+  if (brandToken) {
+    const parts = []
+    if (brandNameCol) {
+      parts.push(
+        `LOWER(${bAlias}.${brandNameCol.name}) LIKE '%${escapeLike(brandToken)}%'`,
+      )
+    }
+    if (brandCodeCol) {
+      parts.push(
+        `LOWER(${bAlias}.${brandCodeCol.name}) LIKE '%${escapeLike(brandToken)}%'`,
+      )
+    }
+    if (parts.length) where = `\nWHERE (${parts.join(' OR ')})`
   }
 
   const sql =
@@ -252,6 +264,78 @@ function extractBrandToken(question) {
   return null
 }
 
+/**
+ * Keep only tables that actually exist in the live warehouse right now.
+ * @param {object} pack
+ * @param {Set<string>|string[]} liveNames
+ */
+export function filterPackByLiveTables(pack, liveNames) {
+  const live =
+    liveNames instanceof Set
+      ? liveNames
+      : new Set((liveNames || []).map((n) => String(n).toLowerCase()))
+  if (!live.size) return pack
+
+  const tableExists = (name) => {
+    const n = String(name || '').toLowerCase()
+    if (live.has(n)) return true
+    const leaf = leafName(n).toLowerCase()
+    if (live.has(leaf)) return true
+    if (n.includes('.')) {
+      if (live.has(n)) return true
+    } else {
+      if (live.has(`public.${n}`)) return true
+      for (const l of live) {
+        if (l.endsWith(`.${n}`) || l.endsWith(`.${leaf}`)) return true
+      }
+    }
+    return false
+  }
+
+  const tables = (pack.tables || []).filter((t) => tableExists(t.name))
+  if (!tables.length) return pack
+
+  const names = new Set(tables.map((t) => t.name))
+  const leafNames = new Set(tables.map((t) => leafName(t.name)))
+  const tableFromEdge = (edge) => {
+    const s = String(edge || '')
+    const dot = s.indexOf('.')
+    return dot > 0 ? s.slice(0, dot) : s
+  }
+  const relationships = (pack.relationships || []).filter((r) => {
+    const a = tableFromEdge(r.from)
+    const b = tableFromEdge(r.to)
+    return names.has(a) || names.has(b) || leafNames.has(a) || leafNames.has(b)
+  })
+
+  return {
+    ...pack,
+    tables,
+    relationships,
+    stats: {
+      ...pack.stats,
+      tableCount: tables.length,
+      relationshipCount: relationships.length,
+    },
+  }
+}
+
+export function isBrandRevenueQuestion(question) {
+  const q = String(question || '').toLowerCase()
+  if (!/\b(revenue|sales|turnover|earnings)\b/.test(q)) return false
+  return (
+    /\b(puma|nike|adidas|reebok|brand)\b/.test(q) ||
+    /\bbrand\b/.test(q)
+  )
+}
+
 export function isMissingRelationError(message) {
   return /relation\s+["']?[\w.]+["']?\s+does not exist/i.test(String(message || ''))
+}
+
+export function missingRelationName(message) {
+  const m = String(message || '').match(
+    /relation\s+["']?([\w.]+)["']?\s+does not exist/i,
+  )
+  return m?.[1]?.toLowerCase() || null
 }

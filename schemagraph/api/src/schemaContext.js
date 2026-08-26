@@ -181,7 +181,7 @@ export function formatContextForPrompt(pack, opts = {}) {
  * Authoritative schema catalog — read FIRST before SQL or schema answers.
  * Lists exact table names, columns, types, keys, and capped column samples.
  * @param {object} pack
- * @param {{ maxTables?: number, includeSamples?: boolean, connectionName?: string|null }} [opts]
+ * @param {{ maxTables?: number, includeSamples?: boolean, connectionName?: string|null, liveVerified?: boolean }} [opts]
  */
 export function formatSchemaPrimerBlock(pack, opts = {}) {
   const maxTables = opts.maxTables ?? 40
@@ -195,8 +195,10 @@ export function formatSchemaPrimerBlock(pack, opts = {}) {
 
   const lines = [
     '## SCHEMA PRIMER (authoritative — read BEFORE thinking or writing SQL)',
-    'Only the tables and columns below exist on this connection. If a name is not listed, it does NOT exist.',
-    'Use column sample values to verify filters (e.g. brand names, status codes, IDs).',
+    `Only the tables and columns below exist on this connection. If a name is not listed, it does NOT exist.`,
+    opts.liveVerified
+      ? 'Table list verified against live warehouse (information_schema) — finance/stale tables excluded.'
+      : 'Use column sample values to verify filters (e.g. brand names, status codes, IDs).',
     '',
     `Exact table names (${tableNames.length}): ${tableNames.join(', ') || '(none)'}`,
     '',

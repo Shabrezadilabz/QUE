@@ -11,8 +11,11 @@ import { buildPinnedSamplesAiPack } from './pinnedSamples.js'
 import {
   validateSqlAgainstSchema,
   filterPackForConnection,
+  filterPackByLiveTables,
   heuristicBrandRevenueSql,
   isMissingRelationError,
+  isBrandRevenueQuestion,
+  missingRelationName,
 } from './chatSqlGuard.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { callChatModel, resolveModel } from './ai/models.js'
@@ -23,6 +26,7 @@ import {
   resolveLiveTarget,
   LIVE_VALIDATE_MAX_ROWS,
 } from './liveExec.js'
+import { listLiveTableNames } from './connectors/postgres.js'
 import { leafName, norm } from './inferJoins.js'
 import { scrubGridRows } from './privacy/gridScrub.js'
 import { isHidePiiRuleEnabled } from './workspaceRules.js'
@@ -160,6 +164,28 @@ function heuristicLiveSql(question, pack, focusTable) {
   }
 }
 
+function tryBrandRevenueSql(question, pack, connectionName, graphCtx) {
+  if (!isBrandRevenueQuestion(question)) return null
+  const h = heuristicBrandRevenueSql(question, pack)
+  if (!h?.sql) return null
+  const check = validateSqlAgainstSchema(h.sql, pack, connectionName)
+  if (!check.ok) return null
+  return { ...h, graphCtx, source: 'heuristic-brand-revenue' }
+}
+
+async function resolveLiveScopedPack(pack, connection) {
+  let scoped = filterPackForConnection(pack, connection.name || null)
+  if (connection.type === 'postgresql') {
+    try {
+      const liveNames = await listLiveTableNames(connection.config)
+      scoped = filterPackByLiveTables(scoped, liveNames)
+    } catch (err) {
+      console.warn('[Que chat] live table list skipped:', err.message || err)
+    }
+  }
+  return scoped
+}
+
 function pickValidatedSql(question, pack, draft, connectionName) {
   if (!draft?.sql) return draft
   const check = validateSqlAgainstSchema(draft.sql, pack, connectionName)
@@ -238,6 +264,7 @@ async function generateLiveSqlDraft(
       connectionName,
       pinnedSamples: pins,
       includeSamples: true,
+      liveVerified: Boolean(connectionName),
     },
   )
 
@@ -252,15 +279,28 @@ async function generateLiveSqlDraft(
     }
   }
 
-  const brandHeuristic = heuristicBrandRevenueSql(question, scopedPack)
-  if (brandHeuristic?.sql) {
-    const check = validateSqlAgainstSchema(
-      brandHeuristic.sql,
-      scopedPack,
-      connectionName,
-    )
-    if (check.ok) {
-      return { ...brandHeuristic, graphCtx: ctx, source: 'heuristic-brand-revenue' }
+  const brandHeuristic = tryBrandRevenueSql(
+    question,
+    scopedPack,
+    connectionName,
+    ctx,
+  )
+  if (brandHeuristic) return brandHeuristic
+
+  if (isBrandRevenueQuestion(question)) {
+    const h = heuristicBrandRevenueSql(question, scopedPack)
+    if (h?.sql) {
+      const check = validateSqlAgainstSchema(h.sql, scopedPack, connectionName)
+      if (check.ok) {
+        return { ...h, graphCtx: ctx, source: 'heuristic-brand-revenue' }
+      }
+    }
+    return {
+      sql: null,
+      explanation:
+        'Could not query brand revenue — ensure **orders** and **brands** exist on your live Postgres (re-sync Sources if needed).',
+      error: 'no_sql',
+      graphCtx: ctx,
     }
   }
 
@@ -405,7 +445,7 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
   }
 
   const connectionName = connection.name || null
-  const scopedPack = filterPackForConnection(pack, connectionName)
+  const scopedPack = await resolveLiveScopedPack(pack, connection)
   const pinnedSamples = await loadPinnedSamplesForSql(workspaceId)
   let graphCtx = buildChatGraphContext(
     scopedPack,
@@ -417,6 +457,7 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
       connectionName,
       pinnedSamples,
       includeSamples: true,
+      liveVerified: connection.type === 'postgresql',
     },
   )
   graphCtx.primerReady = true
@@ -483,30 +524,36 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
   } catch (err) {
     const errMsg = err.message || 'Live query failed'
     if (isMissingRelationError(errMsg)) {
-      const retry = heuristicBrandRevenueSql(question, scopedPack)
+      let retryPack = scopedPack
+      if (connection.type === 'postgresql') {
+        try {
+          const liveNames = await listLiveTableNames(connection.config)
+          retryPack = filterPackByLiveTables(scopedPack, liveNames)
+        } catch {
+          /* use scoped pack */
+        }
+      }
+
+      const retry =
+        tryBrandRevenueSql(question, retryPack, connectionName, graphCtx) ||
+        (() => {
+          const h = heuristicBrandRevenueSql(question, retryPack)
+          if (!h?.sql) return null
+          const check = validateSqlAgainstSchema(h.sql, retryPack, connectionName)
+          return check.ok ? { ...h, graphCtx } : null
+        })()
+
       if (retry?.sql && retry.sql !== sql) {
-        const check = validateSqlAgainstSchema(retry.sql, scopedPack, connectionName)
-        if (check.ok) {
-          try {
-            exec = await executeLiveSql(connection, retry.sql, {
-              maxRows: LIVE_VALIDATE_MAX_ROWS,
-            })
-            sql = retry.sql
-            explanation = retry.explanation
-          } catch (retryErr) {
-            return {
-              ok: false,
-              error: retryErr.message || errMsg,
-              sql,
-              explanation,
-              connectionName: connection.name,
-              graphCtx,
-            }
-          }
-        } else {
+        try {
+          exec = await executeLiveSql(connection, retry.sql, {
+            maxRows: LIVE_VALIDATE_MAX_ROWS,
+          })
+          sql = retry.sql
+          explanation = retry.explanation
+        } catch (retryErr) {
           return {
             ok: false,
-            error: errMsg,
+            error: retryErr.message || errMsg,
             sql,
             explanation,
             connectionName: connection.name,
@@ -514,11 +561,15 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
           }
         }
       } else {
+        const missing = missingRelationName(errMsg)
         return {
           ok: false,
           error: errMsg,
           sql,
-          explanation,
+          explanation:
+            missing && isBrandRevenueQuestion(question)
+              ? `Table **${missing}** is not in your live warehouse. Use orders + brands for revenue.`
+              : explanation,
           connectionName: connection.name,
           graphCtx,
         }

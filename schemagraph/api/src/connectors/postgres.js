@@ -222,6 +222,24 @@ async function sampleColumn(client, schema, table, column, limit) {
  * @param {string} sql
  * @param {{ maxRows?: number, timeoutMs?: number }} [opts]
  */
+export async function listLiveTableNames(config) {
+  return withSourceClient(config, async (client) => {
+    const { rows } = await client.query(
+      `SELECT table_schema, table_name
+       FROM information_schema.tables
+       WHERE table_type = 'BASE TABLE'
+         AND table_schema NOT IN ('pg_catalog', 'information_schema')
+       ORDER BY table_schema, table_name`,
+    )
+    return rows.map((r) => {
+      const schema = String(r.table_schema || 'public').toLowerCase()
+      const table = String(r.table_name || '').toLowerCase()
+      if (schema === 'public') return table
+      return `${schema}.${table}`
+    })
+  })
+}
+
 export async function runReadonlyQuery(config, sql, opts = {}) {
   const maxRows = Math.min(Math.max(Number(opts.maxRows ?? 20), 1), 20)
   const timeoutMs = Math.min(Number(opts.timeoutMs ?? 20_000), 60_000)

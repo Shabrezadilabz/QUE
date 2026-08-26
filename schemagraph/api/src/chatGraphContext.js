@@ -310,6 +310,7 @@ export function formatGraphContextBlock(focusedPack, joinPaths, plan, ragChunks 
       includeSamples,
       connectionName: opts.connectionName ?? null,
       maxTables: 40,
+      liveVerified: opts.liveVerified === true,
     }),
   ]
 
@@ -416,6 +417,7 @@ export function buildChatGraphContext(
       connectionName: opts.connectionName ?? null,
       pinnedSamples: opts.pinnedSamples ?? [],
       includeSamples: opts.includeSamples !== false,
+      liveVerified: opts.liveVerified === true,
     },
   )
 

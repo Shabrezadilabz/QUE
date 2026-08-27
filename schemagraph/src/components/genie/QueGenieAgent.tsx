@@ -16,11 +16,33 @@ import {
 } from '@/services/stitchApi'
 import './QueGenieAgent.css'
 
+const GENIE_ICON = '/que-genie-icon.png'
+
+/** Side sparkle particles — staggered CSS animation delays */
+const SPRINKLE_DELAYS = [0, 0.35, 0.7, 1.05, 0.2, 0.55, 0.9, 1.25]
+
 type GenieMessage = {
   id: string
   role: 'user' | 'assistant'
   content: string
   agentSession?: AgentSession | null
+}
+
+function GenieSprinkles({ side }: { side: 'left' | 'right' }) {
+  return (
+    <span
+      className={`que-genie-sprinkles que-genie-sprinkles--${side}`}
+      aria-hidden
+    >
+      {SPRINKLE_DELAYS.map((delay, i) => (
+        <span
+          key={`${side}-${i}`}
+          className="que-genie-spark"
+          style={{ animationDelay: `${delay}s` }}
+        />
+      ))}
+    </span>
+  )
 }
 
 /**
@@ -138,28 +160,51 @@ export function QueGenieAgent() {
 
   return (
     <>
-      <button
-        type="button"
-        className={`que-genie-fab ${open ? 'que-genie-fab--open' : ''}`}
-        aria-label="Que Genie assistant"
-        title="Que Genie — build jobs, tables, BI from anywhere"
-        onClick={() => setOpen((v) => !v)}
+      <div
+        className={`que-genie-anchor ${open ? 'que-genie-anchor--open' : ''}`}
       >
-        <span className="que-genie-lamp" aria-hidden>
-          <span className="que-genie-smoke" />
-          <span className="que-genie-glow" />
-          ✨
-        </span>
-      </button>
+        <GenieSprinkles side="left" />
+        <button
+          type="button"
+          className={`que-genie-fab ${open ? 'que-genie-fab--open' : ''}`}
+          aria-label="Que Genie assistant"
+          title="Que Genie — build jobs, tables, BI from anywhere"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className="que-genie-float" aria-hidden>
+            <span className="que-genie-glow" />
+            <span className="que-genie-mist que-genie-mist--1" />
+            <span className="que-genie-mist que-genie-mist--2" />
+            <img
+              src={GENIE_ICON}
+              alt=""
+              className="que-genie-icon"
+              width={36}
+              height={36}
+              draggable={false}
+            />
+          </span>
+        </button>
+        <GenieSprinkles side="right" />
+      </div>
 
       {open ? (
         <div className="que-genie-panel" ref={panelRef} role="dialog" aria-label="Que Genie">
           <div className="que-genie-panel__head">
-            <div>
-              <p className="que-genie-panel__title">Que Genie</p>
-              <p className="que-genie-panel__ctx">
-                {ctx.pageContext.pageId} · {ctx.pageContext.route.slice(0, 48)}
-              </p>
+            <div className="que-genie-panel__head-main">
+              <img
+                src={GENIE_ICON}
+                alt=""
+                className="que-genie-panel__icon"
+                width={28}
+                height={28}
+              />
+              <div>
+                <p className="que-genie-panel__title">Que Genie</p>
+                <p className="que-genie-panel__ctx">
+                  {ctx.pageContext.pageId} · {ctx.pageContext.route.slice(0, 48)}
+                </p>
+              </div>
             </div>
             <button
               type="button"

@@ -59,7 +59,10 @@ const DEFAULT_SETTINGS = {
   /** Snowflake query-history assisted joins (MVP) */
   snowflakeQueryJoinAssist: true,
   /** Feature activation flags (admin toggles) */
-  enableStitchAgent: false,
+  /** @deprecated use enableQueAgent — kept for migration */
+  enableStitchAgent: true,
+  /** Unified Que Agent (chat + genie) — default ON */
+  enableQueAgent: true,
   enableLiveValidate: true,
   enableMaterialize: true,
   /**
@@ -357,6 +360,9 @@ function pickAllowed(patch) {
   }
   if (typeof patch.enableStitchAgent === 'boolean') {
     out.enableStitchAgent = patch.enableStitchAgent
+  }
+  if (typeof patch.enableQueAgent === 'boolean') {
+    out.enableQueAgent = patch.enableQueAgent
   }
   if (typeof patch.enableLiveValidate === 'boolean') {
     out.enableLiveValidate = patch.enableLiveValidate

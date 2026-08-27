@@ -1667,6 +1667,10 @@ app.post(
     typeof req.body?.sessionId === 'string' ? req.body.sessionId : 'default'
   const audience =
     req.body?.audience === 'engineer' ? 'engineer' : 'ceo'
+  const pageContext =
+    req.body?.pageContext && typeof req.body.pageContext === 'object'
+      ? req.body.pageContext
+      : null
   if (!message || typeof message !== 'string') {
     res.status(400).json({ error: 'body.message string required' })
     return
@@ -1677,7 +1681,13 @@ app.post(
       message,
       history,
       mentions,
-      { modelId, sessionId, audience },
+      {
+        modelId,
+        sessionId,
+        audience,
+        pageContext,
+        userId: req.user?.id ?? null,
+      },
     )
     if (answer?.sql) {
       try {
@@ -3044,6 +3054,25 @@ app.post(
           confirm: req.body?.confirm === true,
           actorUserId: req.user?.id,
         },
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 1 — Que Agent (unified chat + genie) */
+app.post(
+  '/workspaces/:workspaceId/que-agent/act',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { runQueAgentAct } = await import('./queAgentRuntime.js')
+      const out = await runQueAgentAct(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+        req.body || {},
       )
       res.json({ ok: true, ...out })
     } catch (err) {

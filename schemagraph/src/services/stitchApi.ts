@@ -1182,6 +1182,14 @@ export interface ChatResponse {
   systemNotes?: string | null
   liveQuery?: ChatLiveQueryResult | null
   audience?: ChatAudience
+  agentSession?: AgentSession | null
+  biReport?: {
+    reportId?: string
+    title?: string
+    charts?: unknown[]
+    datasetName?: string
+  } | null
+  materialization?: Record<string, unknown> | null
   contextStats?: {
     tableCount: number
     columnCount: number
@@ -1202,6 +1210,7 @@ export async function sendChatMessage(
     modelId?: string
     sessionId?: string
     audience?: ChatAudience
+    pageContext?: Record<string, unknown>
   },
 ): Promise<ChatResponse> {
   const res = await apiFetch(`/workspaces/${workspaceId}/chat`, {
@@ -1213,6 +1222,7 @@ export async function sendChatMessage(
       modelId: opts?.modelId,
       sessionId: opts?.sessionId,
       audience: opts?.audience ?? 'ceo',
+      pageContext: opts?.pageContext ?? undefined,
     }),
     signal: opts?.signal,
   })
@@ -2293,6 +2303,7 @@ export interface WorkspaceSettingsFlags {
   databricksQueryJoinAssist?: boolean
   snowflakeQueryJoinAssist?: boolean
   enableStitchAgent?: boolean
+  enableQueAgent?: boolean
   enableLiveValidate?: boolean
   enableMaterialize?: boolean
   /** Phase 3 — optional low-risk auto-Promote (default false / HITL) */
@@ -3336,6 +3347,27 @@ export async function agentCheckpointApi(
   if (!res.ok) throw new Error(data.error || `checkpoint ${res.status}`)
   if (!data.session) throw new Error('missing session')
   return data.session
+}
+
+/** Unified Que Agent — cross-page genie + chat actions */
+export async function queAgentActApi(
+  input: {
+    message: string
+    goal?: string
+    audience?: ChatAudience
+    pageContext?: Record<string, unknown>
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ChatResponse> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/que-agent/act`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const body = (await res.json().catch(() => ({}))) as ChatResponse & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `que-agent ${res.status}`)
+  return body
 }
 
 export async function fetchValidationSuite(

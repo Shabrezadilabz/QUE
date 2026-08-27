@@ -359,7 +359,54 @@ export async function resolveBiEmbed(rawToken) {
 }
 
 /**
- * Scaffold a full Report Studio pack from certified managed datasets:
+ * Parse NL BI style hints — columns, chart types, colors, title.
+ */
+export function parseBiStyleFromPrompt(prompt = '') {
+  const g = String(prompt || '').toLowerCase()
+  const colorMap = {
+    blue: '#2563eb',
+    red: '#dc2626',
+    green: '#16a34a',
+    purple: '#9333ea',
+    orange: '#ea580c',
+    teal: '#0d9488',
+    pink: '#db2777',
+    yellow: '#ca8a04',
+    indigo: '#4f46e5',
+  }
+  const colors = []
+  for (const [name, hex] of Object.entries(colorMap)) {
+    if (g.includes(name)) colors.push(hex)
+  }
+  const chartTypes = []
+  if (/\bbar\b/.test(g)) chartTypes.push('bar')
+  if (/\b(line|trend)\b/.test(g)) chartTypes.push('line')
+  if (/\b(pie|donut)\b/.test(g)) chartTypes.push('pie')
+  if (/\b(kpi|metric)\b/.test(g)) chartTypes.push('kpi')
+  if (/\btable\b/.test(g)) chartTypes.push('table')
+  if (/\bcard\b/.test(g)) chartTypes.push('card')
+  if (/\barea\b/.test(g)) chartTypes.push('area')
+
+  const titleMatch = String(prompt || '').match(
+    /\btitle\s+["']([^"']+)["']/i,
+  )
+  const xMatch =
+    String(prompt || '').match(/\bx[\s-]?axis\s+(\w+)/i) ||
+    String(prompt || '').match(/\bby\s+(\w+)/i)
+  const yMatch =
+    String(prompt || '').match(/\by[\s-]?axis\s+(\w+)/i) ||
+    String(prompt || '').match(/\bmeasure\s+(\w+)/i)
+
+  return {
+    title: titleMatch?.[1]?.trim() || null,
+    xField: xMatch?.[1] || null,
+    yField: yMatch?.[1] || null,
+    colors: colors.length ? colors : ['#2563eb', '#16a34a', '#9333ea'],
+    chartTypes: chartTypes.length ? chartTypes : null,
+  }
+}
+
+/**
  * metrics + multi-visual canvas (bar / kpi / table / pie) with layout.
  * Schema-first HITL — does not send lake rows to AI.
  */
@@ -370,6 +417,10 @@ export async function scaffoldBiReport(
     datasetId = null,
     prompt = '',
     userId = null,
+    xField: xFieldOverride = null,
+    yField: yFieldOverride = null,
+    colors = null,
+    chartTypes = null,
   } = {},
 ) {
   const { listManagedDatasets } = await import('./managedDataPlane.js')
@@ -389,8 +440,13 @@ export async function scaffoldBiReport(
   }
 
   const cols = (ds.columns || []).map((c) => c.name).filter(Boolean)
-  const x = cols[0] || null
-  const y = cols[1] || cols[0] || null
+  const x = xFieldOverride && cols.includes(xFieldOverride)
+    ? xFieldOverride
+    : cols[0] || null
+  const y = yFieldOverride && cols.includes(yFieldOverride)
+    ? yFieldOverride
+    : cols[1] || cols[0] || null
+  const palette = Array.isArray(colors) && colors.length ? colors : ['#2563eb', '#16a34a', '#9333ea']
   const reportId = randomUUID()
   const reportTitle =
     String(title || '').trim() ||
@@ -408,18 +464,18 @@ export async function scaffoldBiReport(
     userId,
   })
 
-  const layouts = [
+  const defaultLayouts = [
     {
       chartType: 'kpi',
       title: `${ds.name} KPI`,
       layout: { col: 0, row: 0, w: 4, h: 2 },
-      config: { yField: y || undefined, reportId, pageId: 'page1' },
+      config: { yField: y || undefined, reportId, pageId: 'page1', color: palette[0] },
     },
     {
       chartType: 'card',
       title: `${ds.name} card`,
       layout: { col: 4, row: 0, w: 4, h: 2 },
-      config: { yField: y || undefined, reportId, pageId: 'page1' },
+      config: { yField: y || undefined, reportId, pageId: 'page1', color: palette[1] || palette[0] },
     },
     {
       chartType: 'bar',
@@ -430,6 +486,8 @@ export async function scaffoldBiReport(
         yField: y || undefined,
         reportId,
         pageId: 'page1',
+        color: palette[0],
+        colors: palette,
       },
     },
     {
@@ -441,6 +499,7 @@ export async function scaffoldBiReport(
         yField: y || undefined,
         reportId,
         pageId: 'page1',
+        color: palette[2] || palette[0],
       },
     },
     {
@@ -452,6 +511,7 @@ export async function scaffoldBiReport(
         yField: y || undefined,
         reportId,
         pageId: 'page1',
+        colors: palette,
       },
     },
     {
@@ -461,6 +521,29 @@ export async function scaffoldBiReport(
       config: { reportId, pageId: 'page1' },
     },
   ]
+
+  const layouts =
+    Array.isArray(chartTypes) && chartTypes.length
+      ? chartTypes.map((chartType, i) => ({
+          chartType,
+          title: `${ds.name} ${chartType}${x ? ` · ${x}` : ''}`,
+          layout: {
+            col: (i % 3) * 4,
+            row: Math.floor(i / 3) * 4,
+            w: 4,
+            h: chartType === 'table' ? 4 : 3,
+          },
+          config: {
+            xField: x || undefined,
+            yField: y || undefined,
+            reportId,
+            pageId: 'page1',
+            color: palette[i % palette.length],
+            colors: palette,
+            layout: undefined,
+          },
+        }))
+      : defaultLayouts
 
   const charts = []
   for (const spec of layouts) {

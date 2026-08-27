@@ -28,6 +28,7 @@ import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
 import { enrichChatWithPlaneScope } from './chatScope.js'
 import { enrichChatWithLiveQuery, looksLikeDataQuestion, runChatLiveQuery, shouldRunChatLiveQuery, formatLiveQuerySuccessResult, buildLiveFailureReply } from './chatLiveQuery.js'
+import { maybeHandleQueAgent } from './queAgentRuntime.js'
 import { buildChatGraphContext } from './chatGraphContext.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
@@ -141,6 +142,19 @@ export async function answerChat(
       retrievedChunks: [],
       model: null,
     }
+  }
+
+  const audienceEarly = opts?.audience === 'engineer' ? 'engineer' : 'ceo'
+  const queAgentOut = await maybeHandleQueAgent(workspaceId, trimmed, {
+    userId: opts?.userId ?? null,
+    audience: audienceEarly,
+    pageContext: opts?.pageContext ?? null,
+  })
+  if (queAgentOut) {
+    await persistTurns(workspaceId, opts?.sessionId, trimmed, queAgentOut, {
+      audience: audienceEarly,
+    })
+    return queAgentOut
   }
 
   const ws = await getWorkspaceSettings(workspaceId)

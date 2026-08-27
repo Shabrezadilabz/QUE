@@ -155,6 +155,7 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
           snowflakeQueryJoinAssist:
             payload.settings.snowflakeQueryJoinAssist !== false,
           enableStitchAgent: payload.settings.enableStitchAgent === true,
+          enableQueAgent: payload.settings.enableQueAgent !== false,
           enableLiveValidate: payload.settings.enableLiveValidate !== false,
           enableMaterialize: payload.settings.enableMaterialize !== false,
           enableAutoPromoteLowRisk:
@@ -2095,12 +2096,14 @@ function PolicyAndAiBlocks({
     }
   />
   <Toggle
-    label="Enable Stitch Agent"
-    hint="Activates /agent in Assistant — NL plan → tools → checkpoint → Promote → draft job"
-    checked={draft.enableStitchAgent === true}
+    label="Enable Que Agent (chat + Genie)"
+    hint="Unified AI agent — create jobs, tables, BI, edits from CEO/Engineer chat and the Genie on any page"
+    checked={draft.enableQueAgent !== false}
     disabled={!canAdmin}
     onChange={(v) =>
-      setDraft((d) => (d ? { ...d, enableStitchAgent: v } : d))
+      setDraft((d) =>
+        d ? { ...d, enableQueAgent: v, enableStitchAgent: v } : d,
+      )
     }
   />
   <Toggle

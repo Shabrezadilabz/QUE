@@ -5,6 +5,8 @@ type Props = {
   session: AgentSession
   busy?: boolean
   canWrite?: boolean
+  /** CEO mode — hide tool transcript detail */
+  compact?: boolean
   onApprove?: () => void
   onReject?: () => void
   onContinueAfterPromote?: () => void
@@ -12,12 +14,13 @@ type Props = {
 }
 
 /**
- * Inline Stitch Agent plan — HITL checkpoints inside Assistant chat.
+ * Inline Que Agent plan — HITL checkpoints inside Assistant chat.
  */
 export function AgentPlanCard({
   session,
   busy = false,
   canWrite = false,
+  compact = false,
   onApprove,
   onReject,
   onContinueAfterPromote,
@@ -30,7 +33,7 @@ export function AgentPlanCard({
     <div className="mt-md space-y-md rounded-lg border border-secondary/30 bg-surface p-md">
       <div className="flex flex-wrap items-center justify-between gap-sm">
         <p className="font-label text-[11px] font-bold tracking-widest text-secondary uppercase">
-          Stitch agent · {session.status}
+          Que agent · {session.status}
         </p>
         {onRefresh ? (
           <button
@@ -127,7 +130,7 @@ export function AgentPlanCard({
         </div>
       ) : null}
 
-      {(session.toolCalls || []).length ? (
+      {!compact && (session.toolCalls || []).length ? (
         <div>
           <p className="mb-xs font-label text-[10px] tracking-widest text-on-surface-variant uppercase">
             Tool transcript
@@ -180,23 +183,18 @@ export function AgentPlanCard({
   )
 }
 
-/** Detect NL / slash intent to start the Stitch Agent pipeline. */
+/** Detect NL / slash intent to start the Que Agent pipeline. */
 export function looksLikeAgentPrompt(text: string): boolean {
   const t = String(text || '').trim()
   if (!t) return false
-  if (/^\/agent\b/i.test(t)) return true
-  if (/\bstart\s+(an?\s+)?(stitch\s+)?agent\b/i.test(t)) return true
-  if (/\bstitch\s+agent\b/i.test(t)) return true
+  if (/^\/(agent|que|genie)\b/i.test(t)) return true
+  if (/\bstart\s+(the\s+)?(que\s+)?agent\b/i.test(t)) return true
+  if (/\b(create|build|make|draft|edit|materialize)\b/i.test(t)) {
+    if (/\b(job|table|dashboard|report|bi|join|combine)\b/i.test(t)) return true
+  }
   if (
     /\bbuild\s+trusted\b/i.test(t) &&
     /\b(customer\s*360|stitch\s+job)\b/i.test(t)
-  ) {
-    return true
-  }
-  if (
-    /\b(run|start)\s+(the\s+)?(multi-?step|hitl)\s+(plan|agent|pipeline)\b/i.test(
-      t,
-    )
   ) {
     return true
   }
@@ -205,8 +203,8 @@ export function looksLikeAgentPrompt(text: string): boolean {
 
 export function stripAgentSlash(text: string): string {
   return String(text || '')
-    .replace(/^\/agent\s*/i, '')
-    .replace(/^start\s+(an?\s+)?(stitch\s+)?agent\s*[:\-–]?\s*/i, '')
+    .replace(/^\/(agent|que|genie)\s*/i, '')
+    .replace(/^start\s+(the\s+)?(que\s+)?agent\s*[:\-–]?\s*/i, '')
     .trim()
 }
 

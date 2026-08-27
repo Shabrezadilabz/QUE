@@ -35,8 +35,6 @@ import {
 import {
   AgentPlanCard,
   detectAgentFollowUp,
-  looksLikeAgentPrompt,
-  stripAgentSlash,
 } from '@/components/agent/AgentPlanCard'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useAuth } from '@/context/AuthContext'
@@ -75,13 +73,10 @@ type SpeechRecognitionLike = {
 }
 import {
   createJobFromDraft,
-  scaffoldBiReportApi,
   createOutcomeApi,
   createShipDraftApi,
-  createAgentSessionApi,
   fetchAgentSessions,
   agentCheckpointApi,
-  fetchWorkspaceSettings,
   fetchAiStatus,
   fetchSchemaContext,
   reindexAi,
@@ -109,6 +104,7 @@ import {
   type RetrievedChunk,
   type SamplePreview,
 } from '@/services/stitchApi'
+import { useQueAgentOptional } from '@/context/QueAgentContext'
 import { subscribeSchemaChanged } from '@/utils/schemaChangeBus'
 
 function loadActiveChatSessionId(workspaceId: string): string | null {
@@ -191,12 +187,10 @@ export function ChatPage() {
     user?.email?.split('@')[0] ||
     'there'
   const { pushToast } = useToast()
+  const queAgentCtx = useQueAgentOptional()
   const [messages, setMessages] = useState<UiMessage[]>([])
   const [activeOutcomeId, setActiveOutcomeId] = useState<string | null>(null)
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
-  const [stitchAgentEnabled, setStitchAgentEnabled] = useState<boolean | null>(
-    null,
-  )
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [context, setContext] = useState<ContextPackSummary | null>(null)
@@ -342,9 +336,6 @@ export function ChatPage() {
     void reloadContext()
     void reloadAiStatus()
     void reloadChatSessions()
-    void fetchWorkspaceSettings()
-      .then((s) => setStitchAgentEnabled(s.settings.enableStitchAgent === true))
-      .catch(() => setStitchAgentEnabled(false))
 
     const saved = loadActiveChatSessionId(workspaceId)
     if (saved) {
@@ -382,7 +373,7 @@ export function ChatPage() {
               id: `ag-boot-${open.id}`,
               role: 'assistant',
               content:
-                'Resumed Stitch Agent plan in this chat. Approve checkpoints here — Promote joins stays HITL.',
+                'Resumed Que Agent plan in this chat. Approve checkpoints here — Promote joins stays HITL.',
               agentSession: open,
               mode: 'agent',
               at: stamp(),
@@ -390,12 +381,12 @@ export function ChatPage() {
           ])
         } else {
           setInput(
-            '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+            'Create a job joining my connected tables and materialize as a new table',
           )
         }
       } catch {
         setInput(
-          '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+          'Create a job joining my connected tables and materialize as a new table',
         )
       } finally {
         const next = new URLSearchParams(searchParams)
@@ -1008,54 +999,6 @@ export function ChatPage() {
       return
     }
 
-    // Stitch Agent plan in the same thread
-    if (looksLikeAgentPrompt(message)) {
-      setChatAudience('engineer')
-      saveChatAudience('engineer')
-      try {
-        if (stitchAgentEnabled === false) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `e-${Date.now()}`,
-              role: 'assistant',
-              content:
-                'Stitch Agent is off for this workspace. An admin can enable **Enable Stitch Agent** under Settings → AI & Policy, then retry **/agent**.',
-              at: stamp(),
-              mode: 'agent',
-            },
-          ])
-          return
-        }
-        const goal =
-          stripAgentSlash(message) ||
-          'Build trusted customer 360 from connected sources, then draft a stitch job'
-        const session = await createAgentSessionApi({
-          goal,
-          title: goal.slice(0, 80),
-        })
-        upsertAgentMessage(
-          session,
-          'Stitch Agent plan ready. Approve the checkpoint to run tools — Promote joins stays HITL (auto-promote only if policy is on).',
-        )
-        pushToast('Agent plan started in chat', 'success')
-      } catch (err) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `e-${Date.now()}`,
-            role: 'assistant',
-            content: `Agent failed: ${err instanceof Error ? err.message : String(err)}`,
-            at: stamp(),
-            mode: 'agent',
-          },
-        ])
-      } finally {
-        setBusy(false)
-      }
-      return
-    }
-
     // Outcome plan build in the same thread
     if (looksLikeOutcomePrompt(message)) {
       setChatAudience('engineer')
@@ -1080,61 +1023,6 @@ export function ChatPage() {
             at: stamp(),
           },
         ])
-      } finally {
-        setBusy(false)
-      }
-      return
-    }
-
-    // Build BI / Report Studio from chat summary — scaffolds real metrics + visuals
-    if (
-      /^\/bi\b/i.test(message) ||
-      /\bbuild\s+(me\s+)?(a\s+)?(bi|report|dashboard|semantic)\b/i.test(
-        message,
-      )
-    ) {
-      try {
-        const promptText = message.replace(/^\/bi\s*/i, '').trim() || message
-        const out = await scaffoldBiReportApi({
-          title: 'Chat report',
-          prompt: promptText.slice(0, 2000),
-        })
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `a-${Date.now()}`,
-            role: 'assistant',
-            content:
-              `Built **Report Studio** pack on **${out.datasetName}**: ${out.charts.length} visuals (KPI, card, bar, line, pie, table) + metric.\n\n` +
-              `Open the canvas, **Run all**, edit axes/layout, **Certify**, then Ship / embed.\n\n` +
-              `Schema-first — preview uses certified managed data only.`,
-            at: stamp(),
-            mode: 'bi',
-          },
-        ])
-        pushToast('Report scaffolded', 'success')
-        navigate(
-          out.reportId
-            ? `/bi?report=${encodeURIComponent(out.reportId)}`
-            : '/bi',
-        )
-      } catch (err) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `e-${Date.now()}`,
-            role: 'assistant',
-            content:
-              `Could not scaffold BI yet: ${err instanceof Error ? err.message : String(err)}\n\n` +
-              `Run a job → certify a Managed dataset → retry **/bi** or open Report Studio and click **Build full report**.`,
-            at: stamp(),
-            mode: 'bi',
-          },
-        ])
-        pushToast(
-          err instanceof Error ? err.message : 'BI scaffold failed',
-          'error',
-        )
       } finally {
         setBusy(false)
       }
@@ -1180,6 +1068,7 @@ export function ChatPage() {
         modelId: modelId || undefined,
         sessionId,
         audience: chatAudience,
+        pageContext: queAgentCtx?.pageContext as Record<string, unknown>,
       })
       const assistant: UiMessage = {
         id: `a-${Date.now()}`,
@@ -1201,6 +1090,7 @@ export function ChatPage() {
         liveQuery: res.liveQuery ?? null,
         systemNotes: res.systemNotes ?? null,
         audience: (res.audience as ChatAudience) ?? chatAudience,
+        agentSession: res.agentSession ?? null,
         feedback: null,
         at: new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -1208,6 +1098,15 @@ export function ChatPage() {
         }),
       }
       setMessages((prev) => [...prev, assistant])
+      if (res.agentSession?.id) {
+        setActiveAgentId(res.agentSession.id)
+      }
+      if (res.biReport?.reportId) {
+        pushToast('Report built', 'success')
+        navigate(`/bi?report=${encodeURIComponent(res.biReport.reportId)}`)
+      } else if (res.agentSession?.result?.jobId) {
+        pushToast('Job ready', 'success')
+      }
       if (res.sql) {
         window.dispatchEvent(new CustomEvent('que-plane-activity'))
       }
@@ -2162,11 +2061,12 @@ function ChatBubble({
               }
             />
           ) : null}
-          {isEngineer && message.agentSession ? (
+          {message.agentSession ? (
             <AgentPlanCard
               session={message.agentSession}
               busy={busy}
               canWrite={canWrite}
+              compact={!isEngineer}
               onRefresh={
                 onAgentAction ? () => onAgentAction('refresh') : undefined
               }

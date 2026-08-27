@@ -1,18 +1,18 @@
 /**
- * Phase 1+3 — Stitch Agent sessions with HITL checkpoints + NL multi-step tools.
+ * Que Agent sessions — unified chat + genie multi-step tools (HITL where required).
  */
 import { randomUUID } from 'node:crypto'
 import { query } from './db.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { inferJoinsForWorkspace } from './inferJoins.js'
-import { createStitchJobFromTables } from './jobs.js'
+import { createStitchJobFromTables, getJob, updateJob } from './jobs.js'
 import { listConnections } from './connections.js'
 import { listJobs } from './jobs.js'
 
 function assertAgentEnabled(settings) {
-  if (settings?.enableStitchAgent !== true) {
+  if (settings?.enableQueAgent === false && settings?.enableStitchAgent !== true) {
     const err = new Error(
-      'Stitch Agent is disabled for this workspace (Settings → AI & Policy)',
+      'Que Agent is disabled for this workspace (Settings → AI & Policy)',
     )
     err.status = 403
     throw err
@@ -22,16 +22,26 @@ function assertAgentEnabled(settings) {
 /**
  * Parse NL goal into intent + tool plan (heuristic; no LLM required).
  */
-export function parseAgentIntent(goalText = '') {
+export function parseAgentIntent(goalText = '', pageContext = {}) {
   const g = String(goalText || '').toLowerCase()
   const wantsValidate =
     /validat|uniqueness|referential|row.?count|sanity|test suite/.test(g)
   const wantsDrift = /drift|remap|re-?freeze|schema change|repair/.test(g)
   const wantsCustomer360 =
-    /customer.?360|360|stitch|cross.?source|join|unify|trusted/.test(g) ||
-    !wantsValidate && !wantsDrift
-  const wantsDraftJob = /job|notebook|draft|ship|export|dbt/.test(g) || wantsCustomer360
-  const wantsTransform = /transform|clean|scrub|normalize|nl.?sql|sql draft/.test(g)
+    /customer.?360|360|stitch|cross.?source|join|unify|trusted|combine/.test(g) ||
+    (!wantsValidate && !wantsDrift)
+  const wantsDraftJob =
+    /job|notebook|draft|ship|export|dbt/.test(g) || wantsCustomer360
+  const wantsTransform =
+    /transform|clean|scrub|normalize|nl.?sql|sql draft|combine.*column/.test(g)
+  const wantsEditJob =
+    /\b(edit|update|change|modify|rename)\b.*\bjob\b/.test(g) ||
+    Boolean(pageContext?.jobId && /\b(edit|update|change|modify)\b/.test(g))
+  const wantsMaterialize =
+    /materialize|create\s+table|new\s+table|ctas|build\s+table/.test(g)
+  const wantsBi =
+    /\b(bi|report|dashboard|chart|visual|looker|metabase)\b/.test(g) &&
+    /\b(build|create|scaffold|make|design)\b/.test(g)
 
   const tools = []
   tools.push({ id: 'list_sources', label: 'Inventory connected sources' })
@@ -56,20 +66,44 @@ export function parseAgentIntent(goalText = '') {
       label: 'Propose drift remaps / re-freeze',
     })
   }
-  if (wantsDraftJob && !wantsDrift) {
+  if (wantsEditJob) {
+    tools.push({ id: 'edit_job', label: 'Edit existing job from NL request' })
+  }
+  if (wantsMaterialize) {
+    tools.push({
+      id: 'materialize_job',
+      label: 'Materialize job SQL as table/view in warehouse',
+    })
+  }
+  if (wantsBi) {
+    tools.push({
+      id: 'scaffold_bi',
+      label: 'Build BI report from template + columns/colors',
+    })
+  }
+  if (wantsDraftJob && !wantsDrift && !wantsEditJob) {
     tools.push({ id: 'draft_job', label: 'Draft stitch notebook job' })
   }
 
   return {
-    intent: wantsDrift
-      ? 'drift_repair'
-      : wantsValidate
-        ? 'validation'
-        : 'stitch',
+    intent: wantsBi
+      ? 'bi_build'
+      : wantsMaterialize
+        ? 'materialize'
+        : wantsEditJob
+          ? 'edit_job'
+          : wantsDrift
+            ? 'drift_repair'
+            : wantsValidate
+              ? 'validation'
+              : 'stitch',
     tools,
     wantsValidate,
     wantsDrift,
     wantsDraftJob,
+    wantsEditJob,
+    wantsMaterialize,
+    wantsBi,
   }
 }
 
@@ -126,7 +160,10 @@ export async function createAgentSession(workspaceId, userId, body = {}) {
   const goal =
     String(body.goal || '').trim() ||
     'Build a trusted stitch from connected sources'
-  const parsed = parseAgentIntent(goal)
+  const pageContext = body.pageContext && typeof body.pageContext === 'object'
+    ? body.pageContext
+    : {}
+  const parsed = parseAgentIntent(goal, pageContext)
 
   const title =
     String(body.title || '').trim() ||
@@ -251,7 +288,9 @@ async function runTool(workspaceId, userId, toolId, body, session) {
     } else if (toolId === 'draft_job') {
       const tableNames = Array.isArray(body.tableNames)
         ? body.tableNames.filter(Boolean)
-        : await sampleTableNames(workspaceId, 4)
+        : Array.isArray(body.pageContext?.selectedTables)
+          ? body.pageContext.selectedTables.filter(Boolean)
+          : await sampleTableNames(workspaceId, 4)
       const job = await createStitchJobFromTables(workspaceId, {
         tableNames,
         title: body.jobTitle || session.title,
@@ -262,12 +301,96 @@ async function runTool(workspaceId, userId, toolId, body, session) {
       const draft = await createTransformDraft(workspaceId, {
         prompt:
           body.prompt ||
-          session.goal ||
+          session.plan?.goal ||
+          session.title ||
           'Draft a trusted SELECT transform from connected tables',
         title: body.title || session.title,
         userId,
       })
       output = { draftId: draft?.id || null, draft }
+    } else if (toolId === 'edit_job') {
+      const jobId =
+        body.jobId ||
+        body.pageContext?.jobId ||
+        session.result?.jobId ||
+        null
+      if (!jobId) {
+        output = { error: 'No jobId — open a job or say "edit job <id>"' }
+      } else {
+        const job = await getJob(workspaceId, jobId)
+        if (!job) {
+          output = { error: `Job ${jobId} not found` }
+        } else {
+          const prompt = body.prompt || session.plan?.goal || session.title || ''
+          const rename = prompt.match(/\brename\s+(?:to\s+)?["']?([^"'\n]+)["']?/i)
+          const patch = {}
+          if (rename?.[1]) patch.title = rename[1].trim().slice(0, 120)
+          if (/\bsql\b|select\b|join\b|combine\b/i.test(prompt)) {
+            const { createTransformDraft, reviewTransformDraft } =
+              await import('./transformDrafts.js')
+            const draft = await createTransformDraft(workspaceId, {
+              prompt,
+              title: patch.title || job.title,
+              userId,
+            })
+            const applied = await reviewTransformDraft(
+              workspaceId,
+              draft.id,
+              'apply',
+              userId,
+            )
+            if (applied?.jobId) {
+              output = {
+                jobId: applied.jobId,
+                job: await getJob(workspaceId, applied.jobId),
+              }
+            } else {
+              output = { draftId: draft?.id, note: 'Transform draft created — apply from Transforms' }
+            }
+          } else if (Object.keys(patch).length) {
+            const updated = await updateJob(workspaceId, jobId, patch)
+            output = { jobId, job: updated }
+          } else {
+            output = { jobId, job, note: 'No changes detected — include SQL or "rename to …"' }
+          }
+        }
+      }
+    } else if (toolId === 'materialize_job') {
+      const { materializeJob } = await import('./materialize.js')
+      const jobId =
+        body.jobId ||
+        body.pageContext?.jobId ||
+        session.result?.jobId ||
+        null
+      if (!jobId) {
+        const jobs = await listJobs(workspaceId)
+        if (jobs?.[0]?.id) {
+          output = { error: 'Specify jobId or draft a job first' }
+        } else {
+          output = { error: 'No job to materialize — create a job first' }
+        }
+      } else {
+        const kind = /view\b/i.test(body.prompt || '') ? 'view' : 'table'
+        const mat = await materializeJob(workspaceId, jobId, {
+          confirm: true,
+          kind,
+          actorUserId: userId,
+          force: body.force === true,
+        })
+        output = { materialization: mat, materializationId: mat?.id, jobId }
+      }
+    } else if (toolId === 'scaffold_bi') {
+      const { scaffoldBiReport, parseBiStyleFromPrompt } =
+        await import('./certifiedBi.js')
+      const prompt = body.prompt || session.plan?.goal || session.title || ''
+      const style = parseBiStyleFromPrompt(prompt)
+      const biReport = await scaffoldBiReport(workspaceId, {
+        title: style.title || body.jobTitle || 'Chat report',
+        prompt,
+        userId,
+        ...style,
+      })
+      output = { biReport, reportId: biReport.reportId }
     } else {
       output = { error: `Unknown tool ${toolId}` }
     }
@@ -360,6 +483,17 @@ export async function advanceAgentCheckpoint(
     if (toolId === 'draft_job' && call.output?.jobId) {
       result.jobId = call.output.jobId
       result.job = call.output.job
+    }
+    if (toolId === 'edit_job' && call.output?.jobId) {
+      result.jobId = call.output.jobId
+      result.job = call.output.job
+    }
+    if (toolId === 'materialize_job' && call.output?.materializationId) {
+      result.materializationId = call.output.materializationId
+      result.materialization = call.output.materialization
+    }
+    if (toolId === 'scaffold_bi' && call.output?.biReport) {
+      result.biReport = call.output.biReport
     }
     plan.steps = plan.steps.map((s) =>
       s.id === toolId

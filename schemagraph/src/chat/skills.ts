@@ -99,12 +99,20 @@ export const CHAT_SKILLS: ChatSkill[] = [
   },
   {
     id: 'agent',
-    slash: '/agent',
-    label: 'Stitch agent',
+    slash: '/que',
+    label: 'Que agent',
     description:
-      'HITL pipeline: plan → infer joins → Promote → draft stitch job',
+      'Create jobs, tables, BI — auto-runs from chat (CEO or Engineer)',
     buildPrompt: () =>
-      '/agent Build trusted customer 360 from connected sources, then draft a stitch job',
+      '/que Create a job joining orders and customers, then materialize as a table',
+  },
+  {
+    id: 'genie',
+    slash: '/genie',
+    label: 'Que genie',
+    description: 'Same as Que agent — use the floating Genie on any page',
+    buildPrompt: () =>
+      '/genie Build a bar chart dashboard in blue and green by revenue',
   },
   {
     id: 'bi',

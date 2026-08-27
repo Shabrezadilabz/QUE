@@ -13,7 +13,7 @@
     "test:privacy": "node eval/runPrivacyTests.js",
     "test:functional": "node eval/runFunctionalTests.js",
     "test:unit": "node eval/runUnitTests.js",
-    "test:monk": "node eval/runTemplateMatcherTests.js && node eval/runMetricPackSeedTests.js && node eval/runMonkCertEval.js",
+    "test:que-agent": "node eval/runQueAgentTests.js",
     "test:phase3": "node eval/runDashboardTemplateTests.js && node eval/runHealthScorecardTests.js",
     "test:phase4": "node eval/runPhase4Tests.js",
     "test:phase5": "node eval/runPhase5Tests.js",

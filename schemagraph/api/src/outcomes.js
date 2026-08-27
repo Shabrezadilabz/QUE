@@ -242,7 +242,7 @@ export async function createOutcome(workspaceId, prompt, userId = null) {
   try {
     const { getWorkspaceSettings } = await import('./workspaceSettings.js')
     const settings = (await getWorkspaceSettings(workspaceId))?.settings
-    if (settings?.enableStitchAgent === true) {
+    if (settings?.enableQueAgent !== false || settings?.enableStitchAgent === true) {
       const { createAgentSession } = await import('./agentSessions.js')
       const sourceIds = (plan.steps || [])
         .find((s) => s.kind === 'sources')

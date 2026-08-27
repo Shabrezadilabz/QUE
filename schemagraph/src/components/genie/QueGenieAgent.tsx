@@ -16,7 +16,7 @@ import {
 } from '@/services/stitchApi'
 import './QueGenieAgent.css'
 
-const GENIE_ICON = '/que-genie-icon.png'
+const GENIE_ICON = '/que-genie-icon.svg'
 
 /** Side sparkle particles — staggered CSS animation delays */
 const SPRINKLE_DELAYS = [0, 0.35, 0.7, 1.05, 0.2, 0.55, 0.9, 1.25]

@@ -8,6 +8,7 @@ import {
 /** Secondary tabs for grouped nav areas (Platform · Build · Analytics · Govern). */
 export function QueSectionNav() {
   const { pathname } = useLocation()
+  if (pathname === '/hub') return null
   const active = resolveActiveNav(pathname)
   const links = QUE_SECTION_NAV[active as QueNavId]
   if (!links?.length) return null

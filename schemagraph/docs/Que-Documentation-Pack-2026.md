@@ -2,7 +2,7 @@
 
 **Product:** Que (SchemaGraph)  
 **Repo:** https://github.com/Shabrezadilabz/QUE.git  
-**Latest ship:** Phase 2 complete (Sprints S1–S12 implemented locally — push pending)  
+**Latest ship:** `70d1eaa` — Phase 2 complete (S1–S12 competitive sprints)  
 **Stack:** Vercel (UI) · Render (API) · Neon (Postgres + pgvector)
 
 This pack has four sections for different audiences:

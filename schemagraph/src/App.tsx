@@ -122,7 +122,7 @@ export default function App() {
               path="/"
               element={
                 <RequireAuth>
-                  <Navigate to="/workspace" replace />
+                  <Navigate to="/hub" replace />
                 </RequireAuth>
               }
             />

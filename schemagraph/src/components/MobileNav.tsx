@@ -3,31 +3,21 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 import { sideNavLinkClass } from '@/components/primaryNavStyles'
+import { QUE_PDF_NAV, QUE_SECTION_NAV, type QueNavId } from '@/components/que/queNavConfig'
 
 const primaryLinks = [
-  { to: '/chat', label: 'Assistant' },
+  { to: '/hub', label: 'Platform' },
   { to: '/workspace', label: 'Workspace' },
   { to: '/sources', label: 'Sources' },
   { to: '/joins', label: 'Joins' },
-  { to: '/ship', label: 'Ship' },
+  { to: '/chat', label: 'Chat' },
 ] as const
 
-const toolLinks = [
-  { to: '/jobs', label: 'Jobs' },
-  { to: '/proposals', label: 'Review' },
-  { to: '/bi', label: 'Report Studio' },
-  { to: '/marketplace', label: 'Marketplace' },
-  { to: '/eval', label: 'Eval' },
-  { to: '/lineage', label: 'Lineage' },
-  { to: '/drift-agent', label: 'Drift' },
-  { to: '/catalog', label: 'Catalog' },
-  { to: '/glossary', label: 'Glossary' },
-  { to: '/steward', label: 'Steward' },
-  { to: '/compliance', label: 'Compliance' },
-  { to: '/product', label: 'Product' },
-  { to: '/settings', label: 'Settings' },
-  { to: '/status', label: 'API status' },
-] as const
+const groupLinks: { group: QueNavId; label: string }[] = [
+  { group: 'build', label: 'Build' },
+  { group: 'analytics', label: 'Analytics' },
+  { group: 'govern', label: 'Govern' },
+]
 
 /** Hamburger + drawer for viewports where primary nav is hidden. */
 export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
@@ -110,20 +100,51 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
                 {l.label}
               </NavLink>
             ))}
+            {groupLinks.map(({ group, label }) => {
+              const section = QUE_SECTION_NAV[group]
+              const entry = QUE_PDF_NAV.find((n) => n.id === group)
+              return (
+                <div key={group}>
+                  <p className="mt-sm px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
+                    {label.toUpperCase()}
+                  </p>
+                  {entry ? (
+                    <NavLink
+                      to={entry.to}
+                      className={sideNavLinkClass}
+                      onClick={() => setOpen(false)}
+                    >
+                      {label} home
+                    </NavLink>
+                  ) : null}
+                  {(section ?? []).map((l) => (
+                    <NavLink
+                      key={l.to}
+                      to={l.to}
+                      className={sideNavLinkClass}
+                      onClick={() => setOpen(false)}
+                    >
+                      {l.label}
+                    </NavLink>
+                  ))}
+                </div>
+              )
+            })}
             <div className="my-sm border-t border-outline-variant" />
-            <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
-              TOOLS
-            </p>
-            {toolLinks.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                className={sideNavLinkClass}
-                onClick={() => setOpen(false)}
-              >
-                {l.label}
-              </NavLink>
-            ))}
+            <NavLink
+              to="/settings"
+              className={sideNavLinkClass}
+              onClick={() => setOpen(false)}
+            >
+              Settings
+            </NavLink>
+            <NavLink
+              to="/status"
+              className={sideNavLinkClass}
+              onClick={() => setOpen(false)}
+            >
+              API status
+            </NavLink>
           </nav>
         </>
       ) : null}

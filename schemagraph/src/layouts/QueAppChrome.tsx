@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { PdfSidebar } from '@/components/pdf/PdfSidebar'
 import { AppTopBarActions } from '@/components/pdf/AppTopBarActions'
 import { MobileNav } from '@/components/MobileNav'
+import { QueSectionNav } from '@/components/que/QueSectionNav'
 import { QueAgentProvider } from '@/context/QueAgentContext'
 import { QueGenieAgent } from '@/components/genie/QueGenieAgent'
 
@@ -42,6 +43,7 @@ export function QueAppChrome({
               <div className="hidden md:block" />
             )}
           </div>
+          <QueSectionNav />
           <div
             className={[
               'min-h-0 flex-1',

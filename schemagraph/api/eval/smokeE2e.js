@@ -4,8 +4,18 @@
  * Env: QUE_API_BASE (default http://localhost:8787)
  */
 const BASE = process.env.QUE_API_BASE || 'http://localhost:8787'
-const DEMO_WS =
-  process.env.DEMO_WORKSPACE_ID || '22222222-2222-2222-2222-222222222222'
+const SMOKE_EMAIL =
+  process.env.MONK_E2E_EMAIL ||
+  process.env.SMOKE_E2E_EMAIL ||
+  'dev@stitch.local'
+const SMOKE_PASSWORD =
+  process.env.MONK_E2E_PASSWORD ||
+  process.env.SMOKE_E2E_PASSWORD ||
+  'stitch-dev'
+let workspaceId =
+  process.env.MONK_E2E_WORKSPACE_ID ||
+  process.env.DEMO_WORKSPACE_ID ||
+  '22222222-2222-2222-2222-222222222222'
 
 let failed = 0
 function ok(cond, msg) {
@@ -57,8 +67,8 @@ async function main() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: 'dev@stitch.local',
-          password: 'stitch-dev',
+          email: SMOKE_EMAIL,
+          password: SMOKE_PASSWORD,
         }),
       }),
     )
@@ -68,13 +78,16 @@ async function main() {
       Array.isArray(login.body?.workspaces) && login.body.workspaces.length > 0,
       'login returns workspaces',
     )
+    const wsList = login.body?.workspaces || []
+    const preferred = wsList.find((w) => w.id === workspaceId)
+    if (!preferred && wsList[0]?.id) workspaceId = wsList[0].id
 
     const me = await json(
       await fetch(`${BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
     )
-    ok(me.status === 200 && me.body?.user?.email === 'dev@stitch.local', 'auth/me')
+    ok(me.status === 200 && me.body?.user?.email === SMOKE_EMAIL, 'auth/me')
   } else {
     console.log('skip: auth flows (authDisabled)')
   }
@@ -86,7 +99,7 @@ async function main() {
 
   // --- settings ---
   const settings = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/settings`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/settings`, { headers }),
   )
   ok(settings.status === 200 && settings.body?.ok, `settings GET ${settings.status}`)
   ok(
@@ -97,12 +110,12 @@ async function main() {
 
   // --- sources / schema ---
   const sources = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/sources`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/sources`, { headers }),
   )
   ok(sources.status === 200, `sources ${sources.status}`)
 
   const schema = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/schema`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/schema`, { headers }),
   )
   ok(schema.status === 200 && Array.isArray(schema.body?.tables), 'schema tables[]')
   ok(Array.isArray(schema.body?.relationships), 'schema relationships[]')
@@ -110,7 +123,7 @@ async function main() {
   // --- create fixture connection + sync (idempotent name with suffix) ---
   const connName = `e2e_sf_${Date.now()}`
   const created = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/connections`, {
+    await fetch(`${BASE}/workspaces/${workspaceId}/connections`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -140,7 +153,7 @@ async function main() {
   if (connectionId) {
     const synced = await json(
       await fetch(
-        `${BASE}/workspaces/${DEMO_WS}/connections/${connectionId}/sync`,
+        `${BASE}/workspaces/${workspaceId}/connections/${connectionId}/sync`,
         { method: 'POST', headers, body: '{}' },
       ),
     )
@@ -154,7 +167,7 @@ async function main() {
     // cleanup connection
     const del = await json(
       await fetch(
-        `${BASE}/workspaces/${DEMO_WS}/connections/${connectionId}`,
+        `${BASE}/workspaces/${workspaceId}/connections/${connectionId}`,
         { method: 'DELETE', headers },
       ),
     )
@@ -163,12 +176,12 @@ async function main() {
 
   // --- jobs list + optional create/run/export ---
   const jobs = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/jobs`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/jobs`, { headers }),
   )
   ok(jobs.status === 200, `jobs list ${jobs.status}`)
 
   const jobCreate = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/jobs`, {
+    await fetch(`${BASE}/workspaces/${workspaceId}/jobs`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -190,7 +203,7 @@ async function main() {
 
   if (jobId) {
     const run = await json(
-      await fetch(`${BASE}/workspaces/${DEMO_WS}/jobs/${jobId}/run`, {
+      await fetch(`${BASE}/workspaces/${workspaceId}/jobs/${jobId}/run`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ mode: 'dry_run' }),
@@ -199,7 +212,7 @@ async function main() {
     ok(run.status === 201 || run.status === 200, `job dry_run ${run.status}`)
 
     const ready = await json(
-      await fetch(`${BASE}/workspaces/${DEMO_WS}/jobs/${jobId}`, {
+      await fetch(`${BASE}/workspaces/${workspaceId}/jobs/${jobId}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ status: 'ready' }),
@@ -208,7 +221,7 @@ async function main() {
     ok(ready.status === 200, `mark ready ${ready.status}`)
 
     const exp = await json(
-      await fetch(`${BASE}/workspaces/${DEMO_WS}/jobs/${jobId}/export`, {
+      await fetch(`${BASE}/workspaces/${workspaceId}/jobs/${jobId}/export`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ format: 'json', force: true }),
@@ -233,14 +246,14 @@ async function main() {
 
   // --- platform modules (hub, observe, pack studio, agent runtime) ---
   const hub = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/platform/hub`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/platform/hub`, { headers }),
   )
   ok(hub.status === 200 && hub.body?.hub?.modules?.length === 6, 'platform hub 6 modules')
   ok(hub.body?.hub?.phase1?.readiness?.status, 'platform hub phase1 readiness')
   ok(hub.body?.hub?.phase5?.readiness?.status, 'platform hub phase5 load ops')
 
   const loadSummary = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/load/summary`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/load/summary`, { headers }),
   )
   ok(
     loadSummary.status === 200 && loadSummary.body?.summary?.readiness?.status,
@@ -248,7 +261,7 @@ async function main() {
   )
 
   const observe = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/observe/summary`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/observe/summary`, { headers }),
   )
   ok(observe.status === 200 && observe.body?.dashboard, 'observe summary')
   ok(
@@ -257,7 +270,7 @@ async function main() {
   )
 
   const packStudio = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/pack-studio/summary`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/pack-studio/summary`, { headers }),
   )
   ok(
     packStudio.status === 200 && packStudio.body?.summary?.readiness,
@@ -266,7 +279,7 @@ async function main() {
 
   const agentRt = await json(
     await fetch(
-      `${BASE}/workspaces/${DEMO_WS}/agent/runtime-status?pageId=chat`,
+      `${BASE}/workspaces/${workspaceId}/agent/runtime-status?pageId=chat`,
       { headers },
     ),
   )
@@ -276,12 +289,12 @@ async function main() {
   )
 
   const autofill = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/autofill?page=load`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/autofill?page=load`, { headers }),
   )
   ok(autofill.status === 200 && autofill.body?.page, 'page autofill load')
 
   const warehouse = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/warehouse`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/warehouse`, { headers }),
   )
   ok(
     warehouse.status === 200 && warehouse.body?.provisioned === true,
@@ -297,7 +310,7 @@ async function main() {
   )
 
   const execution = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/execution/summary`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/execution/summary`, { headers }),
   )
   ok(
     execution.status === 200 && execution.body?.summary?.readiness,
@@ -305,13 +318,13 @@ async function main() {
   )
 
   const studio = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/studio/summary`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/studio/summary`, { headers }),
   )
   ok(studio.status === 200 && studio.body?.summary?.readiness, 'studio summary')
 
   const queMl = await json(
     await fetch(
-      `${BASE}/workspaces/${DEMO_WS}/studio/que-ml?reportId=sportedge-exec`,
+      `${BASE}/workspaces/${workspaceId}/studio/que-ml?reportId=sportedge-exec`,
       { headers },
     ),
   )
@@ -321,12 +334,12 @@ async function main() {
   )
 
   const ssmEvents = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/ssm/events?limit=5`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/ssm/events?limit=5`, { headers }),
   )
   ok(ssmEvents.status === 200 && Array.isArray(ssmEvents.body?.items), 'ssm events')
 
   const ssmExport = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/ssm/export?limit=10`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/ssm/export?limit=10`, { headers }),
   )
   ok(
     ssmExport.status === 200 && ssmExport.body?.export?.format === 'que-ssm-b-export-v1',
@@ -334,7 +347,7 @@ async function main() {
   )
 
   const ssmModel = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/ssm/model`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/ssm/model`, { headers }),
   )
   ok(
     ssmModel.status === 200 &&
@@ -344,7 +357,7 @@ async function main() {
   )
 
   const ssmAb = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/ssm/route-ab`, {
+    await fetch(`${BASE}/workspaces/${workspaceId}/ssm/route-ab`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ message: 'build revenue dashboard', pageContext: 'chat' }),
@@ -356,7 +369,7 @@ async function main() {
   )
 
   const biAccess = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/studio/access/me`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/studio/access/me`, { headers }),
   )
   ok(
     biAccess.status === 200 && typeof biAccess.body?.summary?.unrestricted === 'boolean',
@@ -365,7 +378,7 @@ async function main() {
 
   // --- chat ---
   const chat = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/chat`, {
+    await fetch(`${BASE}/workspaces/${workspaceId}/chat`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ message: '/help' }),
@@ -374,7 +387,7 @@ async function main() {
   ok(chat.status === 200 && chat.body?.ok && chat.body?.reply, `chat /help ${chat.status}`)
 
   const chatSchema = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/chat`, {
+    await fetch(`${BASE}/workspaces/${workspaceId}/chat`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -389,7 +402,7 @@ async function main() {
   )
 
   const queExpr = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/studio/que-expr/compile`, {
+    await fetch(`${BASE}/workspaces/${workspaceId}/studio/que-expr/compile`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ formula: 'SUM(amount)', table: 'raw_orders' }),
@@ -401,7 +414,7 @@ async function main() {
   )
 
   const whWorker = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/warehouse/worker`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/warehouse/worker`, { headers }),
   )
   ok(
     whWorker.status === 200 && typeof whWorker.body?.worker?.enabled === 'boolean',
@@ -410,12 +423,12 @@ async function main() {
 
   // --- drift / bi ---
   const drift = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/drift`, { headers }),
+    await fetch(`${BASE}/workspaces/${workspaceId}/drift`, { headers }),
   )
   ok(drift.status === 200 && drift.body?.ok, `drift list ${drift.status}`)
 
   const bi = await json(
-    await fetch(`${BASE}/workspaces/${DEMO_WS}/bi-lineage`, {
+    await fetch(`${BASE}/workspaces/${workspaceId}/bi-lineage`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -430,7 +443,7 @@ async function main() {
   if (token) {
     const inviteEmail = `e2e_${Date.now()}@example.com`
     const inv = await json(
-      await fetch(`${BASE}/workspaces/${DEMO_WS}/invites`, {
+      await fetch(`${BASE}/workspaces/${workspaceId}/invites`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ email: inviteEmail, role: 'member' }),
@@ -440,7 +453,7 @@ async function main() {
     if (inv.body?.invite?.id) {
       const rev = await json(
         await fetch(
-          `${BASE}/workspaces/${DEMO_WS}/invites/${inv.body.invite.id}`,
+          `${BASE}/workspaces/${workspaceId}/invites/${inv.body.invite.id}`,
           { method: 'DELETE', headers },
         ),
       )
@@ -462,7 +475,7 @@ async function main() {
     )
     if (viewerLogin.body?.token) {
       const forbidden = await json(
-        await fetch(`${BASE}/workspaces/${DEMO_WS}/connections`, {
+        await fetch(`${BASE}/workspaces/${workspaceId}/connections`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

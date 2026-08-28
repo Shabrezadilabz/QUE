@@ -58,14 +58,19 @@ npm run build
 
 ## Recommended next actions
 
-### 1. Publish to GitHub (you run — agent needs approval card)
+### 1. Publish to GitHub (requires `workflow` token scope)
+
+GitHub rejected the push because the OAuth token has `repo` but not **`workflow`** (needed for `.github/workflows/que-prod-smoke.yml`).
+
+**Run once in PowerShell:**
 
 ```powershell
+gh auth refresh -h github.com -s workflow
 cd d:\ADC\prosols\adc
 git push origin main
 ```
 
-`gh` is logged in as **Shabrezadilabz** with `repo` scope. After push, GitHub Actions runs **scim-smoke** (S8–S12 + load, no secrets).
+`gh` is logged in as **Shabrezadilabz**. After push, GitHub Actions runs **scim-smoke** (S8–S12 + load, no secrets).
 
 ### 2. Free pilot deploy
 

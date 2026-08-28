@@ -20,12 +20,20 @@ import {
   apiFetch,
   buildWarehouseDigestApi,
   createBackupApi,
+  downloadExportFiles,
+  exportDbtBundleV2Api,
+  exportNoLockInKitApi,
   fetchConnectorReliability,
+  fetchIndiaComplianceApi,
   fetchMonkEvidenceMarkdown,
   fetchSaasOps,
+  fetchSoc2Kickoff,
   fetchWarehouseDigests,
+  freezeSoc2EvidenceApi,
   getActiveWorkspaceId,
   runDrDrillApi,
+  startSoc2KickoffApi,
+  type Soc2KickoffStatus,
 } from '@/services/stitchApi'
 
 type Control = {
@@ -49,6 +57,7 @@ type Pack = {
   }
   controls: Control[]
   nextStepsForTypeII: string[]
+  typeIIKickoff?: Soc2KickoffStatus | null
 }
 
 type ChecklistItem = {
@@ -97,6 +106,8 @@ export function CompliancePage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detailTab, setDetailTab] = useState('evidence')
+  const [kickoff, setKickoff] = useState<Soc2KickoffStatus | null>(null)
+  const [indiaSku, setIndiaSku] = useState<string | null>(null)
 
   async function load() {
     setBusy(true)
@@ -120,6 +131,18 @@ export function CompliancePage() {
       setOps({ progressPct: opsOut.progressPct, checklist: opsOut.checklist })
       setDigests(digOut)
       setReliability({ summary: rel.summary })
+      if (canAdmin) {
+        const [kick, india] = await Promise.all([
+          fetchSoc2Kickoff(ws).catch(() => null),
+          fetchIndiaComplianceApi(ws).catch(() => null),
+        ])
+        setKickoff(kick)
+        setIndiaSku(
+          india
+            ? `${india.sku.currency} · ${india.sku.listPriceMonthly.landMotion}`
+            : null,
+        )
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -219,6 +242,36 @@ export function CompliancePage() {
     }
   }
 
+  async function downloadNoLockInKit() {
+    setBusy(true)
+    setError(null)
+    try {
+      const kit = await exportNoLockInKitApi({ auditLimit: 500 })
+      downloadExportFiles(kit.files, 'que-no-lock-in-kit.json')
+      setToast('No lock-in export kit downloaded')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function downloadDbtBundleV2() {
+    setBusy(true)
+    setError(null)
+    try {
+      const bundle = await exportDbtBundleV2Api({ includeDrafts: true })
+      downloadExportFiles(bundle.files, 'que-dbt-bundle-v2.json')
+      setToast(
+        `dbt bundle v2 — ${bundle.modelCount} model(s), ${bundle.files.length} files`,
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <CatalogSplitPage
       title="Compliance & Evidence"
@@ -236,6 +289,46 @@ export function CompliancePage() {
           <PdfGhostButton type="button" disabled={busy} onClick={() => void downloadMonkEvidence()}>
             Monk SOX export
           </PdfGhostButton>
+          <PdfGhostButton type="button" disabled={busy} onClick={() => void downloadNoLockInKit()}>
+            No lock-in kit
+          </PdfGhostButton>
+          <PdfGhostButton type="button" disabled={busy} onClick={() => void downloadDbtBundleV2()}>
+            dbt bundle v2
+          </PdfGhostButton>
+          {canAdmin ? (
+            <>
+              <PdfGhostButton
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void freezeSoc2EvidenceApi()
+                    .then((r) => {
+                      setToast(`Evidence frozen — hash ${r.hash?.slice(0, 8)}`)
+                      if (r.kickoff) setKickoff(r.kickoff)
+                      return load()
+                    })
+                    .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+                }
+              >
+                Freeze SOC2 pack
+              </PdfGhostButton>
+              <PdfGhostButton
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void startSoc2KickoffApi({ auditorName: 'Engaged (demo)' })
+                    .then((k) => {
+                      setKickoff(k)
+                      setToast('Type II observation started')
+                      return load()
+                    })
+                    .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+                }
+              >
+                Start Type II kickoff
+              </PdfGhostButton>
+            </>
+          ) : null}
           {canAdmin ? (
             <Link to="/settings/enterprise" className="pdf-btn-primary rounded-[4px] px-[14px] py-[8px] text-[12px] font-semibold">
               Enterprise
@@ -253,6 +346,22 @@ export function CompliancePage() {
           {toast ? (
             <p className="shrink-0 border-b border-solid border-[#424850] px-[24px] py-[8px] text-[12px] text-[#7aecd0]">
               {toast}
+            </p>
+          ) : null}
+          {kickoff?.phase ? (
+            <p className="shrink-0 border-b border-solid border-[#424850] px-[24px] py-[8px] text-[12px] text-[#c8cdd3]">
+              Type II: {kickoff.phase}
+              {kickoff.evidenceFrozenHash
+                ? ` · frozen ${kickoff.evidenceFrozenHash.slice(0, 8)}`
+                : ''}
+              {kickoff.penTestScheduledAt
+                ? ` · pen test ${new Date(kickoff.penTestScheduledAt).toLocaleDateString()}`
+                : ''}
+            </p>
+          ) : null}
+          {indiaSku ? (
+            <p className="shrink-0 border-b border-solid border-[#424850] px-[24px] py-[8px] text-[12px] text-[#a3afbe]">
+              India enterprise SKU: {indiaSku} — DPA & residency FAQ available via API
             </p>
           ) : null}
         </>

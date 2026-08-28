@@ -85,6 +85,6 @@ LIMIT 100`,
     { id: 'metrics_kpis', label: 'Healthcare KPIs', href: '/metrics' },
     { id: 'compliance_export', label: 'Audit evidence', href: '/compliance' },
   ],
-  goldenPairSource: null,
+  goldenPairSource: 'healthcare/healthcare-golden-pairs.json',
   templatePackId: 'healthcare-claims',
 }

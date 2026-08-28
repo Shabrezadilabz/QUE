@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import {
   fetchPrivateRunnerConfig,
   updatePrivateRunnerConfig,
+  checkPrivateRunnerHealthApi,
+  fetchPrivateRunnerInstallGuide,
   type PrivateRunnerConfig,
+  type PrivateRunnerHealth,
 } from '@/services/stitchApi'
 import {
   SETTINGS_PANEL,
@@ -24,6 +27,8 @@ export function PrivateRunnerPanel({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [health, setHealth] = useState<PrivateRunnerHealth | null>(null)
+  const [healthBusy, setHealthBusy] = useState(false)
 
   async function load() {
     if (!workspaceId) return
@@ -63,11 +68,43 @@ export function PrivateRunnerPanel({
     }
   }
 
+  async function testHealth() {
+    if (!workspaceId) return
+    setHealthBusy(true)
+    setErr(null)
+    try {
+      setHealth(await checkPrivateRunnerHealthApi(workspaceId))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setHealthBusy(false)
+    }
+  }
+
+  async function downloadGuide() {
+    if (!workspaceId) return
+    setBusy(true)
+    try {
+      const guide = await fetchPrivateRunnerInstallGuide(workspaceId)
+      const blob = new Blob([guide.markdown], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'que-private-runner-install.md'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <section className={SETTINGS_PANEL}>
       <SettingsPanelHeader
         title="Private runner"
-        subtitle="Phase 3 — signed work order to your URL; runner callbacks /runner/callback. VPC agent image still optional later."
+        subtitle="S11 — signed work order to your VPC URL; health probe + job isolation per install guide."
       />
       {err ? (
         <p className="mt-sm font-body text-[12px] text-error">{err}</p>
@@ -102,6 +139,17 @@ export function PrivateRunnerPanel({
       <p className="mt-sm font-body text-[11px] text-on-surface-variant">
         Secret configured: {config?.secretConfigured ? 'yes' : 'no'}
       </p>
+      {health ? (
+        <p
+          className={[
+            'mt-sm font-body text-[11px]',
+            health.ok ? 'text-tertiary' : 'text-error',
+          ].join(' ')}
+        >
+          Health: {health.ok ? 'reachable' : health.error || health.message || 'failed'}
+          {health.latencyMs != null ? ` · ${health.latencyMs}ms` : ''}
+        </p>
+      ) : null}
       {canAdmin ? (
         <div className="mt-md flex flex-wrap gap-sm">
           <button
@@ -119,6 +167,22 @@ export function PrivateRunnerPanel({
             className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] disabled:opacity-40"
           >
             Rotate secret
+          </button>
+          <button
+            type="button"
+            disabled={healthBusy || !enabled}
+            onClick={() => void testHealth()}
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] disabled:opacity-40"
+          >
+            {healthBusy ? 'Checking…' : 'Test health'}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void downloadGuide()}
+            className="rounded-lg border border-outline-variant/40 px-md py-1.5 font-label text-[12px] disabled:opacity-40"
+          >
+            Install guide
           </button>
         </div>
       ) : null}

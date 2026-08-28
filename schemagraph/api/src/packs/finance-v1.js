@@ -80,6 +80,7 @@ LIMIT 500`,
     { id: 'golden_eval', label: 'Golden eval', href: '/eval' },
     { id: 'compliance_export', label: 'SOX evidence export', href: '/compliance' },
   ],
-  goldenPairSource: null,
+  dashboards: [{ id: 'finance-recon', title: 'Finance Reconciliation Board', audience: 'CFO' }],
+  goldenPairSource: 'finance/finance-golden-pairs.json',
   templatePackId: 'finance-reconciliation',
 }

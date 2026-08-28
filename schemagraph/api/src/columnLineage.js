@@ -59,6 +59,7 @@ export async function getColumnLineage(workspaceId, opts = {}) {
     [workspaceId],
   )
   const dbtSamples = dbtSnaps[0]?.graph_json?.samples || []
+  const dbtColumnSamples = dbtSnaps[0]?.graph_json?.columnSamples || []
   for (const s of dbtSamples) {
     edges.push({
       id: `dbt:${s.from}->${s.to}`,
@@ -74,6 +75,25 @@ export async function getColumnLineage(workspaceId, opts = {}) {
         column: '*',
         connection: null,
         key: `${s.to}.*`,
+      },
+    })
+  }
+  for (const c of dbtColumnSamples.slice(0, 100)) {
+    if (!c.model || !c.column) continue
+    edges.push({
+      id: `dbtcol:${c.model}.${c.column}`,
+      kind: 'dbt_column',
+      from: {
+        table: c.model,
+        column: c.column,
+        connection: 'dbt',
+        key: `${c.model}.${c.column}`,
+      },
+      to: {
+        table: c.model,
+        column: c.column,
+        connection: 'dbt',
+        key: `${c.model}.${c.column}#defined`,
       },
     })
   }

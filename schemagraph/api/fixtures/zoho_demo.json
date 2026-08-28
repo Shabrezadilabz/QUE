@@ -1,0 +1,34 @@
+{
+  "schema": "zoho",
+  "tables": [
+    {
+      "name": "invoices",
+      "columns": [
+        { "name": "invoice_id", "dataType": "string", "keyKind": "pk", "samples": ["INV-2026-001"] },
+        { "name": "contact_id", "dataType": "string", "keyKind": "fk", "references": "contacts.contact_id", "samples": ["CNT-9001"] },
+        { "name": "total", "dataType": "decimal", "samples": ["118000.00"] },
+        { "name": "gstin", "dataType": "string", "samples": ["29AABCU9603R1ZM"] },
+        { "name": "status", "dataType": "string", "samples": ["paid"] }
+      ]
+    },
+    {
+      "name": "contacts",
+      "columns": [
+        { "name": "contact_id", "dataType": "string", "keyKind": "pk", "samples": ["CNT-9001"] },
+        { "name": "email", "dataType": "email", "keyKind": "unique", "samples": ["finance@example.in"] },
+        { "name": "company_name", "dataType": "string", "samples": ["Example Pvt Ltd"] }
+      ]
+    },
+    {
+      "name": "items",
+      "columns": [
+        { "name": "item_id", "dataType": "string", "keyKind": "pk", "samples": ["ITM-100"] },
+        { "name": "name", "dataType": "string", "samples": ["Analytics subscription"] },
+        { "name": "rate", "dataType": "decimal", "samples": ["50000.00"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    { "fromTable": "invoices", "fromColumn": "contact_id", "toTable": "contacts", "toColumn": "contact_id" }
+  ]
+}

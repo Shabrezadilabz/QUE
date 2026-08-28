@@ -19,7 +19,11 @@ import {
 import {
   fetchColumnLineage,
   fetchWorkspaceLineage,
+  fetchDbtManifestStatus,
+  ingestDbtManifestApi,
+  exportLineageBundleApi,
   type ColumnLineageResult,
+  type DbtManifestStatus,
   type LineagePath,
   type WorkspaceLineage,
 } from '@/services/stitchApi'
@@ -44,6 +48,23 @@ export function LineagePage() {
   const [colColumn, setColColumn] = useState('')
   const [colLineage, setColLineage] = useState<ColumnLineageResult | null>(null)
   const [colBusy, setColBusy] = useState(false)
+  const [dbtStatus, setDbtStatus] = useState<DbtManifestStatus | null>(null)
+  const [dbtBusy, setDbtBusy] = useState(false)
+  const [dbtToast, setDbtToast] = useState<string | null>(null)
+  const [exportBusy, setExportBusy] = useState(false)
+
+  const reloadDbtStatus = useCallback(async () => {
+    try {
+      const st = await fetchDbtManifestStatus()
+      setDbtStatus(st)
+    } catch {
+      setDbtStatus(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    void reloadDbtStatus()
+  }, [reloadDbtStatus])
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -98,6 +119,50 @@ export function LineagePage() {
     }
   }
 
+  async function uploadDbtManifest(file: File) {
+    setDbtBusy(true)
+    setDbtToast(null)
+    setError(null)
+    try {
+      const text = await file.text()
+      const manifest = JSON.parse(text) as Record<string, unknown>
+      const out = await ingestDbtManifestApi(manifest)
+      setDbtToast(
+        `Ingested ${out.edges ?? 0} ref edge(s) · ${out.matchedTables ?? 0} matched · ${out.columnRefCount ?? 0} column refs`,
+      )
+      await reloadDbtStatus()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDbtBusy(false)
+    }
+  }
+
+  async function downloadLineageBundle() {
+    setExportBusy(true)
+    setError(null)
+    try {
+      const bundle = await exportLineageBundleApi({
+        table: colTable.trim() || undefined,
+        column: colColumn.trim() || undefined,
+      })
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `que-lineage-export-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      setDbtToast('Lineage export bundle downloaded')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
   return (
     <CatalogSplitPage
       title="Lineage"
@@ -110,14 +175,29 @@ export function LineagePage() {
           <PdfGhostButton type="button" disabled={loading} onClick={() => void reload()}>
             {loading ? 'Refreshing…' : 'Refresh'}
           </PdfGhostButton>
+          <PdfPrimaryButton
+            type="button"
+            disabled={exportBusy}
+            onClick={() => void downloadLineageBundle()}
+            className="py-[7px]"
+          >
+            {exportBusy ? 'Exporting…' : 'Export bundle'}
+          </PdfPrimaryButton>
         </>
       }
       banner={
-        error ? (
-          <p className="shrink-0 border-b border-solid border-[rgba(255,107,107,0.35)] bg-[rgba(255,107,107,0.1)] px-[24px] py-[8px] text-[12px] text-[#ff6b6b]">
-            {error}
-          </p>
-        ) : null
+        <>
+          {error ? (
+            <p className="shrink-0 border-b border-solid border-[rgba(255,107,107,0.35)] bg-[rgba(255,107,107,0.1)] px-[24px] py-[8px] text-[12px] text-[#ff6b6b]">
+              {error}
+            </p>
+          ) : null}
+          {dbtToast ? (
+            <p className="shrink-0 border-b border-solid border-[#424850] px-[24px] py-[8px] text-[12px] text-[#7aecd0]">
+              {dbtToast}
+            </p>
+          ) : null}
+        </>
       }
     >
       <CatalogDirectory
@@ -207,6 +287,7 @@ export function LineagePage() {
                 { id: 'pipeline', label: 'Pipeline' },
                 { id: 'assets', label: 'Linked Assets' },
                 { id: 'column', label: 'Column Trace' },
+                { id: 'dbt', label: 'dbt Manifest' },
               ]}
               active={detailTab}
               onChange={setDetailTab}
@@ -258,6 +339,13 @@ export function LineagePage() {
                   onTrace={() => void traceColumn()}
                   busy={colBusy}
                   result={colLineage}
+                />
+              ) : null}
+              {detailTab === 'dbt' ? (
+                <DbtManifestPanel
+                  status={dbtStatus}
+                  busy={dbtBusy}
+                  onUpload={(f) => void uploadDbtManifest(f)}
                 />
               ) : null}
             </CatalogDetailBody>
@@ -368,6 +456,65 @@ function ColumnTracePanel({
           <HopList title="Downstream" nodes={result.downstream?.nodes || []} />
         </div>
       ) : null}
+    </>
+  )
+}
+
+function DbtManifestPanel({
+  status,
+  busy,
+  onUpload,
+}: {
+  status: DbtManifestStatus | null
+  busy: boolean
+  onUpload: (file: File) => void
+}) {
+  return (
+    <>
+      <CatalogSection title="dbt manifest assist (S4.3)">
+        <p className="mb-[12px] text-[12px] leading-relaxed text-[#a3afbe]">
+          Upload <code className="text-[#c8cdd3]">manifest.json</code> from your existing dbt
+          project to overlay ref edges and column metadata on Que lineage.
+        </p>
+        <label className="inline-flex cursor-pointer items-center gap-[10px] rounded-[4px] border border-solid border-[#424850] bg-[#121619] px-[12px] py-[8px] text-[12px] font-semibold text-[#c8cdd3] hover:bg-[#1a1f24]">
+          {busy ? 'Uploading…' : 'Upload manifest.json'}
+          <input
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) onUpload(f)
+              e.target.value = ''
+            }}
+          />
+        </label>
+      </CatalogSection>
+      {status ? (
+        <CatalogSection title="Latest ingest">
+          <p className="text-[12px] text-[#a3afbe]">
+            {status.edgeCount} ref edges · {status.matchedTables} tables matched
+            {status.columnRefCount != null ? ` · ${status.columnRefCount} column refs` : ''}
+          </p>
+          <p className="mt-[6px] text-[11px] text-[#8a9099]">
+            {status.ingestedAt
+              ? new Date(status.ingestedAt).toLocaleString()
+              : status.label}
+          </p>
+          {status.samples?.length ? (
+            <ul className="mt-[10px] max-h-[160px] space-y-[4px] overflow-y-auto font-mono text-[11px] text-[#c8cdd3]">
+              {status.samples.slice(0, 12).map((s) => (
+                <li key={`${s.from}-${s.to}`}>
+                  {s.from} → {s.to}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </CatalogSection>
+      ) : (
+        <p className="text-[12px] text-[#8a9099]">No dbt manifest ingested yet.</p>
+      )}
     </>
   )
 }

@@ -35,6 +35,7 @@ interface AuthContextValue {
     password: string
     displayName?: string
     workspaceName?: string
+    sandbox?: boolean
   }) => Promise<void>
   createWorkspace: (name: string) => Promise<AuthWorkspace>
   acceptToken: (token: string) => Promise<void>
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: string
       displayName?: string
       workspaceName?: string
+      sandbox?: boolean
     }) => {
       const result = await registerRequest({
         ...input,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { PdfPageHeader, PdfPrimaryButton } from '@/components/pdf/PdfUi'
 import { PackIndustryIcon } from '@/components/marketplace/PackIndustryIcon'
@@ -11,15 +11,23 @@ import {
   fetchMonkRun,
   fetchMonkRuns,
   startMonkModeApi,
+  monkRunControlApi,
+  streamMonkEvents,
   fetchMonkCertification,
   certifyMonkRunApi,
+  shipCertifiedPackToBiApi,
   type IndustryPackMeta,
   type MonkCapabilityMap,
   type MonkEvent,
   type MonkPhase,
   type MonkRun,
   type RankedIndustryPack,
+  type CertChecklist,
+  type MultiSourceMonkAnalysis,
 } from '@/services/stitchApi'
+import { PageAutofillBanner } from '@/components/autofill/PageAutofill'
+import { usePageAutofill } from '@/hooks/usePageAutofill'
+import { CertChecklistPanel } from '@/components/monk/CertChecklistPanel'
 
 const PHASES: { id: MonkPhase; label: string; hint: string }[] = [
   { id: 'discover', label: 'Discover', hint: 'Scan schema & live warehouse' },
@@ -135,6 +143,9 @@ function CapabilityMapPanel({ capability }: { capability: MonkCapabilityMap }) {
 /** Monk Mode — industry template onboarding with live progress feed. */
 export function MonkModePage() {
   const { canWrite } = useWorkspaceRole()
+  const [searchParams] = useSearchParams()
+  const packFromUrl = searchParams.get('pack') || ''
+  const runFromUrl = searchParams.get('run') || ''
   const [packs, setPacks] = useState<IndustryPackMeta[]>([])
   const [selectedPack, setSelectedPack] = useState('ecommerce-v1')
   const [rankedPacks, setRankedPacks] = useState<RankedIndustryPack[]>([])
@@ -143,6 +154,7 @@ export function MonkModePage() {
     matchPct?: number
     canRun?: boolean
     missing?: string[]
+    multiSource?: MultiSourceMonkAnalysis | null
   } | null>(null)
   const [runs, setRuns] = useState<MonkRun[]>([])
   const [activeRun, setActiveRun] = useState<MonkRun | null>(null)
@@ -151,21 +163,39 @@ export function MonkModePage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [certStatus, setCertStatus] = useState<string | null>(null)
+  const [certChecklist, setCertChecklist] = useState<CertChecklist | null>(null)
+  const [shipBusy, setShipBusy] = useState(false)
+  const [runControl, setRunControl] = useState<'running' | 'paused'>('running')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const streamAbortRef = useRef<AbortController | null>(null)
   const lastEventAt = useRef<string | null>(null)
+  const { page: autofillPage } = usePageAutofill('monk')
+
+  const reloadCertState = useCallback(async (packId: string) => {
+    try {
+      const out = await fetchMonkCertification(packId)
+      setCertStatus(out.certification?.status ?? null)
+      setCertChecklist(out.checklist ?? null)
+    } catch {
+      /* optional */
+    }
+  }, [])
 
   useEffect(() => {
-    void fetchMonkCertification(selectedPack)
-      .then((c) => setCertStatus(c?.status ?? null))
-      .catch(() => {})
-  }, [selectedPack, activeRun?.status])
+    void reloadCertState(selectedPack)
+  }, [selectedPack, activeRun?.status, reloadCertState])
 
   async function reCertify() {
     if (!activeRun || busy) return
+    if (certChecklist && !certChecklist.allGreen) {
+      setToast('Complete the steward checklist before re-certifying (promote joins, approve transforms).')
+      return
+    }
     setBusy(true)
     try {
       const out = await certifyMonkRunApi(activeRun.id, selectedPack)
       setCertStatus(out.passed ? 'passed' : 'failed')
+      if (out.checklist) setCertChecklist(out.checklist)
       setToast(
         out.passed
           ? `Certified — recall ${((out.report?.recall ?? 0) * 100).toFixed(1)}%`
@@ -173,10 +203,29 @@ export function MonkModePage() {
       )
       const { run } = await fetchMonkRun(activeRun.id)
       setActiveRun(run)
+      await reloadCertState(selectedPack)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function shipToBi() {
+    if (!canWrite || shipBusy || !certChecklist?.canShipToBi) return
+    setShipBusy(true)
+    setError(null)
+    try {
+      const out = await shipCertifiedPackToBiApi(selectedPack)
+      setToast(
+        out.ship?.id
+          ? `Shipped to BI — embed draft ${out.ship.id.slice(0, 8)} ready`
+          : 'Looker + Metabase export bundle generated',
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setShipBusy(false)
     }
   }
 
@@ -189,6 +238,7 @@ export function MonkModePage() {
       matchPct: ranked?.scorePct ?? out.capability?.matchScorePct,
       canRun: ranked?.canRunMonk,
       missing: ranked?.missing,
+      multiSource: out.multiSource ?? null,
     })
   }, [])
 
@@ -202,22 +252,33 @@ export function MonkModePage() {
       try {
         const p = await fetchMonkPacks()
         setPacks(p)
-        const previewOut = await fetchMonkPreview('ecommerce-v1')
+        const initialPack =
+          packFromUrl && p.some((x) => x.id === packFromUrl)
+            ? packFromUrl
+            : p.find((x) => x.featured)?.id || p[0]?.id || 'ecommerce-v1'
+        setSelectedPack(initialPack)
+        const previewOut = await fetchMonkPreview(initialPack)
         const ranked = previewOut.ranked || []
         if (ranked.length) {
           setRankedPacks(ranked)
-          const top = ranked[0]
-          if (top?.pack?.id) setSelectedPack(top.pack.id)
-        } else if (p.find((x) => x.featured)?.id) {
-          setSelectedPack(p.find((x) => x.featured)!.id)
-        } else if (p[0]?.id) {
-          setSelectedPack(p[0].id)
+          if (!packFromUrl) {
+            const top = ranked[0]
+            if (top?.pack?.id) setSelectedPack(top.pack.id)
+          }
+        }
+        if (runFromUrl) {
+          try {
+            const { run } = await fetchMonkRun(runFromUrl)
+            if (run) setActiveRun(run)
+          } catch {
+            /* optional deep link */
+          }
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       }
     })()
-  }, [])
+  }, [packFromUrl, runFromUrl])
 
   useEffect(() => {
     if (!selectedPack) return
@@ -232,38 +293,81 @@ export function MonkModePage() {
       clearInterval(pollRef.current)
       pollRef.current = null
     }
+    streamAbortRef.current?.abort()
+    streamAbortRef.current = null
+
     if (!activeRun || activeRun.status === 'completed' || activeRun.status === 'failed') {
       return
     }
-    pollRef.current = setInterval(() => {
-      void (async () => {
-        try {
-          const since = lastEventAt.current || undefined
-          const newEvents = await fetchMonkEvents(activeRun.id, since)
-          if (newEvents.length) {
-            lastEventAt.current = newEvents[newEvents.length - 1]!.createdAt
-            setEvents((prev) => [...prev, ...newEvents])
-          }
-          const { run } = await fetchMonkRun(activeRun.id)
+
+    const runId = activeRun.id
+    const ac = new AbortController()
+    streamAbortRef.current = ac
+
+    const pollOnce = async () => {
+      try {
+        const since = lastEventAt.current || undefined
+        const newEvents = await fetchMonkEvents(runId, since)
+        if (newEvents.length) {
+          lastEventAt.current = newEvents[newEvents.length - 1]!.createdAt
+          setEvents((prev) => [...prev, ...newEvents])
+        }
+        const { run } = await fetchMonkRun(runId)
+        setActiveRun(run)
+        if (run.status === 'completed' || run.status === 'failed') {
+          setToast(
+            run.status === 'completed'
+              ? 'Monk Mode complete — review your capability map'
+              : 'Monk Mode failed — see events for details',
+          )
+          await reloadPreview(selectedPack)
+          await reloadRuns()
+        }
+      } catch {
+        /* keep polling */
+      }
+    }
+
+    void streamMonkEvents(
+      runId,
+      {
+        onEvent: (ev) => {
+          lastEventAt.current = ev.createdAt
+          setEvents((prev) => [...prev, ev])
+        },
+        onRun: (run) => {
           setActiveRun(run)
           if (run.status === 'completed' || run.status === 'failed') {
-            setToast(
-              run.status === 'completed'
-                ? 'Monk Mode complete — review your capability map'
-                : 'Monk Mode failed — see events for details',
-            )
-            await reloadPreview(selectedPack)
-            await reloadRuns()
+            setRunControl('running')
           }
-        } catch {
-          /* keep polling */
-        }
-      })()
-    }, 1500)
+        },
+        onDone: (run) => {
+          setActiveRun(run)
+          setRunControl('running')
+          setToast(
+            run.status === 'completed'
+              ? 'Monk Mode complete — review your capability map'
+              : 'Monk Mode failed — see events for details',
+          )
+          void reloadPreview(selectedPack)
+          void reloadRuns()
+        },
+        onError: () => {
+          if (!pollRef.current) {
+            pollRef.current = setInterval(() => void pollOnce(), 1500)
+          }
+        },
+      },
+      { since: lastEventAt.current || undefined, signal: ac.signal },
+    ).catch(() => {
+      pollRef.current = setInterval(() => void pollOnce(), 1500)
+    })
+
     return () => {
+      ac.abort()
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [activeRun, selectedPack, reloadPreview, reloadRuns])
+  }, [activeRun?.id, activeRun?.status, selectedPack, reloadPreview, reloadRuns])
 
   async function startMonk() {
     if (!canWrite || busy) return
@@ -274,13 +378,8 @@ export function MonkModePage() {
     try {
       const run = await startMonkModeApi(selectedPack)
       setActiveRun(run)
-      const full = await fetchMonkRun(run.id)
-      setEvents(full.events)
-      if (full.events.length) {
-        lastEventAt.current = full.events[full.events.length - 1]!.createdAt
-      }
-      setActiveRun(full.run)
-      setToast('Monk Mode started — watch the live feed below')
+      setRunControl('running')
+      setToast('Monk Mode started — live feed streaming below')
       await reloadRuns()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -315,6 +414,24 @@ export function MonkModePage() {
     preview?.matchPct ??
     preview?.capability?.matchScorePct ??
     null
+
+  async function controlMonk(action: 'pause' | 'resume' | 'skip') {
+    if (!activeRun || !canWrite) return
+    try {
+      const apiAction =
+        action === 'skip' ? ('skip_current' as const) : action
+      const out = await monkRunControlApi(activeRun.id, apiAction, {
+        phase: activeRun.phase,
+      })
+      if (out.control?.state === 'paused' || action === 'pause') {
+        setRunControl('paused')
+      }
+      if (action === 'resume') setRunControl('running')
+      if (out.run) setActiveRun(out.run)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   const recommendedPackId = rankedPacks[0]?.pack?.id ?? null
   const selectedPackMeta = packs.find((p) => p.id === selectedPack)
@@ -360,6 +477,8 @@ export function MonkModePage() {
               {toast}
             </p>
           ) : null}
+
+          <PageAutofillBanner page={autofillPage} compact />
 
           <div className="grid gap-[18px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             {/* Left — pack picker + preview */}
@@ -460,6 +579,20 @@ export function MonkModePage() {
                                   Missing: {preview.missing.join(', ')}
                                 </p>
                               ) : null}
+                              {preview?.multiSource?.ready ? (
+                                <p
+                                  className={`mt-[8px] text-[11px] ${
+                                    preview.multiSource.canCertMultiSource
+                                      ? 'text-emerald-300/90'
+                                      : 'text-sky-300/90'
+                                  }`}
+                                >
+                                  {preview.multiSource.label}
+                                  {preview.multiSource.canCertMultiSource
+                                    ? ' — multi-source cert ready'
+                                    : ` — ${preview.multiSource.message}`}
+                                </p>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
@@ -546,7 +679,39 @@ export function MonkModePage() {
             {/* Right — stepper + live feed + results */}
             <div className="space-y-[16px]">
               <section className="rounded-[16px] border border-solid border-[#2a3038] bg-[#15191e] p-[18px]">
-                <h2 className="text-[14px] font-semibold text-[#e8edf2]">Progress</h2>
+                <div className="flex flex-wrap items-center justify-between gap-[10px]">
+                  <h2 className="text-[14px] font-semibold text-[#e8edf2]">Progress</h2>
+                  {activeRun &&
+                  activeRun.status === 'running' &&
+                  canWrite ? (
+                    <div className="flex flex-wrap gap-[6px]">
+                      {runControl === 'paused' ? (
+                        <button
+                          type="button"
+                          className="rounded-[8px] border border-solid border-emerald-500/40 px-[10px] py-[4px] text-[11px] font-semibold text-emerald-300"
+                          onClick={() => void controlMonk('resume')}
+                        >
+                          Resume
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="rounded-[8px] border border-solid border-[#424850] px-[10px] py-[4px] text-[11px] font-semibold text-[#c8cdd3]"
+                          onClick={() => void controlMonk('pause')}
+                        >
+                          Pause
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="rounded-[8px] border border-solid border-amber-500/40 px-[10px] py-[4px] text-[11px] font-semibold text-amber-300"
+                        onClick={() => void controlMonk('skip')}
+                      >
+                        Skip phase
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <ol className="monk-phase-stepper mt-[16px] flex flex-wrap gap-[6px]">
                   {PHASES.map((p, i) => {
                     const done = activeRun && i < currentPhaseIdx
@@ -714,6 +879,15 @@ export function MonkModePage() {
                     </p>
                   ) : null}
                 </section>
+              ) : null}
+
+              {certChecklist &&
+              (activeRun?.status === 'completed' || certStatus === 'passed') ? (
+                <CertChecklistPanel
+                  checklist={certChecklist}
+                  onShip={canWrite ? () => void shipToBi() : undefined}
+                  shipBusy={shipBusy}
+                />
               ) : null}
             </div>
           </div>

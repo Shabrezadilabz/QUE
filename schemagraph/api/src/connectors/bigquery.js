@@ -301,3 +301,31 @@ async function bqQuery(projectId, token, sql, location) {
     return obj
   })
 }
+
+/**
+ * S5.2 — Read-only BigQuery SELECT for liveExec / validate.
+ */
+export async function runReadonlyQuery(config, sql, opts = {}) {
+  const projectId = config.projectId || config.project
+  const token =
+    config.token ||
+    config.accessToken ||
+    process.env.GOOGLE_ACCESS_TOKEN
+  const location = config.location || 'US'
+  const maxRows = Math.min(Math.max(Number(opts.maxRows) || 20, 1), 20)
+  let text = String(sql || '').trim()
+  if (!/\blimit\s+\d+/i.test(text)) {
+    text = `${text}\nLIMIT ${maxRows}`
+  }
+  const rows = await bqQuery(projectId, token, text, location)
+  const columns =
+    rows.length > 0
+      ? Object.keys(rows[0]).map((name) => ({ name, dataType: 'STRING' }))
+      : []
+  return {
+    rows,
+    columns,
+    rowCount: rows.length,
+    engine: 'bigquery',
+  }
+}

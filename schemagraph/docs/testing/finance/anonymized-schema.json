@@ -1,0 +1,34 @@
+{
+  "description": "Anonymized finance reconciliation schema — ledger ↔ bank feed (S6 proof dataset)",
+  "industry": "Finance",
+  "monkPackId": "finance-v1",
+  "tables": [
+    {
+      "name": "ledger",
+      "columns": [
+        { "name": "ledger_id", "type": "uuid", "key": "pk" },
+        { "name": "entity_id", "type": "uuid", "key": "fk" },
+        { "name": "external_ref", "type": "text", "key": "none" },
+        { "name": "amount", "type": "numeric", "key": "none" },
+        { "name": "posted_at", "type": "date", "key": "none" }
+      ]
+    },
+    {
+      "name": "bank_feed",
+      "columns": [
+        { "name": "feed_id", "type": "uuid", "key": "pk" },
+        { "name": "ref", "type": "text", "key": "unique" },
+        { "name": "amount", "type": "numeric", "key": "none" },
+        { "name": "value_date", "type": "date", "key": "none" }
+      ]
+    },
+    {
+      "name": "entities",
+      "columns": [
+        { "name": "entity_id", "type": "uuid", "key": "pk" },
+        { "name": "name", "type": "text", "key": "none" },
+        { "name": "region", "type": "text", "key": "none" }
+      ]
+    }
+  ]
+}

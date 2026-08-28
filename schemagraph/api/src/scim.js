@@ -10,6 +10,42 @@ function hashToken(token) {
   return createHash('sha256').update(String(token)).digest('hex')
 }
 
+/** Parse SCIM filter subset for smoke tests and listUsers. */
+export function parseScimFilter(filter) {
+  if (!filter) return null
+  const m = /userName eq "([^"]+)"/i.exec(String(filter))
+  if (!m) return null
+  return { field: 'userName', value: m[1].toLowerCase() }
+}
+
+/** Normalize SCIM role to workspace member role. */
+export function normalizeScimMemberRole(role) {
+  const r = String(role || 'member').toLowerCase()
+  return ['viewer', 'member', 'admin'].includes(r) ? r : 'member'
+}
+
+/**
+ * Idempotent provision plan — same email twice should upsert, not duplicate.
+ * @returns {{ action: 'create_user'|'reuse_user'|'upsert_member', email: string, role: string, active: boolean }}
+ */
+export function planScimIdempotentProvision({
+  email,
+  existingUserId = null,
+  active = true,
+  role = 'member',
+}) {
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase()
+  return {
+    action: existingUserId ? 'reuse_user' : 'create_user',
+    email: normalized,
+    role: normalizeScimMemberRole(role),
+    active: active !== false,
+    memberAction: active !== false ? 'upsert_member' : 'remove_member',
+  }
+}
+
 export async function createScimToken(workspaceId, userId = null, name = 'scim') {
   const raw = `scim_${randomBytes(24).toString('hex')}`
   const id = randomUUID()
@@ -102,10 +138,9 @@ export async function scimListUsers(workspaceId, { filter, startIndex = 1, count
   )
   let resources = rows.map((r) => toScimUser(r, workspaceId))
   if (filter) {
-    const m = /userName eq "([^"]+)"/i.exec(String(filter))
-    if (m) {
-      const email = m[1].toLowerCase()
-      resources = resources.filter((u) => u.userName.toLowerCase() === email)
+    const parsed = parseScimFilter(filter)
+    if (parsed?.field === 'userName') {
+      resources = resources.filter((u) => u.userName.toLowerCase() === parsed.value)
     }
   }
   return {
@@ -147,8 +182,7 @@ export async function scimCreateUser(workspaceId, body = {}) {
   const displayName =
     body.displayName || body.name?.formatted || email.split('@')[0]
   const active = body.active !== false
-  const role = String(body.roles?.[0]?.value || 'member').toLowerCase()
-  const safeRole = ['viewer', 'member', 'admin'].includes(role) ? role : 'member'
+  const safeRole = normalizeScimMemberRole(body.roles?.[0]?.value || 'member')
 
   let userId
   const { rows: existing } = await query(

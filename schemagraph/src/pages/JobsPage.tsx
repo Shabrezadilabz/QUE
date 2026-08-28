@@ -6,6 +6,8 @@ import {
   type LiveLogRow,
 } from '@/components/jobs/JobsMonitorView'
 import { TransformDraftsPanel } from '@/components/jobs/TransformDraftsPanel'
+import { PageAutofillBanner } from '@/components/autofill/PageAutofill'
+import { usePageAutofill } from '@/hooks/usePageAutofill'
 import { JobDeployPanel } from '@/components/jobs/JobDeployPanel'
 import { JobManagedDataLayer } from '@/components/jobs/JobManagedDataLayer'
 import { JobValidationLayer } from '@/components/jobs/JobValidationLayer'
@@ -106,6 +108,7 @@ export function JobsPage() {
   const [recentRuns, setRecentRuns] = useState<JobRun[]>([])
   const [logQuery, setLogQuery] = useState('')
   const [streamPaused, setStreamPaused] = useState(false)
+  const { page: autofillPage } = usePageAutofill('jobs')
   const [githubReady, setGithubReady] = useState<{
     token: boolean
     owner: string
@@ -713,6 +716,9 @@ export function JobsPage() {
               </button>
             </p>
           ) : null}
+            <div className="shrink-0 px-md pt-sm">
+              <PageAutofillBanner page={autofillPage} compact />
+            </div>
             <TransformDraftsPanel
               canWrite={canWrite}
               onApplied={(jobId) => {

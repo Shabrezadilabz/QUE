@@ -1,11 +1,112 @@
 /**
  * Wave 4.5 — private runner MVP (HMAC work-order + callback).
- * Not a VPC agent / Docker BYOC image.
+ * Sprint 11 — health probe, install guide, job isolation policy.
  */
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { query } from './db.js'
 import { getJob } from './jobs.js'
 import { recordAuditEvent } from './auditLog.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const RUNNER_DOCS = join(__dirname, '../../docs/private-runner')
+
+/** Job isolation guarantees for enterprise VPC pilots */
+export const JOB_ISOLATION_POLICY = {
+  scope: 'one-work-order-per-run-id',
+  concurrency: 'runner-side queue; Que never runs customer SQL in-process when enabled',
+  secrets: 'workspace-scoped HMAC only; no cross-tenant runner secret reuse',
+  network: 'egress controlled by customer VPC; Que callbacks over HTTPS only',
+  dataResidency: 'SQL + notebook payload stays in customer network until callback',
+  timeoutMs: Number(process.env.QUE_PRIVATE_RUNNER_TIMEOUT_MS) || 120000,
+}
+
+export function getPrivateRunnerInstallGuide() {
+  let markdown = ''
+  try {
+    markdown = readFileSync(join(RUNNER_DOCS, 'install-guide.md'), 'utf8')
+  } catch {
+    markdown = [
+      '# Que private runner install',
+      '',
+      '1. Deploy a small HTTP service in your VPC',
+      '2. `POST` work orders from Que; verify `X-Que-Signature` HMAC',
+      '3. Execute job SQL/notebook in isolated subprocess',
+      '4. `POST` callback to Que `/runner/callback` with run status',
+      '',
+    ].join('\n')
+  }
+  return {
+    schemaVersion: 2,
+    policy: JOB_ISOLATION_POLICY,
+    markdown,
+    steps: [
+      'Enable private runner in Settings → Enterprise',
+      'Set runner URL (HTTPS) and rotate shared secret',
+      'Implement POST handler for work orders + HMAC verify',
+      'Run each job in isolated subprocess/container',
+      'Callback to Que with runId, workspaceId, status, logs',
+      'Optional: expose GET /health for Que health probe',
+    ],
+    callbackPath: '/runner/callback',
+    healthPathHint: '/health',
+  }
+}
+
+/**
+ * Probe customer runner URL — tries /health then HEAD on base URL.
+ */
+export async function checkPrivateRunnerHealth(workspaceId) {
+  const cfg = await getPrivateRunnerConfig(workspaceId)
+  if (!cfg.enabled || !cfg.runnerUrl) {
+    return {
+      ok: false,
+      configured: false,
+      message: 'Private runner not enabled or URL unset',
+      policy: JOB_ISOLATION_POLICY,
+    }
+  }
+  const base = cfg.runnerUrl.replace(/\/$/, '')
+  const candidates = [`${base}/health`, base]
+  let lastError = null
+  for (const url of candidates) {
+    const t0 = Date.now()
+    try {
+      const res = await fetch(url, {
+        method: url.endsWith('/health') ? 'GET' : 'HEAD',
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Que-Private-Runner-Health/1.0' },
+      })
+      const latencyMs = Date.now() - t0
+      if (res.ok || res.status === 405) {
+        return {
+          ok: true,
+          configured: true,
+          url,
+          latencyMs,
+          httpStatus: res.status,
+          secretConfigured: cfg.secretConfigured,
+          policy: JOB_ISOLATION_POLICY,
+          checkedAt: new Date().toISOString(),
+        }
+      }
+      lastError = `HTTP ${res.status}`
+    } catch (err) {
+      lastError = String(err.message || err)
+    }
+  }
+  return {
+    ok: false,
+    configured: true,
+    url: cfg.runnerUrl,
+    error: lastError || 'unreachable',
+    secretConfigured: cfg.secretConfigured,
+    policy: JOB_ISOLATION_POLICY,
+    checkedAt: new Date().toISOString(),
+  }
+}
 
 function mapConfig(row) {
   return {

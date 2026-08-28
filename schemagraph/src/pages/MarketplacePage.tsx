@@ -10,6 +10,7 @@ import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
   applyIndustryTemplateApi,
   fetchMarketplaceCatalog,
+  installAndStartMonkApi,
 } from '@/services/stitchApi'
 
 type Pack = {
@@ -24,6 +25,9 @@ type Pack = {
   ceoReady?: boolean
   hasOutcome?: boolean
   seedRuleCount?: number
+  monkPackId?: string | null
+  hasMonk?: boolean
+  kind?: string
 }
 
 type PlaybookStep = {
@@ -71,6 +75,23 @@ export function MarketplacePage() {
   }, [industry])
 
   const filtered = packs
+
+  async function installAndRunMonk(p: Pack) {
+    if (!canWrite || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const out = await installAndStartMonkApi(p.id)
+      setToast(`Monk Mode started — ${out.monkPackId || p.title}`)
+      if (out.href) {
+        navigate(out.href)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function install(p: Pack) {
     if (!canWrite || busy) return
@@ -200,6 +221,11 @@ export function MarketplacePage() {
                   canWrite={canWrite}
                   busy={busy}
                   onInstall={() => void install(pack)}
+                  onRunMonk={
+                    pack.hasMonk || pack.monkPackId
+                      ? () => void installAndRunMonk(pack)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -221,11 +247,13 @@ function MarketplacePackCard({
   canWrite,
   busy,
   onInstall,
+  onRunMonk,
 }: {
   pack: Pack
   canWrite: boolean
   busy: boolean
   onInstall: () => void
+  onRunMonk?: () => void
 }) {
   return (
     <article className="pdf-panel flex flex-col overflow-hidden rounded-[4px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
@@ -244,7 +272,7 @@ function MarketplacePackCard({
             {pack.description}
           </p>
         </div>
-        <div className="mt-[16px] flex items-center justify-between">
+        <div className="mt-[16px] flex flex-wrap items-center justify-between gap-[8px]">
           <div className="flex gap-[4px]">
             {(pack.tablesHint || []).slice(0, 3).map((t) => (
               <span
@@ -256,14 +284,26 @@ function MarketplacePackCard({
               </span>
             ))}
           </div>
-          <button
-            type="button"
-            disabled={!canWrite || busy}
-            onClick={onInstall}
-            className="pdf-btn-ghost rounded-[2px] px-[12px] py-[6px] text-[12px] font-semibold disabled:opacity-40"
-          >
-            {busy ? '…' : 'Install'}
-          </button>
+          <div className="flex flex-wrap justify-end gap-[6px]">
+            {onRunMonk ? (
+              <button
+                type="button"
+                disabled={!canWrite || busy}
+                onClick={onRunMonk}
+                className="rounded-[2px] border border-solid border-[#5c6773] bg-[#2e343b] px-[10px] py-[6px] text-[11px] font-semibold text-[#e8edf2] hover:bg-[#3a424b] disabled:opacity-40"
+              >
+                {busy ? '…' : 'Run Monk'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={!canWrite || busy}
+              onClick={onInstall}
+              className="pdf-btn-ghost rounded-[2px] px-[12px] py-[6px] text-[12px] font-semibold disabled:opacity-40"
+            >
+              {busy ? '…' : 'Install'}
+            </button>
+          </div>
         </div>
       </div>
     </article>

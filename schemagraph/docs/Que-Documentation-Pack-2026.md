@@ -2,7 +2,7 @@
 
 **Product:** Que (SchemaGraph)  
 **Repo:** https://github.com/Shabrezadilabz/QUE.git  
-**Latest ship:** `ed8b4f9` — Unified Que Agent + Genie  
+**Latest ship:** Phase 2 complete (Sprints S1–S12 implemented locally — push pending)  
 **Stack:** Vercel (UI) · Render (API) · Neon (Postgres + pgvector)
 
 This pack has four sections for different audiences:
@@ -43,9 +43,9 @@ Do **not** claim: full Fivetran replacement, zero HITL, SOC 2 Type II certificat
 
 | Feature | What it does | Where |
 |---------|--------------|-------|
-| **Sources** | Connect Postgres, Excel, CSV, MongoDB, Databricks, Snowflake, BigQuery, Salesforce | `/sources` |
+| **Sources** | Connect Postgres, Excel, CSV, MongoDB, Databricks, Snowflake, BigQuery, Salesforce, **Shopify, Razorpay, Zoho** | `/sources` |
 | **Workspace graph** | Visual schema canvas; drag column→column joins; sync & stitch | `/workspace` |
-| **Join Review** | AI-suggested joins with Green/Yellow/Red risk; Promote/Reject HITL | `/joins` |
+| **Join Review** | AI-suggested joins with Green/Yellow/Red risk; Promote/Reject HITL; **presence bar + co-edit lock** | `/joins` |
 | **Lineage** | Job → table paths; column-level exploration | `/lineage` |
 | **Glossary & Catalog** | Business terms; governed assets (catalog gated by flag) | `/glossary`, `/catalog` |
 
@@ -84,10 +84,10 @@ Do **not** claim: full Fivetran replacement, zero HITL, SOC 2 Type II certificat
 
 | Feature | What it does | Where |
 |---------|--------------|-------|
-| **Pack Studio** | Blend packs (e.g. 60% ecommerce + 40% finance), column maps | `/pack-studio` |
-| **Replication (v1)** | Postgres → `que_replica` scheduled pipelines | Pack Studio |
-| **dbt / GitHub export** | Additive models layer from frozen contracts | Jobs |
-| **Looker / Metabase export** | LookML snippets + dashboard JSON | Pack Studio, API |
+| **Pack Studio** | Blend packs, **fork/diff/merge variants**, column maps, orchestration recipes, reverse ETL | `/pack-studio` |
+| **Replication (v1/v2)** | Postgres → `que_replica`; **Snowflake/Databricks scope plans** | Pack Studio |
+| **dbt / GitHub export** | Additive models layer from frozen contracts; **dbt bundle v2** | Jobs |
+| **Looker / Metabase / PBI / Tableau** | Multi-platform BI export + **Looker merge kit** | Pack Studio, `/bi` |
 | **Golden pair learning** | Learn joins from promoted pairs, job SQL, query history | Pack Studio |
 
 ### F. Metrics, BI & ship
@@ -95,10 +95,11 @@ Do **not** claim: full Fivetran replacement, zero HITL, SOC 2 Type II certificat
 | Feature | What it does | Where |
 |---------|--------------|-------|
 | **Metrics / KPI registry** | Semantic layer; Monk-seeded + manual; certification | `/metrics` |
-| **Report Studio (BI)** | Bar, line, pie, KPI, table canvas; embed tokens | `/bi` |
+| **Report Studio (BI)** | Multi-chart boards, filters, drill-to-SQL, parameters, refresh webhook | `/bi` |
+| **BI template marketplace (RS-7)** | Cert-required exec templates; embed SDK + white-label CEO view | Pack Studio, `/bi` |
 | **Ship to BI** | Draft → approve → embed / rollback (CEO flow) | `/ship`, Chat |
 | **Managed datasets (Offer B)** | Que-hosted job outputs; certify for BI (optional) | `/managed` |
-| **Public embed** | Revocable chart embed URLs | `/embed/:token` |
+| **Public embed** | Revocable chart embed URLs; **iframe SDK snippet** | `/embed/:token` |
 
 ### G. Governance & compliance
 
@@ -108,9 +109,10 @@ Do **not** claim: full Fivetran replacement, zero HITL, SOC 2 Type II certificat
 | **Proposals inbox** | Join proposals, mappings, transform diffs | `/proposals` |
 | **Drift agent** | Propose drift fixes; re-freeze contracts | `/drift-agent` |
 | **Validation suite** | Warehouse validation checks on jobs | `/validation` |
-| **Compliance** | SOC2-style evidence scaffolding, ops checklist, Monk evidence | `/compliance` |
+| **Compliance** | SOC2 evidence + **Type II kickoff/observation tracking**, India DPA pack | `/compliance` |
 | **Audit log** | Who did what, when | Settings → Governance |
-| **Eval harness** | Golden-set recall/precision; scheduled eval | `/eval` |
+| **Eval harness** | Golden-set recall/precision; **public sales scorecard** | `/eval`, `/eval/public` |
+| **Status & on-call** | Public `/status`, enterprise runbook | `/status` |
 
 ### H. Enterprise & settings
 
@@ -120,7 +122,8 @@ Do **not** claim: full Fivetran replacement, zero HITL, SOC 2 Type II certificat
 | **Security** | SSO/OIDC, session management, sealed connection secrets |
 | **Enterprise** | SCIM, API keys, CMK hooks, SIEM webhook, ABAC, break-glass |
 | **AI Policy** | Que Agent toggle, samples policy, auto-promote, BYOK, model selection |
-| **Billing** | Seat/plan scaffolding |
+| **Billing** | Stripe seats + **INR metering preview** (Growth ₹50k–80k alignment) |
+| **Private runner** | HMAC work orders + **health probe + install guide** |
 
 ---
 
@@ -331,6 +334,15 @@ npm run test:phase3        # dashboard templates + health scorecard
 npm run test:phase4        # 4 vertical packs + policies
 npm run test:phase5        # Monk autopilot gates + evidence export
 npm run test:phase6        # Pack Studio blend/merge/mapping
+npm run test:sprint6       # Sprint 6 unit smoke
+npm run test:sprint7       # Sprint 7 — DQ dashboard, drift fixes
+npm run test:sprint8       # Sprint 8 — multi-source Monk, replication v2, India SKU
+npm run test:sprint9       # Sprint 9 — RS-3/4, India connectors, Mongo path
+npm run test:sprint10      # Sprint 10 — orchestration, reverse ETL, RS-5/6
+npm run test:sprint11      # Sprint 11 — billing metering, load test, collab
+npm run test:sprint12      # Sprint 12 — connector long-tail, RS-7/8, public eval
+npm run test:scim          # SCIM idempotent provision smoke
+npm run test:load          # 50-workspace simulated load (CI threshold)
 npm run test:e2e-check     # Monk module smoke + manual Neon checklist
 npm run test:smoke         # LIVE API against localhost:8787 (or QUE_API_BASE)
 
@@ -364,8 +376,9 @@ Config: `playwright.config.ts`, specs in `e2e/`
 | **Production security** | `test:functional` | Auth required in prod; secrets redacted; attestation verify |
 | **Unit helpers** | `test:unit` | Crypto round-trip, SQL guards, join SQL extraction |
 | **Que Agent** | `test:que-agent` | Intent detection for job/BI/edit/materialize |
-| **Monk packs** | `test:phase4`, `test:phase5`, `test:phase6` | Pack policies, autopilot, blend, SportEdge mapping |
-| **Templates & health** | `test:phase3` | CEO dashboard templates, 8-dim scorecard |
+| **Monk packs** | `test:phase4`–`test:phase6`, `test:sprint6`–`test:sprint8` | Pack policies, autopilot, multi-source, replication scope |
+| **Report Studio / BI** | `test:sprint9`–`test:sprint10`, `test:sprint12` | Drill SQL, multi-export, embed SDK, marketplace |
+| **Enterprise ops** | `test:sprint11`, `test:load`, `test:scim` | Metering, load p95, SCIM smoke |
 | **Live API smoke** | `test:smoke` | Health, login, schema, job run, chat, drift, RBAC |
 | **Monk E2E checklist** | `test:e2e-check` | Module loads; prints prod manual steps |
 
@@ -411,11 +424,11 @@ npm run seed:demo                 # Demo workspace with agent enabled
 
 | Gap | Mitigation |
 |-----|------------|
-| Full prod Neon E2E (deployed) | Manual checklist in `runMonkE2ECheck.js` |
-| Multi-source Monk (Postgres + Salesforce) | Roadmap |
-| Full Fivetran-parity replication | v1 Postgres only |
-| SOC 2 / pen test | External audit required |
-| Load / scale testing | Not in current suite |
+| Full prod Neon E2E (deployed) | `npm run test:monk-prod` in weekly CI |
+| Multi-source Monk (Postgres + Salesforce) | **Shipped (S8)** — `multiSourceMonk.js` |
+| Full Fivetran-parity replication | v2 scope plans; v1 Postgres replica |
+| SOC 2 / pen test | External audit required; **kickoff + observation API (S8/S12)** |
+| Load / scale testing | **`test:load`** — 50-workspace simulated CI threshold |
 
 ---
 
@@ -440,7 +453,7 @@ npm run seed:demo                 # Demo workspace with agent enabled
 
 | Capability | Que | Fivetran | dbt | Looker | Atlan | Cursor-style SQL chat |
 |------------|-----|----------|-----|--------|-------|----------------------|
-| Connector breadth | 8 types | 500+ | N/A | N/A | Metadata | Via user DB |
+| Connector breadth | **25+ types (11+ live)** | 500+ | N/A | N/A | Metadata | Via user DB |
 | Schema graph + join infer | **Strong** | Weak | Weak | Weak | Medium | Weak |
 | HITL join Promote | **Yes** | No | No | No | Workflow | No |
 | NL → job + materialize | **Yes (Genie)** | No | No | No | No | Partial |
@@ -452,27 +465,80 @@ npm run seed:demo                 # Demo workspace with agent enabled
 
 ---
 
+## Report Studio — Looker-grade BI without rebuilding Looker
+
+**Position:** Que does **not** clone Looker. Que wins BI with **certified mart → Report Studio → export/embed**.
+
+| Layer | What Que ships | Existing code |
+|-------|----------------|---------------|
+| **Certified marts** | Monk + golden eval + attestation | `packCertification.js`, `shipToBi.js` |
+| **Report Studio** | In-app boards from cert fields only; Genie drafts | UI + `certifiedBi.js`, `dashboardTemplates.js` |
+| **Export** | Looker LookML, Metabase JSON, Power BI, Tableau, **merge kit** | `biPlatformExport.js`, `lookerMergeKit.js` |
+| **CEO embed** | Tokenized embed + **RS-7 SDK + white-label** | `reportStudioEmbed.js`, `/embed/:token` |
+
+**Sprint roadmap:** RS-1…RS-8 **complete** (S3 → S12). See [Que-Competitive-Sprint-Plan-2026.md](./Que-Competitive-Sprint-Plan-2026.md).
+
+**GTM line:** *"Looker-grade executive dashboards from messy schema in one session — keep Looker if you want; we certify upstream and export LookML."*
+
+---
+
 ## Gaps to close (priority order)
+
+Status key: **Shipped** · **In progress** · **Planned** · **External only**
 
 ### P0 — Credibility for paid pilots
 
-1. **Live prod E2E script** — SportEdge on Neon: Monk cert → CEO revenue chat → Genie job (automate `runMonkE2ECheck` against `QUE_API_BASE` prod)
-2. **SSE Monk events** — Replace polling; pause/resume/skip in Monk UI
-3. **Transform approve flow** — Fix copilot + apply transform end-to-end in Clean phase
+| # | Gap | Status | Notes |
+|---|-----|--------|-------|
+| 1 | **Live prod E2E** — SportEdge on Neon: Monk cert → CEO revenue chat → Genie job | **Shipped** | `npm run test:monk-prod` (`eval/runMonkProdE2E.js`) against `QUE_API_BASE` |
+| 2 | **SSE Monk events** — Replace polling; pause/resume/skip in Monk UI | **Shipped** | `GET .../events/stream`, async Monk start, control API + UI buttons |
+| 3 | **Transform approve flow** — Copilot + apply in Clean phase | **Shipped** | Clean seeds transform drafts + steward `proposal_sql`; API enforces approve-before-apply |
 
 ### P1 — Competitive parity
 
-4. **More connectors** — Salesforce sync depth, BigQuery live validate
-5. **Replication v2** — Snowflake/Databricks replica (not just Postgres `que_replica`)
-6. **Page autofill everywhere** — Today: Workspace + BI only; extend to Jobs, Joins, Steward
-7. **Native Airflow operator** — Today: webhook only; publish `@que` operator or DAG template
+| # | Gap | Status | Notes |
+|---|-----|--------|-------|
+| 4 | **More connectors** — Salesforce sync depth, BigQuery live validate | **Partial** | SF + BQ live; **Shopify/Razorpay/Zoho (S9)**; long-tail matrix (S12) |
+| 5 | **Replication v2** — Snowflake/Databricks replica | **Shipped (scope)** | `replicationV2.js` — scope plans + E2E sim (S9) |
+| 6 | **Page autofill everywhere** | **Shipped** | Workspace, BI, Jobs, Joins, Steward, Monk |
+| 7 | **Native Airflow operator** | **Shipped (template)** | `api/exporters/airflow/que_job_run_operator.py` + Kestra/n8n recipes (S10) |
 
 ### P2 — Category leadership
 
-8. **Multi-source Monk** — Postgres + Salesforce in one cert run
-9. **Proof datasets** — Finance/healthcare beyond templates (real anonymized packs)
-10. **Realtime collab** — Beyond heartbeat presence (CRDT / live cursors)
-11. **Marketplace density** — 10+ packs vs. current 4 core verticals
+| # | Gap | Status | Notes |
+|---|-----|--------|-------|
+| 8 | **Multi-source Monk** — Postgres + Salesforce in one cert | **Shipped (S8)** | `multiSourceMonk.js`, Monk discover integration |
+| 9 | **Proof datasets** — Finance/healthcare anonymized packs | **Shipped (S6)** | Finance + healthcare packs + proof data hooks |
+| 10 | **Realtime collab** — presence + steward co-edit | **Shipped (S11)** | `PresenceBar`, join review lock; not full CRDT |
+| 11 | **Marketplace density** — 10+ packs | **Shipped** | 10+ Monk/marketplace templates + BI marketplace (S12) |
+| 12 | **Reverse ETL** — cert mart → SaaS | **Shipped (S10)** | `reverseEtl.js` — simulated push MVP |
+| 13 | **Orchestration mesh** — Airbyte/Fivetran/Kestra/n8n | **Shipped (S10)** | Recipes + partner ingest hook |
+| 14 | **Enterprise ops** — metering, load test, status/runbook | **Shipped (S11)** | `billingMetering.js`, `test:load`, on-call runbook |
+| 15 | **Global GTM** — USD + US/EU case studies | **Shipped (S12)** | `/gtm/global`, `/sales` case study block |
+
+---
+
+## Why SOC 2 Type II is “scaffolding only” (not a weakness you code away)
+
+**SOC 2 Type II is an auditor attestation over 6–12 months of operating effectiveness — not a feature flag.**
+
+Que ships **evidence scaffolding** (`soc2Evidence.js`, `/compliance`, `/settings/enterprise`) that helps *your* audit — but cannot substitute for:
+
+| What Que provides (real) | What Type II requires (outside product) |
+|--------------------------|----------------------------------------|
+| OIDC SSO, SCIM, scoped API keys, ABAC | Independent CPA firm + observation period |
+| CMK option, SIEM JSONL/webhook export | Penetration test report |
+| Workspace audit trail + isolation smoke | On-call rota, status page, contractual SLAs |
+| DR drill metadata (backup ping + isolation test) | Full multi-region DR / restore proof |
+| Evidence pack mapped to TSC controls (CC6.x, CC7.2, CC8.1) | Signed Type II report letter |
+
+**Why competitors show “Yes” and Que shows “Scaffolding”:** Fivetran, dbt Cloud, Looker, and Atlan have completed third-party Type II programs. Que is pilot-stage — the **controls are partially implemented**, the **certification is not**.
+
+**Honest GTM line:** *“SOC 2 evidence pack and enterprise controls (SSO, SCIM, audit, CMK, SIEM hooks) — Type II audit is a customer diligence milestone, not a product toggle.”*
+
+**Do not claim:** “SOC 2 certified” or “Type II compliant” until an auditor signs.
+
+See also: `docs/COMPLIANCE-PROCESS.md`, `docs/GAPS-CLOSED-AND-REMAINING.md`.
 
 ---
 
@@ -515,7 +581,7 @@ PLG demo → Monk Mode (15 min) → Pack Studio customize → Export to their st
 | Time to first certified KPI | < 4 hours | Monk event timestamps |
 | Join golden recall | ≥ 0.90 | `/eval` dashboard |
 | Pilot → paid conversion | 3 design partners | CRM |
-| Prod smoke green | 100% weekly | CI `test:smoke` on prod URL |
+| Prod smoke green | 100% weekly | CI `test:smoke` + `test:monk-prod` on prod URL |
 | Agent task success rate | ≥ 80% job/BI requests | Agent session `completed` vs `failed` |
 
 ---
@@ -524,7 +590,12 @@ PLG demo → Monk Mode (15 min) → Pack Studio customize → Export to their st
 
 | Document | Path |
 |----------|------|
-| Master plan | `docs/product/Que-Master-Plan-10x-Monk-Mode.md` |
+| **IdeaProof validation (full)** | [Que-IdeaProof-Validation-Report-2026.md](./Que-IdeaProof-Validation-Report-2026.md) |
+| Competitive sprint plan (S1–S12) | [Que-Competitive-Sprint-Plan-2026.md](./Que-Competitive-Sprint-Plan-2026.md) |
+| Sprint backlogs | `docs/sprint-1/` … `docs/sprint-12/` |
+| RS-8 demo script | `docs/gtm/rs8-demo-script.md` |
+| Embed SDK | `docs/report-studio/embed-sdk.md` |
+| Phase 2 exit summary | [Phase-2-Complete-2026.md](./Phase-2-Complete-2026.md) |
 | Gaps honest assessment | `docs/GAPS-CLOSED-AND-REMAINING.md` |
 | Deploy guide | `docs/DEPLOY-FREE.md` |
 | Full product manual (HTML) | `docs/Que-Complete-Product-Manual.html` |
@@ -532,4 +603,4 @@ PLG demo → Monk Mode (15 min) → Pack Studio customize → Export to their st
 
 ---
 
-*Generated August 2026 — aligns with commit `ed8b4f9` (Que Agent + Genie). Update after major releases.*
+*Updated August 2026 — Phase 2 (S1–S12) complete locally. Refresh commit hash after push to `main`.*

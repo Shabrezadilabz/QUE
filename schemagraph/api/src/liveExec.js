@@ -10,10 +10,11 @@ import {
 import { runReadonlyQuery as runPg } from './connectors/postgres.js'
 import { runReadonlyQuery as runDatabricks } from './connectors/databricks.js'
 import { runReadonlyQuery as runSnowflake } from './connectors/snowflake.js'
+import { runReadonlyQuery as runBigQuery } from './connectors/bigquery.js'
 
 const WRITE_RE =
   /\b(insert|update|delete|drop|alter|truncate|merge|create|grant|revoke|call|copy)\b/i
-const LIVE_ENGINES = new Set(['postgresql', 'databricks', 'snowflake'])
+const LIVE_ENGINES = new Set(['postgresql', 'databricks', 'snowflake', 'bigquery'])
 
 /** Product cap for live / validate reads — never pull full tables. */
 export const LIVE_VALIDATE_MAX_ROWS = 20
@@ -99,6 +100,13 @@ export async function resolveLiveTarget(workspaceId, job, connectionId) {
       err.status = 400
       throw err
     }
+    if (conn.type === 'bigquery' && (!conn.config?.projectId && !conn.config?.project)) {
+      const err = new Error(
+        'BigQuery connection needs projectId + dataset + OAuth token for liveExec',
+      )
+      err.status = 400
+      throw err
+    }
     return conn
   }
 
@@ -107,6 +115,13 @@ export async function resolveLiveTarget(workspaceId, job, connectionId) {
     if (!LIVE_ENGINES.has(c.type)) return false
     if (c.type === 'databricks') {
       return Boolean(c.config?.token && c.config?.host && c.config?.warehouseId)
+    }
+    if (c.type === 'bigquery') {
+      return Boolean(
+        (c.config?.projectId || c.config?.project) &&
+          (c.config?.token || c.config?.accessToken) &&
+          (c.config?.dataset || c.config?.schema),
+      )
     }
     return true
   })
@@ -163,6 +178,16 @@ export async function executeLiveSql(connection, sql, opts = {}) {
 
   if (connection.type === 'snowflake') {
     const result = await runSnowflake(connection.config, prepared, { maxRows })
+    return {
+      ...result,
+      connectionId: connection.id,
+      connectionName: connection.name,
+      sqlExecuted: prepared,
+    }
+  }
+
+  if (connection.type === 'bigquery') {
+    const result = await runBigQuery(connection.config, prepared, { maxRows })
     return {
       ...result,
       connectionId: connection.id,

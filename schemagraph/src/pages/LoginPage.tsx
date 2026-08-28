@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useAuth } from '@/context/AuthContext'
 import { getApiBase } from '@/services/apiConfig'
@@ -18,14 +18,21 @@ const LOGIN_ASSETS = {
 export function LoginPage() {
   const { user, ready, login, register } = useAuth()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const sandboxMode = searchParams.get('sandbox') === '1'
   const from =
-    (location.state as { from?: string } | null)?.from || '/workspace'
+    (location.state as { from?: string } | null)?.from ||
+    (sandboxMode ? '/monk' : '/workspace')
 
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register'>(
+    sandboxMode ? 'register' : 'login',
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [workspaceName, setWorkspaceName] = useState('')
+  const [workspaceName, setWorkspaceName] = useState(
+    sandboxMode ? 'SportEdge Sandbox' : '',
+  )
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [ssoReady, setSsoReady] = useState(false)
@@ -84,6 +91,7 @@ export function LoginPage() {
           password,
           displayName: displayName.trim() || undefined,
           workspaceName: workspaceName.trim() || undefined,
+          sandbox: sandboxMode,
         })
       } else {
         await login(email.trim(), password)
@@ -127,8 +135,21 @@ export function LoginPage() {
 
           <div className="que-glass-card relative flex w-full flex-col gap-[16px] p-[33px]">
           <h1 className="text-center text-[20px] font-semibold leading-[28px] text-[var(--pdf-text-primary)]">
-            {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
+            {sandboxMode
+              ? 'Start SportEdge sandbox'
+              : mode === 'login'
+                ? 'Sign in to your account'
+                : 'Create your account'}
           </h1>
+          {sandboxMode ? (
+            <p className="text-center text-[13px] leading-relaxed text-[var(--pdf-text-secondary)]">
+              Free workspace with Monk Mode — connect SportEdge Postgres and certify a KPI in
+              ~30 minutes.{' '}
+              <Link to="/pricing" className="text-[var(--pdf-accent)] underline">
+                Pricing
+              </Link>
+            </p>
+          ) : null}
 
           {mode === 'register' ? (
             <div className="flex gap-[4px] rounded-[4px] border border-solid border-[var(--pdf-border)] p-[4px]">

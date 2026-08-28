@@ -1049,6 +1049,19 @@ export interface SyncConnectionResult {
   columnsSynced: number
   relationshipsSynced: number
   suggestedJoins?: number
+  postSync?: {
+    inferJoins?: boolean
+    monkQueued?: boolean
+    monkRunId?: string | null
+    topJoins?: {
+      id: string
+      label: string
+      confidence?: number | null
+      fromTable?: string
+      toTable?: string
+      crossSource?: boolean
+    }[]
+  }
   drift?: {
     tablesAdded: string[]
     tablesRemoved: string[]
@@ -3109,6 +3122,45 @@ export async function updatePrivateRunnerConfig(
   return body.config
 }
 
+export interface PrivateRunnerHealth {
+  ok: boolean
+  configured: boolean
+  url?: string
+  latencyMs?: number
+  error?: string
+  message?: string
+}
+
+export async function checkPrivateRunnerHealthApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PrivateRunnerHealth> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/private-runner/health`)
+  const body = (await res.json().catch(() => ({}))) as {
+    health?: PrivateRunnerHealth
+    error?: string
+  }
+  if (!body.health) {
+    throw new Error(body.error ?? `private-runner health ${res.status}`)
+  }
+  return body.health
+}
+
+export async function fetchPrivateRunnerInstallGuide(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/private-runner/install-guide`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    guide?: { markdown: string; steps: string[] }
+    error?: string
+  }
+  if (!res.ok || !body.guide) {
+    throw new Error(body.error ?? `install-guide ${res.status}`)
+  }
+  return body.guide
+}
+
 /** Wave 4.6 */
 export interface BillingStatus {
   configured: boolean
@@ -3135,6 +3187,42 @@ export async function fetchBillingStatus(
     throw new Error(body.error ?? `billing ${res.status}`)
   }
   return body.billing
+}
+
+export interface MeteringLineItem {
+  code: string
+  label: string
+  quantity: number
+  unitInr: number
+  totalInr: number
+}
+
+export interface WorkspaceMetering {
+  invoice: {
+    currency: string
+    planTier: string
+    lineItems: MeteringLineItem[]
+    subtotalInr: number
+    gstInr: number
+    totalInr: number
+    nearLimit?: string[]
+  }
+  usage: { usagePct: number; nearLimit: string[] }
+  billing: { status: string; seats: number; members: number }
+}
+
+export async function fetchBillingMetering(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceMetering> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/billing/metering`)
+  const body = (await res.json().catch(() => ({}))) as {
+    metering?: WorkspaceMetering
+    error?: string
+  }
+  if (!res.ok || !body.metering) {
+    throw new Error(body.error ?? `billing metering ${res.status}`)
+  }
+  return body.metering
 }
 
 export async function createBillingCheckout(
@@ -3461,6 +3549,24 @@ export async function resolveDriftFixApi(
   )
   const body = (await res.json().catch(() => ({}))) as { error?: string }
   if (!res.ok) throw new Error(body.error || `resolve drift ${res.status}`)
+}
+
+export async function createDriftFixDraftApi(
+  suggestionId: string,
+  kind: 'transform' | 'job' = 'transform',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/drift-fixes/${suggestionId}/create-draft`,
+    { method: 'POST', body: JSON.stringify({ kind }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    href?: string
+    kind?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `drift draft ${res.status}`)
+  return body
 }
 
 export async function runGoldenSetEvalApi(
@@ -4205,6 +4311,110 @@ export async function exportSoc2EvidenceApi(
   return { markdown: body.markdown || '', pack: body.pack || {} }
 }
 
+export type Soc2KickoffStatus = {
+  phase: string
+  auditorEngaged: boolean
+  auditorName: string | null
+  penTestScheduledAt: string | null
+  penTestVendor: string | null
+  observationStartedAt: string | null
+  evidenceFrozenAt: string | null
+  evidenceFrozenHash: string | null
+  note?: string
+}
+
+export async function fetchSoc2Kickoff(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<Soc2KickoffStatus> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/soc2-kickoff`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    kickoff?: Soc2KickoffStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `soc2 kickoff ${res.status}`)
+  return body.kickoff!
+}
+
+export async function startSoc2KickoffApi(
+  payload: {
+    auditorName?: string
+    penTestScheduledAt?: string
+    penTestVendor?: string
+  } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/soc2-kickoff/start`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    kickoff?: Soc2KickoffStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `soc2 kickoff start ${res.status}`)
+  return body.kickoff!
+}
+
+export async function freezeSoc2EvidenceApi(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/soc2-evidence/freeze`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    hash?: string
+    kickoff?: Soc2KickoffStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `soc2 freeze ${res.status}`)
+  return body
+}
+
+export async function fetchIndiaComplianceApi(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/enterprise/india-compliance`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    pack?: {
+      sku: { currency: string; listPriceMonthly: { landMotion: string } }
+      dpaTemplate: string
+      residencyFaq: string
+    }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `india compliance ${res.status}`)
+  return body.pack!
+}
+
+export type ReplicationV2Scope = {
+  warehouse: string
+  status: string
+  title: string
+  recommendedTables: { name: string; connection: string }[]
+  plan: { targetSchema: string; steps: string[]; limitations: string[] }
+}
+
+export async function fetchReplicationV2Scope(
+  warehouse: 'snowflake' | 'databricks' = 'snowflake',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams({ warehouse })
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/replication/v2/scope?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    scope?: ReplicationV2Scope
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `replication v2 ${res.status}`)
+  return body.scope!
+}
+
 export async function runIsolationTestApi(
   workspaceId: string = getActiveWorkspaceId(),
 ): Promise<{ status: string; summary: string }> {
@@ -4613,9 +4823,154 @@ export async function applyIndustryTemplateApi(
   return body
 }
 
+export async function installAndStartMonkApi(
+  packId: string,
+  opts: { installTemplate?: boolean } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/marketplace/${packId}/start-monk`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        installTemplate: opts.installTemplate !== false,
+      }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    monkPackId?: string
+    href?: string
+    hint?: string
+    run?: MonkRun
+    install?: { job?: { id: string; title: string } }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `start-monk ${res.status}`)
+  return body
+}
+
+export async function genieDashboardDraftApi(
+  input: { prompt?: string; packId?: string; title?: string; datasetId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/genie-dashboard-draft`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    biReport?: {
+      reportId: string
+      title: string
+      href?: string
+      chartCount?: number
+      packId?: string | null
+      source?: string
+      note?: string
+    }
+    reportId?: string
+    title?: string
+    href?: string
+    error?: string
+    code?: string
+  }
+  if (!res.ok) throw new Error(body.error || `genie draft ${res.status}`)
+  const report = body.biReport ?? {
+    reportId: body.reportId,
+    title: body.title,
+    href: body.href,
+  }
+  return {
+    reportId: report.reportId || '',
+    title: report.title || 'Dashboard draft',
+    href:
+      report.href ||
+      `/bi?report=${encodeURIComponent(report.reportId || '')}`,
+    chartCount: body.biReport?.chartCount ?? 0,
+    packId: body.biReport?.packId ?? null,
+    source: body.biReport?.source,
+    note: body.biReport?.note,
+  }
+}
+
+export async function fetchProofDatasets() {
+  const res = await fetch(`${getApiBase()}/proof-datasets`)
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: {
+      id: string
+      label: string
+      industry: string
+      monkPackId: string
+      goldenPairCount: number
+      tableCount: number
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `proof-datasets ${res.status}`)
+  return body.items || []
+}
+
 export async function fetchPublicStatus() {
   const res = await fetch(`${getApiBase()}/status`)
   return res.json()
+}
+
+export async function fetchPublicEval(workspaceId?: string) {
+  const q = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''
+  const res = await fetch(`${getApiBase()}/eval/public${q}`)
+  const body = (await res.json().catch(() => ({}))) as {
+    snapshot?: Record<string, unknown>
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `eval public ${res.status}`)
+  return body
+}
+
+export async function fetchGlobalGtm() {
+  const res = await fetch(`${getApiBase()}/gtm/global`)
+  const body = (await res.json().catch(() => ({}))) as {
+    caseStudies?: { id: string; title: string; region: string; metric: string; outcome: string }[]
+    pricing?: { currency: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `gtm ${res.status}`)
+  return body
+}
+
+export async function forkPackStudioApi(packId: string, suffix?: string) {
+  const res = await apiFetch(`/workspaces/${getActiveWorkspaceId()}/pack-studio/fork`, {
+    method: 'POST',
+    body: JSON.stringify({ packId, suffix }),
+  })
+  const body = (await res.json().catch(() => ({}))) as { fork?: Record<string, unknown>; error?: string }
+  if (!res.ok || !body.fork) throw new Error(body.error || `fork ${res.status}`)
+  return body.fork
+}
+
+export async function diffPackStudioApi(leftPackId: string, rightPackId: string) {
+  const res = await apiFetch(`/workspaces/${getActiveWorkspaceId()}/pack-studio/diff`, {
+    method: 'POST',
+    body: JSON.stringify({ leftPackId, rightPackId }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    diff?: { summary: string; kpis: { added: string[]; removed: string[] } }
+    error?: string
+  }
+  if (!res.ok || !body.diff) throw new Error(body.error || `diff ${res.status}`)
+  return body.diff
+}
+
+export async function fetchBiMarketplace(packId?: string) {
+  const q = packId ? `?packId=${encodeURIComponent(packId)}` : ''
+  const res = await apiFetch(`/workspaces/${getActiveWorkspaceId()}/bi/marketplace${q}`)
+  const body = (await res.json().catch(() => ({}))) as {
+    marketplace?: { items: { id: string; title: string; widgetCount: number }[] }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `marketplace ${res.status}`)
+  return body.marketplace?.items || []
 }
 
 export async function fetchSaasOps(
@@ -4810,9 +5165,15 @@ export async function fetchMarketplaceCatalog(opts: {
       tags: string[]
       difficulty: string
       featured: boolean
+      monkPackId?: string | null
+      hasMonk?: boolean
+      kind?: string
+      kpiCount?: number | null
     }[]
     industries?: string[]
     tags?: string[]
+    total?: number
+    monkPackCount?: number
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `marketplace ${res.status}`)
@@ -4838,6 +5199,74 @@ export async function fetchMarketplaceInstalls(
   }
   if (!res.ok) throw new Error(body.error || `installs ${res.status}`)
   return body.items || []
+}
+
+export type PresenceItem = {
+  userId: string
+  displayName: string
+  pagePath: string
+  status: string
+  active: boolean
+}
+
+export async function fetchJoinReviewCollab(
+  relationshipId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/join-reviews/${relationshipId}/collab`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    collab?: {
+      viewers: PresenceItem[]
+      lock: {
+        userId: string
+        displayName: string
+        claimedAt: string
+      } | null
+      canEdit: boolean
+    }
+    error?: string
+  }
+  if (!res.ok || !body.collab) {
+    throw new Error(body.error || `join collab ${res.status}`)
+  }
+  return body.collab
+}
+
+export async function claimJoinReviewLockApi(
+  relationshipId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/join-reviews/${relationshipId}/collab/lock`,
+    { method: 'POST' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    lock?: { userId: string; displayName: string }
+    error?: string
+    code?: string
+  }
+  if (!res.ok) {
+    const err = new Error(body.error || `lock ${res.status}`) as Error & {
+      code?: string
+    }
+    err.code = body.code
+    throw err
+  }
+  return body.lock!
+}
+
+export async function releaseJoinReviewLockApi(
+  relationshipId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/join-reviews/${relationshipId}/collab/lock`,
+    { method: 'DELETE' },
+  )
+  const body = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(body.error || `unlock ${res.status}`)
 }
 
 export async function fetchPresence(
@@ -5273,12 +5702,49 @@ export async function fetchMonkPreview(
   )
   const body = (await res.json().catch(() => ({}))) as {
     capability?: MonkCapabilityMap
+    multiSource?: MultiSourceMonkAnalysis | null
     ranked?: RankedIndustryPack[]
     phases?: MonkPhase[]
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `monk preview ${res.status}`)
   return body
+}
+
+export type MultiSourceMonkAnalysis = {
+  ready: boolean
+  profile: string | null
+  label: string | null
+  canCertMultiSource: boolean
+  message: string
+  sources: {
+    sourceType: string
+    tableCount: number
+    matchedEntities: string[]
+    connectionNames: string[]
+  }[]
+  crossSourceJoinHints?: {
+    from: string
+    to: string
+    fromSource: string
+    toSource: string
+  }[]
+}
+
+export async function fetchMultiSourceMonk(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams({ packId })
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/multi-source?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    analysis?: MultiSourceMonkAnalysis
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `multi-source ${res.status}`)
+  return body.analysis || null
 }
 
 export async function fetchMonkEvidenceMarkdown(
@@ -5400,6 +5866,89 @@ export async function startMonkModeApi(
   return body.run!
 }
 
+export async function monkRunControlApi(
+  runId: string,
+  action: 'pause' | 'resume' | 'skip' | 'skip_current',
+  opts: { phase?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/runs/${runId}/control`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ action, phase: opts.phase }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    ok?: boolean
+    control?: { state: string; skipPhases?: string[] }
+    run?: MonkRun
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `monk control ${res.status}`)
+  return body
+}
+
+/** SSE Monk events via fetch (supports Authorization header). */
+export async function streamMonkEvents(
+  runId: string,
+  handlers: {
+    onEvent: (ev: MonkEvent) => void
+    onRun?: (run: MonkRun) => void
+    onDone?: (run: MonkRun) => void
+    onError?: (msg: string) => void
+  },
+  opts: { since?: string; signal?: AbortSignal; workspaceId?: string } = {},
+) {
+  const workspaceId = opts.workspaceId || getActiveWorkspaceId()
+  const q = opts.since ? `?since=${encodeURIComponent(opts.since)}` : ''
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/monk/runs/${runId}/events/stream${q}`,
+    {
+      headers: { Accept: 'text/event-stream' },
+      signal: opts.signal,
+    },
+  )
+  if (!res.ok || !res.body) {
+    throw new Error(`monk stream ${res.status}`)
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const chunks = buffer.split('\n\n')
+    buffer = chunks.pop() || ''
+    for (const chunk of chunks) {
+      const lines = chunk.split('\n')
+      let eventType = 'message'
+      let data = ''
+      for (const line of lines) {
+        if (line.startsWith('event:')) eventType = line.slice(6).trim()
+        if (line.startsWith('data:')) data += line.slice(5).trim()
+      }
+      if (!data) continue
+      try {
+        const parsed = JSON.parse(data)
+        if (eventType === 'monk') handlers.onEvent(parsed as MonkEvent)
+        if (eventType === 'control' && parsed.run && handlers.onRun) {
+          handlers.onRun(parsed.run as MonkRun)
+        }
+        if (eventType === 'done' && parsed.run && handlers.onDone) {
+          handlers.onDone(parsed.run as MonkRun)
+        }
+        if (eventType === 'error' && handlers.onError) {
+          handlers.onError(String(parsed.error || 'stream error'))
+        }
+      } catch {
+        /* ignore partial frames */
+      }
+    }
+  }
+}
+
 export async function fetchStewardInbox(
   opts: { status?: string; limit?: number } = {},
   workspaceId: string = getActiveWorkspaceId(),
@@ -5436,6 +5985,59 @@ export async function updateStewardIssueApi(
   return body.issue!
 }
 
+export type StewardDqWidget = {
+  id: string
+  label: string
+  value: string
+  status: 'ok' | 'warn' | 'fail' | 'unknown'
+  href: string
+  hint?: string
+}
+
+export type StewardDqDashboard = {
+  minRecall: number
+  goldenEval: {
+    enabled: boolean
+    lastRecall: number | null
+    passed: boolean | null
+    pairCount: number
+    lastRunAt: string | null
+  }
+  joins: { suggested: number; accepted: number; rejected: number }
+  drift: { open: number; high: number; fixProposals: number }
+  widgets: StewardDqWidget[]
+}
+
+export async function fetchStewardDqDashboard(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<StewardDqDashboard> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/steward/dq-dashboard`)
+  const body = (await res.json().catch(() => ({}))) as {
+    dashboard?: StewardDqDashboard
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `dq dashboard ${res.status}`)
+  return body.dashboard!
+}
+
+export async function exportLineageBundleApi(
+  opts: { table?: string; column?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.table) q.set('table', opts.table)
+  if (opts.column) q.set('column', opts.column)
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/lineage/export?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    bundle?: Record<string, unknown>
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `lineage export ${res.status}`)
+  return body.bundle || {}
+}
+
 export async function runProfilingApi(
   maxTables?: number,
   workspaceId: string = getActiveWorkspaceId(),
@@ -5462,6 +6064,39 @@ export type PackCertification = {
   certifiedAt?: string | null
 }
 
+export type CertChecklistItem = {
+  id: string
+  label: string
+  ok: boolean
+  detail: string
+  href?: string
+}
+
+export type CertChecklist = {
+  packId: string
+  allGreen: boolean
+  canShipToBi: boolean
+  goldenRecall: number | null
+  minRecall: number
+  items: CertChecklistItem[]
+}
+
+export async function fetchCertChecklist(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams({ packId })
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/cert-checklist?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    checklist?: CertChecklist
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `cert checklist ${res.status}`)
+  return body.checklist!
+}
+
 export async function fetchMonkCertification(
   packId = 'ecommerce-v1',
   workspaceId: string = getActiveWorkspaceId(),
@@ -5472,10 +6107,14 @@ export async function fetchMonkCertification(
   )
   const body = (await res.json().catch(() => ({}))) as {
     certification?: PackCertification | null
+    checklist?: CertChecklist | null
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `monk cert ${res.status}`)
-  return body.certification ?? null
+  return {
+    certification: body.certification ?? null,
+    checklist: body.checklist ?? null,
+  }
 }
 
 export async function certifyMonkRunApi(
@@ -5490,10 +6129,47 @@ export async function certifyMonkRunApi(
   const body = (await res.json().catch(() => ({}))) as {
     passed?: boolean
     report?: { recall?: number; promotedRecall?: number }
+    checklist?: CertChecklist | null
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `monk certify ${res.status}`)
   return body
+}
+
+export async function shipCertifiedPackToBiApi(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/ship-to-bi/certified-pack`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ packId, reportId: 'ceo-revenue' }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    lookerMarkdown?: string
+    ship?: { id?: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `ship to bi ${res.status}`)
+  return body
+}
+
+export async function exportSemanticLayerApi(
+  packId = 'ecommerce-v1',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams({ packId })
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/semantic-layer/export?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    bundle?: { files?: { path: string; content: string }[] }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `semantic export ${res.status}`)
+  return body.bundle
 }
 
 export async function seedSportedgeGoldenApi(
@@ -5527,6 +6203,153 @@ export async function seedMetricsFromPackApi(
   }
   if (!res.ok) throw new Error(body.error || `seed metrics ${res.status}`)
   return body
+}
+
+/* ── Sprint 4: dbt bundle v2 + manifest assist + no lock-in ── */
+
+export type DbtManifestStatus = {
+  id: string
+  label: string
+  ingestedAt: string
+  edgeCount: number
+  matchedTables: number
+  columnRefCount?: number
+  samples: { from: string; to: string; kind: string }[]
+  columnSamples?: { model: string; column: string }[]
+}
+
+export async function fetchDbtManifestStatus(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/dbt-manifest/status`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    status?: DbtManifestStatus | null
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `dbt manifest status ${res.status}`)
+  return body.status ?? null
+}
+
+export async function ingestDbtManifestApi(
+  manifest: Record<string, unknown>,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(`/workspaces/${workspaceId}/dbt-manifest`, {
+    method: 'POST',
+    body: JSON.stringify({ manifest }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    edges?: number
+    matchedTables?: number
+    columnRefCount?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `dbt manifest ingest ${res.status}`)
+  return body
+}
+
+export async function exportDbtBundleV2Api(
+  opts: { jobIds?: string[]; includeDrafts?: boolean } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/export/dbt-bundle-v2`,
+    { method: 'POST', body: JSON.stringify(opts) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    bundle?: {
+      files: { path: string; content: string }[]
+      modelCount: number
+      jobCount: number
+    }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `dbt bundle v2 ${res.status}`)
+  return body.bundle!
+}
+
+export async function exportNoLockInKitApi(
+  opts: { packId?: string; auditLimit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/export/no-lock-in`,
+    { method: 'POST', body: JSON.stringify(opts) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    manifest?: Record<string, unknown>
+    files?: { path: string; content: string }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `no lock-in export ${res.status}`)
+  return { manifest: body.manifest!, files: body.files! }
+}
+
+export function downloadExportFiles(
+  files: { path: string; content: string }[],
+  archiveName: string,
+) {
+  const blob = new Blob([JSON.stringify({ files }, null, 2)], {
+    type: 'application/json',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = archiveName
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export type ConnectorMatrixRow = {
+  id: string
+  category: string
+  label: string
+  que: string
+  fivetran: string
+  hevo: string
+  queDepth?: string
+  indiaNote?: string
+}
+
+export type ConnectorMatrixData = {
+  updatedAt: string
+  disclaimer: string
+  rows: ConnectorMatrixRow[]
+  queConnectors: {
+    id: string
+    name: string
+    depth: string
+    live: boolean
+    incremental: string
+  }[]
+}
+
+export async function fetchConnectorMatrix() {
+  const res = await apiFetch('/connectors/matrix')
+  const body = (await res.json().catch(() => ({}))) as {
+    matrix?: ConnectorMatrixData
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `connector matrix ${res.status}`)
+  return body.matrix!
+}
+
+export async function validateConnectionLiveApi(
+  connectionId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/connections/${connectionId}/validate-live`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    validation?: Record<string, unknown>
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `validate live ${res.status}`)
+  return body.validation!
 }
 
 /* ── Phase 3: autofill + health + dashboards ── */
@@ -5762,4 +6585,165 @@ export async function fetchMetabaseExport(
   const body = (await res.json().catch(() => ({}))) as { export?: unknown; error?: string }
   if (!res.ok) throw new Error(body.error || `metabase export ${res.status}`)
   return body.export
+}
+
+export async function fetchPowerBiExport(
+  opts: { reportId?: string; packId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.reportId) q.set('reportId', opts.reportId)
+  if (opts.packId) q.set('packId', opts.packId)
+  const res = await apiFetch(`/workspaces/${workspaceId}/export/powerbi?${q}`)
+  const body = (await res.json().catch(() => ({}))) as { export?: unknown; error?: string }
+  if (!res.ok) throw new Error(body.error || `powerbi export ${res.status}`)
+  return body.export
+}
+
+export async function fetchTableauExport(
+  opts: { reportId?: string; packId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.reportId) q.set('reportId', opts.reportId)
+  if (opts.packId) q.set('packId', opts.packId)
+  const res = await apiFetch(`/workspaces/${workspaceId}/export/tableau?${q}`)
+  const body = (await res.json().catch(() => ({}))) as { export?: unknown; error?: string }
+  if (!res.ok) throw new Error(body.error || `tableau export ${res.status}`)
+  return body.export
+}
+
+export async function fetchBiChartDrillSql(
+  chartId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ sql: string; certifiedOnly?: boolean }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/charts/${chartId}/drill-sql`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    sql?: string
+    certifiedOnly?: boolean
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `drill-sql ${res.status}`)
+  return { sql: body.sql || '', certifiedOnly: body.certifiedOnly }
+}
+
+export async function runReplicationV2Api(
+  warehouse: 'snowflake' | 'databricks' = 'snowflake',
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/replication/v2/run`,
+    { method: 'POST', body: JSON.stringify({ warehouse }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    totalRows?: number
+    pipelineId?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `replication v2 run ${res.status}`)
+  return body
+}
+
+export async function fetchOrchestratorRecipes(
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/orchestrator/recipes`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    recipes?: Record<string, unknown>
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `orchestrator recipes ${res.status}`)
+  return body.recipes!
+}
+
+export async function pushReverseEtlApi(
+  payload: { destination?: string; datasetId?: string; segmentName?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/reverse-etl/push`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    pushedRows?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `reverse etl ${res.status}`)
+  return body
+}
+
+export type ReportBoardConfig = {
+  reportId: string
+  layoutPreset: string
+  parameters: { id: string; label: string; defaultValue?: string; bindField?: string }[]
+  refreshWebhookUrl: string
+  refreshOnJobComplete: boolean
+  presets: { id: string; label: string }[]
+}
+
+export async function fetchReportBoardConfig(
+  reportId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ReportBoardConfig> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/boards/${encodeURIComponent(reportId)}/config`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    config?: ReportBoardConfig
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `board config ${res.status}`)
+  return body.config!
+}
+
+export async function updateReportBoardConfigApi(
+  reportId: string,
+  patch: Partial<ReportBoardConfig>,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/boards/${encodeURIComponent(reportId)}/config`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    config?: ReportBoardConfig
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `board config update ${res.status}`)
+  return body.config!
+}
+
+export async function refreshReportBoardApi(
+  reportId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/boards/${encodeURIComponent(reportId)}/refresh`,
+    { method: 'POST', body: '{}' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    ok?: boolean
+    skipped?: boolean
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `board refresh ${res.status}`)
+  return body
+}
+
+export async function fetchLookerMergeKit(
+  opts: { reportId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+) {
+  const q = new URLSearchParams()
+  if (opts.reportId) q.set('reportId', opts.reportId)
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/export/looker/merge-kit?${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as { kit?: unknown; error?: string }
+  if (!res.ok) throw new Error(body.error || `looker merge kit ${res.status}`)
+  return body.kit
 }

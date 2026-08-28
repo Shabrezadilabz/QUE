@@ -126,5 +126,5 @@ WHERE order_total < 0`,
       audience: 'CEO',
     },
   ],
-  goldenPairSource: 'sportedge-golden-pairs.json',
+  goldenPairSource: 'ecommerce/sportedge-golden-pairs.json',
 }

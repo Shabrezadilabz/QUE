@@ -6,7 +6,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { query } from './db.js'
 import { recordAuditEvent } from './auditLog.js'
 
-const KINDS = new Set(['generic', 'airflow', 'dagster'])
+const KINDS = new Set(['generic', 'airflow', 'dagster', 'kestra', 'n8n', 'airbyte', 'fivetran'])
 
 function mapConfig(row) {
   return {
@@ -55,7 +55,9 @@ export async function updateOrchestratorConfig(workspaceId, patch = {}) {
   if (patch.kind != null) {
     kind = String(patch.kind)
     if (!KINDS.has(kind)) {
-      const err = new Error("kind must be 'generic', 'airflow', or 'dagster'")
+      const err = new Error(
+        "kind must be 'generic', 'airflow', 'dagster', 'kestra', 'n8n', 'airbyte', or 'fivetran'",
+      )
       err.status = 400
       throw err
     }

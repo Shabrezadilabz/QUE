@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "que-airflow-operator"
+version = "0.1.0"
+description = "Airflow operator to trigger Que stitch job runs via API"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+airflow = ["apache-airflow>=2.6.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["que_airflow_operator*"]
+
+[tool.setuptools.package-dir]
+que_airflow_operator = "."

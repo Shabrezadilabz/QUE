@@ -1,0 +1,8 @@
+{
+  "description": "Golden join pairs for anonymized healthcare proof dataset (claims ↔ members ↔ eligibility)",
+  "pairs": [
+    { "fromTable": "claims", "fromColumn": "member_id", "toTable": "members", "toColumn": "member_id" },
+    { "fromTable": "claims", "fromColumn": "member_id", "toTable": "eligibility", "toColumn": "member_id" },
+    { "fromTable": "eligibility", "fromColumn": "member_id", "toTable": "members", "toColumn": "member_id" }
+  ]
+}

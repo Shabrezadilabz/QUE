@@ -323,7 +323,13 @@ export async function reviewTransformDraft(
     return getTransformDraft(workspaceId, draftId)
   }
 
-  // apply → create job notebook cell from SQL
+  // apply → create job notebook cell from SQL (requires prior approve)
+  if (draft.status !== 'approved') {
+    const err = new Error('Transform must be approved before apply')
+    err.status = 409
+    throw err
+  }
+
   const notebook = buildNotebookFromFields({
     title: draft.title,
     sqlText: draft.sqlText,

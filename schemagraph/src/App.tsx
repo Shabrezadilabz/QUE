@@ -52,7 +52,11 @@ import { JobTemplatesPage } from '@/pages/JobTemplatesPage'
 import { OutcomePage } from '@/pages/OutcomePage'
 import { ShipPage } from '@/pages/ShipPage'
 import { StatusPage } from '@/pages/StatusPage'
+import { PublicEvalPage } from '@/pages/PublicEvalPage'
 import { SalesPage } from '@/pages/SalesPage'
+import { PricingPage } from '@/pages/PricingPage'
+import { RoiCalculatorPage } from '@/pages/RoiCalculatorPage'
+import { ConnectorMatrixPage } from '@/pages/ConnectorMatrixPage'
 import { BiEmbedPage } from '@/pages/BiEmbedPage'
 
 function LegacyJobsRedirect() {
@@ -102,6 +106,10 @@ export default function App() {
             <Route path="/verify" element={<AttestationVerifyPage />} />
             <Route path="/status" element={<StatusPage />} />
             <Route path="/sales" element={<SalesPage />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/roi" element={<RoiCalculatorPage />} />
+            <Route path="/connectors" element={<ConnectorMatrixPage />} />
+            <Route path="/eval/public" element={<PublicEvalPage />} />
             <Route path="/embed/:token" element={<BiEmbedPage />} />
             <Route
               path="/"

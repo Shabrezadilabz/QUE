@@ -278,3 +278,120 @@ async function sfFetch(url, token) {
   }
   return json
 }
+
+/**
+ * Apply per-object field allowlist from config.fieldMap.
+ * fieldMap: { Account: ['Id','Name','Industry'], Contact: ['Id','Email'] }
+ */
+export function applySalesforceFieldMap(tables, fieldMap = {}) {
+  if (!fieldMap || typeof fieldMap !== 'object') return tables
+  return tables.map((t) => {
+    const allow = fieldMap[t.name]
+    if (!Array.isArray(allow) || !allow.length) return t
+    const set = new Set(allow.map(String))
+    return {
+      ...t,
+      columns: (t.columns || []).filter((c) => set.has(c.name)),
+    }
+  })
+}
+
+function resolveSalesforceFields(table, config) {
+  const fieldMap = config.fieldMap || {}
+  const allow = fieldMap[table.name]
+  if (Array.isArray(allow) && allow.length) {
+    return allow.map(String)
+  }
+  const preferred = [
+    'Id',
+    'Name',
+    'Email',
+    'AccountId',
+    'Amount',
+    'StageName',
+    'SystemModstamp',
+    'LastModifiedDate',
+  ]
+  const fromCols = (table.columns || []).map((c) => c.name)
+  const pick = preferred.filter((p) => fromCols.includes(p))
+  if (pick.length >= 3) return pick
+  return fromCols.slice(0, 12)
+}
+
+/**
+ * S5.1 — Incremental sample fetch via SystemModstamp (schema-only; capped rows).
+ */
+export async function runSalesforceIncrementalSamples(
+  config,
+  tables,
+  syncState = {},
+) {
+  let instanceUrl = String(config.instanceUrl || config.host || '').replace(
+    /\/$/,
+    '',
+  )
+  if (instanceUrl && !/^https?:\/\//i.test(instanceUrl)) {
+    instanceUrl = `https://${instanceUrl}`
+  }
+  const token =
+    config.token ||
+    config.accessToken ||
+    process.env.SALESFORCE_ACCESS_TOKEN
+  if (!instanceUrl || !token) {
+    return { tables, syncState, recordsFetched: 0, skipped: 'not_live' }
+  }
+
+  const sampleLimit = Math.min(Number(config.sampleLimit ?? 5), 10)
+  const newState = {
+    ...syncState,
+    objects: { ...(syncState.objects || {}) },
+    updatedAt: new Date().toISOString(),
+  }
+  let recordsFetched = 0
+
+  for (const table of tables) {
+    const objectName = table.name
+    const cursor = newState.objects[objectName]?.lastModstamp || null
+    const fields = resolveSalesforceFields(table, config)
+    if (!fields.includes('SystemModstamp') && table.columns?.some((c) => c.name === 'SystemModstamp')) {
+      fields.push('SystemModstamp')
+    }
+    const fieldList = [...new Set(fields)].join(', ')
+    let soql = cursor
+      ? `SELECT ${fieldList} FROM ${objectName} WHERE SystemModstamp > ${cursor} ORDER BY SystemModstamp ASC LIMIT ${sampleLimit}`
+      : `SELECT ${fieldList} FROM ${objectName} ORDER BY SystemModstamp DESC LIMIT ${sampleLimit}`
+
+    try {
+      const q = await sfFetch(
+        `${instanceUrl}/services/data/${SF_API}/query?q=${encodeURIComponent(soql)}`,
+        token,
+      )
+      const records = Array.isArray(q.records) ? q.records : []
+      recordsFetched += records.length
+      let maxMod = cursor
+      for (const col of table.columns || []) {
+        const samples = []
+        for (const rec of records) {
+          if (rec[col.name] != null && rec[col.name] !== '') {
+            samples.push(String(rec[col.name]).slice(0, 120))
+          }
+          if (col.name === 'SystemModstamp' && rec.SystemModstamp) {
+            maxMod = !maxMod || rec.SystemModstamp > maxMod ? rec.SystemModstamp : maxMod
+          }
+        }
+        if (samples.length) col.sampleValues = samples.slice(0, sampleLimit)
+      }
+      if (maxMod) {
+        newState.objects[objectName] = {
+          lastModstamp: maxMod,
+          lastSyncAt: new Date().toISOString(),
+          recordsThisSync: records.length,
+        }
+      }
+    } catch {
+      /* object may not support SystemModstamp query — keep describe samples */
+    }
+  }
+
+  return { tables, syncState: newState, recordsFetched }
+}

@@ -59,17 +59,20 @@ export function FigmaStatusFooter() {
     <footer className="flex shrink-0 items-start justify-between border-t border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-shell)] px-[24px] py-[20px] text-[12px] text-[var(--pdf-text-muted)]">
       <p>© 2024 Que Data Engine. All rights reserved.</p>
       <div className="flex gap-[16px]">
-        <Link to="/product" className="hover:text-[#ecf0f4]">
-          System Architecture
+        <Link to="/pricing" className="hover:text-[#ecf0f4]">
+          Pricing
+        </Link>
+        <Link to="/roi" className="hover:text-[#ecf0f4]">
+          ROI calculator
+        </Link>
+        <Link to="/login?sandbox=1" className="hover:text-[#ecf0f4]">
+          Sandbox
         </Link>
         <Link to="/status" className="hover:text-[#ecf0f4]">
-          Incident History
+          Status
         </Link>
         <Link to="/sales" className="hover:text-[#ecf0f4]">
-          Support Center
-        </Link>
-        <Link to="/sales" className="hover:text-[#ecf0f4]">
-          Contact Engineering
+          Contact
         </Link>
       </div>
     </footer>

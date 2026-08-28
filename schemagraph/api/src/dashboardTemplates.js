@@ -2,11 +2,10 @@
  * Phase 3.2 — Pack dashboard templates → BI charts bound to KPIs / marts.
  */
 import { query } from './db.js'
-import { createBiChart } from './certifiedBi.js'
+import { createBiChart, updateBiChart } from './certifiedBi.js'
 import { listManagedDatasets } from './managedDataPlane.js'
 import { recordAuditEvent } from './auditLog.js'
 
-/** Ecommerce CEO dashboard widget specs (bind to KPI ids). */
 export const ECOMMERCE_CEO_DASHBOARD = {
   id: 'ceo-revenue',
   title: 'CEO Revenue Dashboard',
@@ -55,10 +54,217 @@ export const ECOMMERCE_CEO_DASHBOARD = {
   ],
 }
 
+export const FINANCE_CEO_DASHBOARD = {
+  id: 'finance-recon',
+  title: 'Finance Reconciliation Board',
+  audience: 'CFO',
+  widgets: [
+    {
+      id: 'unmatched_kpi',
+      title: 'Unmatched ledger %',
+      chartType: 'kpi',
+      kpiId: 'unmatched_pct',
+      layout: { col: 0, row: 0, w: 4, h: 2 },
+      config: { yField: 'unmatched_pct' },
+    },
+    {
+      id: 'variance_kpi',
+      title: 'Total variance',
+      chartType: 'kpi',
+      kpiId: 'variance_total',
+      layout: { col: 4, row: 0, w: 4, h: 2 },
+      config: { yField: 'variance_total' },
+    },
+    {
+      id: 'tie_out_kpi',
+      title: 'Tie-out pass rate',
+      chartType: 'kpi',
+      kpiId: 'tie_out_status',
+      layout: { col: 8, row: 0, w: 4, h: 2 },
+      config: { yField: 'tied_out_entities' },
+    },
+    {
+      id: 'unmatched_bar',
+      title: 'Unmatched by entity',
+      chartType: 'bar',
+      kpiId: 'unmatched_pct',
+      layout: { col: 0, row: 2, w: 8, h: 4 },
+      config: { xField: 'entity', yField: 'unmatched_pct' },
+    },
+    {
+      id: 'unmatched_table',
+      title: 'Unmatched ledger lines',
+      chartType: 'table',
+      kpiId: 'unmatched_pct',
+      layout: { col: 8, row: 2, w: 4, h: 4 },
+      config: { xField: 'external_ref', yField: 'amount' },
+    },
+  ],
+}
+
+export const LOGISTICS_SLA_DASHBOARD = {
+  id: 'logistics-sla',
+  title: 'Logistics SLA Dashboard',
+  audience: 'Ops',
+  widgets: [
+    {
+      id: 'on_time_kpi',
+      title: 'On-time delivery %',
+      chartType: 'kpi',
+      kpiId: 'on_time_pct',
+      layout: { col: 0, row: 0, w: 4, h: 2 },
+      config: { yField: 'on_time_pct' },
+    },
+    {
+      id: 'late_kpi',
+      title: 'Late shipments',
+      chartType: 'kpi',
+      kpiId: 'late_shipments',
+      layout: { col: 4, row: 0, w: 4, h: 2 },
+      config: { yField: 'late_shipments' },
+    },
+    {
+      id: 'transit_kpi',
+      title: 'Avg transit days',
+      chartType: 'kpi',
+      kpiId: 'avg_transit_days',
+      layout: { col: 8, row: 0, w: 4, h: 2 },
+      config: { yField: 'avg_transit_days' },
+    },
+    {
+      id: 'late_bar',
+      title: 'Late by carrier',
+      chartType: 'bar',
+      kpiId: 'late_shipments',
+      layout: { col: 0, row: 2, w: 8, h: 4 },
+      config: { xField: 'carrier', yField: 'late_shipments' },
+    },
+    {
+      id: 'sla_table',
+      title: 'Late shipment detail',
+      chartType: 'table',
+      kpiId: 'late_shipments',
+      layout: { col: 8, row: 2, w: 4, h: 4 },
+      config: { xField: 'shipment_id', yField: 'promised_at' },
+    },
+  ],
+}
+
+/** RS-3 — SportEdge exec board (5 visuals from certified mart). */
+export const SPORTEDGE_EXEC_DASHBOARD = {
+  id: 'sportedge-exec',
+  title: 'SportEdge Executive Board',
+  audience: 'CEO',
+  widgets: [
+    {
+      id: 'gmv_kpi',
+      title: 'GMV (INR)',
+      chartType: 'kpi',
+      kpiId: 'revenue_by_brand',
+      layout: { col: 0, row: 0, w: 4, h: 2 },
+      config: { yField: 'revenue', aggregate: 'sum' },
+    },
+    {
+      id: 'orders_kpi',
+      title: 'Orders',
+      chartType: 'kpi',
+      kpiId: 'order_count',
+      layout: { col: 4, row: 0, w: 4, h: 2 },
+      config: { yField: 'order_count' },
+    },
+    {
+      id: 'aov_kpi',
+      title: 'AOV',
+      chartType: 'kpi',
+      kpiId: 'aov',
+      layout: { col: 8, row: 0, w: 4, h: 2 },
+      config: { yField: 'average_order_value' },
+    },
+    {
+      id: 'brand_bar',
+      title: 'Revenue by brand',
+      chartType: 'bar',
+      kpiId: 'revenue_by_brand',
+      layout: { col: 0, row: 2, w: 8, h: 4 },
+      config: { xField: 'brand', yField: 'revenue' },
+    },
+    {
+      id: 'sku_table',
+      title: 'Top SKUs',
+      chartType: 'table',
+      kpiId: 'top_skus',
+      layout: { col: 8, row: 2, w: 4, h: 4 },
+      config: { xField: 'sku', yField: 'revenue' },
+    },
+  ],
+}
+
+export const SAAS_METRICS_DASHBOARD = {
+  id: 'saas-metrics',
+  title: 'SaaS Metrics Board',
+  audience: 'CEO',
+  widgets: [
+    {
+      id: 'mrr_kpi',
+      title: 'MRR',
+      chartType: 'kpi',
+      kpiId: 'mrr',
+      layout: { col: 0, row: 0, w: 4, h: 2 },
+      config: { yField: 'mrr' },
+    },
+    {
+      id: 'wau_kpi',
+      title: 'Weekly active accounts',
+      chartType: 'kpi',
+      kpiId: 'wau',
+      layout: { col: 4, row: 0, w: 4, h: 2 },
+      config: { yField: 'wau' },
+    },
+    {
+      id: 'churn_kpi',
+      title: 'Churn rate',
+      chartType: 'kpi',
+      kpiId: 'churn_rate',
+      layout: { col: 8, row: 0, w: 4, h: 2 },
+      config: { yField: 'churn_pct' },
+    },
+    {
+      id: 'wau_bar',
+      title: 'Events by account',
+      chartType: 'bar',
+      kpiId: 'wau',
+      layout: { col: 0, row: 2, w: 8, h: 4 },
+      config: { xField: 'account', yField: 'events_7d' },
+    },
+    {
+      id: 'mrr_table',
+      title: 'Subscription detail',
+      chartType: 'table',
+      kpiId: 'mrr',
+      layout: { col: 8, row: 2, w: 4, h: 4 },
+      config: { xField: 'account_id', yField: 'mrr_amount' },
+    },
+  ],
+}
+
 export function getPackDashboardTemplates(pack) {
   if (!pack) return []
-  if (pack.dashboards?.length) return pack.dashboards
-  if (pack.id === 'ecommerce-v1') return [ECOMMERCE_CEO_DASHBOARD]
+  if (pack.dashboards?.length) {
+    const byId = {
+      'ceo-revenue': ECOMMERCE_CEO_DASHBOARD,
+      'finance-recon': FINANCE_CEO_DASHBOARD,
+      'logistics-sla': LOGISTICS_SLA_DASHBOARD,
+      'saas-metrics': SAAS_METRICS_DASHBOARD,
+      'sportedge-exec': SPORTEDGE_EXEC_DASHBOARD,
+    }
+    return pack.dashboards
+      .map((d) => byId[d.id] || { ...d, widgets: d.widgets || [] })
+      .filter((d) => d.widgets?.length)
+  }
+  if (pack.id === 'ecommerce-v1') return [ECOMMERCE_CEO_DASHBOARD, SPORTEDGE_EXEC_DASHBOARD]
+  if (pack.id === 'finance-v1') return [FINANCE_CEO_DASHBOARD]
+  if (pack.id === 'logistics-v1') return [LOGISTICS_SLA_DASHBOARD]
+  if (pack.id === 'saas-metrics-v1') return [SAAS_METRICS_DASHBOARD]
   return []
 }
 
@@ -92,11 +298,12 @@ export async function seedDashboardsFromPack(
     datasets[0] ||
     null
 
-  const reportId = dash.id
   const created = []
   const updated = []
+  let reportId = templates[0]?.id || 'ceo-revenue'
 
   for (const dash of templates) {
+    reportId = dash.id
     for (const widget of dash.widgets || []) {
       const chartKey = `pack-${pack.id}-${dash.id}-${widget.id}`
       const { rows: existing } = await query(
@@ -145,10 +352,25 @@ export async function seedDashboardsFromPack(
         chartType: widget.chartType,
         datasetId: martDataset?.id || null,
         config,
-        certify: false,
+        certify: Boolean(opts.certify && martDataset?.certified),
         userId: opts.userId ?? null,
       })
       created.push(chart.id)
+    }
+  }
+
+  if (opts.certify && martDataset?.certified) {
+    for (const chartId of [...created, ...updated]) {
+      try {
+        await updateBiChart(
+          workspaceId,
+          chartId,
+          { certified: true },
+          opts.userId ?? null,
+        )
+      } catch {
+        /* best effort */
+      }
     }
   }
 

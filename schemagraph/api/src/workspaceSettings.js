@@ -31,6 +31,15 @@ const DEFAULT_SETTINGS = {
   managedMaxRowsPerDataset: 50000,
   managedRetentionDays: 90,
   inferJoinsOnSync: true,
+  /** S2 — after sync webhook (Airflow/n8n/Kestra) */
+  postSyncWebhookUrl: '',
+  /** S2 — queue Monk run after successful sync (default off) */
+  postSyncQueueMonk: false,
+  postSyncMonkPackId: 'ecommerce-v1',
+  /** S2 — CEO chat limited to certified marts + glossary */
+  ceoChatCertifiedOnly: true,
+  /** S2 — last sync banner hint (UI) */
+  lastPostSync: null,
   preferLlmChat: false,
   aiModelId: 'gpt-4o-mini',
   ragTopK: 8,
@@ -508,5 +517,35 @@ function pickAllowed(patch) {
       patch.dbtModelsPath.trim().replace(/^\/+|\/+$/g, '').slice(0, 200) ||
       'models/que'
   }
+  if (typeof patch.postSyncWebhookUrl === 'string') {
+    out.postSyncWebhookUrl = patch.postSyncWebhookUrl.trim().slice(0, 500)
+  }
+  if (typeof patch.postSyncQueueMonk === 'boolean') {
+    out.postSyncQueueMonk = patch.postSyncQueueMonk
+  }
+  if (typeof patch.postSyncMonkPackId === 'string') {
+    out.postSyncMonkPackId = patch.postSyncMonkPackId.trim().slice(0, 80)
+  }
+  if (typeof patch.ceoChatCertifiedOnly === 'boolean') {
+    out.ceoChatCertifiedOnly = patch.ceoChatCertifiedOnly
+  }
   return out
+}
+
+/** Merge arbitrary settings keys (internal — post-sync banner, etc.). */
+export async function patchWorkspaceSettingsJson(workspaceId, partial = {}) {
+  const { rows } = await query(
+    `SELECT settings_json FROM workspaces WHERE id = $1`,
+    [workspaceId],
+  )
+  if (!rows.length) return null
+  const merged = {
+    ...mergeSettings(rows[0].settings_json),
+    ...(partial && typeof partial === 'object' ? partial : {}),
+  }
+  await query(
+    `UPDATE workspaces SET settings_json = $2::jsonb WHERE id = $1`,
+    [workspaceId, JSON.stringify(merged)],
+  )
+  return merged
 }

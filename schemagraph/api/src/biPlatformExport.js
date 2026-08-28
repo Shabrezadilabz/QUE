@@ -153,8 +153,130 @@ export function formatBiExportMarkdown(pack) {
     for (const f of pack.files || []) {
       lines.push(`## ${f.path}`, '', '```lookml', f.content, '```', '')
     }
+  } else if (pack.format === 'tableau') {
+    lines.push('```xml', pack.workbookXml || '', '```')
   } else {
-    lines.push('```json', JSON.stringify(pack.dashboard, null, 2), '```')
+    lines.push('```json', JSON.stringify(pack.dashboard || pack.report || pack, null, 2), '```')
   }
   return lines.join('\n')
+}
+
+function chartsForReport(allCharts, opts = {}) {
+  const reportId = opts.reportId || 'ceo-revenue'
+  return allCharts.filter(
+    (ch) =>
+      !reportId ||
+      ch.config?.reportId === reportId ||
+      String(ch.title || '').toLowerCase().includes('revenue'),
+  )
+}
+
+function chartToNativeSql(ch) {
+  const x = ch.config?.xField
+  const y = ch.config?.yField
+  const table = ch.datasetRef || ch.tableName || 'que_marts.certified_mart'
+  if (ch.config?.sqlFallback) return ch.config.sqlFallback
+  if (x && y) {
+    return `SELECT ${x}, SUM(${y}) AS ${y}\nFROM ${table}\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 500`
+  }
+  return ch.sql || ch.query || `SELECT * FROM ${table} LIMIT 100`
+}
+
+/** Pure builder for unit tests and export. */
+export function buildPowerBiPackFromCharts(charts, opts = {}) {
+  const reportId = opts.reportId || 'ceo-revenue'
+  const tables = charts.map((ch, i) => ({
+    name: slug(ch.title || `Visual_${i + 1}`),
+    columns: [
+      ...(ch.config?.xField
+        ? [{ name: ch.config.xField, dataType: 'string' }]
+        : []),
+      ...(ch.config?.yField
+        ? [{ name: ch.config.yField, dataType: 'double' }]
+        : []),
+    ],
+    sourceExpression: chartToNativeSql(ch),
+  }))
+  const visuals = charts.map((ch, i) => ({
+    name: ch.title || `Visual ${i + 1}`,
+    type: mapPowerBiVisual(ch.chartType),
+    query: chartToNativeSql(ch),
+    x: ch.config?.layout?.col ?? 0,
+    y: ch.config?.layout?.row ?? 0,
+  }))
+  return {
+    format: 'powerbi',
+    version: '1.0',
+    disclaimer:
+      'Que Power BI export — import JSON template into Power BI Desktop; map data source manually.',
+    generatedAt: new Date().toISOString(),
+    workspaceId: opts.workspaceId || null,
+    reportId,
+    model: { name: `Que_${reportId}`, tables },
+    report: { name: `Que ${reportId}`, pages: [{ name: 'Page1', visuals }] },
+  }
+}
+
+/** Pure builder for unit tests and export. */
+export function buildTableauPackFromCharts(charts, opts = {}) {
+  const reportId = opts.reportId || 'ceo-revenue'
+  const worksheets = charts.map((ch, i) => ({
+    name: slug(ch.title || `sheet_${i + 1}`),
+    sql: chartToNativeSql(ch),
+    chartType: ch.chartType || 'bar',
+  }))
+  const workbookXml = renderTableauWorkbookXml(reportId, worksheets)
+  return {
+    format: 'tableau',
+    version: '1.0',
+    disclaimer:
+      'Que Tableau export — TWB-compatible XML fragment; connect to warehouse before publish.',
+    generatedAt: new Date().toISOString(),
+    workspaceId: opts.workspaceId || null,
+    reportId,
+    worksheets,
+    workbookXml,
+    files: [{ path: `${reportId}.twb.xml`, content: workbookXml }],
+  }
+}
+
+/** Power BI importable JSON (dataset + report pages) — not binary PBIX. */
+export async function exportPowerBiPack(workspaceId, opts = {}) {
+  const allCharts = await listBiCharts(workspaceId)
+  const charts = chartsForReport(allCharts, opts)
+  return buildPowerBiPackFromCharts(charts, { ...opts, workspaceId })
+}
+
+/** Tableau workbook XML fragment — import via Tableau REST or manual TWB merge. */
+export async function exportTableauPack(workspaceId, opts = {}) {
+  const allCharts = await listBiCharts(workspaceId)
+  const charts = chartsForReport(allCharts, opts)
+  return buildTableauPackFromCharts(charts, { ...opts, workspaceId })
+}
+
+function mapPowerBiVisual(chartType) {
+  const t = String(chartType || 'bar').toLowerCase()
+  if (t === 'line' || t === 'area') return 'lineChart'
+  if (t === 'pie') return 'pieChart'
+  if (t === 'kpi' || t === 'card') return 'card'
+  if (t === 'table') return 'table'
+  return 'clusteredBarChart'
+}
+
+function renderTableauWorkbookXml(reportId, worksheets) {
+  const sheets = worksheets
+    .map(
+      (w) =>
+        `  <worksheet name='${escapeXml(w.name)}'>\n    <sql>${escapeXml(w.sql)}</sql>\n    <mark class='${w.chartType === 'line' ? 'Line' : 'Bar'}'/>\n  </worksheet>`,
+    )
+    .join('\n')
+  return `<?xml version='1.0'?>\n<workbook source='Que' report='${escapeXml(reportId)}'>\n${sheets}\n</workbook>`
+}
+
+function escapeXml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&apos;')
 }

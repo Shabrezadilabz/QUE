@@ -1,0 +1,8 @@
+{
+  "description": "Golden join pairs for anonymized finance proof dataset (ledger ↔ bank feed)",
+  "pairs": [
+    { "fromTable": "ledger", "fromColumn": "external_ref", "toTable": "bank_feed", "toColumn": "ref" },
+    { "fromTable": "ledger", "fromColumn": "entity_id", "toTable": "entities", "toColumn": "entity_id" },
+    { "fromTable": "bank_feed", "fromColumn": "ref", "toTable": "ledger", "toColumn": "external_ref" }
+  ]
+}

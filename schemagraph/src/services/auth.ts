@@ -110,10 +110,12 @@ export async function registerRequest(input: {
   displayName?: string
   workspaceName?: string
   createWorkspace?: boolean
+  sandbox?: boolean
 }): Promise<{
   token: string
   user: AuthUser
   workspaces: AuthWorkspace[]
+  sandbox?: boolean
 }> {
   const res = await fetch(`${getApiBase()}/auth/register`, {
     method: 'POST',
@@ -125,6 +127,7 @@ export async function registerRequest(input: {
     user?: AuthUser
     workspaces?: AuthWorkspace[]
     error?: string
+    sandbox?: boolean
   }
   if (!res.ok || !body.token || !body.user) {
     throw new AuthError(body.error ?? `register ${res.status}`, res.status)
@@ -134,6 +137,7 @@ export async function registerRequest(input: {
     token: body.token,
     user: body.user,
     workspaces: body.workspaces ?? [],
+    sandbox: body.sandbox,
   }
 }
 

@@ -15,7 +15,7 @@ function sleep(ms) {
 export async function syncWithRetries(
   workspaceId,
   connectionId,
-  { maxAttempts = null } = {},
+  { maxAttempts = null, userId = null } = {},
 ) {
   const { rows } = await query(
     `SELECT sync_retry_max, sync_retry_backoff_sec, sync_attempt
@@ -60,7 +60,7 @@ export async function syncWithRetries(
       ],
     )
     try {
-      const result = await syncConnection(workspaceId, connectionId)
+      const result = await syncConnection(workspaceId, connectionId, { userId })
       const durationMs = Date.now() - started
       await query(
         `UPDATE connections SET

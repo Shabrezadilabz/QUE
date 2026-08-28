@@ -1,7 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import { readFileSync, existsSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { query } from './db.js'
 import { buildSchemaContextPack } from './schemaContext.js'
@@ -121,6 +121,7 @@ import {
   listDriftFixSuggestions,
   proposeDriftFixes,
   resolveDriftFix,
+  createDriftFixDraft,
 } from './driftAgent.js'
 import {
   applyJoinActionFromToken,
@@ -143,6 +144,7 @@ import {
   approveShip,
   rollbackShip,
   linkShipMaterialization,
+  shipCertifiedPackToBi,
 } from './shipToBi.js'
 import {
   listGlossaryTerms,
@@ -220,6 +222,16 @@ import {
 } from './siemExport.js'
 import { buildSoc2EvidencePack } from './soc2Evidence.js'
 import {
+  getSoc2KickoffStatus,
+  updateSoc2Kickoff,
+  kickoffSoc2TypeII,
+  freezeSoc2EvidencePack,
+} from './soc2Kickoff.js'
+import {
+  buildIndiaEnterpriseCompliance,
+  formatIndiaComplianceMarkdown,
+} from './enterpriseCompliance.js'
+import {
   runTenantIsolationTests,
   listIsolationRuns,
 } from './tenantIsolation.js'
@@ -228,7 +240,9 @@ import {
   formatGoldenSetMarkdown,
 } from './goldenSetEval.js'
 import { ingestBiLineage, listLatestBiLineage } from './exporters/biLineage.js'
-import { ingestDbtManifest } from './exporters/dbtManifestAssist.js'
+import { ingestDbtManifest, getLatestDbtManifestAssist } from './exporters/dbtManifestAssist.js'
+import { buildWorkspaceDbtBundleV2 } from './exporters/dbtBundleV2.js'
+import { buildNoLockInExportKit } from './exporters/noLockInExport.js'
 import {
   attestationFingerprint,
   verifyAttestationSignature,
@@ -340,6 +354,18 @@ import {
   applyIndustryTemplatePack,
   listPackInstalls,
 } from './industryTemplates.js'
+import { installAndStartMonk } from './marketplaceMonk.js'
+import {
+  listProofDatasets,
+  getProofDataset,
+  seedProofGoldenSchedule,
+} from './proofDatasets.js'
+import { createGenieDashboardDraft } from './genieDashboardDraft.js'
+import { getStewardDqDashboard } from './stewardDqDashboard.js'
+import {
+  buildLineageExportBundle,
+  formatLineageExportMarkdown,
+} from './lineageExport.js'
 import {
   startMonkModeRun,
   listMonkRuns,
@@ -348,6 +374,8 @@ import {
   getMonkCapabilityPreview,
   PHASES as MONK_PHASES,
 } from './monkMode.js'
+import { setMonkRunControl } from './monkRunControl.js'
+import { attachMonkEventsStream } from './monkEventsStream.js'
 import { rankPacksForWorkspace, listIndustryPacks, getIndustryPack } from './templateMatcher.js'
 import {
   listStewardInboxIssues,
@@ -384,9 +412,13 @@ import {
   upsertReplicationPipeline,
   runReplicationPipeline,
 } from './connectionReplication.js'
+import { scopeReplicationV2, runReplicationV2 } from './replicationV2.js'
+import { analyzeMultiSourceMonk } from './multiSourceMonk.js'
 import {
   exportLookerPack,
   exportMetabasePack,
+  exportPowerBiPack,
+  exportTableauPack,
   formatBiExportMarkdown,
 } from './biPlatformExport.js'
 import { listEntityMappings } from './templateMapper.js'
@@ -399,6 +431,8 @@ import {
 } from './workspaceMemory.js'
 import { MONK_AGENT_TOOLS } from './monkAgent.js'
 import { seedDashboardsFromPack } from './dashboardTemplates.js'
+import { getCertChecklist } from './certChecklist.js'
+import { exportSemanticLayerBundle } from './semanticLayerExport.js'
 import { planPackMartMaterializations } from './packMartMaterialize.js'
 import { getPackDashboardTemplates } from './dashboardTemplates.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
@@ -410,6 +444,7 @@ import {
   updateBiChart,
   deleteBiChart,
   previewBiChart,
+  getBiChartDrillSql,
   scaffoldBiReport,
   mintBiEmbedToken,
   revokeBiEmbedToken,
@@ -431,6 +466,21 @@ import {
   triggerOrchestrator,
   testOrchestratorPing,
 } from './orchestratorTrigger.js'
+import { getOrchestratorRecipes } from './orchestratorRecipes.js'
+import { handlePartnerIngestHook } from './partnerIngestHook.js'
+import {
+  planReverseEtlSegment,
+  pushReverseEtlSegment,
+  REVERSE_ETL_DESTINATIONS,
+} from './reverseEtl.js'
+import {
+  getReportBoardConfig,
+  updateReportBoardConfig,
+  triggerReportStudioRefresh,
+  onJobRunCompleteRefreshBoards,
+  BOARD_LAYOUT_PRESETS,
+} from './reportStudioRefresh.js'
+import { buildLookerMergeKit } from './lookerMergeKit.js'
 import {
   runMappingAssist,
   listRenameSuggestions,
@@ -441,12 +491,45 @@ import {
   updatePrivateRunnerConfig,
   enqueuePrivateRunnerJob,
   handleRunnerCallback,
+  checkPrivateRunnerHealth,
+  getPrivateRunnerInstallGuide,
+  JOB_ISOLATION_POLICY,
 } from './privateRunner.js'
 import {
   getBillingStatus,
   createCheckoutSession,
   createBillingPortalSession,
 } from './billing.js'
+import { getWorkspaceMetering, S1_PRICING } from './billingMetering.js'
+import { runLoadTestSuite, LOAD_TEST_DEFAULTS } from './loadTestSuite.js'
+import {
+  getEnhancedPublicStatus,
+  getOnCallRunbook,
+  formatRunbookMarkdown,
+} from './statusPage.js'
+import {
+  getJoinReviewCollab,
+  claimJoinReviewLock,
+  releaseJoinReviewLock,
+  touchJoinReviewLock,
+} from './joinReviewCollab.js'
+import { getExtendedConnectorMatrix } from './connectorLongTail.js'
+import {
+  forkPackById,
+  diffPackDefinitions,
+  mergePackForkVariants,
+} from './packStudioFork.js'
+import {
+  listBiTemplateMarketplace,
+  buildEmbedSdkSnippet,
+  getWhiteLabelEmbedConfig,
+} from './reportStudioEmbed.js'
+import { getPublicEvalDashboard } from './publicEvalDashboard.js'
+import {
+  getGlobalGtmPack,
+  formatCaseStudiesMarkdown,
+} from './globalGtm.js'
+import { markSoc2ObservationComplete } from './soc2Kickoff.js'
 import {
   materializeJob,
   listMaterializations,
@@ -478,6 +561,8 @@ import {
   getConnectorReliabilityStatus,
   updateConnectionRetryPolicy,
 } from './connectorReliability.js'
+import { getConnectorMatrix } from './connectorMatrix.js'
+import { validateConnectionLive } from './connectorValidate.js'
 import {
   heartbeatPresence,
   listPresence,
@@ -624,6 +709,11 @@ app.get('/openapi.json', (_req, res) => {
   } catch (err) {
     res.status(404).json({ error: 'openapi.json missing', detail: String(err.message || err) })
   }
+})
+
+/** S5.3 — Public honest connector matrix (sales / India GTM) */
+app.get('/connectors/matrix', (_req, res) => {
+  res.json({ ok: true, matrix: getExtendedConnectorMatrix() })
 })
 
 /** Auth */
@@ -1549,7 +1639,9 @@ app.post(
   async (req, res) => {
     const { workspaceId, connectionId } = req.params
     try {
-      const result = await syncWithRetries(workspaceId, connectionId)
+      const result = await syncWithRetries(workspaceId, connectionId, {
+        userId: req.user?.id ?? null,
+      })
       void reindexWorkspace(workspaceId).catch((err) =>
         console.warn('[Que] reindex after sync:', err.message || err),
       )
@@ -1593,6 +1685,22 @@ app.post(
         healthKind: err.healthKind || null,
         needsReauth: err.healthKind === 'auth',
       })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/connections/:connectionId/validate-live',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await validateConnectionLive(
+        req.params.workspaceId,
+        req.params.connectionId,
+      )
+      res.json({ ok: true, validation: result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
     }
   },
 )
@@ -2424,6 +2532,13 @@ app.post(
           schemaSnapshotId: job.schemaSnapshotId,
           sqlText: job.sqlText,
         }).catch(() => {})
+        if (run.status === 'succeeded' || run.status === 'completed') {
+          void onJobRunCompleteRefreshBoards(req.params.workspaceId, {
+            jobId: job.id,
+            runId: run.id,
+            status: run.status,
+          }).catch(() => {})
+        }
       }
       void recordAuditEvent({
         workspaceId: req.params.workspaceId,
@@ -3265,6 +3380,24 @@ app.post(
 )
 
 app.post(
+  '/workspaces/:workspaceId/drift-fixes/:suggestionId/create-draft',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await createDriftFixDraft(
+        req.params.workspaceId,
+        req.params.suggestionId,
+        req.user?.id ?? null,
+        { kind: req.body?.kind || 'transform' },
+      )
+      res.status(201).json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
   '/workspaces/:workspaceId/joins/auto-promote-low-risk',
   requireMinRole('admin'),
   async (req, res) => {
@@ -4016,6 +4149,102 @@ app.get(
   },
 )
 
+app.get(
+  '/workspaces/:workspaceId/enterprise/soc2-kickoff',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const kickoff = await getSoc2KickoffStatus(req.params.workspaceId)
+      res.json({ ok: true, kickoff })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/enterprise/soc2-kickoff',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const kickoff = await updateSoc2Kickoff(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, kickoff })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/soc2-kickoff/start',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const kickoff = await kickoffSoc2TypeII(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, kickoff })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/soc2-evidence/freeze',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const out = await freezeSoc2EvidencePack(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/enterprise/soc2-kickoff/complete',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const kickoff = await markSoc2ObservationComplete(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, kickoff })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/enterprise/india-compliance',
+  async (req, res) => {
+    try {
+      const pack = await buildIndiaEnterpriseCompliance(req.params.workspaceId)
+      if (req.query.format === 'md') {
+        res.type('text/markdown').send(formatIndiaComplianceMarkdown(pack))
+        return
+      }
+      res.json({ ok: true, pack })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.post(
   '/workspaces/:workspaceId/enterprise/isolation-test',
   requireMinRole('admin'),
@@ -4289,6 +4518,128 @@ app.post(
   },
 )
 
+app.get('/workspaces/:workspaceId/orchestrator/recipes', async (req, res) => {
+  try {
+    const recipes = await getOrchestratorRecipes(req.params.workspaceId, {
+      apiBase: req.query.apiBase,
+      packId: req.query.packId,
+    })
+    res.json({ ok: true, recipes })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/integrations/ingest-hook',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await handlePartnerIngestHook(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json(out)
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/reverse-etl/plan', async (req, res) => {
+  try {
+    const plan = await planReverseEtlSegment(req.params.workspaceId, {
+      destination: req.query.destination,
+      datasetId: req.query.datasetId,
+      segmentName: req.query.segmentName,
+    })
+    res.json({ ok: true, plan })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/reverse-etl/push',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await pushReverseEtlSegment(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json(out)
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/bi/boards/:reportId/config', async (req, res) => {
+  try {
+    const config = await getReportBoardConfig(
+      req.params.workspaceId,
+      req.params.reportId,
+    )
+    res.json({ ok: true, config })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/bi/boards/:reportId/config',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const config = await updateReportBoardConfig(
+        req.params.workspaceId,
+        req.params.reportId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, config })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/bi/boards/:reportId/refresh',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await triggerReportStudioRefresh(
+        req.params.workspaceId,
+        req.params.reportId,
+        req.body || {},
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/export/looker/merge-kit', async (req, res) => {
+  try {
+    const kit = await buildLookerMergeKit(req.params.workspaceId, {
+      reportId: req.query.reportId,
+      packId: req.query.packId,
+    })
+    if (req.query.format === 'md') {
+      res.type('text/markdown').send(kit.markdown)
+      return
+    }
+    res.json({ ok: true, kit })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
 app.post(
   '/workspaces/:workspaceId/jobs/:jobId/orchestrator/trigger',
   requireMinRole('member'),
@@ -4361,7 +4712,117 @@ app.patch(
   },
 )
 
-/** Wave 4.5 — private runner */
+/** Sprint 12 — global GTM (USD + case studies) */
+app.get('/gtm/global', (req, res) => {
+  const pack = getGlobalGtmPack()
+  if (req.query.format === 'markdown') {
+    res.type('text/markdown').send(formatCaseStudiesMarkdown(pack.caseStudies))
+    return
+  }
+  res.json({ ok: true, ...pack })
+})
+
+/** Sprint 12 — public eval dashboard (sales embed) */
+app.get('/eval/public', async (req, res) => {
+  try {
+    const workspaceId = req.query.workspaceId || process.env.QUE_DEMO_WORKSPACE_ID
+    if (!workspaceId) {
+      const { buildPublicEvalSnapshot } = await import('./publicEvalDashboard.js')
+      res.json({
+        ok: true,
+        snapshot: buildPublicEvalSnapshot({}, { sessions: 42, succeeded: 36 }),
+        demo: true,
+      })
+      return
+    }
+    const out = await getPublicEvalDashboard(String(workspaceId))
+    res.json({ ok: true, ...out })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/eval/public', async (req, res) => {
+  try {
+    const out = await getPublicEvalDashboard(req.params.workspaceId)
+    res.json({ ok: true, ...out })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Sprint 12 — Report Studio RS-7 marketplace + embed SDK */
+app.get('/workspaces/:workspaceId/bi/marketplace', async (req, res) => {
+  try {
+    const marketplace = listBiTemplateMarketplace({
+      packId: req.query.packId,
+    })
+    res.json({ ok: true, marketplace })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/bi/embed-sdk', async (req, res) => {
+  try {
+    const whiteLabel = await getWhiteLabelEmbedConfig(req.params.workspaceId)
+    const baseUrl =
+      process.env.QUE_PUBLIC_URL ||
+      process.env.QUE_APP_URL ||
+      'http://localhost:5174'
+    const snippet = buildEmbedSdkSnippet({
+      token: req.query.token || 'YOUR_EMBED_TOKEN',
+      baseUrl,
+      whiteLabel,
+    })
+    res.json({ ok: true, whiteLabel, snippet })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Sprint 12 — Pack Studio fork / diff / merge */
+app.post('/workspaces/:workspaceId/pack-studio/fork', requireMinRole('member'), async (req, res) => {
+  try {
+    const fork = forkPackById(getIndustryPack, req.body?.packId || 'ecommerce-v1', {
+      suffix: req.body?.suffix,
+      displayName: req.body?.displayName,
+      kpis: req.body?.kpis,
+      jobs: req.body?.jobs,
+    })
+    res.json({ ok: true, fork })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post('/workspaces/:workspaceId/pack-studio/diff', async (req, res) => {
+  try {
+    const left = req.body?.left || getIndustryPack(req.body?.leftPackId)
+    const right = req.body?.right || getIndustryPack(req.body?.rightPackId)
+    const diff = diffPackDefinitions(left, right)
+    res.json({ ok: true, diff })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post('/workspaces/:workspaceId/pack-studio/merge-fork', requireMinRole('member'), async (req, res) => {
+  try {
+    const base = req.body?.base || getIndustryPack(req.body?.basePackId)
+    const fork = req.body?.fork
+    if (!base || !fork) {
+      res.status(400).json({ error: 'base and fork pack definitions required' })
+      return
+    }
+    const merged = mergePackForkVariants(base, fork, req.body?.weights || {})
+    res.json({ ok: true, merged })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Wave 1.5 — private runner */
 app.get('/workspaces/:workspaceId/private-runner', async (req, res) => {
   try {
     const config = await getPrivateRunnerConfig(req.params.workspaceId)
@@ -4395,6 +4856,28 @@ app.post('/runner/callback', async (req, res) => {
       req.headers['x-que-signature'],
     )
     res.json({ ok: true, run })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/private-runner/health', async (req, res) => {
+  try {
+    const health = await checkPrivateRunnerHealth(req.params.workspaceId)
+    res.status(health.ok ? 200 : 503).json({ ok: health.ok, health })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/private-runner/install-guide', async (req, res) => {
+  try {
+    const guide = getPrivateRunnerInstallGuide()
+    if (req.query.format === 'markdown') {
+      res.type('text/markdown').send(guide.markdown)
+      return
+    }
+    res.json({ ok: true, guide, isolation: JOB_ISOLATION_POLICY })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
   }
@@ -4437,6 +4920,35 @@ app.post(
     }
   },
 )
+
+/** Sprint 11 — usage metering + INR line items */
+app.get('/workspaces/:workspaceId/billing/metering', async (req, res) => {
+  try {
+    const metering = await getWorkspaceMetering(req.params.workspaceId, {
+      planTier: req.query.planTier,
+    })
+    if (req.query.format === 'markdown') {
+      const inv = metering.invoice
+      const md = [
+        '# Que metering preview',
+        '',
+        `Plan: ${inv.planTier}`,
+        `Subtotal: ₹${inv.subtotalInr.toLocaleString('en-IN')}`,
+        `GST (18%): ₹${inv.gstInr.toLocaleString('en-IN')}`,
+        `Total: ₹${inv.totalInr.toLocaleString('en-IN')}`,
+        '',
+        ...inv.lineItems.map(
+          (l) => `- ${l.label}: ${l.quantity} × ₹${l.unitInr} = ₹${l.totalInr}`,
+        ),
+      ].join('\n')
+      res.type('text/markdown').send(md)
+      return
+    }
+    res.json({ ok: true, metering, pricing: S1_PRICING })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
 
 /** Wave 2.4 — export attestation list / download / verify pack. */
 app.get('/workspaces/:workspaceId/export-attestations', async (req, res) => {
@@ -5042,6 +5554,28 @@ app.post(
   },
 )
 
+app.post(
+  '/workspaces/:workspaceId/bi/genie-dashboard-draft',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await createGenieDashboardDraft(req.params.workspaceId, {
+        prompt: req.body?.prompt || '',
+        packId: req.body?.packId || null,
+        title: req.body?.title || null,
+        datasetId: req.body?.datasetId || null,
+        userId: req.user?.id ?? null,
+      })
+      res.status(201).json({ ok: true, biReport: result, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code || null,
+      })
+    }
+  },
+)
+
 app.get('/workspaces/:workspaceId/bi/charts', async (req, res) => {
   try {
     const items = await listBiCharts(req.params.workspaceId)
@@ -5108,6 +5642,22 @@ app.delete(
     try {
       await deleteBiChart(req.params.workspaceId, req.params.chartId)
       res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/bi/charts/:chartId/drill-sql',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await getBiChartDrillSql(
+        req.params.workspaceId,
+        req.params.chartId,
+      )
+      res.json({ ok: true, ...result })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
     }
@@ -5361,6 +5911,7 @@ app.post(
     try {
       const out = await runGoldenEvalNow(req.params.workspaceId, {
         alertOnDrop: req.body?.alertOnDrop !== false,
+        userId: req.user?.id ?? null,
       })
       res.json({ ok: true, ...out })
     } catch (err) {
@@ -5369,21 +5920,73 @@ app.post(
   },
 )
 
+app.get('/workspaces/:workspaceId/lineage/export', async (req, res) => {
+  try {
+    const bundle = await buildLineageExportBundle(req.params.workspaceId, {
+      table: req.query.table,
+      column: req.query.column,
+      maxHops: req.query.maxHops,
+      userId: req.user?.id ?? null,
+    })
+    if (req.query.format === 'markdown') {
+      res.type('text/markdown').send(formatLineageExportMarkdown(bundle))
+      return
+    }
+    res.json({ ok: true, bundle })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
 /** Public product status (alias of health snapshot) */
 app.get('/status', async (_req, res) => {
   try {
-    const snap = await collectOpsSnapshot()
+    const snap = await getEnhancedPublicStatus()
+    res.status(snap.ok ? 200 : 503).json(snap)
+  } catch (err) {
+    res.status(503).json({ ok: false, error: String(err.message || err) })
+  }
+})
+
+/** Sprint 11 — enterprise status + on-call runbook */
+app.get('/enterprise/status', async (req, res) => {
+  try {
+    const snap = await getEnhancedPublicStatus()
+    const runbook = getOnCallRunbook()
+    if (req.query.format === 'runbook') {
+      res.type('text/markdown').send(formatRunbookMarkdown(runbook))
+      return
+    }
     res.status(snap.ok ? 200 : 503).json({
       ok: snap.ok,
-      product: 'Que',
-      message: snap.ok
-        ? 'All systems operational'
-        : 'Degraded — database unreachable',
-      ...snap,
+      status: snap,
+      runbook: {
+        id: runbook.id,
+        title: runbook.title,
+        escalation: runbook.escalation,
+        playbooks: runbook.playbooks,
+      },
     })
   } catch (err) {
     res.status(503).json({ ok: false, error: String(err.message || err) })
   }
+})
+
+/** Sprint 11 — load test (simulated, CI-friendly) */
+app.get('/ops/load-test', async (req, res) => {
+  try {
+    const report = await runLoadTestSuite({
+      concurrency: req.query.concurrency,
+      maxP95Ms: req.query.maxP95Ms,
+    })
+    res.status(report.ok ? 200 : 503).json({ ok: report.ok, report })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err.message || err) })
+  }
+})
+
+app.get('/ops/load-test/defaults', (_req, res) => {
+  res.json({ ok: true, defaults: LOAD_TEST_DEFAULTS })
 })
 
 /* ── Gap close: workspace rules ── */
@@ -5475,6 +6078,82 @@ app.post(
         { parentId: req.body?.parentId || null },
       )
       res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Sprint 11 — join review collab (presence + soft lock) */
+app.get(
+  '/workspaces/:workspaceId/join-reviews/:relationshipId/collab',
+  async (req, res) => {
+    try {
+      const collab = await getJoinReviewCollab(
+        req.params.workspaceId,
+        req.params.relationshipId,
+        { userId: req.user?.id ?? null },
+      )
+      res.json({ ok: true, collab })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/join-reviews/:relationshipId/collab/lock',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const lock = claimJoinReviewLock(
+        req.params.workspaceId,
+        req.params.relationshipId,
+        {
+          userId: req.user?.id,
+          displayName: req.user?.displayName || req.user?.name || '',
+          email: req.user?.email || '',
+        },
+      )
+      res.json({ ok: true, lock })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        code: err.code,
+        lock: err.lock,
+      })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/join-reviews/:relationshipId/collab/lock',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = releaseJoinReviewLock(
+        req.params.workspaceId,
+        req.params.relationshipId,
+        req.user?.id,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/join-reviews/:relationshipId/collab/touch',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const lock = touchJoinReviewLock(
+        req.params.workspaceId,
+        req.params.relationshipId,
+        req.user?.id,
+      )
+      res.json({ ok: true, lock })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
     }
@@ -5813,6 +6492,56 @@ app.post(
   },
 )
 
+app.post(
+  '/workspaces/:workspaceId/marketplace/:packId/start-monk',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await installAndStartMonk(
+        req.params.workspaceId,
+        req.params.packId,
+        {
+          userId: req.user?.id ?? null,
+          installTemplate: req.body?.installTemplate !== false,
+        },
+      )
+      res.status(201).json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/proof-datasets', (_req, res) => {
+  res.json({ ok: true, items: listProofDatasets() })
+})
+
+app.get('/proof-datasets/:datasetId', (req, res) => {
+  const ds = getProofDataset(req.params.datasetId)
+  if (!ds) return res.status(404).json({ error: 'proof dataset not found' })
+  res.json({ ok: true, dataset: ds })
+})
+
+app.post(
+  '/workspaces/:workspaceId/proof-datasets/:datasetId/seed-golden',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await seedProofGoldenSchedule(
+        req.params.workspaceId,
+        req.params.datasetId,
+        req.user?.id ?? null,
+      )
+      if (!out) {
+        return res.status(404).json({ error: 'proof dataset not found' })
+      }
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 /* ── Monk Mode + Steward inbox (Phase 1) ── */
 app.get('/workspaces/:workspaceId/monk/packs', async (req, res) => {
   try {
@@ -5825,7 +6554,7 @@ app.get('/workspaces/:workspaceId/monk/packs', async (req, res) => {
 app.get('/workspaces/:workspaceId/monk/preview', async (req, res) => {
   try {
     const packId = req.query.packId || 'ecommerce-v1'
-    const capability = await getMonkCapabilityPreview(
+    const preview = await getMonkCapabilityPreview(
       req.params.workspaceId,
       packId,
     )
@@ -5834,10 +6563,21 @@ app.get('/workspaces/:workspaceId/monk/preview', async (req, res) => {
     const ranked = rankPacksForWorkspace(packCtx.tables)
     res.json({
       ok: true,
-      capability,
+      capability: preview?.capability ?? preview,
+      multiSource: preview?.multiSource ?? null,
       ranked,
       phases: MONK_PHASES,
     })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/monk/multi-source', async (req, res) => {
+  try {
+    const packId = req.query.packId || 'ecommerce-v1'
+    const analysis = await analyzeMultiSourceMonk(req.params.workspaceId, packId)
+    res.json({ ok: true, analysis })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
   }
@@ -5882,6 +6622,30 @@ app.get(
 )
 
 app.post(
+  '/workspaces/:workspaceId/monk/runs/:runId/control',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const action = req.body?.action
+      const phase = req.body?.phase || req.body?.skipPhase
+      if (!['pause', 'resume', 'skip', 'skip_current'].includes(action)) {
+        return res.status(400).json({ error: 'action must be pause|resume|skip|skip_current' })
+      }
+      const run = await getMonkRun(req.params.workspaceId, req.params.runId)
+      if (!run) return res.status(404).json({ error: 'run not found' })
+      const control = setMonkRunControl(req.params.runId, action, {
+        phase: phase || run.phase,
+      })
+      res.json({ ok: true, control, run })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+attachMonkEventsStream(app)
+
+app.post(
   '/workspaces/:workspaceId/monk/start',
   requireMinRole('member'),
   async (req, res) => {
@@ -5889,6 +6653,7 @@ app.post(
       const run = await startMonkModeRun(req.params.workspaceId, {
         packId: req.body?.packId || 'ecommerce-v1',
         userId: req.user?.id ?? null,
+        multiSource: req.body?.multiSource,
       })
       res.status(201).json({ ok: true, run })
     } catch (err) {
@@ -5907,6 +6672,15 @@ app.get('/workspaces/:workspaceId/steward/inbox', async (req, res) => {
       getStewardInboxSummary(req.params.workspaceId),
     ])
     res.json({ ok: true, items, summary })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/steward/dq-dashboard', async (req, res) => {
+  try {
+    const dashboard = await getStewardDqDashboard(req.params.workspaceId)
+    res.json({ ok: true, dashboard })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
   }
@@ -5965,11 +6739,63 @@ app.get('/workspaces/:workspaceId/monk/certification', async (req, res) => {
       req.params.workspaceId,
       packId,
     )
-    res.json({ ok: true, certification: cert })
+    const checklist = await getCertChecklist(req.params.workspaceId, {
+      packId,
+    })
+    res.json({ ok: true, certification: cert, checklist })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
   }
 })
+
+app.get('/workspaces/:workspaceId/cert-checklist', async (req, res) => {
+  try {
+    const checklist = await getCertChecklist(req.params.workspaceId, {
+      packId: req.query.packId || 'ecommerce-v1',
+    })
+    res.json({ ok: true, checklist })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/semantic-layer/export', async (req, res) => {
+  try {
+    const bundle = await exportSemanticLayerBundle(req.params.workspaceId, {
+      packId: req.query.packId || 'ecommerce-v1',
+      certifiedOnly: req.query.certifiedOnly !== 'false',
+    })
+    if (req.query.format === 'yaml') {
+      const yamlFile = bundle.files.find((f) => f.path.endsWith('.yaml'))
+      res.type('text/yaml').send(yamlFile?.content || '')
+      return
+    }
+    res.json({ ok: true, bundle })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/ship-to-bi/certified-pack',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await shipCertifiedPackToBi(req.params.workspaceId, {
+        packId: req.body?.packId || 'ecommerce-v1',
+        reportId: req.body?.reportId || 'ceo-revenue',
+        title: req.body?.title || null,
+        userId: req.user?.id ?? null,
+      })
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({
+        error: String(err.message || err),
+        checklist: err.checklist || undefined,
+      })
+    }
+  },
+)
 
 app.post(
   '/workspaces/:workspaceId/monk/runs/:runId/certify',
@@ -5997,6 +6823,8 @@ app.post(
           passed: autopilot.passed,
           report: autopilot.certResult?.report,
           autopilot: autopilot.steps,
+          checklist: autopilot.checklist ?? null,
+          kpiCompletion: autopilot.kpiCompletion ?? null,
           ...autopilot.certResult,
         })
         return
@@ -6086,7 +6914,10 @@ app.post(
       const result = await seedDashboardsFromPack(
         req.params.workspaceId,
         pack,
-        { userId: req.user?.id ?? null },
+        {
+          userId: req.user?.id ?? null,
+          certify: req.body?.certify === true,
+        },
       )
       res.json({ ok: true, ...result })
     } catch (err) {
@@ -6289,6 +7120,39 @@ app.post(
   },
 )
 
+app.get('/workspaces/:workspaceId/replication/v2/scope', async (req, res) => {
+  try {
+    const scope = await scopeReplicationV2(req.params.workspaceId, {
+      warehouse: req.query.warehouse || 'snowflake',
+      maxTables: req.query.maxTables,
+    })
+    res.json({ ok: true, scope })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/replication/v2/run',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const out = await runReplicationV2(
+        req.params.workspaceId,
+        {
+          warehouse: req.body?.warehouse || req.query.warehouse || 'snowflake',
+          maxTables: req.body?.maxTables,
+          watermarkColumn: req.body?.watermarkColumn,
+        },
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.get('/workspaces/:workspaceId/export/looker', async (req, res) => {
   try {
     const pack = await exportLookerPack(req.params.workspaceId, {
@@ -6310,6 +7174,38 @@ app.get('/workspaces/:workspaceId/export/metabase', async (req, res) => {
     const pack = await exportMetabasePack(req.params.workspaceId, {
       reportId: req.query.reportId,
     })
+    res.json({ ok: true, export: pack })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/export/powerbi', async (req, res) => {
+  try {
+    const pack = await exportPowerBiPack(req.params.workspaceId, {
+      reportId: req.query.reportId,
+      packId: req.query.packId,
+    })
+    if (req.query.format === 'markdown') {
+      res.type('text/markdown').send(formatBiExportMarkdown(pack))
+      return
+    }
+    res.json({ ok: true, export: pack })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/export/tableau', async (req, res) => {
+  try {
+    const pack = await exportTableauPack(req.params.workspaceId, {
+      reportId: req.query.reportId,
+      packId: req.query.packId,
+    })
+    if (req.query.format === 'markdown') {
+      res.type('text/markdown').send(formatBiExportMarkdown(pack))
+      return
+    }
     res.json({ ok: true, export: pack })
   } catch (err) {
     res.status(err.status || 500).json({ error: String(err.message || err) })
@@ -6391,6 +7287,79 @@ app.post(
     }
   },
 )
+
+app.post(
+  '/workspaces/:workspaceId/export/dbt-bundle-v2',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const bundle = await buildWorkspaceDbtBundleV2(
+        req.params.workspaceId,
+        {
+          jobIds: req.body?.jobIds,
+          includeDrafts: req.body?.includeDrafts !== false,
+        },
+      )
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id ?? null,
+        action: 'export.dbt_bundle_v2',
+        resourceType: 'workspace',
+        resourceId: req.params.workspaceId,
+        summary: `dbt bundle v2 — ${bundle.modelCount} model(s)`,
+        meta: { jobCount: bundle.jobCount, fileCount: bundle.files.length },
+      })
+      res.json({ ok: true, bundle })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/export/no-lock-in',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const kit = await buildNoLockInExportKit(req.params.workspaceId, {
+        packId: req.body?.packId,
+        auditLimit: req.body?.auditLimit,
+      })
+      void recordAuditEvent({
+        workspaceId: req.params.workspaceId,
+        actorUserId: req.user?.id ?? null,
+        action: 'export.no_lock_in_kit',
+        resourceType: 'workspace',
+        resourceId: req.params.workspaceId,
+        summary: 'No lock-in export kit generated',
+        meta: kit.manifest.counts,
+      })
+      res.json({ ok: true, ...kit })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/dbt-manifest/status', async (req, res) => {
+  try {
+    const status = await getLatestDbtManifestAssist(req.params.workspaceId)
+    res.json({ ok: true, status })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/airflow/operator', async (_req, res) => {
+  try {
+    const base = dirname(fileURLToPath(import.meta.url))
+    const path = join(base, '../exporters/airflow/que_job_run_operator.py')
+    const source = readFileSync(path, 'utf8')
+    res.type('text/plain').send(source)
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) })
+  }
+})
 
 app.post(
   '/workspaces/:workspaceId/dbt-manifest',

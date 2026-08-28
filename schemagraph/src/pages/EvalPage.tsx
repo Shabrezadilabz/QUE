@@ -46,7 +46,7 @@ export function EvalPage() {
     setDash(d)
     setTemplates(t)
     setSchedule(s)
-    setMonkCert(cert)
+    setMonkCert(cert.certification)
     setPairsText(JSON.stringify(s.pairs || [], null, 2))
   }
 
@@ -66,7 +66,11 @@ export function EvalPage() {
         <h1 className="font-headline text-xl font-semibold">Eval dashboard</h1>
         <p className="mt-xs text-[13px] text-on-surface-variant">
           Join promote rates, job success, rules coverage — continuous quality
-          for AI-assisted DE/DA work.
+          for AI-assisted DE/DA work.{' '}
+          <Link to="/eval/public" className="text-secondary underline">
+            Public scorecard
+          </Link>{' '}
+          for sales (no login).
         </p>
         {error ? (
           <p className="mt-md text-[13px] text-error">{error}</p>

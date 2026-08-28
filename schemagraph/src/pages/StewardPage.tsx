@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { PdfPageHeader, PdfPrimaryButton } from '@/components/pdf/PdfUi'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
@@ -13,11 +13,20 @@ import {
   applyPiiPolicyApi,
   fetchStewardInbox,
   updateStewardIssueApi,
+  fetchStewardDqDashboard,
+  fetchDriftFixes,
+  proposeDriftFixesApi,
+  createDriftFixDraftApi,
+  resolveDriftFixApi,
   type StewardQueue,
   type StewardCertification,
   type StewardInboxIssue,
   type StewardInboxSummary,
+  type StewardDqDashboard,
+  type DriftFixSuggestion,
 } from '@/services/stitchApi'
+import { PageAutofillBanner } from '@/components/autofill/PageAutofill'
+import { usePageAutofill } from '@/hooks/usePageAutofill'
 
 function severityTone(sev: string) {
   if (sev === 'critical') return 'border-rose-500/40 bg-rose-500/10 text-rose-200'
@@ -26,31 +35,46 @@ function severityTone(sev: string) {
   return 'border-[#424850] bg-[#15191e] text-[#c8cdd3]'
 }
 
+function dqStatusTone(status: string) {
+  if (status === 'ok') return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200'
+  if (status === 'fail') return 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+  if (status === 'warn') return 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+  return 'border-[#424850] bg-[#15191e] text-[#c8cdd3]'
+}
+
 /**
  * Steward UX — Monk Mode quality inbox + certification queue + policy tools.
  */
 export function StewardPage() {
+  const navigate = useNavigate()
   const { canWrite, canAdmin } = useWorkspaceRole()
   const [queue, setQueue] = useState<StewardQueue | null>(null)
   const [certs, setCerts] = useState<StewardCertification[]>([])
   const [inbox, setInbox] = useState<StewardInboxIssue[]>([])
   const [inboxSummary, setInboxSummary] = useState<StewardInboxSummary | null>(null)
+  const [dqDashboard, setDqDashboard] = useState<StewardDqDashboard | null>(null)
+  const [driftFixes, setDriftFixes] = useState<DriftFixSuggestion[]>([])
   const [inboxFilter, setInboxFilter] = useState<'open' | 'all'>('open')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [ticketTitle, setTicketTitle] = useState('')
+  const { page: autofillPage } = usePageAutofill('steward')
 
   async function reload() {
-    const [q, c, inboxOut] = await Promise.all([
+    const [q, c, inboxOut, dq, fixes] = await Promise.all([
       fetchStewardQueue(),
       fetchCertifications('all'),
       fetchStewardInbox({ status: inboxFilter === 'open' ? 'open' : 'all' }),
+      fetchStewardDqDashboard().catch(() => null),
+      fetchDriftFixes('proposed').catch(() => []),
     ])
     setQueue(q)
     setCerts(c)
     setInbox(inboxOut.items)
     setInboxSummary(inboxOut.summary)
+    setDqDashboard(dq)
+    setDriftFixes(fixes)
   }
 
   useEffect(() => {
@@ -142,6 +166,49 @@ export function StewardPage() {
     }
   }
 
+  async function scanDriftFixes() {
+    if (!canWrite || busy) return
+    setBusy(true)
+    try {
+      const out = await proposeDriftFixesApi()
+      setToast(`Proposed ${out.created ?? 0} drift fix(es)`)
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function openDriftDraft(id: string, kind: 'transform' | 'job') {
+    if (!canWrite || busy) return
+    setBusy(true)
+    try {
+      const out = await createDriftFixDraftApi(id, kind)
+      setToast(`Draft created — ${out.kind}`)
+      if (out.href) navigate(out.href)
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function acceptDriftFix(id: string) {
+    if (!canWrite || busy) return
+    setBusy(true)
+    try {
+      await resolveDriftFixApi(id, 'accept')
+      setToast('Drift fix accepted')
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <QueAppChrome flush>
       <div className="flex h-full min-h-0 flex-col bg-[#111416]">
@@ -167,6 +234,10 @@ export function StewardPage() {
             </p>
           ) : null}
 
+          <div className="mb-[14px]">
+            <PageAutofillBanner page={autofillPage} compact />
+          </div>
+
           <div className="mb-[18px] flex flex-wrap gap-[12px] text-[13px] text-[#9aa3ad]">
             <span>
               <strong className="text-[#e8edf2]">{inboxSummary?.open ?? 0}</strong> open issues
@@ -182,6 +253,123 @@ export function StewardPage() {
               need cert
             </span>
           </div>
+
+          {dqDashboard?.widgets?.length ? (
+            <section className="mb-[18px] rounded-[16px] border border-solid border-[#2a3038] bg-[#15191e] p-[18px]">
+              <div className="mb-[12px] flex flex-wrap items-center justify-between gap-[10px]">
+                <div>
+                  <h2 className="text-[14px] font-semibold text-[#e8edf2]">DQ dashboard</h2>
+                  <p className="mt-[4px] text-[12px] text-[#8b949e]">
+                    Golden eval, joins, drift, and inbox in one pane.
+                  </p>
+                </div>
+                <Link
+                  to="/eval"
+                  className="text-[11px] font-semibold text-sky-300 hover:underline"
+                >
+                  Run golden eval →
+                </Link>
+              </div>
+              <div className="grid gap-[10px] sm:grid-cols-2 xl:grid-cols-3">
+                {dqDashboard.widgets.map((w) => (
+                  <Link
+                    key={w.id}
+                    to={w.href}
+                    className={`rounded-[12px] border border-solid px-[14px] py-[12px] transition hover:brightness-110 ${dqStatusTone(w.status)}`}
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-[0.6px] opacity-80">
+                      {w.label}
+                    </p>
+                    <p className="mt-[6px] text-[22px] font-semibold">{w.value}</p>
+                    {w.hint ? (
+                      <p className="mt-[4px] text-[11px] opacity-80">{w.hint}</p>
+                    ) : null}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section
+            id="drift-fixes"
+            className="mb-[18px] rounded-[16px] border border-solid border-[#2a3038] bg-[#15191e] p-[18px]"
+          >
+            <div className="mb-[12px] flex flex-wrap items-center justify-between gap-[10px]">
+              <div>
+                <h2 className="text-[14px] font-semibold text-[#e8edf2]">Drift fix proposals</h2>
+                <p className="mt-[4px] text-[12px] text-[#8b949e]">
+                  AI-drafted remap / re-freeze jobs — HITL approve before apply.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!canWrite || busy}
+                onClick={() => void scanDriftFixes()}
+                className="rounded-[10px] border border-solid border-[#424850] bg-[#0f1215] px-[12px] py-[6px] text-[11px] font-semibold text-[#c8cdd3] hover:bg-[#15191e] disabled:opacity-40"
+              >
+                Scan drift
+              </button>
+            </div>
+            <ul className="space-y-[8px]">
+              {driftFixes.map((fix) => (
+                <li
+                  key={fix.id}
+                  className="flex flex-wrap items-center justify-between gap-[10px] rounded-[12px] border border-solid border-[#2a3038] bg-[#0f1215] px-[14px] py-[12px]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-wide text-[#6b7280]">
+                      {fix.kind}
+                    </p>
+                    <p className="mt-[4px] text-[13px] font-medium text-[#e8edf2]">
+                      {fix.summary}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-[6px]">
+                    {fix.proposal?.href ? (
+                      <Link
+                        to={fix.proposal.href}
+                        className="rounded-[8px] border border-solid border-[#424850] px-[10px] py-[5px] text-[11px] font-semibold text-[#c8cdd3]"
+                      >
+                        Open draft
+                      </Link>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          disabled={!canWrite || busy}
+                          onClick={() => void openDriftDraft(fix.id, 'transform')}
+                          className="rounded-[8px] bg-sky-500/15 px-[10px] py-[5px] text-[11px] font-semibold text-sky-200 disabled:opacity-40"
+                        >
+                          Draft transform
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canWrite || busy}
+                          onClick={() => void openDriftDraft(fix.id, 'job')}
+                          className="rounded-[8px] border border-solid border-[#424850] px-[10px] py-[5px] text-[11px] font-semibold text-[#c8cdd3] disabled:opacity-40"
+                        >
+                          Draft job
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!canWrite || busy}
+                      onClick={() => void acceptDriftFix(fix.id)}
+                      className="rounded-[8px] bg-emerald-500/20 px-[10px] py-[5px] text-[11px] font-semibold text-emerald-200 disabled:opacity-40"
+                    >
+                      Accept
+                    </button>
+                  </div>
+                </li>
+              ))}
+              {!driftFixes.length ? (
+                <li className="rounded-[12px] border border-dashed border-[#424850] px-[14px] py-[20px] text-center text-[12px] text-[#8b949e]">
+                  No open drift fix proposals — run Scan drift after schema changes.
+                </li>
+              ) : null}
+            </ul>
+          </section>
 
           <section className="mb-[18px] rounded-[16px] border border-solid border-[#2a3038] bg-[#15191e] p-[18px]">
             <div className="mb-[14px] flex flex-wrap items-center justify-between gap-[10px]">

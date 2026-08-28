@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
   fetchBillingStatus,
+  fetchBillingMetering,
   createBillingCheckout,
   createBillingPortal,
   type BillingStatus,
+  type WorkspaceMetering,
 } from '@/services/stitchApi'
 import {
   SETTINGS_PANEL,
@@ -20,6 +22,7 @@ export function BillingPanel({
   canAdmin: boolean
 }) {
   const [billing, setBilling] = useState<BillingStatus | null>(null)
+  const [metering, setMetering] = useState<WorkspaceMetering | null>(null)
   const [seats, setSeats] = useState(5)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -28,7 +31,12 @@ export function BillingPanel({
     if (!workspaceId) return
     setErr(null)
     try {
-      setBilling(await fetchBillingStatus(workspaceId))
+      const [b, m] = await Promise.all([
+        fetchBillingStatus(workspaceId),
+        fetchBillingMetering(workspaceId).catch(() => null),
+      ])
+      setBilling(b)
+      setMetering(m)
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
     }
@@ -71,7 +79,7 @@ export function BillingPanel({
     <section className={SETTINGS_PANEL}>
       <SettingsPanelHeader
         title="Billing"
-        subtitle="Wave 4.6 — Stripe Checkout for seat packs (test mode). Soft-enforced against member count."
+        subtitle="S11 — Stripe seats + INR metering preview (Growth ₹50k–80k aligns with public pricing)."
       />
       {err ? (
         <p className="mt-[12px] text-[12px] text-[#ff6b6b]">{err}</p>
@@ -106,6 +114,29 @@ export function BillingPanel({
         <p className="mt-[12px] text-[12px] text-[#ff6b6b]">
           Soft warning: members exceed paid seats.
         </p>
+      ) : null}
+      {metering ? (
+        <div className="mt-[16px] rounded-[6px] border border-solid border-[#424850] bg-[#121619] p-[12px]">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-[#7aecd0]">
+            INR metering preview
+          </p>
+          <ul className="mt-[8px] space-y-[4px] text-[12px] text-[#c8cdd3]">
+            {metering.invoice.lineItems.map((l) => (
+              <li key={l.code}>
+                {l.label}: {l.quantity} × ₹{l.unitInr.toLocaleString('en-IN')} = ₹
+                {l.totalInr.toLocaleString('en-IN')}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-[8px] text-[13px] font-semibold text-[#ecf0f4]">
+            Total (incl. 18% GST): ₹{metering.invoice.totalInr.toLocaleString('en-IN')}
+          </p>
+          {metering.invoice.nearLimit?.length ? (
+            <p className="mt-[6px] text-[11px] text-[#ffb06b]">
+              Near limit: {metering.invoice.nearLimit.join(', ')}
+            </p>
+          ) : null}
+        </div>
       ) : null}
       {canAdmin ? (
         <div className="mt-[16px] flex flex-wrap items-end gap-[8px]">

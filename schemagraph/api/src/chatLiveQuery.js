@@ -41,6 +41,11 @@ import { leafName, norm } from './inferJoins.js'
 import { scrubGridRows } from './privacy/gridScrub.js'
 import { isHidePiiRuleEnabled } from './workspaceRules.js'
 import { loadPiiTaggedColumnNames } from './policyPacks.js'
+import {
+  getCertifiedChatScope,
+  validateCeoSqlAgainstCertified,
+  buildCeoUncertifiedReply,
+} from './ceoChatGuard.js'
 
 const WRITE_RE =
   /\b(insert|update|delete|drop|alter|truncate|merge|create|grant|revoke|load into)\b/i
@@ -563,6 +568,23 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
     }
   }
 
+  if (sql && audience === 'ceo') {
+    const scope = opts.ceoScope || (await getCertifiedChatScope(workspaceId))
+    if (scope.certifiedOnly) {
+      const certCheck = validateCeoSqlAgainstCertified(sql, scope)
+      if (!certCheck.ok) {
+        return {
+          ok: false,
+          skipped: true,
+          reason: 'ceo_uncertified_tables',
+          message: buildCeoUncertifiedReply(scope),
+          sql,
+          unknownTables: certCheck.unknown,
+        }
+      }
+    }
+  }
+
   if (!sql) {
     const hint =
       isBrandRevenueQuestion(question) &&
@@ -820,6 +842,9 @@ export async function enrichChatWithLiveQuery(workspaceId, question, result, opt
 
 function buildLiveFailureReply(question, live, audience) {
   if (audience === 'ceo') {
+    if (live.reason === 'ceo_uncertified_tables') {
+      return String(live.message || '').replace(/\*\*/g, '')
+    }
     if (live.reason === 'live_disabled') {
       return 'Live data reads are turned off for this workspace. Ask an admin to enable them in Settings → AI & Policy.'
     }

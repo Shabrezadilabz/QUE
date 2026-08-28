@@ -4,6 +4,10 @@
 import { query } from './db.js'
 import { evaluateGoldenSet } from './goldenSetEval.js'
 import { recordAuditEvent } from './auditLog.js'
+import { recordGoldenEvalScore } from './autoPromote.js'
+import { handleGoldenEvalFailure } from './goldenEvalAlerts.js'
+
+const DEFAULT_MIN_RECALL = Number(process.env.QUE_GOLDEN_MIN_RECALL || 0.35)
 
 export async function getGoldenEvalSchedule(workspaceId) {
   const { rows } = await query(
@@ -69,7 +73,7 @@ export async function upsertGoldenEvalSchedule(
   return getGoldenEvalSchedule(workspaceId)
 }
 
-export async function runGoldenEvalNow(workspaceId, { alertOnDrop = true } = {}) {
+export async function runGoldenEvalNow(workspaceId, { alertOnDrop = true, userId = null } = {}) {
   const sched = await getGoldenEvalSchedule(workspaceId)
   const pairs = sched.pairs || []
   if (!pairs.length) {
@@ -81,6 +85,9 @@ export async function runGoldenEvalNow(workspaceId, { alertOnDrop = true } = {})
   const recall = Number(report.recall || 0)
   const prev = sched.lastRecall
   const hours = sched.intervalHours || 24
+  const minRecall = DEFAULT_MIN_RECALL
+  const passed = recall >= minRecall
+
   await query(
     `UPDATE golden_eval_schedules SET
        last_run_at = now(),
@@ -89,10 +96,23 @@ export async function runGoldenEvalNow(workspaceId, { alertOnDrop = true } = {})
        next_run_at = now() + ($4 || ' hours')::interval,
        updated_at = now()
      WHERE workspace_id = $1`,
-    [workspaceId, recall, JSON.stringify(report), String(hours)],
+    [workspaceId, recall, JSON.stringify({ ...report, passed, minRecall }), String(hours)],
   )
 
-  if (
+  void recordGoldenEvalScore(workspaceId, {
+    ...report,
+    pairCount: pairs.length,
+  })
+
+  let failure = null
+  if (!passed && alertOnDrop) {
+    failure = await handleGoldenEvalFailure(workspaceId, {
+      report,
+      recall,
+      minRecall,
+      userId,
+    })
+  } else if (
     alertOnDrop &&
     prev != null &&
     Number.isFinite(prev) &&
@@ -110,14 +130,16 @@ export async function runGoldenEvalNow(workspaceId, { alertOnDrop = true } = {})
 
   void recordAuditEvent({
     workspaceId,
-    action: 'golden_eval.run',
+    action: passed ? 'golden_eval.run' : 'golden_eval.run_fail',
     resourceType: 'workspace',
     resourceId: workspaceId,
-    summary: `Golden eval recall ${(recall * 100).toFixed(1)}%`,
-    meta: { recall, pairs: pairs.length },
+    summary: passed
+      ? `Golden eval recall ${(recall * 100).toFixed(1)}%`
+      : `Golden eval failed ${(recall * 100).toFixed(1)}% (min ${(minRecall * 100).toFixed(1)}%)`,
+    meta: { recall, pairs: pairs.length, passed, minRecall },
   })
 
-  return { report, recall, previousRecall: prev }
+  return { report, recall, previousRecall: prev, passed, minRecall, failure }
 }
 
 export async function runGoldenEvalTick() {

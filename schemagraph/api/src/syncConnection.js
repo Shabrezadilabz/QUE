@@ -10,7 +10,12 @@ import { introspectMongo } from './connectors/mongo.js'
 import { introspectDatabricks } from './connectors/databricks.js'
 import { introspectSnowflake } from './connectors/snowflake.js'
 import { introspectBigQuery } from './connectors/bigquery.js'
-import { introspectSalesforce } from './connectors/salesforce.js'
+import { introspectSalesforce, applySalesforceFieldMap, runSalesforceIncrementalSamples } from './connectors/salesforce.js'
+import { introspectShopify } from './connectors/shopify.js'
+import { introspectRazorpay } from './connectors/razorpay.js'
+import { introspectZoho } from './connectors/zoho.js'
+import { assistJoinsFromBigQueryHistory } from './connectors/bigqueryQueryJoins.js'
+import { updateConnection } from './connections.js'
 import { inferCrossSourceJoins } from './inferJoins.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
 import { buildSyncDrift, capturePreSyncDrift } from './syncDrift.js'
@@ -25,7 +30,7 @@ import { ensurePinnedSamplesForConnection } from './pinnedSamples.js'
  * @param {string} workspaceId
  * @param {string} connectionId
  */
-export async function syncConnection(workspaceId, connectionId) {
+export async function syncConnection(workspaceId, connectionId, opts = {}) {
   const { rows: connRows } = await query(
     `SELECT id, workspace_id, name, source_type, config_json, status
      FROM connections
@@ -72,6 +77,36 @@ export async function syncConnection(workspaceId, connectionId) {
         },
         { enabled: false },
       )
+    }
+
+    if (
+      connection.source_type === 'salesforce' &&
+      config.mode === 'live' &&
+      config.incrementalSync !== false
+    ) {
+      if (config.fieldMap && typeof config.fieldMap === 'object') {
+        introspected.tables = applySalesforceFieldMap(
+          introspected.tables,
+          config.fieldMap,
+        )
+      }
+      const inc = await runSalesforceIncrementalSamples(
+        config,
+        introspected.tables,
+        config.sfSyncState || {},
+      )
+      introspected.tables = inc.tables
+      introspected.meta = {
+        ...(introspected.meta || {}),
+        incremental: true,
+        recordsFetched: inc.recordsFetched,
+        sfSyncState: inc.syncState,
+      }
+      if (inc.syncState && !inc.skipped) {
+        await updateConnection(workspaceId, connectionId, {
+          config: { sfSyncState: inc.syncState },
+        })
+      }
     }
   } catch (e) {
     const kind = classifySyncError(e)
@@ -168,7 +203,11 @@ export async function syncConnection(workspaceId, connectionId) {
   }
 
   let suggestedJoins = 0
-  if (prefs?.inferJoinsOnSync !== false) {
+  const inferOnSync =
+    config.postSyncInferJoins != null
+      ? Boolean(config.postSyncInferJoins)
+      : prefs?.inferJoinsOnSync !== false
+  if (inferOnSync) {
     const inferResult = await inferCrossSourceJoins(workspaceId, connectionId)
     suggestedJoins =
       typeof inferResult === 'number' ? inferResult : inferResult.created || 0
@@ -220,6 +259,29 @@ export async function syncConnection(workspaceId, connectionId) {
     }
   }
 
+  if (
+    prefs?.bigqueryQueryJoinAssist !== false &&
+    connection.source_type === 'bigquery' &&
+    config.mode === 'live'
+  ) {
+    try {
+      const bqJoins = await assistJoinsFromBigQueryHistory(
+        workspaceId,
+        connectionId,
+        config,
+      )
+      queryHistoryJoins = bqJoins
+      if (bqJoins?.created) {
+        suggestedJoins += bqJoins.created
+      }
+    } catch (err) {
+      queryHistoryJoins = {
+        created: 0,
+        error: String(err.message || err),
+      }
+    }
+  }
+
   const drift = await buildSyncDrift(
     workspaceId,
     connectionId,
@@ -227,7 +289,7 @@ export async function syncConnection(workspaceId, connectionId) {
     suggestedJoins,
   )
 
-  return {
+  const baseResult = {
     connectionId,
     sourceType: connection.source_type,
     schema: introspected.schema,
@@ -239,6 +301,25 @@ export async function syncConnection(workspaceId, connectionId) {
     pinnedSamples,
     drift,
     snapshot,
+  }
+
+  let postSync = null
+  try {
+    const { runPostSyncAutomation } = await import('./postSyncAutomation.js')
+    const auto = await runPostSyncAutomation(
+      workspaceId,
+      connectionId,
+      baseResult,
+      { connectionConfig: config, userId: opts.userId ?? null },
+    )
+    postSync = auto.postSync
+  } catch (err) {
+    console.warn('[Que] post-sync automation:', err.message || err)
+  }
+
+  return {
+    ...baseResult,
+    postSync,
   }
 }
 
@@ -285,6 +366,18 @@ async function runIntrospect(sourceType, config) {
 
   if (sourceType === 'salesforce') {
     return introspectSalesforce(config)
+  }
+
+  if (sourceType === 'shopify') {
+    return introspectShopify(config)
+  }
+
+  if (sourceType === 'razorpay') {
+    return introspectRazorpay(config)
+  }
+
+  if (sourceType === 'zoho') {
+    return introspectZoho(config)
   }
 
   const err = new Error(

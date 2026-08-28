@@ -28,8 +28,11 @@ export function TransformDraftsPanel({
     setLoading(true)
     setError(null)
     try {
-      const items = await fetchTransforms({ status: 'proposed' })
-      setDrafts(items)
+      const [proposed, approved] = await Promise.all([
+        fetchTransforms({ status: 'proposed' }),
+        fetchTransforms({ status: 'approved' }),
+      ])
+      setDrafts([...proposed, ...approved])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load drafts')
       setDrafts([])
@@ -134,7 +137,12 @@ export function TransformDraftsPanel({
                     </PdfGhostButton>
                     <PdfPrimaryButton
                       type="button"
-                      disabled={busy}
+                      disabled={busy || d.status !== 'approved'}
+                      title={
+                        d.status !== 'approved'
+                          ? 'Approve the draft before Apply'
+                          : undefined
+                      }
                       onClick={() => void review(d.id, 'apply')}
                     >
                       Apply → Job

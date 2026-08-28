@@ -24,7 +24,8 @@ import {
   shouldEnableMonkAutopilot,
 } from './packPolicies.js'
 import { planFinanceStagingMarts } from './packMartMaterialize.js'
-import { runMonkPostCertDeliverables } from './monkDeliverables.js'
+import { runCertifiedKpiCompletion } from './certCompletionLoop.js'
+import { getCertChecklist } from './certChecklist.js'
 import { listLearnedGoldenPairs } from './learnGoldenPairs.js'
 
 function loadGoldenPairsForPack(pack) {
@@ -307,9 +308,10 @@ export async function runMonkAutopilotCertLoop(workspaceId, pack, opts = {}) {
   }
 
   let deliverables = null
+  let kpiCompletion = null
   if (certResult?.passed) {
     try {
-      deliverables = await runMonkPostCertDeliverables(
+      kpiCompletion = await runCertifiedKpiCompletion(
         workspaceId,
         pack,
         certResult,
@@ -317,26 +319,34 @@ export async function runMonkAutopilotCertLoop(workspaceId, pack, opts = {}) {
           userId: opts.userId ?? null,
           connectionId: opts.connectionId ?? null,
           matchResult: opts.matchResult ?? null,
-          forceDbt: true,
         },
       )
-      for (const step of deliverables.steps || []) {
-        steps.push({ id: `deliverable_${step.id}`, ...step })
+      for (const step of kpiCompletion.steps || []) {
+        steps.push({ id: `kpi_${step.id}`, ...step })
       }
+      deliverables = { steps: kpiCompletion.steps }
     } catch (err) {
       steps.push({
-        id: 'deliverables',
+        id: 'kpi_completion',
         ok: false,
         message: err.message || String(err),
       })
     }
   }
 
+  const checklist =
+    kpiCompletion?.checklist ||
+    (certResult?.passed
+      ? await getCertChecklist(workspaceId, { packId: pack.id })
+      : null)
+
   return {
     skipped: false,
     steps,
     certResult,
     deliverables,
+    kpiCompletion,
+    checklist,
     passed: Boolean(certResult?.passed),
   }
 }

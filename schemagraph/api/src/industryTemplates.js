@@ -6,10 +6,12 @@ import { query } from './db.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { createJob } from './jobs.js'
 import { recordAuditEvent } from './auditLog.js'
+import { listIndustryPacks } from './packs/index.js'
 
 export const INDUSTRY_TEMPLATE_PACKS = [
   {
     id: 'retail-customer-360',
+    monkPackId: 'ecommerce-v1',
     industry: 'Retail',
     title: 'Customer 360 stitch',
     description:
@@ -29,6 +31,7 @@ export const INDUSTRY_TEMPLATE_PACKS = [
   },
   {
     id: 'finance-reconciliation',
+    monkPackId: 'finance-v1',
     industry: 'Finance',
     title: 'Ledger reconciliation',
     description: 'Stitch ledger lines to bank feeds with HITL join review.',
@@ -62,6 +65,7 @@ export const INDUSTRY_TEMPLATE_PACKS = [
   },
   {
     id: 'ceo-ops-revenue-region',
+    monkPackId: 'saas-metrics-v1',
     industry: 'Ops',
     title: 'CEO · Revenue by region',
     description:
@@ -96,6 +100,7 @@ export const INDUSTRY_TEMPLATE_PACKS = [
   },
   {
     id: 'saas-product-usage',
+    monkPackId: 'saas-metrics-v1',
     industry: 'SaaS',
     title: 'Product usage funnel',
     description: 'Accounts × events × invoices for product analytics.',
@@ -113,6 +118,7 @@ export const INDUSTRY_TEMPLATE_PACKS = [
   },
   {
     id: 'healthcare-claims',
+    monkPackId: 'healthcare-v1',
     industry: 'Healthcare',
     title: 'Claims ↔ eligibility stitch',
     description:
@@ -132,6 +138,7 @@ export const INDUSTRY_TEMPLATE_PACKS = [
   },
   {
     id: 'logistics-shipment-sla',
+    monkPackId: 'logistics-v1',
     industry: 'Logistics',
     title: 'Shipment SLA dashboard job',
     description: 'Shipments × carriers × SLA clocks for ops DE handoff.',
@@ -149,6 +156,7 @@ export const INDUSTRY_TEMPLATE_PACKS = [
   },
   {
     id: 'marketing-attribution',
+    monkPackId: 'marketing-attribution-v1',
     industry: 'Marketing',
     title: 'Multi-touch attribution draft',
     description: 'Touches × conversions with reviewable join evidence.',
@@ -242,6 +250,62 @@ export const INDUSTRY_TEMPLATE_PACKS = [
       },
     ],
   },
+  {
+    id: 'india-gst-compliance',
+    monkPackId: 'india-gst-v1',
+    industry: 'India GST',
+    title: 'GST compliance starter',
+    description:
+      'GST invoices, returns, and vendor GSTIN checks — ITC review with HITL before filing.',
+    tablesHint: ['gst_invoices', 'gst_returns', 'vendors'],
+    tags: ['india', 'gst', 'finance', 'featured'],
+    difficulty: 'intermediate',
+    featured: true,
+    notebookMarkdown:
+      '# GST compliance\nValidate vendor GSTIN and ITC eligibility before GSTR export.',
+    sqlCells: [
+      {
+        title: 'ITC review queue',
+        sql: `SELECT i.invoice_id, i.vendor_id, i.itc_amount, i.itc_eligible\nFROM gst_invoices i\nWHERE i.itc_eligible = false\nLIMIT 100;`,
+      },
+    ],
+  },
+  {
+    id: 'manufacturing-oee',
+    monkPackId: 'manufacturing-v1',
+    industry: 'Manufacturing',
+    title: 'Manufacturing OEE starter',
+    description: 'Work orders, BOM, and inventory — yield and scrap KPIs for plant ops.',
+    tablesHint: ['work_orders', 'bom', 'inventory'],
+    tags: ['manufacturing', 'oee'],
+    difficulty: 'intermediate',
+    featured: false,
+    notebookMarkdown: '# OEE starter\nPromote BOM joins before yield mart.',
+    sqlCells: [
+      {
+        title: 'Yield variance',
+        sql: `SELECT work_order_id, planned_qty, good_qty, scrap_qty\nFROM work_orders\nWHERE good_qty < planned_qty * 0.95\nLIMIT 100;`,
+      },
+    ],
+  },
+  {
+    id: 'edtech-enrollment',
+    monkPackId: 'edtech-v1',
+    industry: 'EdTech',
+    title: 'Enrollment & completion',
+    description: 'Students, courses, enrollments — completion funnel with steward review.',
+    tablesHint: ['students', 'courses', 'enrollments'],
+    tags: ['edtech', 'learning'],
+    difficulty: 'starter',
+    featured: false,
+    notebookMarkdown: '# EdTech enrollment\nCertify completion KPI after join promote.',
+    sqlCells: [
+      {
+        title: 'Completion by course',
+        sql: `SELECT c.title, e.status, COUNT(*) AS n\nFROM enrollments e\nJOIN courses c ON e.course_id = c.course_id\nGROUP BY 1, 2\nLIMIT 100;`,
+      },
+    ],
+  },
 ]
 
 function summarizePack(p) {
@@ -258,6 +322,10 @@ function summarizePack(p) {
     hasOutcome: Boolean(p.outcomePrompt),
     seedRuleCount: (p.seedRules || []).length,
     sqlCellCount: (p.sqlCells || []).length,
+    monkPackId: p.monkPackId || null,
+    hasMonk: Boolean(p.monkPackId),
+    kind: p.kind || 'template',
+    kpiCount: p.kpiCount ?? null,
   }
 }
 
@@ -291,19 +359,60 @@ export function getIndustryTemplatePack(packId) {
 }
 
 export function listMarketplaceCatalog(opts = {}) {
-  const packs = listIndustryTemplatePacks(opts)
-  const industries = [
-    ...new Set(INDUSTRY_TEMPLATE_PACKS.map((p) => p.industry)),
-  ].sort()
-  const tags = [
-    ...new Set(INDUSTRY_TEMPLATE_PACKS.flatMap((p) => p.tags || [])),
-  ].sort()
+  let packs = listIndustryTemplatePacks(opts)
+
+  const coveredMonk = new Set(
+    INDUSTRY_TEMPLATE_PACKS.map((p) => p.monkPackId).filter(Boolean),
+  )
+  for (const mp of listIndustryPacks()) {
+    if (coveredMonk.has(mp.id)) continue
+    packs.push(
+      summarizePack({
+        id: mp.id,
+        industry: mp.industry,
+        title: mp.displayName,
+        description: mp.description,
+        tablesHint: [],
+        tags: ['monk', 'vertical'],
+        difficulty: 'intermediate',
+        featured: Boolean(mp.featured),
+        monkPackId: mp.id,
+        kind: 'monk',
+        kpiCount: mp.kpiCount,
+      }),
+    )
+  }
+
+  if (opts.industry) {
+    const ind = String(opts.industry).toLowerCase()
+    packs = packs.filter((p) => p.industry.toLowerCase() === ind)
+  }
+  if (opts.tag) {
+    const t = String(opts.tag).toLowerCase()
+    packs = packs.filter((p) =>
+      (p.tags || []).some((x) => String(x).toLowerCase() === t),
+    )
+  }
+  if (opts.q) {
+    const needle = String(opts.q).toLowerCase()
+    packs = packs.filter(
+      (p) =>
+        p.title.toLowerCase().includes(needle) ||
+        p.description.toLowerCase().includes(needle) ||
+        p.industry.toLowerCase().includes(needle) ||
+        (p.tags || []).some((x) => String(x).toLowerCase().includes(needle)),
+    )
+  }
+
+  const industries = [...new Set(packs.map((p) => p.industry))].sort()
+  const tags = [...new Set(packs.flatMap((p) => p.tags || []))].sort()
   return {
     packs,
     industries,
     tags,
     featured: packs.filter((p) => p.featured),
     total: packs.length,
+    monkPackCount: listIndustryPacks().length,
   }
 }
 
@@ -537,6 +646,16 @@ export async function applyIndustryTemplatePack(
         : '/bi',
     },
   ]
+
+  if (pack.monkPackId) {
+    playbook.push({
+      id: 'monk',
+      title: 'Run Monk Mode',
+      status: 'ready',
+      detail: `Vertical pack ${pack.monkPackId} — auto map, KPIs, cert`,
+      href: `/monk?pack=${encodeURIComponent(pack.monkPackId)}`,
+    })
+  }
 
   void recordAuditEvent({
     workspaceId,

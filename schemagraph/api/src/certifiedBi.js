@@ -206,6 +206,64 @@ export async function deleteBiChart(workspaceId, chartId) {
 /**
  * Preview chart data from certified/managed dataset (human path — not AI).
  */
+
+/** RS-3 drill-to-SQL — cert mart query for steward review. */
+export function buildBiChartDrillSql(chart, dataset = null) {
+  if (!chart) return { sql: '', note: 'No chart' }
+  const table =
+    dataset?.tableName ||
+    dataset?.slug ||
+    chart.datasetRef ||
+    chart.tableName ||
+    'que_marts.certified_mart'
+  const x = chart.config?.xField
+  const y = chart.config?.yField
+  const metricSql = chart.config?.sqlFallback || chart.config?.metricSql
+  if (metricSql) {
+    return {
+      sql: String(metricSql),
+      certifiedOnly: true,
+      datasetId: chart.datasetId || null,
+      note: 'Metric expression from certified registry',
+    }
+  }
+  if (x && y) {
+    return {
+      sql: `SELECT ${x},\n       SUM(${y}) AS ${y}\nFROM ${table}\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 500`,
+      certifiedOnly: true,
+      datasetId: chart.datasetId || null,
+      fields: [x, y],
+    }
+  }
+  return {
+    sql: `SELECT *\nFROM ${table}\nLIMIT 100`,
+    certifiedOnly: true,
+    datasetId: chart.datasetId || null,
+  }
+}
+
+export async function getBiChartDrillSql(workspaceId, chartId) {
+  const chart = await getBiChart(workspaceId, chartId)
+  if (!chart) {
+    const err = new Error('chart not found')
+    err.status = 404
+    throw err
+  }
+  let dataset = null
+  if (chart.datasetId) {
+    const { listManagedDatasets } = await import('./managedDataPlane.js')
+    const datasets = await listManagedDatasets(workspaceId)
+    dataset = datasets.find((d) => d.id === chart.datasetId) || null
+    if (dataset && !dataset.certified) {
+      const err = new Error('Drill SQL requires a certified dataset')
+      err.status = 400
+      err.code = 'DATASET_NOT_CERTIFIED'
+      throw err
+    }
+  }
+  return { chart, ...buildBiChartDrillSql(chart, dataset) }
+}
+
 export async function previewBiChart(workspaceId, chartId, { limit = 100 } = {}) {
   const chart = await getBiChart(workspaceId, chartId)
   if (!chart) {

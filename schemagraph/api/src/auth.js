@@ -193,9 +193,24 @@ export async function register(body = {}) {
   let workspaces = await listWorkspacesForUser(id)
   if (wantWs && workspaces.length === 0) {
     const wsName =
-      String(body.workspaceName || '').trim() || `${displayName}'s workspace`
-    await createWorkspace(id, { name: wsName })
+      String(body.workspaceName || '').trim() ||
+      (body.sandbox
+        ? 'SportEdge Sandbox'
+        : `${displayName}'s workspace`)
+    const ws = await createWorkspace(id, { name: wsName })
     workspaces = await listWorkspacesForUser(id)
+    if (body.sandbox) {
+      try {
+        const { seedSandboxWorkspace, sandboxRegisterEnabled } = await import(
+          './sandboxSeed.js'
+        )
+        if (sandboxRegisterEnabled()) {
+          await seedSandboxWorkspace(ws.id)
+        }
+      } catch {
+        /* sandbox seed best-effort */
+      }
+    }
   }
 
   const token = randomBytes(32).toString('hex')
@@ -210,6 +225,7 @@ export async function register(body = {}) {
     expiresAt: expires.toISOString(),
     user: { id, email, displayName },
     workspaces,
+    sandbox: Boolean(body.sandbox),
   }
 }
 

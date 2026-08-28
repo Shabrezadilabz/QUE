@@ -1,0 +1,36 @@
+{
+  "schema": "razorpay",
+  "tables": [
+    {
+      "name": "payments",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["pay_Labc123"] },
+        { "name": "order_id", "dataType": "string", "keyKind": "fk", "references": "orders.id", "samples": ["order_Mxyz789"] },
+        { "name": "amount", "dataType": "integer", "samples": ["249900"] },
+        { "name": "currency", "dataType": "string", "samples": ["INR"] },
+        { "name": "status", "dataType": "string", "samples": ["captured"] },
+        { "name": "method", "dataType": "string", "samples": ["upi", "card"] }
+      ]
+    },
+    {
+      "name": "orders",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["order_Mxyz789"] },
+        { "name": "receipt", "dataType": "string", "samples": ["shopify_5001001"] },
+        { "name": "amount", "dataType": "integer", "samples": ["249900"] }
+      ]
+    },
+    {
+      "name": "refunds",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["rfnd_Rabc456"] },
+        { "name": "payment_id", "dataType": "string", "keyKind": "fk", "references": "payments.id", "samples": ["pay_Labc123"] },
+        { "name": "amount", "dataType": "integer", "samples": ["50000"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    { "fromTable": "payments", "fromColumn": "order_id", "toTable": "orders", "toColumn": "id" },
+    { "fromTable": "refunds", "fromColumn": "payment_id", "toTable": "payments", "toColumn": "id" }
+  ]
+}

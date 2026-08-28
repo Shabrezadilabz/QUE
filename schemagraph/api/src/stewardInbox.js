@@ -112,3 +112,48 @@ export async function updateStewardIssueStatus(
   }
   return issue
 }
+
+export async function createStewardInboxIssue(
+  workspaceId,
+  {
+    issueKind = 'quality',
+    severity = 'medium',
+    title,
+    description = '',
+    tableName = null,
+    columnName = null,
+    proposalSql = null,
+    proposal = {},
+    runId = null,
+    userId = null,
+  } = {},
+) {
+  const t = String(title || '').trim()
+  if (!t) {
+    const err = new Error('title required')
+    err.status = 400
+    throw err
+  }
+  const { rows } = await query(
+    `INSERT INTO steward_inbox_issues (
+       workspace_id, run_id, issue_kind, severity, status,
+       title, description, table_name, column_name,
+       proposal_sql, proposal_json, created_by
+     ) VALUES ($1,$2,$3,$4,'open',$5,$6,$7,$8,$9,$10::jsonb,$11)
+     RETURNING *`,
+    [
+      workspaceId,
+      runId,
+      issueKind,
+      severity,
+      t.slice(0, 400),
+      description?.slice(0, 2000) || null,
+      tableName,
+      columnName,
+      proposalSql,
+      JSON.stringify(proposal || {}),
+      userId,
+    ],
+  )
+  return mapIssue(rows[0])
+}

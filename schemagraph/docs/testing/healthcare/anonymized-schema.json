@@ -1,0 +1,35 @@
+{
+  "description": "Anonymized healthcare claims schema — PHI scrubbed sample (S6 proof dataset)",
+  "industry": "Healthcare",
+  "monkPackId": "healthcare-v1",
+  "tables": [
+    {
+      "name": "claims",
+      "columns": [
+        { "name": "claim_id", "type": "uuid", "key": "pk" },
+        { "name": "member_id", "type": "uuid", "key": "fk" },
+        { "name": "service_date", "type": "date", "key": "none" },
+        { "name": "status", "type": "text", "key": "none" },
+        { "name": "billed_amount", "type": "numeric", "key": "none" }
+      ]
+    },
+    {
+      "name": "members",
+      "columns": [
+        { "name": "member_id", "type": "uuid", "key": "pk" },
+        { "name": "status", "type": "text", "key": "none" },
+        { "name": "plan_code", "type": "text", "key": "none" }
+      ]
+    },
+    {
+      "name": "eligibility",
+      "columns": [
+        { "name": "eligibility_id", "type": "uuid", "key": "pk" },
+        { "name": "member_id", "type": "uuid", "key": "fk" },
+        { "name": "plan_id", "type": "text", "key": "none" },
+        { "name": "start_date", "type": "date", "key": "none" },
+        { "name": "end_date", "type": "date", "key": "none" }
+      ]
+    }
+  ]
+}

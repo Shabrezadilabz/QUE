@@ -404,3 +404,81 @@ export async function linkShipMaterialization(
   })
   return getShipEvent(workspaceId, shipId)
 }
+
+/**
+ * S3.2 — One-click ship certified pack to BI (Looker + Metabase export + embed ship).
+ */
+export async function shipCertifiedPackToBi(
+  workspaceId,
+  {
+    packId = 'ecommerce-v1',
+    reportId = 'ceo-revenue',
+    userId = null,
+    title = null,
+  } = {},
+) {
+  const { getIndustryPack } = await import('./packs/index.js')
+  const {
+    exportLookerPack,
+    exportMetabasePack,
+    formatBiExportMarkdown,
+  } = await import('./biPlatformExport.js')
+  const { getCertChecklist } = await import('./certChecklist.js')
+
+  const pack = getIndustryPack(packId)
+  if (!pack) {
+    const err = new Error('industry pack not found')
+    err.status = 404
+    throw err
+  }
+
+  const checklist = await getCertChecklist(workspaceId, { packId })
+  if (!checklist.canShipToBi) {
+    const err = new Error(
+      checklist.allGreen
+        ? 'Pack certification must pass before shipping to BI'
+        : 'Complete the steward cert checklist before shipping to BI',
+    )
+    err.status = 400
+    err.checklist = checklist
+    throw err
+  }
+
+  const looker = await exportLookerPack(workspaceId, { reportId, packId })
+  const metabase = await exportMetabasePack(workspaceId, { reportId })
+
+  let ship = null
+  if (userId) {
+    const draft = await createShipDraft(workspaceId, {
+      title: title || `${pack.displayName} — CEO dashboard`,
+      userId,
+      config: { packId, reportId, source: 'cert_happy_path' },
+    })
+    ship = await approveShip(workspaceId, draft.id, userId)
+  }
+
+  void recordAuditEvent({
+    workspaceId,
+    actorUserId: userId,
+    action: 'ship.certified_pack',
+    resourceType: 'bi_report',
+    resourceId: reportId,
+    summary: `Ship-to-BI happy path — ${pack.displayName}`,
+    meta: {
+      packId,
+      lookerFiles: looker.files?.length || 0,
+      metabaseCards: metabase.dashboard?.cards?.length || 0,
+      shipId: ship?.id || null,
+    },
+  })
+
+  return {
+    packId,
+    reportId,
+    checklist,
+    looker,
+    metabase,
+    lookerMarkdown: formatBiExportMarkdown(looker),
+    ship,
+  }
+}

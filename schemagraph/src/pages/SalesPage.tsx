@@ -2,10 +2,22 @@
  * Public sales page — honest positioning for prospects (no auth).
  */
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { QueLogo } from '@/components/QueLogo'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { fetchGlobalGtm } from '@/services/stitchApi'
 
 export function SalesPage() {
+  const [studies, setStudies] = useState<
+    { title: string; region: string; outcome: string; metric: string }[]
+  >([])
+
+  useEffect(() => {
+    void fetchGlobalGtm()
+      .then((g) => setStudies(g.caseStudies || []))
+      .catch(() => undefined)
+  }, [])
+
   return (
     <div className="que-auth-bg relative min-h-screen overflow-hidden">
       <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
@@ -32,16 +44,40 @@ export function SalesPage() {
 
         <div className="mt-xl flex flex-wrap gap-sm">
           <Link
-            to="/login"
+            to="/login?sandbox=1"
             className="rounded bg-primary px-lg py-2.5 font-label text-[13px] font-semibold text-on-primary hover:bg-primary-fixed-dim"
           >
-            Start workspace
+            Free sandbox
+          </Link>
+          <Link
+            to="/pricing"
+            className="rounded-lg border border-outline-variant px-lg py-2.5 font-label text-[13px] font-semibold text-on-surface"
+          >
+            Pricing
+          </Link>
+          <Link
+            to="/login"
+            className="rounded-lg border border-outline-variant px-lg py-2.5 font-label text-[13px] font-semibold text-on-surface"
+          >
+            Sign in
+          </Link>
+          <Link
+            to="/connectors"
+            className="rounded-lg border border-outline-variant px-lg py-2.5 font-label text-[13px] font-semibold text-on-surface"
+          >
+            Connectors
           </Link>
           <Link
             to="/status"
             className="rounded-lg border border-outline-variant px-lg py-2.5 font-label text-[13px] font-semibold text-on-surface"
           >
             System status
+          </Link>
+          <Link
+            to="/eval/public"
+            className="rounded-lg border border-outline-variant px-lg py-2.5 font-label text-[13px] font-semibold text-on-surface"
+          >
+            Quality scorecard
           </Link>
         </div>
 
@@ -67,6 +103,26 @@ export function SalesPage() {
             <li>• Compliance evidence pack for auditor diligence (not Type II cert)</li>
           </ul>
         </section>
+
+        {studies.length > 0 ? (
+          <section className="mt-xl">
+            <h2 className="font-headline text-xl font-semibold">Customer outcomes (S12)</h2>
+            <ul className="mt-md space-y-md">
+              {studies.map((s) => (
+                <li
+                  key={s.title}
+                  className="rounded-lg border border-outline-variant bg-surface-container-low/90 p-lg text-[13px]"
+                >
+                  <p className="font-headline font-semibold text-on-surface">{s.title}</p>
+                  <p className="mt-xs text-on-surface-variant">
+                    {s.region} · {s.metric}
+                  </p>
+                  <p className="mt-sm text-on-surface-variant">{s.outcome}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <p className="mt-xl text-[12px] text-on-surface-variant">
           Already a customer?{' '}

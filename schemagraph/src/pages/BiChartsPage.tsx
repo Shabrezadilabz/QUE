@@ -26,6 +26,14 @@ import {
   publishMetricBiApi,
   scaffoldBiReportApi,
   updateBiChartApi,
+  fetchBiChartDrillSql,
+  fetchLookerExport,
+  fetchMetabaseExport,
+  fetchPowerBiExport,
+  fetchTableauExport,
+  fetchReportBoardConfig,
+  updateReportBoardConfigApi,
+  refreshReportBoardApi,
   type BiChart,
   type ManagedDataset,
 } from '@/services/stitchApi'
@@ -118,6 +126,11 @@ export function BiChartsPage() {
   const [embedToken, setEmbedToken] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [editMode, setEditMode] = useState(true)
+  const [drillSql, setDrillSql] = useState<string | null>(null)
+  const [boardLayout, setBoardLayout] = useState('executive')
+  const [boardParams, setBoardParams] = useState<
+    { id: string; label: string; defaultValue?: string }[]
+  >([])
 
   const selected = useMemo(
     () => charts.find((c) => c.id === selectedId) ?? null,
@@ -181,6 +194,53 @@ export function BiChartsPage() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    const rid = reportFilter || 'sportedge-exec'
+    void fetchReportBoardConfig(rid)
+      .then((c) => {
+        setBoardLayout(c.layoutPreset)
+        setBoardParams(c.parameters || [])
+      })
+      .catch(() => {
+        /* optional */
+      })
+  }, [reportFilter])
+
+  useEffect(() => {
+    if (!selected?.id) {
+      setDrillSql(null)
+      return
+    }
+    void fetchBiChartDrillSql(selected.id)
+      .then((r) => setDrillSql(r.sql))
+      .catch(() => setDrillSql(null))
+  }, [selected?.id])
+
+  async function exportBoard(format: 'looker' | 'metabase' | 'powerbi' | 'tableau') {
+    setBusy(true)
+    setError(null)
+    try {
+      const reportId = reportFilter || 'sportedge-exec'
+      let payload: unknown
+      if (format === 'looker') payload = await fetchLookerExport({ reportId })
+      else if (format === 'metabase') payload = await fetchMetabaseExport({ reportId })
+      else if (format === 'powerbi') payload = await fetchPowerBiExport({ reportId })
+      else payload = await fetchTableauExport({ reportId })
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `que-${format}-${reportId}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      setToast(`Exported ${format} pack for ${reportId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (!selected) return
@@ -467,6 +527,20 @@ export function BiChartsPage() {
                 <RibbonBtn disabled={!canWrite || busy || !selected} onClick={() => void certifySelected()} label="Certify" />
                 <RibbonBtn disabled={busy || pageCharts.length === 0} onClick={() => void runAll()} label="Run" />
                 <RibbonBtn disabled={!canWrite || busy} onClick={() => void scaffold()} label="Build report" />
+                <RibbonBtn
+                  disabled={busy}
+                  onClick={() => {
+                    const p = new URLSearchParams(searchParams)
+                    p.set('report', 'sportedge-exec')
+                    setSearchParams(p, { replace: true })
+                    setToast('SportEdge exec board filter applied')
+                  }}
+                  label="SportEdge board"
+                />
+                <RibbonBtn disabled={busy} onClick={() => void exportBoard('looker')} label="Export Looker" />
+                <RibbonBtn disabled={busy} onClick={() => void exportBoard('metabase')} label="Metabase" />
+                <RibbonBtn disabled={busy} onClick={() => void exportBoard('powerbi')} label="Power BI" />
+                <RibbonBtn disabled={busy} onClick={() => void exportBoard('tableau')} label="Tableau" />
                 <RibbonBtn disabled={!canAdmin || busy || !selected?.certified} onClick={() => void mintSelected()} label="Embed" />
                 <RibbonBtn disabled={!canWrite || busy || !selected} onClick={() => void deleteSelected()} label="Delete" danger />
               </>
@@ -487,14 +561,41 @@ export function BiChartsPage() {
               </>
             ) : null}
             {ribbon === 'data' ? (
-              <p className="text-[11px] text-[#a3afbe]">
-                Drag fields from the left Data pane onto the canvas — certified managed datasets only.
-              </p>
+              <div className="flex flex-wrap items-center gap-[8px]">
+                <p className="text-[11px] text-[#a3afbe]">
+                  Certified datasets only — parameters:
+                </p>
+                {boardParams.map((p) => (
+                  <span
+                    key={p.id}
+                    className="rounded-[4px] border border-solid border-[#424850] px-[8px] py-[4px] text-[10px] text-[#c8cdd3]"
+                  >
+                    {p.label}: {p.defaultValue || '—'}
+                  </span>
+                ))}
+              </div>
             ) : null}
             {ribbon === 'view' ? (
               <>
                 <RibbonBtn onClick={() => setPageId('page1')} label="Page 1" active={pageId === 'page1'} />
                 <RibbonBtn onClick={() => setPageId('page2')} label="Page 2" active={pageId === 'page2'} />
+                <RibbonBtn
+                  onClick={() =>
+                    void updateReportBoardConfigApi(reportFilter || 'sportedge-exec', {
+                      layoutPreset: boardLayout,
+                    }).then(() => setToast(`Layout: ${boardLayout}`))
+                  }
+                  label={`Layout: ${boardLayout}`}
+                />
+                <RibbonBtn
+                  disabled={busy}
+                  onClick={() =>
+                    void refreshReportBoardApi(reportFilter || 'sportedge-exec').then((r) =>
+                      setToast(r.skipped ? 'No refresh webhook configured' : 'Refresh webhook sent'),
+                    )
+                  }
+                  label="Refresh webhook"
+                />
                 <RibbonBtn onClick={() => setEditMode(true)} label="Edit" active={editMode} />
                 <RibbonBtn onClick={() => setEditMode(false)} label="Reading" active={!editMode} />
               </>
@@ -786,10 +887,11 @@ export function BiChartsPage() {
                     <option value="">None</option>
                     {datasets.map((d) => (
                       <option key={d.id} value={d.id}>
-                        {d.name}
+                        ✓ {d.name}
                       </option>
                     ))}
                   </select>
+                  <span className="mt-[4px] block text-[9px] text-[#7aecd0]">Certified fields only</span>
                 </label>
                 <div className="grid grid-cols-2 gap-[8px]">
                   <label className="block text-[10px] text-[#a3afbe]">
@@ -857,6 +959,17 @@ export function BiChartsPage() {
                     </label>
                   ))}
                 </div>
+
+                {drillSql ? (
+                  <div className="rounded-[4px] border border-solid border-[#424850] bg-[#121619] p-[10px]">
+                    <p className="text-[10px] font-bold tracking-[0.6px] text-[#8a9099] uppercase">
+                      Drill-to-SQL
+                    </p>
+                    <pre className="mt-[8px] max-h-[140px] overflow-auto whitespace-pre-wrap text-[10px] text-[#c8cdd3]">
+                      {drillSql}
+                    </pre>
+                  </div>
+                ) : null}
 
                 <div className="flex flex-col gap-[8px] pt-[8px]">
                   <PdfGhostButton

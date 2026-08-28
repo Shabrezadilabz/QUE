@@ -1,29 +1,17 @@
 /**
  * Monk Mode certification gate — golden join recall + KPI seed check.
  */
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
 import { query } from './db.js'
 import { evaluateGoldenSet } from './goldenSetEval.js'
 import { getIndustryPack } from './packs/index.js'
 import { getPackCertMinRecall } from './packPolicies.js'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { loadGoldenPairsForPack } from './proofDatasets.js'
 
 const DEFAULT_MIN_RECALL = Number(process.env.QUE_MONK_MIN_RECALL || 0.35)
 
-let cachedSportedgePairs = null
-
+/** @deprecated use loadGoldenPairsForPack */
 export function loadSportedgeGoldenPairs() {
-  if (cachedSportedgePairs) return cachedSportedgePairs
-  const path = join(
-    __dirname,
-    '../../docs/testing/ecommerce/sportedge-golden-pairs.json',
-  )
-  const raw = JSON.parse(readFileSync(path, 'utf8'))
-  cachedSportedgePairs = Array.isArray(raw.pairs) ? raw.pairs : []
-  return cachedSportedgePairs
+  return loadGoldenPairsForPack({ goldenPairSource: 'ecommerce/sportedge-golden-pairs.json' })
 }
 
 /**
@@ -37,7 +25,7 @@ export async function runPackCertificationGate(workspaceId, opts = {}) {
   const pairs = opts.pairs?.length
     ? opts.pairs
     : pack?.goldenPairSource
-      ? loadSportedgeGoldenPairs()
+      ? loadGoldenPairsForPack(pack)
       : []
   const minRecall =
     typeof opts.minRecall === 'number'

@@ -14,6 +14,7 @@ import { getWorkspaceSettings } from './workspaceSettings.js'
 import { oidcReady } from './oidc.js'
 import { getSaasOpsSummary } from './saasOps.js'
 import { getConnectorReliabilityStatus } from './connectorReliability.js'
+import { getSoc2KickoffStatus } from './soc2Kickoff.js'
 
 export async function buildSoc2EvidencePack(workspaceId) {
   const settings = (await getWorkspaceSettings(workspaceId))?.settings || {}
@@ -38,6 +39,7 @@ export async function buildSoc2EvidencePack(workspaceId) {
   const connectors = await getConnectorReliabilityStatus(workspaceId).catch(
     () => null,
   )
+  const kickoff = await getSoc2KickoffStatus(workspaceId).catch(() => null)
 
   const controls = [
     {
@@ -188,6 +190,17 @@ export async function buildSoc2EvidencePack(workspaceId) {
       'Execute DR drill and record RPO/RTO evidence',
       'Customer DPA + residency options in MSA',
     ],
+    typeIIKickoff: kickoff
+      ? {
+          phase: kickoff.phase,
+          auditorEngaged: kickoff.auditorEngaged,
+          auditorName: kickoff.auditorName,
+          penTestScheduledAt: kickoff.penTestScheduledAt,
+          observationStartedAt: kickoff.observationStartedAt,
+          evidenceFrozenAt: kickoff.evidenceFrozenAt,
+          evidenceFrozenHash: kickoff.evidenceFrozenHash,
+        }
+      : null,
   }
 
   const markdown = formatEvidenceMarkdown(pack)

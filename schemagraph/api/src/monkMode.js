@@ -9,7 +9,13 @@ import { resolveWorkspacePack } from './customPacks.js'
 import {
   profileWorkspaceColumns,
   seedQualityIssuesFromPack,
+  seedTransformDraftsFromPackClean,
 } from './columnProfiling.js'
+import {
+  waitMonkPhaseGate,
+  shouldSkipMonkPhase,
+  clearMonkRunControl,
+} from './monkRunControl.js'
 import { listLiveTableNames } from './connectors/postgres.js'
 import { resolveLiveTarget } from './liveExec.js'
 import { applyIndustryTemplatePack } from './industryTemplates.js'
@@ -33,6 +39,7 @@ import {
 } from './packPolicies.js'
 import { runMonkAgentTools } from './monkAgent.js'
 import { runMonkAutopilotCertLoop } from './monkAutopilot.js'
+import { analyzeMultiSourceMonk, buildMultiSourceAnalysis, buildCrossSourceJoinHints } from './multiSourceMonk.js'
 
 const PHASES = ['discover', 'map', 'clean', 'build', 'certify', 'done']
 
@@ -205,9 +212,9 @@ function buildCapabilityMap(pack, matchResult, profileResult, buildResult, certR
 }
 
 /**
- * Start and execute Monk Mode run (synchronous v1 — poll events from UI).
+ * Start Monk Mode run — returns immediately; execution continues async.
  * @param {string} workspaceId
- * @param {{ packId?: string, userId?: string|null }} opts
+ * @param {{ packId?: string, userId?: string|null, async?: boolean }} opts
  */
 export async function startMonkModeRun(workspaceId, opts = {}) {
   const packId = opts.packId || 'ecommerce-v1'
@@ -228,9 +235,63 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
     [workspaceId, pack.id, pack.industry, opts.userId ?? null],
   )
   const run = mapRun(rows[0])
-  const runId = run.id
+
+  if (opts.async === false) {
+    return executeMonkModeRun(workspaceId, run.id, opts)
+  }
+
+  void executeMonkModeRun(workspaceId, run.id, opts).catch((err) => {
+    console.error('[Monk] async run failed:', err.message || err)
+  })
+  return run
+}
+
+async function monkPhaseGate(runId, workspaceId, phase) {
+  const gate = await waitMonkPhaseGate(runId, phase)
+  if (gate === 'skipped' || shouldSkipMonkPhase(runId, phase)) {
+    await appendEvent(
+      runId,
+      workspaceId,
+      phase,
+      `Phase skipped — continuing Monk run`,
+      { level: 'warn' },
+    )
+    return true
+  }
+  return false
+}
+
+/**
+ * Execute Monk Mode phases (Discover → Done). Poll or SSE events from UI.
+ */
+export async function executeMonkModeRun(workspaceId, runId, opts = {}) {
+  const runRow = await getMonkRun(workspaceId, runId)
+  if (!runRow) {
+    const err = new Error('monk run not found')
+    err.status = 404
+    throw err
+  }
+  const pack =
+    (await resolveWorkspacePack(workspaceId, runRow.packId)) ||
+    getIndustryPack(runRow.packId)
+  if (!pack) {
+    const err = new Error('industry pack not found')
+    err.status = 404
+    throw err
+  }
 
   try {
+    let profileResult = { columnCount: 0, tableCount: 0 }
+    let entityMappings = []
+    let issues = { created: 0 }
+    let buildResult = {
+      metrics: null,
+      jobs: null,
+      legacyJob: null,
+      marts: null,
+      dashboards: null,
+    }
+
     await appendEvent(
       runId,
       workspaceId,
@@ -291,9 +352,37 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
       },
     )
 
+    let multiSource = null
+    if (opts.multiSource !== false) {
+      multiSource = buildMultiSourceAnalysis(packCtx.tables, matchResult, pack)
+      multiSource.crossSourceJoinHints = buildCrossSourceJoinHints(
+        packCtx.tables,
+        packCtx.relationships,
+      )
+      if (multiSource.ready) {
+        await appendEvent(
+          runId,
+          workspaceId,
+          'discover',
+          multiSource.canCertMultiSource
+            ? `Multi-source cert path: ${multiSource.label}`
+            : `Multi-source profile: ${multiSource.label} — sync missing entities`,
+          {
+            level: multiSource.canCertMultiSource ? 'success' : 'warn',
+            detail: {
+              profile: multiSource.profile,
+              sources: multiSource.sources,
+              crossSourceJoins: multiSource.crossSourceJoinHints.length,
+            },
+          },
+        )
+      }
+    }
+
     await setRunPhase(runId, 'map', { matchScore: matchResult.scorePct })
 
-    const entityMappings = buildEntityMappings(pack, matchResult)
+    if (!(await monkPhaseGate(runId, workspaceId, 'map'))) {
+    entityMappings = buildEntityMappings(pack, matchResult)
     await persistEntityMappings(workspaceId, runId, pack.id, entityMappings)
     await appendEvent(
       runId,
@@ -312,7 +401,7 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
       )
     }
 
-    const profileResult = await profileWorkspaceColumns(workspaceId, {
+    profileResult = await profileWorkspaceColumns(workspaceId, {
       maxTables: 35,
     })
     await appendEvent(
@@ -322,10 +411,12 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
       `Profiled ${profileResult.columnCount} columns across ${profileResult.tableCount} tables`,
       { level: 'success' },
     )
+    }
 
     await setRunPhase(runId, 'clean')
 
-    const issues = await seedQualityIssuesFromPack(
+    if (!(await monkPhaseGate(runId, workspaceId, 'clean'))) {
+    issues = await seedQualityIssuesFromPack(
       workspaceId,
       runId,
       pack,
@@ -339,8 +430,28 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
       { level: issues.created ? 'warn' : 'success' },
     )
 
+    const transformDrafts = await seedTransformDraftsFromPackClean(
+      workspaceId,
+      runId,
+      pack,
+      matchResult,
+      { userId: opts.userId ?? null },
+    )
+    if (transformDrafts.created) {
+      await appendEvent(
+        runId,
+        workspaceId,
+        'clean',
+        `${transformDrafts.created} transform draft(s) — approve on /proposals then Apply`,
+        { level: 'warn', detail: { draftIds: transformDrafts.draftIds } },
+      )
+    }
+    }
+
     await setRunPhase(runId, 'build')
-    const buildResult = {
+
+    if (!(await monkPhaseGate(runId, workspaceId, 'build'))) {
+    buildResult = {
       metrics: null,
       jobs: null,
       legacyJob: null,
@@ -456,13 +567,16 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
         )
       }
     }
+    }
 
     await setRunPhase(runId, 'certify')
+
     let certResult = null
     let agentResult = null
     let autopilotResult = null
     const minRecall = getPackCertMinRecall(pack)
 
+    if (!(await monkPhaseGate(runId, workspaceId, 'certify'))) {
     try {
       autopilotResult = await runMonkAutopilotCertLoop(
         workspaceId,
@@ -592,6 +706,7 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
         : 'Certification pending — add missing tables and re-run Monk Mode',
       { level: matchResult.requiredOk ? 'success' : 'warn' },
     )
+    }
 
     const capability = buildCapabilityMap(
       pack,
@@ -623,6 +738,7 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
         agent: agentResult,
         entityCount: entityMappings.length,
         policies: pack.policies || {},
+        multiSource: multiSource || null,
       },
       completedAt: new Date(),
     })
@@ -634,6 +750,8 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
       'Monk Mode complete — review capability map and steward inbox',
       { level: 'success' },
     )
+
+    clearMonkRunControl(runId)
 
     return {
       ...(await getMonkRun(workspaceId, runId)),
@@ -649,6 +767,7 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
     await appendEvent(runId, workspaceId, 'discover', `Monk Mode failed: ${msg}`, {
       level: 'error',
     })
+    clearMonkRunControl(runId)
     throw err
   }
 }
@@ -659,13 +778,15 @@ export async function getMonkCapabilityPreview(workspaceId, packId = 'ecommerce-
   const packCtx = await buildSchemaContextPack(workspaceId)
   const matchResult = scorePackAgainstSchema(packCtx.tables, pack)
   const cert = await getLatestPackCertification(workspaceId, packId).catch(() => null)
-  return buildCapabilityMap(
+  const capability = buildCapabilityMap(
     pack,
     matchResult,
     { columnCount: 0 },
     { metrics: { total: cert?.kpiCount ?? 0 }, jobs: null, legacyJob: null },
     cert ? { passed: cert.status === 'passed', status: cert.status, report: cert.report } : null,
   )
+  const multiSource = await analyzeMultiSourceMonk(workspaceId, packId).catch(() => null)
+  return { capability, multiSource }
 }
 
 export { getLatestPackCertification }

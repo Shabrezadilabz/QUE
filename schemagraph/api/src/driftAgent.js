@@ -9,6 +9,9 @@ import {
 } from './contracts/contractFreeze.js'
 import { updateJob } from './jobs.js'
 import { runMappingAssist } from './mappingAssist.js'
+import { createTransformDraft } from './transformDrafts.js'
+import { createJob } from './jobs.js'
+import { buildNotebookFromFields } from './jobNotebook.js'
 
 function mapSuggestion(r) {
   return {
@@ -146,6 +149,77 @@ export async function proposeDriftFixes(workspaceId, userId = null) {
     created: created.length,
     suggestionIds: created,
   }
+}
+
+/**
+ * S7.4 — Create HITL transform draft or job from a drift fix suggestion.
+ */
+export async function createDriftFixDraft(
+  workspaceId,
+  suggestionId,
+  userId = null,
+  { kind = 'transform' } = {},
+) {
+  const { rows } = await query(
+    `SELECT * FROM drift_fix_suggestions
+     WHERE workspace_id = $1 AND id = $2`,
+    [workspaceId, suggestionId],
+  )
+  if (!rows.length) {
+    const err = new Error('suggestion not found')
+    err.status = 404
+    throw err
+  }
+  const s = rows[0]
+  const proposal = s.proposal_json || {}
+  const summary = s.summary || 'Drift fix draft'
+  const prompt = `Fix schema drift: ${summary}. Review rename hints and re-promote joins before apply.`
+
+  if (kind === 'job' || s.kind === 'refreeze') {
+    const sqlText =
+      proposal.sql ||
+      `-- Drift fix for ${s.drift_event_id || s.job_id || 'workspace'}\n-- ${summary}\nSELECT 1 AS drift_fix_placeholder;`
+    const notebook = buildNotebookFromFields({
+      title: `[Drift fix] ${summary.slice(0, 80)}`,
+      notes: `HITL drift fix job — ${summary}`,
+      sqlText,
+      tables: [],
+    })
+    const job = await createJob(workspaceId, {
+      title: `[Drift fix] ${summary.slice(0, 100)}`,
+      notebook,
+      sqlText,
+      notes: summary,
+    })
+    await query(
+      `UPDATE drift_fix_suggestions
+       SET proposal_json = proposal_json || $3::jsonb, updated_at = now()
+       WHERE workspace_id = $1 AND id = $2`,
+      [
+        workspaceId,
+        suggestionId,
+        JSON.stringify({ jobId: job.id, href: `/jobs/${job.id}/notebook` }),
+      ],
+    )
+    return { kind: 'job', job, href: `/jobs/${job.id}/notebook` }
+  }
+
+  const draft = await createTransformDraft(workspaceId, {
+    prompt,
+    title: summary.slice(0, 120),
+    userId,
+  })
+  await query(
+    `UPDATE drift_fix_suggestions
+     SET proposal_json = proposal_json || $3::jsonb, updated_at = now()
+     WHERE workspace_id = $1 AND id = $2`,
+    [
+      workspaceId,
+      suggestionId,
+      JSON.stringify({ draftId: draft.id, href: `/proposals?draft=${draft.id}` }),
+    ],
+  )
+  return { kind: 'transform', draft, href: `/proposals?draft=${draft.id}` }
 }
 
 /**

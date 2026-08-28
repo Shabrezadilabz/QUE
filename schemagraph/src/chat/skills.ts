@@ -123,6 +123,14 @@ export const CHAT_SKILLS: ChatSkill[] = [
       '/bi Build a semantic BI report from this workspace summary',
   },
   {
+    id: 'dashboard',
+    slash: '/dashboard',
+    label: 'Dashboard draft (RS-2)',
+    description: 'Genie creates an editable Report Studio board from your prompt',
+    buildPrompt: () =>
+      '/genie Create a dashboard draft with revenue KPI, bar chart by region, and a detail table — open in Report Studio',
+  },
+  {
     id: 'help',
     slash: '/help',
     label: 'Help',

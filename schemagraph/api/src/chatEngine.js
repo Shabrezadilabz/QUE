@@ -34,6 +34,14 @@ import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { bestJoinOnClause } from './inferJoins.js'
 import { getWorkspaceLineageLite } from './lineageLite.js'
+import {
+  getCertifiedChatScope,
+  filterPackForCeoAudience,
+  formatGlossaryBlock,
+  buildCeoUncertifiedReply,
+  isGlossaryOnlyQuestion,
+} from './ceoChatGuard.js'
+import { looksLikeDataQuestion } from './chatLiveQuery.js'
 
 /**
  * Phase 3 — lineage-grounded citation strings (edges + owners / job titles).
@@ -108,6 +116,7 @@ async function finalizeChatResult(result, pack, userMessage = '', finalizeOpts =
       hasSlashSkill: finalizeOpts.hasSlashSkill,
       audience: finalizeOpts.audience,
       graphCtx: finalizeOpts.graphCtx,
+      ceoScope: finalizeOpts.ceoScope,
       skipLive: finalizeOpts.skipLive,
     },
   )
@@ -181,8 +190,46 @@ export async function answerChat(
 
   const { block: ragBlock, citations: ragCitations } =
     formatRagContext(ragChunks)
-  const mentioned = resolveMentioned(pack, trimmed, mentions)
   const audience = opts?.audience === 'engineer' ? 'engineer' : 'ceo'
+
+  let ceoScope = null
+  if (audience === 'ceo') {
+    ceoScope = await getCertifiedChatScope(workspaceId)
+    if (
+      ceoScope.certifiedOnly &&
+      !ceoScope.hasCertifiedTables &&
+      looksLikeDataQuestion(trimmed) &&
+      !isGlossaryOnlyQuestion(trimmed, ceoScope)
+    ) {
+      const blocked = {
+        reply: buildCeoUncertifiedReply(ceoScope),
+        citations: [],
+        jobDraft: null,
+        mode: 'ceo-cert-guard',
+        contextStats: pack.stats,
+        referencedTables: [],
+        retrievedChunks: [],
+        model: null,
+        audience: 'ceo',
+        ceoCertifiedOnly: true,
+      }
+      await persistTurns(workspaceId, opts?.sessionId, trimmed, blocked, {
+        audience: 'ceo',
+      })
+      return blocked
+    }
+  }
+
+  if (audience === 'ceo' && ceoScope?.certifiedOnly && ceoScope.hasCertifiedTables) {
+    pack = filterPackForCeoAudience(pack, ceoScope)
+  }
+
+  const glossaryBlock =
+    audience === 'ceo' && ceoScope?.glossaryTerms?.length
+      ? formatGlossaryBlock(ceoScope.glossaryTerms)
+      : ''
+  const ragBlockFull = ragBlock + glossaryBlock
+  const mentioned = resolveMentioned(pack, trimmed, mentions)
 
   let pinnedSamples = []
   if (settings.aiMayUsePinnedSamples !== false) {
@@ -238,6 +285,7 @@ export async function answerChat(
     hasSlashSkill: Boolean(skill?.id),
     audience,
     graphCtx,
+    ceoScope,
   }
 
   // 1) Skill path (deterministic + RAG note)
@@ -410,7 +458,7 @@ export async function answerChat(
         pack,
         message: trimmed,
         history,
-        ragBlock,
+        ragBlock: ragBlockFull,
         graphBlock: graphCtx.promptBlock,
         ragChunks,
         model,

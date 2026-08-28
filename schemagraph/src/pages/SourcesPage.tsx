@@ -13,8 +13,10 @@ import {
   sourceTypeLabel,
 } from '@/components/sidebar/SourceTypeIcon'
 import {
-  ConnectorCatalogGrid,
-} from '@/components/sources/ConnectorCatalogGrid'
+  PostSyncJoinBanner,
+  type PostSyncJoinSummary,
+} from '@/components/sources/PostSyncJoinBanner'
+import { ConnectorCatalogGrid } from '@/components/sources/ConnectorCatalogGrid'
 import { SourcesTableView } from '@/components/sources/SourcesTableView'
 import { PdfPageHeader, PdfPrimaryButton, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
@@ -35,6 +37,7 @@ import {
   updateConnection,
   uploadConnectionFiles,
   uploadSpreadsheetSource,
+  type SyncConnectionResult,
 } from '@/services/stitchApi'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 import type {
@@ -382,6 +385,11 @@ export function SourcesPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [postSyncJoins, setPostSyncJoins] = useState<PostSyncJoinSummary[] | null>(
+    null,
+  )
+  const [postSyncSuggestedCount, setPostSyncSuggestedCount] = useState(0)
+  const [postSyncMonkQueued, setPostSyncMonkQueued] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [tableNameOverrides, setTableNameOverrides] = useState('')
   const prevWorkspaceIdRef = useRef<string | null>(null)
@@ -667,11 +675,21 @@ export function SourcesPage() {
     }
   }
 
+  function showPostSyncBanner(result: SyncConnectionResult) {
+    const count = result.suggestedJoins ?? result.postSync?.topJoins?.length ?? 0
+    if (count > 0 || result.postSync?.topJoins?.length) {
+      setPostSyncJoins(result.postSync?.topJoins ?? [])
+      setPostSyncSuggestedCount(count)
+      setPostSyncMonkQueued(Boolean(result.postSync?.monkQueued))
+    }
+  }
+
   async function syncById(id: string) {
     setBusy(true)
     setError(null)
     try {
       const result = await syncConnection(id)
+      showPostSyncBanner(result)
       setToast(
         `Synced ${result.tablesSynced} tables · ${result.suggestedJoins ?? 0} suggestions`,
       )
@@ -819,6 +837,7 @@ export function SourcesPage() {
     setError(null)
     try {
       const result = await syncConnection(selected.id)
+      showPostSyncBanner(result)
       const drift = result.drift as
         | { hasRisk?: boolean; summary?: string; severity?: string }
         | undefined
@@ -838,6 +857,14 @@ export function SourcesPage() {
 
   const banners = (
     <>
+      {postSyncJoins !== null ? (
+        <PostSyncJoinBanner
+          joins={postSyncJoins}
+          suggestedCount={postSyncSuggestedCount}
+          monkQueued={postSyncMonkQueued}
+          onDismiss={() => setPostSyncJoins(null)}
+        />
+      ) : null}
       {error ? (
         <p className="border-b border-error/40 bg-error/10 px-md py-sm font-body text-sm text-error">
           {error}

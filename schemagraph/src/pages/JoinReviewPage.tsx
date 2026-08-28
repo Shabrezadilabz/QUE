@@ -27,6 +27,14 @@ import {
   type RenameSuggestion,
 } from '@/services/stitchApi'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
+import { PageAutofillBanner } from '@/components/autofill/PageAutofill'
+import { usePageAutofill } from '@/hooks/usePageAutofill'
+import { PresenceBar } from '@/components/collab/PresenceBar'
+import {
+  fetchJoinReviewCollab,
+  claimJoinReviewLockApi,
+  releaseJoinReviewLockApi,
+} from '@/services/stitchApi'
 
 const ROLE_RANK: Record<string, number> = {
   viewer: 1,
@@ -97,7 +105,13 @@ export function JoinReviewPage() {
   const [commentText, setCommentText] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const { page: autofillPage } = usePageAutofill('joins')
   const [detailTab, setDetailTab] = useState('evidence')
+  const [collabLock, setCollabLock] = useState<{
+    userId: string
+    displayName: string
+  } | null>(null)
+  const [canCoEdit, setCanCoEdit] = useState(true)
 
   const reload = useCallback(async () => {
     setError(null)
@@ -169,20 +183,61 @@ export function JoinReviewPage() {
       })
   }, [selected?.id, selected?.from.tableId, selected?.to.tableId])
 
+  useEffect(() => {
+    if (!selected?.id) {
+      setCollabLock(null)
+      setCanCoEdit(true)
+      return
+    }
+    let cancelled = false
+    async function pollCollab() {
+      try {
+        const collab = await fetchJoinReviewCollab(selected!.id)
+        if (cancelled) return
+        setCollabLock(collab.lock)
+        setCanCoEdit(collab.canEdit)
+      } catch {
+        /* optional */
+      }
+    }
+    void pollCollab()
+    const id = window.setInterval(() => void pollCollab(), 20_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+      void releaseJoinReviewLockApi(selected!.id).catch(() => undefined)
+    }
+  }, [selected?.id])
+
   async function saveEdit() {
     if (!selected || !canWrite || !editFromCol || !editToCol) return
+    if (!canCoEdit) {
+      setError(
+        collabLock
+          ? `${collabLock.displayName} is editing this join — try again shortly`
+          : 'Another steward holds the edit lock',
+      )
+      return
+    }
     setBusy(true)
     setError(null)
     try {
+      await claimJoinReviewLockApi(selected.id)
       await reviewRelationship(selected.id, 'edit', {
         fromColumnId: editFromCol,
         toColumnId: editToCol,
       })
+      await releaseJoinReviewLockApi(selected.id).catch(() => undefined)
       setToast('Join columns updated — review pinned overlap, then Promote')
       notifySchemaChanged('join-review')
       await reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      const e = err as Error & { code?: string }
+      if (e.code === 'JOIN_LOCK_HELD') {
+        setError(e.message)
+      } else {
+        setError(e instanceof Error ? e.message : String(err))
+      }
     } finally {
       setBusy(false)
     }
@@ -349,6 +404,10 @@ export function JoinReviewPage() {
       }
       banner={
         <>
+          <div className="shrink-0 border-b border-solid border-[#2a313c] px-[24px] py-[8px]">
+            <PresenceBar pagePath="/joins" />
+          </div>
+          <PageAutofillBanner page={autofillPage} compact />
           {error ? (
             <p className="shrink-0 border-b border-solid border-[rgba(255,107,107,0.35)] bg-[rgba(255,107,107,0.1)] px-[24px] py-[8px] text-[12px] text-[#ff6b6b]">
               {error}
@@ -456,6 +515,11 @@ export function JoinReviewPage() {
           </>
         ) : detailTab === 'columns' ? (
           <>
+            {collabLock && !canCoEdit ? (
+              <p className="mb-[8px] rounded-[4px] border border-solid border-[#ffb06b]/40 bg-[rgba(255,176,107,0.1)] px-[12px] py-[8px] text-[12px] text-[#ffb06b]">
+                {collabLock.displayName} is co-editing this join review.
+              </p>
+            ) : null}
             {selected.status === 'suggested' && canWrite ? (
               <CatalogSection title="Edit join columns">
                 <div className="grid gap-[12px] sm:grid-cols-2">

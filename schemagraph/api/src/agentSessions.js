@@ -380,15 +380,14 @@ async function runTool(workspaceId, userId, toolId, body, session) {
         output = { materialization: mat, materializationId: mat?.id, jobId }
       }
     } else if (toolId === 'scaffold_bi') {
-      const { scaffoldBiReport, parseBiStyleFromPrompt } =
-        await import('./certifiedBi.js')
+      const { createGenieDashboardDraft } = await import('./genieDashboardDraft.js')
       const prompt = body.prompt || session.plan?.goal || session.title || ''
-      const style = parseBiStyleFromPrompt(prompt)
-      const biReport = await scaffoldBiReport(workspaceId, {
-        title: style.title || body.jobTitle || 'Chat report',
+      const biReport = await createGenieDashboardDraft(workspaceId, {
         prompt,
+        packId: body.packId || body.pageContext?.packId || null,
+        title: body.jobTitle || null,
+        datasetId: body.datasetId || null,
         userId,
-        ...style,
       })
       output = { biReport, reportId: biReport.reportId }
     } else {

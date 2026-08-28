@@ -29,13 +29,19 @@ ok('merge packs', Boolean(mergePackVariants([ecom, fin], [
   { packId: fin.id, weight: 0.5 },
 ]).id))
 
-console.log('\n--- Production E2E (manual on Neon) ---')
+console.log('\n--- Production E2E (automated) ---')
+console.log('Run against deployed Neon + SportEdge:')
+console.log('  QUE_API_BASE=https://your-api.onrender.com \\')
+console.log('  MONK_E2E_WORKSPACE_ID=<workspace-uuid> \\')
+console.log('  npm run test:monk-prod')
+console.log('\nManual checklist if prod creds unavailable:')
 console.log('1. Apply migrations: 042, 043, 046, 047')
 console.log('2. Bootstrap SportEdge Postgres connection')
 console.log('3. POST /monk/start { packId: ecommerce-v1 }')
-console.log('4. Verify autopilot cert + dbt export events in Monk feed')
+console.log('4. Verify autopilot cert + dbt export events in Monk feed (SSE /events/stream)')
 console.log('5. CEO chat: "What is Puma revenue?"')
-console.log('6. /pack-studio — save blend, learn golden pairs, export Looker')
+console.log('6. Que Genie: create brand revenue job')
+console.log('7. /proposals — approve Clean transform drafts → Apply')
 
 const failed = checks.filter((c) => !c.ok).length
 process.exit(failed ? 1 : 0)

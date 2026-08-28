@@ -1,7 +1,7 @@
 # Phase 2 complete — Que competitive sprint exit (2026)
 
 **Horizon:** 12 sprints × 2 weeks = 24 weeks  
-**Status:** All sprint deliverables implemented locally — **2 commits ahead of `origin/main`** (`70d1eaa` Phase 2, `1740c6f` doc pack)  
+**Status:** All sprint deliverables implemented locally — **4 commits ahead of `origin/main`** (through `860352f` CI on push)  
 **Plan:** [Que-Competitive-Sprint-Plan-2026.md](./Que-Competitive-Sprint-Plan-2026.md)
 
 ---
@@ -58,7 +58,28 @@ npm run build
 
 ## Recommended next actions
 
-1. **Commit + push** when ready (`adc` git root → `QUE.git`)
-2. **Deploy** UI + API; run `test:monk-prod` against prod URL
-3. **Update** [Que-Documentation-Pack-2026.md](./Que-Documentation-Pack-2026.md) commit hash after push
-4. **Record** RS-8 sales demo for founder outbound
+### 1. Publish to GitHub (you run — agent needs approval card)
+
+```powershell
+cd d:\ADC\prosols\adc
+git push origin main
+```
+
+`gh` is logged in as **Shabrezadilabz** with `repo` scope. After push, GitHub Actions runs **scim-smoke** (S8–S12 + load, no secrets).
+
+### 2. Free pilot deploy
+
+See [DEPLOY-FREE.md](./DEPLOY-FREE.md): Neon → Render (`render.yaml`) → Vercel (`VITE_STITCH_API_URL`).
+
+### 3. Prod verification
+
+```powershell
+cd d:\ADC\prosols\adc\schemagraph\api
+$env:QUE_API_BASE = "https://your-api.onrender.com"
+npm run test:smoke
+npm run test:monk-prod
+```
+
+### 4. GTM
+
+Record RS-8 demo — script: [`docs/gtm/rs8-demo-script.md`](./gtm/rs8-demo-script.md)

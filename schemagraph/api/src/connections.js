@@ -24,6 +24,14 @@ const SYNCABLE = new Set([
   'snowflake',
   'bigquery',
   'salesforce',
+  'shopify',
+  'razorpay',
+  'zoho',
+  'stripe',
+  'hubspot',
+  'mysql',
+  'chargebee',
+  'google_ads',
 ])
 
 function mapConnection(row, { includeConfig = true } = {}) {
@@ -57,6 +65,11 @@ function mapConnection(row, { includeConfig = true } = {}) {
     needsReauth:
       needsReauth(lastSyncErrorKind) ||
       (row.status === 'error' && lastSyncErrorKind === 'auth'),
+    replicateToWarehouse: row.replicate_to_warehouse !== false,
+    monkPromptDismissed: Boolean(row.monk_prompt_dismissed),
+    monkPromptLastSyncAt: row.monk_prompt_last_sync_at
+      ? new Date(row.monk_prompt_last_sync_at).toISOString()
+      : null,
   }
   if (!includeConfig) return base
   const { config, hasSecrets } = publicConnectionConfig(row.config_json)
@@ -66,7 +79,8 @@ function mapConnection(row, { includeConfig = true } = {}) {
 const CONN_SELECT = `id, name, source_type, status, description, config_json,
             created_at, updated_at,
             last_sync_at, last_sync_error, last_sync_error_kind,
-            sync_schedule, sync_next_at, last_scheduled_sync_at`
+            sync_schedule, sync_next_at, last_scheduled_sync_at,
+            replicate_to_warehouse, monk_prompt_dismissed, monk_prompt_last_sync_at`
 
 /**
  * Merge config updates — keep previous sealed secrets if client sends blank / mask.
@@ -155,7 +169,18 @@ export async function createConnection(workspaceId, body = {}) {
         JSON.stringify(config),
       ],
     )
-    return mapConnection(rows[0])
+    const connection = mapConnection(rows[0])
+    try {
+      const { emitWorkspaceEvent } = await import('./ssm/workspaceEvents.js')
+      await emitWorkspaceEvent(workspaceId, 'connector_added', {
+        connectionId: connection.id,
+        connectionName: connection.name,
+        sourceType: connection.sourceType,
+      })
+    } catch {
+      /* event log optional */
+    }
+    return connection
   } catch (e) {
     if (e.code === '23505') {
       const err = new Error('connection name already exists in workspace')

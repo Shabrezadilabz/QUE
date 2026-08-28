@@ -35,6 +35,7 @@ import { GlossaryPage } from '@/pages/GlossaryPage'
 import { StewardPage } from '@/pages/StewardPage'
 import { TeamSettingsPage } from '@/pages/settings/TeamSettingsPage'
 import { EnterpriseSettingsPage } from '@/pages/settings/EnterpriseSettingsPage'
+import { BiAccessSettingsPage } from '@/pages/settings/BiAccessSettingsPage'
 import { ManagedDatasetsPage } from '@/pages/ManagedDatasetsPage'
 import { ManagedPlanePage } from '@/pages/ManagedPlanePage'
 import { BiChartsPage } from '@/pages/BiChartsPage'
@@ -58,6 +59,12 @@ import { PricingPage } from '@/pages/PricingPage'
 import { RoiCalculatorPage } from '@/pages/RoiCalculatorPage'
 import { ConnectorMatrixPage } from '@/pages/ConnectorMatrixPage'
 import { BiEmbedPage } from '@/pages/BiEmbedPage'
+import { LoadPage } from '@/pages/LoadPage'
+import { ModelPage } from '@/pages/ModelPage'
+import { PipesPage } from '@/pages/PipesPage'
+import { ObservePage } from '@/pages/ObservePage'
+import { PlatformHubPage } from '@/pages/PlatformHubPage'
+import { StudioGridPage } from '@/pages/StudioGridPage'
 
 function LegacyJobsRedirect() {
   const [params] = useSearchParams()
@@ -172,6 +179,30 @@ export default function App() {
               element={
                 <RequireAuth>
                   <CatalogPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/pipes"
+              element={
+                <RequireAuth>
+                  <PipesPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/observe"
+              element={
+                <RequireAuth>
+                  <ObservePage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/hub"
+              element={
+                <RequireAuth>
+                  <PlatformHubPage />
                 </RequireAuth>
               }
             />
@@ -304,6 +335,62 @@ export default function App() {
               }
             />
             <Route
+              path="/load"
+              element={
+                <RequireAuth>
+                  <LoadPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/load/pipelines"
+              element={
+                <RequireAuth>
+                  <Navigate to="/load?tab=pipelines" replace />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/load/runs"
+              element={
+                <RequireAuth>
+                  <Navigate to="/load?tab=runs" replace />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/model"
+              element={
+                <RequireAuth>
+                  <ModelPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/model/:modelId"
+              element={
+                <RequireAuth>
+                  <ModelPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/studio"
+              element={
+                <RequireAuth>
+                  <Navigate to="/studio/grid" replace />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/studio/grid"
+              element={
+                <RequireAuth>
+                  <StudioGridPage />
+                </RequireAuth>
+              }
+            />
+            <Route
               path="/joins"
               element={
                 <RequireAuth>
@@ -375,6 +462,7 @@ export default function App() {
               <Route path="members" element={<MembersSettingsPage />} />
               <Route path="security" element={<SecuritySettingsPage />} />
               <Route path="enterprise" element={<EnterpriseSettingsPage />} />
+              <Route path="bi-access" element={<BiAccessSettingsPage />} />
               <Route path="automation" element={<AutomationSettingsPage />} />
               <Route path="governance" element={<GovernanceSettingsPage />} />
               <Route path="team" element={<TeamSettingsPage />} />

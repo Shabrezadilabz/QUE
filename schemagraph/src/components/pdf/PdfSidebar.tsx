@@ -66,6 +66,7 @@ export function PdfSidebar() {
 
   const icons: Record<string, string> = {
     workspace: FIGMA_NAV.workspace,
+    load: FIGMA_NAV.sources,
     sources: FIGMA_NAV.sources,
     joins: FIGMA_NAV.joins,
     chat: FIGMA_NAV.chat,

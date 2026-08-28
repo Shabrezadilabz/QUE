@@ -8,9 +8,13 @@ import { CHAT } from '@/components/chat/chatUi'
 import type { ChatAudience } from '@/components/chat/ChatAudienceSelect'
 import type {
   AiStatus,
+  AgentRuntimeStatus,
   ChatReferencedTable,
+  ChatGraphContext,
   ContextPackSummary,
 } from '@/services/stitchApi'
+import { ChatSsmRouteChip } from '@/components/chat/ChatSsmRouteChip'
+import { fetchAgentRuntimeStatus, fetchSsmModelStatus, fetchSsmRouteAb, fetchWorkspaceEvents, type SsmRouteAbComparison, type WorkspaceEvent } from '@/services/stitchApi'
 
 const OPEN_KEY = 'que.chatContextSidebarOpen'
 const INTRO_KEY = 'que.chatContextSidebarIntroDone'
@@ -91,6 +95,8 @@ export interface ChatContextSidebarProps {
   onAskOutcome: () => void
   onAskAgent: () => void
   chatAudience: ChatAudience
+  lastProbeMessage?: string
+  latestGraphContext?: ChatGraphContext | null
 }
 
 export function ChatContextSidebar({
@@ -110,10 +116,68 @@ export function ChatContextSidebar({
   onAskOutcome,
   onAskAgent,
   chatAudience,
+  lastProbeMessage = '',
+  latestGraphContext = null,
 }: ChatContextSidebarProps) {
   const [open, setOpen] = useState(() => loadChatContextSidebarOpen())
   const [introHint, setIntroHint] = useState(() => loadIntroPending())
   const [toggleHovered, setToggleHovered] = useState(false)
+  const [agentRuntime, setAgentRuntime] = useState<AgentRuntimeStatus | null>(
+    null,
+  )
+  const [agentRuntimeBusy, setAgentRuntimeBusy] = useState(false)
+  const [ssmEvents, setSsmEvents] = useState<WorkspaceEvent[]>([])
+  const [ssmAb, setSsmAb] = useState<SsmRouteAbComparison | null>(null)
+  const [ssmModelId, setSsmModelId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setAgentRuntimeBusy(true)
+    const probeMessage =
+      lastProbeMessage.trim() ||
+      sidebarQuery.trim() ||
+      'what should I focus on next in this workspace'
+    void Promise.all([
+      fetchAgentRuntimeStatus({ pageId: 'chat', message: probeMessage }),
+      fetchWorkspaceEvents(12).catch(() => []),
+      fetchSsmRouteAb(probeMessage, { pageContext: 'chat' }).catch(() => null),
+      fetchSsmModelStatus().catch(() => null),
+    ])
+      .then(([r, ev, ab, modelStatus]) => {
+        if (!cancelled) {
+          setAgentRuntime(r)
+          setSsmEvents(ev)
+          setSsmAb(ab)
+          setSsmModelId(modelStatus?.trained ? modelStatus.modelId : null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAgentRuntime(null)
+          setSsmEvents([])
+          setSsmAb(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAgentRuntimeBusy(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, sidebarQuery, lastProbeMessage])
+
+  const liveRouting =
+    latestGraphContext?.ssmRouting ||
+    agentRuntime?.unifiedPack?.ssmRoute ||
+    null
+  const liveIntent =
+    latestGraphContext?.intent ||
+    agentRuntime?.unifiedPack?.intent ||
+    agentRuntime?.summary?.intent ||
+    null
+  const focusTables =
+    agentRuntime?.unifiedPack?.ssmRoute?.focusTableNames || []
 
   useEffect(() => {
     if (!introHint || open) return
@@ -203,6 +267,170 @@ export function ChatContextSidebar({
                   />
                 </div>
               </div>
+              {agentRuntime || agentRuntimeBusy || liveRouting ? (
+                <div className="rounded-[6px] border border-solid border-[#424850] bg-[#121619] p-[10px]">
+                  <div className="flex items-center justify-between gap-[6px]">
+                    <span className="text-[10px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
+                      SSM runtime
+                    </span>
+                    <span
+                      className={[
+                        'h-[6px] w-[6px] shrink-0 rounded-full',
+                        agentRuntime?.summary.status === 'ready'
+                          ? 'bg-[#7aecd0]'
+                          : agentRuntime?.summary.status === 'blocked'
+                            ? 'bg-[#f0a020]'
+                          : agentRuntime?.summary.status === 'review'
+                            ? 'bg-[#f0a020]'
+                            : 'bg-[#555]',
+                      ].join(' ')}
+                      title={agentRuntime?.summary.status || 'loading'}
+                    />
+                  </div>
+                  {liveRouting ? (
+                    <div className="mt-[8px]">
+                      <ChatSsmRouteChip
+                        variant={chatAudience === 'engineer' ? 'full' : 'ceo'}
+                        routing={liveRouting}
+                        intent={liveIntent}
+                        focusTableCount={
+                          latestGraphContext?.focusTableCount ??
+                          focusTables.length
+                        }
+                        compact
+                      />
+                    </div>
+                  ) : null}
+                  <p className="mt-[6px] text-[11px] text-[#c8cdd3]">
+                    {agentRuntimeBusy && !agentRuntime
+                      ? 'Probing unified pack…'
+                      : agentRuntime?.summary.label || 'Agent runtime unavailable'}
+                  </p>
+                  {focusTables.length > 0 && chatAudience === 'engineer' ? (
+                    <div className="mt-[6px] flex flex-wrap gap-[4px]">
+                      {focusTables.slice(0, 6).map((t) => (
+                        <span
+                          key={t}
+                          className="rounded border border-[#424850] px-[5px] py-[1px] font-mono text-[9px] text-[#7aecd0]"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {agentRuntime ? (
+                    <div className="mt-[6px] space-y-[4px] text-[10px] text-[#8a9099]">
+                      <div>
+                        {agentRuntime.unifiedPack.allowedTables.length} focused
+                        tables · {agentRuntime.unifiedPack.joinPathCount} join
+                        paths
+                        {agentRuntime.unifiedPack.ssmRoute?.routingSource ? (
+                          <span className="ml-[4px] text-[#7aecd0]">
+                            · {agentRuntime.unifiedPack.ssmRoute.routingSource === 'ml_trained'
+                              ? 'SSM-B trained'
+                              : agentRuntime.unifiedPack.ssmRoute.routingSource === 'ml_stub'
+                                ? 'ML stub'
+                                : 'heuristic'}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap gap-[4px]">
+                        {agentRuntime.consumers
+                          .filter((c) => c.wired)
+                          .map((c) => (
+                            <span
+                              key={c.id}
+                              className="rounded border border-[#424850] px-[5px] py-[1px] text-[9px] text-[#7aecd0]"
+                            >
+                              {c.label}
+                            </span>
+                          ))}
+                      </div>
+                      {agentRuntime.unifiedPack.sampleGate?.blocked ? (
+                        <p className="text-[#f0a020]">
+                          Sample gate — sync sources to pin 5–10 scrubbed rows per
+                          table before AI runs
+                        </p>
+                      ) : agentRuntime.unifiedPack.sampleWarnings.length > 0 ? (
+                        <p className="text-[#f0a020]">
+                          {agentRuntime.unifiedPack.sampleWarnings.length} sample
+                          warning(s)
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {ssmAb && chatAudience === 'engineer' ? (
+                <div className="rounded-[6px] border border-solid border-[#424850] bg-[#121619] p-[10px]">
+                  <p className="text-[10px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
+                    SSM route A/B
+                    {ssmModelId ? (
+                      <span className="ml-[6px] font-normal normal-case text-[#7aecd0]">
+                        · {ssmModelId}
+                      </span>
+                    ) : null}
+                  </p>
+                  <div className="mt-[6px] flex flex-wrap items-center gap-[6px] text-[10px]">
+                    <span
+                      className={[
+                        'rounded border px-[5px] py-[1px]',
+                        ssmAb.winner === 'heuristic'
+                          ? 'border-[#7aecd0]/40 text-[#7aecd0]'
+                          : 'border-[#424850] text-[#8a9099]',
+                      ].join(' ')}
+                    >
+                      H: {ssmAb.heuristic.intent}
+                    </span>
+                    <span
+                      className={[
+                        'rounded border px-[5px] py-[1px]',
+                        ssmAb.winner === 'ml_stub' || ssmAb.winner === 'ml_trained'
+                          ? 'border-[#7aecd0]/40 text-[#7aecd0]'
+                          : 'border-[#424850] text-[#8a9099]',
+                      ].join(' ')}
+                    >
+                      ML: {ssmAb.ml?.intent ?? ssmAb.mlStub.intent}
+                      {ssmAb.ml?.source === 'trained' ? ' ✓' : ''}
+                    </span>
+                    <span className="text-[#6b7380]">
+                      → {ssmAb.recommendedIntent}
+                      {ssmAb.agreed ? '' : ' · split'}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+              {ssmEvents.length > 0 && chatAudience === 'engineer' ? (
+                <div className="rounded-[6px] border border-solid border-[#424850] bg-[#121619] p-[10px]">
+                  <p className="text-[10px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
+                    SSM-B timeline
+                  </p>
+                  <ul className="mt-[6px] max-h-[120px] space-y-[4px] overflow-y-auto">
+                    {ssmEvents.slice(0, 8).map((e) => (
+                      <li
+                        key={e.id}
+                        className="text-[10px] text-[#8a9099]"
+                      >
+                        <span className="font-mono text-[#7aecd0]">
+                          {e.eventType.replace(/_/g, ' ')}
+                        </span>
+                        {e.meta?.tableName ? (
+                          <span className="text-[#6b7380]">
+                            {' '}
+                            · {String(e.meta.tableName)}
+                          </span>
+                        ) : null}
+                        {e.meta?.suggestedCount ? (
+                          <span className="text-[#6b7380]">
+                            {' '}
+                            · {String(e.meta.suggestedCount)} joins
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div className="space-y-[6px] pt-[2px]">
                 <p className="text-[11px] font-semibold text-[#d4dbe3]">
                   Referenced tables

@@ -18,7 +18,14 @@ export type DataSourceType =
   | 'snowflake'
   | 'bigquery'
   | 'salesforce'
+  | 'shopify'
+  | 'razorpay'
+  | 'zoho'
+  | 'stripe'
+  | 'hubspot'
   | 'mysql'
+  | 'chargebee'
+  | 'google_ads'
   | 'csv'
   | 'kafka'
 
@@ -61,5 +68,9 @@ export interface DataSource {
   lastScheduledSyncAt?: string | null
   /** Sprint 4 — where row data should land when sync/materialize is enabled */
   dataLandingMode?: DataLandingMode
+  /** Phase 1 — replicate raw rows into Que Warehouse on sync */
+  replicateToWarehouse?: boolean
+  monkPromptDismissed?: boolean
+  monkPromptLastSyncAt?: string | null
 }
 

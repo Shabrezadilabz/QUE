@@ -269,6 +269,12 @@ export async function createWorkspace(userId, { name, slug } = {}) {
      VALUES ($1, $2, 'owner')`,
     [id, userId],
   )
+  try {
+    const { provisionQueWarehouse } = await import('./queWarehouse.js')
+    await provisionQueWarehouse(id)
+  } catch (whErr) {
+    console.warn('[Que] warehouse provision:', whErr.message || whErr)
+  }
   return { id, name: wsName, slug: s, role: 'owner' }
 }
 

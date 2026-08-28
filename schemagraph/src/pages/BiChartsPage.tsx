@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { BiChartPreview } from '@/components/BiChartPreview'
-import { BiPdfDemoDashboard } from '@/components/bi/BiPdfDemoDashboard'
+import { MetricLiveValue } from '@/components/bi/MetricLiveValue'
+import { BoardFilterBar } from '@/components/bi/BoardFilterBar'
+import { StudioBoardSchedulePanel } from '@/components/bi/StudioBoardSchedulePanel'
+import { StudioEmptyBoard } from '@/components/bi/StudioEmptyBoard'
+import { StudioQueMlPanel } from '@/components/bi/StudioQueMlPanel'
+import { StudioWidgetRunPanel } from '@/components/bi/StudioWidgetRunPanel'
+import { StudioWidgetPlaceholder } from '@/components/bi/StudioWidgetPlaceholder'
+import { StudioCanvasTile } from '@/components/bi/StudioCanvasTile'
+import { DrillToSqlPanel } from '@/components/bi/DrillToSqlPanel'
+import { StudioQueExprPanel } from '@/components/bi/StudioQueExprPanel'
 import {
   PdfPageHeader,
   PdfPrimaryButton,
@@ -23,6 +32,8 @@ import {
   getApiBase,
   mintBiEmbedTokenApi,
   previewBiChartApi,
+  executeBiChartApi,
+  previewMetricApi,
   publishMetricBiApi,
   scaffoldBiReportApi,
   updateBiChartApi,
@@ -32,10 +43,14 @@ import {
   fetchPowerBiExport,
   fetchTableauExport,
   fetchReportBoardConfig,
-  updateReportBoardConfigApi,
-  refreshReportBoardApi,
+  applyBoardLayoutApi,
+  previewBoardAllApi,
+  fetchStudioSummary,
+  fetchBiAccessSummary,
   type BiChart,
+  type BiAccessSummary,
   type ManagedDataset,
+  type StudioSummary,
 } from '@/services/stitchApi'
 
 type MetricDef = {
@@ -84,6 +99,10 @@ function applyFilters(
   )
 }
 
+function isChartWarehouseBound(c: BiChart): boolean {
+  return Boolean(c.config?.sqlFallback || c.config?.warehouseSql || c.datasetId)
+}
+
 /**
  * Full Report Studio — Metrics + multi-visual BI canvas (Power BI–like).
  */
@@ -104,6 +123,9 @@ export function BiChartsPage() {
   const [previewMap, setPreviewMap] = useState<
     Record<string, Record<string, unknown>[]>
   >({})
+  const [previewMeta, setPreviewMeta] = useState<
+    Record<string, { source?: string; cached?: boolean; durationMs?: number }>
+  >({})
   const [pageId, setPageId] = useState('page1')
 
   const [title, setTitle] = useState('')
@@ -111,6 +133,7 @@ export function BiChartsPage() {
   const [chartType, setChartType] = useState('bar')
   const [xField, setXField] = useState('')
   const [yField, setYField] = useState('')
+  const [yExpr, setYExpr] = useState('')
   const [layout, setLayout] = useState<Layout>({ col: 0, row: 0, w: 6, h: 4 })
 
   const [metricName, setMetricName] = useState('')
@@ -125,12 +148,25 @@ export function BiChartsPage() {
   const [toast, setToast] = useState<string | null>(null)
   const [embedToken, setEmbedToken] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [studioSummary, setStudioSummary] = useState<StudioSummary | null>(null)
+  const [biAccess, setBiAccess] = useState<BiAccessSummary | null>(null)
+  const paramAutoApplyReady = useRef(false)
   const [editMode, setEditMode] = useState(true)
   const [drillSql, setDrillSql] = useState<string | null>(null)
   const [boardLayout, setBoardLayout] = useState('executive')
   const [boardParams, setBoardParams] = useState<
-    { id: string; label: string; defaultValue?: string }[]
+    { id: string; label: string; defaultValue?: string; bindField?: string }[]
   >([])
+  const [parameterValues, setParameterValues] = useState<Record<string, string>>({})
+  const [crossFilter, setCrossFilter] = useState<{
+    field: string
+    value: string
+    fromChart?: string
+  } | null>(null)
+  const [boardFilterVersion, setBoardFilterVersion] = useState(0)
+  const [layoutDrafts, setLayoutDrafts] = useState<
+    Record<string, Partial<Layout>>
+  >({})
 
   const selected = useMemo(
     () => charts.find((c) => c.id === selectedId) ?? null,
@@ -156,6 +192,36 @@ export function BiChartsPage() {
     })
   }, [charts, reportFilter, pageId])
 
+  const warehouseUnbound = useMemo(
+    () => pageCharts.filter((c) => !isChartWarehouseBound(c)).length,
+    [pageCharts],
+  )
+
+  function effectiveLayout(c: BiChart): Layout {
+    const base = layoutOf(c)
+    const draft = layoutDrafts[c.id]
+    return draft ? { ...base, ...draft } : base
+  }
+
+  async function commitChartLayout(chartId: string, patch: Partial<Layout>) {
+    const chart = charts.find((c) => c.id === chartId)
+    if (!chart || !canWrite) return
+    const newLayout = { ...layoutOf(chart), ...patch }
+    setLayoutDrafts((prev) => {
+      const next = { ...prev }
+      delete next[chartId]
+      return next
+    })
+    try {
+      await updateBiChartApi(chartId, {
+        config: { ...chart.config, layout: newLayout },
+      })
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   const fieldOpts = useMemo(() => {
     const ds = datasets.find((d) => d.id === (selected?.datasetId || datasetId))
     return (ds?.columns || []).map((c) => c.name)
@@ -170,15 +236,19 @@ export function BiChartsPage() {
   const reload = useCallback(async () => {
     setError(null)
     try {
-      const [c, d, m] = await Promise.all([
+      const [c, d, m, studio, access] = await Promise.all([
         fetchBiCharts(),
         fetchManagedDatasets(),
         fetchMetricsDefs(),
+        fetchStudioSummary().catch(() => null),
+        fetchBiAccessSummary().catch(() => null),
       ])
       const certified = d.items.filter((x) => x.certified)
       setCharts(c)
       setDatasets(certified)
       setMetrics(m)
+      setStudioSummary(studio)
+      setBiAccess(access)
       setSelectedId((prev) => {
         if (prev && c.some((x) => x.id === prev)) return prev
         return c[0]?.id ?? null
@@ -201,21 +271,93 @@ export function BiChartsPage() {
       .then((c) => {
         setBoardLayout(c.layoutPreset)
         setBoardParams(c.parameters || [])
+        const init: Record<string, string> = {}
+        for (const p of c.parameters || []) {
+          init[p.id] = p.defaultValue ?? ''
+        }
+        setParameterValues(init)
       })
       .catch(() => {
         /* optional */
       })
   }, [reportFilter])
 
+  const boardPreviewOpts = useMemo(
+    () => ({
+      filters: filterField && filterValue.trim()
+        ? [{ field: filterField, op: 'contains' as const, value: filterValue.trim() }]
+        : undefined,
+      parameters: boardParams,
+      parameterOverrides: parameterValues,
+      crossFilter,
+    }),
+    [filterField, filterValue, boardParams, parameterValues, crossFilter],
+  )
+
+  useEffect(() => {
+    if (!boardParams.length) return
+    if (!paramAutoApplyReady.current) {
+      paramAutoApplyReady.current = true
+      return
+    }
+    const t = window.setTimeout(() => {
+      void applyBoardFilters()
+    }, 500)
+    return () => window.clearTimeout(t)
+  }, [parameterValues])
+
+  async function applyBoardFilters(overrideCross = crossFilter) {
+    setBoardFilterVersion((v) => v + 1)
+    setBusy(true)
+    try {
+      const rid = reportFilter || 'sportedge-exec'
+      const results = await previewBoardAllApi(rid, {
+        filters: filterField && filterValue.trim()
+          ? [{ field: filterField, op: 'contains', value: filterValue.trim() }]
+          : undefined,
+        parameters: boardParams,
+        parameterOverrides: parameterValues,
+        crossFilter: overrideCross,
+        skipCache: true,
+      })
+      const next: Record<string, Record<string, unknown>[]> = {}
+      for (const r of results) {
+        next[r.chartId] = r.rows
+      }
+      setPreviewMap((prev) => ({ ...prev, ...next }))
+      setToast(`Applied filters to ${results.length} visual(s) via warehouse SQL`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function applyLayoutPreset(preset: string) {
+    if (!canWrite) return
+    setBusy(true)
+    try {
+      const rid = reportFilter || 'sportedge-exec'
+      const out = await applyBoardLayoutApi(rid, preset)
+      setBoardLayout(preset)
+      await reload()
+      setToast(`Layout “${preset}” applied to ${out.updatedCount} visual(s)`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   useEffect(() => {
     if (!selected?.id) {
       setDrillSql(null)
       return
     }
-    void fetchBiChartDrillSql(selected.id)
+    void fetchBiChartDrillSql(selected.id, { crossFilter })
       .then((r) => setDrillSql(r.sql))
       .catch(() => setDrillSql(null))
-  }, [selected?.id])
+  }, [selected?.id, crossFilter])
 
   async function exportBoard(format: 'looker' | 'metabase' | 'powerbi' | 'tableau') {
     setBusy(true)
@@ -249,21 +391,45 @@ export function BiChartsPage() {
     setDatasetId(selected.datasetId || '')
     setXField(String(selected.config?.xField || ''))
     setYField(String(selected.config?.yField || ''))
+    setYExpr(String(selected.config?.yExpr || ''))
     setLayout(layoutOf(selected))
   }, [selected?.id])
 
-  async function loadPreview(chartId: string) {
-    const rows = await previewBiChartApi(chartId)
-    setPreviewMap((prev) => ({ ...prev, [chartId]: rows }))
-    return rows
+  async function loadPreview(chartId: string, opts?: { forceWarehouse?: boolean }) {
+    const useExecute =
+      opts?.forceWarehouse ||
+      boardFilterVersion > 0 ||
+      Boolean(crossFilter) ||
+      Boolean(filterField && filterValue.trim())
+    const out = useExecute
+      ? await executeBiChartApi(chartId, {
+          ...boardPreviewOpts,
+          skipCache: true,
+        })
+      : await previewBiChartApi(chartId, undefined, {
+          ...boardPreviewOpts,
+          skipCache: boardFilterVersion > 0,
+        })
+    setPreviewMap((prev) => ({ ...prev, [chartId]: out.rows }))
+    setPreviewMeta((prev) => ({
+      ...prev,
+      [chartId]: {
+        source: out.source,
+        cached: out.cached,
+        durationMs: out.durationMs,
+      },
+    }))
+    return out.rows
   }
 
   async function runAll() {
     setBusy(true)
     setError(null)
     try {
-      await Promise.all(pageCharts.map((c) => loadPreview(c.id)))
-      setToast(`Ran ${pageCharts.length} visual(s)`)
+      await Promise.all(
+        pageCharts.map((c) => loadPreview(c.id, { forceWarehouse: true })),
+      )
+      setToast(`Ran ${pageCharts.length} visual(s) on Que Warehouse`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -275,11 +441,34 @@ export function BiChartsPage() {
     if (pageCharts.length === 0) return
     void Promise.all(
       pageCharts.slice(0, 12).map((c) =>
-        loadPreview(c.id).catch(() => [] as Record<string, unknown>[]),
+        loadPreview(c.id, { forceWarehouse: true }).catch(
+          () => [] as Record<string, unknown>[],
+        ),
       ),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageCharts.map((c) => c.id).join(',')])
+  }, [pageCharts.map((c) => c.id).join(','), boardFilterVersion])
+
+  function handleSegmentClick(chart: BiChart, field: string, value: string) {
+    if (
+      crossFilter?.field === field &&
+      crossFilter?.value === value &&
+      crossFilter?.fromChart === chart.title
+    ) {
+      setCrossFilter(null)
+      void applyBoardFilters(null)
+      setDrillSql(null)
+      return
+    }
+    const cf = { field, value, fromChart: chart.title }
+    setCrossFilter(cf)
+    void applyBoardFilters(cf)
+    void fetchBiChartDrillSql(chart.id, { crossFilter: cf })
+      .then((r) => setDrillSql(r.sql))
+      .catch(() => setDrillSql(null))
+    setSelectedId(chart.id)
+    setRibbon('format')
+  }
 
   async function scaffold(prompt?: string) {
     if (!canWrite) return
@@ -346,6 +535,7 @@ export function BiChartsPage() {
           ...selected.config,
           xField: xField || undefined,
           yField: yField || undefined,
+          yExpr: yExpr.trim() || undefined,
           layout,
           pageId,
           reportId: selected.config?.reportId || reportFilter || undefined,
@@ -439,14 +629,8 @@ export function BiChartsPage() {
   }
 
   async function previewMetric(id: string) {
-    const ws = getActiveWorkspaceId()
-    const res = await apiFetch(`/workspaces/${ws}/metrics-defs/${id}/preview`)
-    const body = (await res.json().catch(() => ({}))) as {
-      value?: unknown
-      error?: string
-    }
-    if (!res.ok) throw new Error(body.error || 'preview failed')
-    setMetricPreview(String(body.value ?? '—'))
+    const out = await previewMetricApi(id)
+    setMetricPreview(String(out.value ?? '—'))
   }
 
   const embedUrl = embedToken
@@ -471,6 +655,9 @@ export function BiChartsPage() {
           subtitle="Managed datasets, certified visualizations, and strict compliance."
           actions={
             <div className="flex flex-wrap items-center gap-[8px]">
+              <Link to="/studio/grid">
+                <PdfGhostButton type="button">Grid explore</PdfGhostButton>
+              </Link>
               <PdfGhostButton type="button" onClick={() => setRibbon('data')}>
                 ⊙ Filter
               </PdfGhostButton>
@@ -579,23 +766,15 @@ export function BiChartsPage() {
               <>
                 <RibbonBtn onClick={() => setPageId('page1')} label="Page 1" active={pageId === 'page1'} />
                 <RibbonBtn onClick={() => setPageId('page2')} label="Page 2" active={pageId === 'page2'} />
-                <RibbonBtn
-                  onClick={() =>
-                    void updateReportBoardConfigApi(reportFilter || 'sportedge-exec', {
-                      layoutPreset: boardLayout,
-                    }).then(() => setToast(`Layout: ${boardLayout}`))
-                  }
-                  label={`Layout: ${boardLayout}`}
-                />
-                <RibbonBtn
-                  disabled={busy}
-                  onClick={() =>
-                    void refreshReportBoardApi(reportFilter || 'sportedge-exec').then((r) =>
-                      setToast(r.skipped ? 'No refresh webhook configured' : 'Refresh webhook sent'),
-                    )
-                  }
-                  label="Refresh webhook"
-                />
+                {(['executive', 'ops', 'mobile'] as const).map((preset) => (
+                  <RibbonBtn
+                    key={preset}
+                    disabled={!canWrite || busy}
+                    onClick={() => void applyLayoutPreset(preset)}
+                    label={`Layout: ${preset}`}
+                    active={boardLayout === preset}
+                  />
+                ))}
                 <RibbonBtn onClick={() => setEditMode(true)} label="Edit" active={editMode} />
                 <RibbonBtn onClick={() => setEditMode(false)} label="Reading" active={!editMode} />
               </>
@@ -621,11 +800,50 @@ export function BiChartsPage() {
             </button>
           </p>
         ) : null}
+        {ribbon === 'view' ? (
+          <div className="shrink-0 px-[16px] pb-[8px]">
+            <StudioBoardSchedulePanel
+              reportId={reportFilter || 'sportedge-exec'}
+              canWrite={canWrite}
+              onRefreshAll={() => void runAll()}
+              onToast={(msg) => setToast(msg)}
+            />
+            <StudioQueMlPanel reportId={reportFilter || 'sportedge-exec'} />
+          </div>
+        ) : null}
+        {crossFilter ? (
+          <div className="shrink-0 border-b border-[#7aecd0]/20 bg-[#7aecd0]/5 px-[16px] py-[8px] text-[11px] text-[#7aecd0]">
+            Cross-filter active: {crossFilter.field} = {crossFilter.value}
+            {crossFilter.fromChart ? ` (from ${crossFilter.fromChart})` : ''}
+            {drillSql ? ' · drill SQL ready in right rail' : ''}
+            <span className="ml-[8px] text-[#a3afbe]">· click same segment again to clear</span>
+          </div>
+        ) : null}
         {metricPreview != null ? (
           <p className="shrink-0 border-b border-solid border-[#424850] px-[16px] py-[8px] text-[12px] text-[#c8cdd3]">
             Metric run: {metricPreview}
           </p>
         ) : null}
+
+        <BoardFilterBar
+          parameters={boardParams}
+          parameterValues={parameterValues}
+          onParameterChange={(id, value) =>
+            setParameterValues((prev) => ({ ...prev, [id]: value }))
+          }
+          filterField={filterField}
+          filterValue={filterValue}
+          onFilterFieldChange={setFilterField}
+          onFilterValueChange={setFilterValue}
+          crossFilter={crossFilter}
+          onClearCrossFilter={() => {
+            setCrossFilter(null)
+            void applyBoardFilters(null)
+          }}
+          fieldOptions={filterFieldOpts}
+          onApply={() => void applyBoardFilters()}
+          busy={busy}
+        />
 
         <div className="flex min-h-0 flex-1">
           {/* Data explorer — Sigma-style left rail */}
@@ -766,12 +984,70 @@ export function BiChartsPage() {
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#111416]">
             <div className="px-[16px] pt-[12px] lg:px-[24px]">
               <PageAutofillBanner page={autofillPage} compact />
+              {studioSummary ? (
+                <div className="mt-[10px] grid gap-[8px] sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    {
+                      label: 'Widgets',
+                      value: studioSummary.readiness.chartCount,
+                      sub: `${studioSummary.readiness.warehouseWidgets} WH-bound`,
+                    },
+                    {
+                      label: 'Certified',
+                      value: studioSummary.readiness.certifiedCharts,
+                      sub: 'board widgets',
+                    },
+                    {
+                      label: 'Metrics',
+                      value: studioSummary.readiness.metricCount,
+                      sub: 'hover = live WH',
+                    },
+                    {
+                      label: 'Grid tables',
+                      value: studioSummary.gridTableCount,
+                      sub: studioSummary.readiness.label,
+                    },
+                  ].map((card) => (
+                    <div
+                      key={card.label}
+                      className="rounded-[8px] border border-[#424850] bg-[#0f1215] px-[12px] py-[8px]"
+                    >
+                      <div className="text-[10px] uppercase tracking-wider text-[#8a9099]">
+                        {card.label}
+                      </div>
+                      <div className="text-[18px] font-semibold text-[#d4dbe3]">
+                        {card.value}
+                      </div>
+                      <div className="text-[10px] text-[#6b7380]">{card.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {biAccess && !biAccess.unrestricted ? (
+                <div className="mt-[8px] rounded-[8px] border border-[#f0a020]/30 bg-[#f0a020]/10 px-[12px] py-[8px] text-[11px] text-[#f0a020]">
+                  BI access policy active — {biAccess.groupCount} group(s)
+                  {biAccess.allowedTableCount
+                    ? ` · ${biAccess.allowedTableCount} allowed table(s)`
+                    : ''}
+                  {biAccess.restrictedColumnCount
+                    ? ` · ${biAccess.restrictedColumnCount} restricted column(s)`
+                    : ''}
+                  {biAccess.rowFilterCount
+                    ? ` · ${biAccess.rowFilterCount} row filter(s)`
+                    : ''}
+                  .{' '}
+                  <Link to="/settings/bi-access" className="underline">
+                    Manage groups
+                  </Link>
+                </div>
+              ) : null}
             </div>
             {pageCharts.length === 0 ? (
-              <BiPdfDemoDashboard
+              <StudioEmptyBoard
                 canWrite={canWrite}
                 busy={busy}
-                onBuild={() => void scaffold()}
+                hasDatasets={datasets.length > 0}
+                onScaffold={() => void scaffold()}
               />
             ) : (
               <div className="flex flex-col gap-[16px] p-[16px] lg:p-[24px]">
@@ -782,8 +1058,15 @@ export function BiChartsPage() {
                   </p>
                   <p className="text-[10px] text-[#8a9099]">{pageCharts.length} visual(s)</p>
                 </div>
+                {warehouseUnbound > 0 ? (
+                  <div className="rounded-[8px] border border-[#f0a020]/30 bg-[#f0a020]/10 px-[12px] py-[8px] text-[11px] text-[#f0a020]">
+                    {warehouseUnbound} visual(s) are not warehouse-bound — add sqlFallback or
+                    assign a certified dataset before publishing.
+                  </div>
+                ) : null}
 
                 <div
+                  data-studio-grid
                   className="grid gap-[12px]"
                   style={{
                     gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
@@ -791,31 +1074,52 @@ export function BiChartsPage() {
                   }}
                 >
                   {pageCharts.map((c) => {
-                    const L = layoutOf(c)
+                    const L = effectiveLayout(c)
                     const raw = previewMap[c.id] || []
-                    const rows = applyFilters(raw, filterField, filterValue)
+                    const meta = previewMeta[c.id]
+                    const bound = isChartWarehouseBound(c)
+                    const rows =
+                      boardFilterVersion > 0 || crossFilter
+                        ? raw
+                        : applyFilters(raw, filterField, filterValue)
                     const isKpi = c.chartType === 'kpi' || c.chartType === 'card'
+                    const isCrossSource =
+                      crossFilter?.fromChart === c.title
+                    const isCrossDimmed =
+                      Boolean(crossFilter) && !isCrossSource
+                    const segmentCrossFilter =
+                      crossFilter &&
+                      String(c.config?.xField || '') === crossFilter.field
+                        ? { field: crossFilter.field, value: crossFilter.value }
+                        : isCrossSource
+                          ? crossFilter
+                          : null
+                    const showPlaceholder =
+                      !bound ||
+                      meta?.source === 'warehouse_only' ||
+                      (meta != null && rows.length === 0)
 
                     return (
-                      <button
+                      <StudioCanvasTile
                         key={c.id}
-                        type="button"
-                        onClick={() => {
+                        chart={c}
+                        layout={L}
+                        editMode={editMode}
+                        canWrite={canWrite}
+                        selected={selectedId === c.id}
+                        crossFilterSource={isCrossSource}
+                        crossFilterDimmed={isCrossDimmed}
+                        onSelect={() => {
                           setSelectedId(c.id)
                           setRibbon('format')
                         }}
-                        className={[
-                          'overflow-hidden rounded-[4px] border border-solid bg-[#0f1215] p-[14px] text-left transition-colors',
-                          selectedId === c.id
-                            ? 'border-[#d0d8e0]/50 ring-1 ring-[rgba(208,216,224,0.15)]'
-                            : 'border-[#424850] hover:border-[#6b7380]',
-                          isKpi ? 'pdf-shine' : '',
-                        ].join(' ')}
-                        style={{
-                          gridColumn: `${L.col + 1} / span ${L.w}`,
-                          gridRow: `span ${L.h}`,
-                          minHeight: `${L.h * 3.2}rem`,
-                        }}
+                        onLayoutDraft={(patch) =>
+                          setLayoutDrafts((prev) => ({
+                            ...prev,
+                            [c.id]: { ...prev[c.id], ...patch },
+                          }))
+                        }
+                        onLayoutCommit={(patch) => void commitChartLayout(c.id, patch)}
                       >
                         <div className="mb-[10px] flex items-center justify-between gap-[8px]">
                           <p className="truncate text-[13px] font-semibold text-[#d4dbe3]">
@@ -824,22 +1128,74 @@ export function BiChartsPage() {
                           <span className="shrink-0 text-[9px] font-bold tracking-[0.6px] text-[#8a9099] uppercase">
                             {c.chartType}
                             {c.certified ? ' · ✓' : ''}
+                            {previewMeta[c.id]?.source === 'que_warehouse'
+                              ? ' · WH'
+                              : previewMeta[c.id]?.source === 'warehouse_only'
+                                ? ' · WH?'
+                                : ''}
+                            {!bound ? ' · ⚠' : ''}
                           </span>
                         </div>
-                        <BiChartPreview
-                          chartType={c.chartType}
-                          rows={rows}
-                          xField={String(c.config?.xField || '') || undefined}
-                          yField={String(c.config?.yField || '') || undefined}
-                          compact
-                        />
+                        {showPlaceholder ? (
+                          <StudioWidgetPlaceholder
+                            title={c.title}
+                            reason={
+                              !bound
+                                ? 'unbound'
+                                : meta?.source === 'warehouse_only'
+                                  ? 'warehouse'
+                                  : 'empty'
+                            }
+                            compact={isKpi}
+                          />
+                        ) : isKpi ? (
+                          <MetricLiveValue
+                            compact
+                            label={String(c.config?.yField || 'KPI')}
+                            initialValue={
+                              rows[0]?.[String(c.config?.yField || 'value')] ??
+                              rows[0]?.value ??
+                              rows.length
+                            }
+                            fetchLive={async () => {
+                              const out = await executeBiChartApi(c.id, {
+                                skipCache: true,
+                              })
+                              const y = String(c.config?.yField || 'value')
+                              const val =
+                                out.rows[0]?.[y] ??
+                                out.rows[0]?.value ??
+                                out.rows.length
+                              return {
+                                value: val,
+                                source: out.source,
+                                cached: out.cached,
+                              }
+                            }}
+                          />
+                        ) : (
+                          <BiChartPreview
+                            chartType={c.chartType}
+                            rows={rows}
+                            xField={String(c.config?.xField || '') || undefined}
+                            yField={
+                              String(c.config?.yExpr ? 'measure_value' : c.config?.yField || '') ||
+                              undefined
+                            }
+                            compact
+                            activeCrossFilter={segmentCrossFilter}
+                            onSegmentClick={(field, value) =>
+                              handleSegmentClick(c, field, value)
+                            }
+                          />
+                        )}
                         <div className="mt-[10px] flex items-center justify-between text-[10px] text-[#6b7380]">
                           <span>Last updated: live</span>
                           {c.certified ? (
                             <span className="text-[#7aecd0]">Mint Embed &lt;&gt;</span>
                           ) : null}
                         </div>
-                      </button>
+                      </StudioCanvasTile>
                     )
                   })}
                 </div>
@@ -928,6 +1284,18 @@ export function BiChartsPage() {
                   </label>
                 </div>
 
+                <StudioQueExprPanel
+                  value={yExpr}
+                  xField={xField || undefined}
+                  table={datasets.find((d) => d.id === datasetId)?.slug}
+                  disabled={!canWrite || !editMode}
+                  onChange={setYExpr}
+                  onApply={(expr) => {
+                    setYExpr(expr)
+                    setToast('QueExpr applied — save visual to persist')
+                  }}
+                />
+
                 <p className="text-[10px] font-bold tracking-[0.8px] text-[#8a9099] uppercase">
                   Layout (12-col grid)
                 </p>
@@ -961,15 +1329,29 @@ export function BiChartsPage() {
                 </div>
 
                 {drillSql ? (
-                  <div className="rounded-[4px] border border-solid border-[#424850] bg-[#121619] p-[10px]">
-                    <p className="text-[10px] font-bold tracking-[0.6px] text-[#8a9099] uppercase">
-                      Drill-to-SQL
-                    </p>
-                    <pre className="mt-[8px] max-h-[140px] overflow-auto whitespace-pre-wrap text-[10px] text-[#c8cdd3]">
-                      {drillSql}
-                    </pre>
-                  </div>
+                  <DrillToSqlPanel
+                    sql={drillSql}
+                    chartTitle={selected.title}
+                    xField={xField || undefined}
+                  />
                 ) : null}
+
+                <StudioWidgetRunPanel
+                  chartId={selected.id}
+                  chartTitle={selected.title}
+                  runOpts={boardPreviewOpts}
+                  onResult={(out) => {
+                    setPreviewMap((prev) => ({ ...prev, [selected.id]: out.rows }))
+                    setPreviewMeta((prev) => ({
+                      ...prev,
+                      [selected.id]: {
+                        source: out.source,
+                        cached: out.cached,
+                        durationMs: out.durationMs,
+                      },
+                    }))
+                  }}
+                />
 
                 <div className="flex flex-col gap-[8px] pt-[8px]">
                   <PdfGhostButton
@@ -980,18 +1362,6 @@ export function BiChartsPage() {
                   >
                     Apply / Save
                   </PdfGhostButton>
-                  <PdfPrimaryButton
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      void loadPreview(selected.id).then(() =>
-                        setToast('Preview refreshed'),
-                      )
-                    }
-                    className="w-full py-[8px] text-[12px]"
-                  >
-                    Run visual
-                  </PdfPrimaryButton>
                   {canWrite && !selected.certified ? (
                     <PdfGhostButton type="button" disabled={busy} onClick={() => void certifySelected()} className="w-full py-[8px] text-[12px]">
                       Certify

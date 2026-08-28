@@ -64,6 +64,20 @@ export async function runPackCertificationGate(workspaceId, opts = {}) {
     ],
   )
 
+  if (passed) {
+    try {
+      const { emitWorkspaceEvent } = await import('./ssm/workspaceEvents.js')
+      await emitWorkspaceEvent(workspaceId, 'dataset_certified', {
+        packId,
+        runId: opts.runId ?? null,
+        goldenRecall: report.recall,
+        kpiCount,
+      })
+    } catch {
+      /* event log optional */
+    }
+  }
+
   return {
     passed,
     status,

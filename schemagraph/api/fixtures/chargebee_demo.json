@@ -1,0 +1,63 @@
+{
+  "schema": "chargebee",
+  "tables": [
+    {
+      "name": "customers",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["cust_16abc001"] },
+        { "name": "email", "dataType": "email", "keyKind": "unique", "samples": ["founder@sportedge.in"] },
+        { "name": "company", "dataType": "string", "samples": ["SportEdge Analytics"] },
+        { "name": "currency_code", "dataType": "string", "samples": ["INR"] },
+        { "name": "hubspot_company_id", "dataType": "string", "samples": ["hs_88291001"] }
+      ]
+    },
+    {
+      "name": "plans",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["growth-inr-monthly"] },
+        { "name": "name", "dataType": "string", "samples": ["Growth · INR monthly"] },
+        { "name": "price", "dataType": "integer", "samples": ["799900"] },
+        { "name": "period_unit", "dataType": "string", "samples": ["month"] }
+      ]
+    },
+    {
+      "name": "subscriptions",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["sub_16abc002"] },
+        { "name": "customer_id", "dataType": "string", "keyKind": "fk", "references": "customers.id", "samples": ["cust_16abc001"] },
+        { "name": "plan_id", "dataType": "string", "keyKind": "fk", "references": "plans.id", "samples": ["growth-inr-monthly"] },
+        { "name": "status", "dataType": "string", "samples": ["active"] },
+        { "name": "mrr", "dataType": "integer", "samples": ["799900"] },
+        { "name": "stripe_subscription_id", "dataType": "string", "samples": ["sub_1Qabc789"] }
+      ]
+    },
+    {
+      "name": "invoices",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["inv_16abc003"] },
+        { "name": "customer_id", "dataType": "string", "keyKind": "fk", "references": "customers.id", "samples": ["cust_16abc001"] },
+        { "name": "subscription_id", "dataType": "string", "keyKind": "fk", "references": "subscriptions.id", "samples": ["sub_16abc002"] },
+        { "name": "amount_due", "dataType": "integer", "samples": ["799900"] },
+        { "name": "status", "dataType": "string", "samples": ["paid"] },
+        { "name": "gstin", "dataType": "string", "samples": ["29ABCDE1234F1Z5"] }
+      ]
+    },
+    {
+      "name": "transactions",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["txn_16abc004"] },
+        { "name": "invoice_id", "dataType": "string", "keyKind": "fk", "references": "invoices.id", "samples": ["inv_16abc003"] },
+        { "name": "amount", "dataType": "integer", "samples": ["799900"] },
+        { "name": "gateway", "dataType": "string", "samples": ["stripe"] },
+        { "name": "stripe_charge_id", "dataType": "string", "samples": ["ch_3Pabc456"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    { "fromTable": "subscriptions", "fromColumn": "customer_id", "toTable": "customers", "toColumn": "id" },
+    { "fromTable": "subscriptions", "fromColumn": "plan_id", "toTable": "plans", "toColumn": "id" },
+    { "fromTable": "invoices", "fromColumn": "customer_id", "toTable": "customers", "toColumn": "id" },
+    { "fromTable": "invoices", "fromColumn": "subscription_id", "toTable": "subscriptions", "toColumn": "id" },
+    { "fromTable": "transactions", "fromColumn": "invoice_id", "toTable": "invoices", "toColumn": "id" }
+  ]
+}

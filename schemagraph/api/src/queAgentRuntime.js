@@ -2,7 +2,8 @@
  * Unified Que Agent — replaces separate Stitch Agent chat path.
  * CEO + Engineer chat and cross-page Genie share this runtime.
  */
-import { buildSchemaContextPack } from './schemaContext.js'
+import { buildUnifiedContextPack } from './ssm/schemaContextService.js'
+import { formatSampleGateBlockMessage } from './ssm/sampleGate.js'
 import {
   parseAgentIntent,
   createAgentSession,
@@ -15,6 +16,40 @@ const ACTION_RE =
   /\b(create|build|make|draft|edit|update|change|materialize|scaffold|join|stitch|transform|clean|fix|validate|combine|merge|add|rename)\b/i
 const TARGET_RE =
   /\b(job|jobs|table|tables|dashboard|report|bi|chart|visual|transform|join|materialize|notebook|sql)\b/i
+const SSM_AGENT_INTENTS = new Set([
+  'create_job',
+  'studio_board',
+  'create_table',
+  'edit_job',
+  'metric',
+])
+
+function mapSsmIntentToAgentKind(intent) {
+  if (intent === 'studio_board') return 'bi'
+  if (intent === 'create_table') return 'materialize'
+  if (intent === 'edit_job') return 'edit_job'
+  if (intent === 'metric') return 'bi'
+  return 'general'
+}
+
+export function buildSsmRoutingMeta(unified = {}) {
+  if (unified.ssmAb) {
+    return {
+      winner: unified.ssmAb.winner,
+      agreed: unified.ssmAb.agreed,
+      recommendedIntent: unified.ssmAb.recommendedIntent,
+      routingSource: unified.ssmRoute?.routingSource || unified.ssmAb.winner,
+      heuristicIntent: unified.ssmAb.heuristic?.intent,
+      mlIntent: unified.ssmAb.mlStub?.intent,
+      confidence: unified.ssmRoute?.confidence ?? null,
+    }
+  }
+  return {
+    routingSource: unified.ssmRoute?.routingSource || 'heuristic',
+    recommendedIntent: unified.intent || unified.ssmRoute?.intent || 'question',
+    confidence: unified.ssmRoute?.confidence ?? null,
+  }
+}
 
 /** Detect when chat/genie should run the Que Agent instead of plain Q&A. */
 export function detectQueAgentIntent(message, pageContext = {}) {
@@ -71,6 +106,53 @@ export function detectQueAgentIntent(message, pageContext = {}) {
   }
 }
 
+/**
+ * SSM-B fallback — trigger Que Agent when A/B routing recommends an action intent.
+ */
+export async function detectQueAgentIntentWithSsm(
+  workspaceId,
+  message,
+  pageContext = {},
+) {
+  const direct = detectQueAgentIntent(message, pageContext)
+  if (direct) return direct
+
+  const t = String(message || '').trim()
+  if (!t || /^\/(help|list|describe|sql|job|privacy)\b/i.test(t)) return null
+  if (
+    !/\b(create|build|make|draft|materialize|scaffold|dashboard|report|job|metric|board|visual|kpi)\b/i.test(
+      t,
+    )
+  ) {
+    return null
+  }
+
+  const { listRecentWorkspaceEvents } = await import('./ssm/workspaceEvents.js')
+  const { resolveSsmRouteWithAb } = await import('./ssm/ssmMlExport.js')
+  let events = []
+  try {
+    events = await listRecentWorkspaceEvents(workspaceId, 40)
+  } catch {
+    /* optional */
+  }
+
+  const { recommendedIntent, ssmAb, ssmRoute } = resolveSsmRouteWithAb(t, events, {
+    pageContext,
+    workspaceId,
+  })
+  if (!SSM_AGENT_INTENTS.has(recommendedIntent)) return null
+  if ((ssmRoute.confidence ?? 0) < 0.72) return null
+
+  return {
+    goal: t,
+    autoExecute: /\b(now|go ahead|do it|run it|auto)\b/i.test(t),
+    pageContext: pageContext || {},
+    kind: mapSsmIntentToAgentKind(recommendedIntent),
+    ssmTriggered: true,
+    ssmAb,
+  }
+}
+
 function formatCeoReply(session) {
   const r = session.result || {}
   const parts = []
@@ -115,7 +197,11 @@ export async function maybeHandleQueAgent(
   message,
   opts = {},
 ) {
-  const intent = detectQueAgentIntent(message, opts.pageContext)
+  const intent = await detectQueAgentIntentWithSsm(
+    workspaceId,
+    message,
+    opts.pageContext,
+  )
   if (!intent) return null
 
   const ws = await getWorkspaceSettings(workspaceId)
@@ -132,15 +218,47 @@ export async function maybeHandleQueAgent(
   }
 
   const audience = opts.audience === 'engineer' ? 'engineer' : 'ceo'
+
+  const unified = await buildUnifiedContextPack(workspaceId, {
+    message: intent.goal,
+    audience,
+    pageContext: intent.pageContext,
+    settings,
+  })
+
+  if (unified.sampleGate?.blocked) {
+    return {
+      reply: formatSampleGateBlockMessage(unified.sampleGate),
+      mode: 'sample-gate',
+      agentSession: null,
+      citations: [],
+      jobDraft: null,
+      sampleGate: unified.sampleGate,
+      sampleWarnings: unified.sampleWarnings,
+      ssmValidation: unified.validation,
+      graphContext: {
+        intent: unified.intent,
+        joinPaths: unified.joinPaths,
+        mermaid: unified.mermaid,
+        ssmRouting: buildSsmRoutingMeta(unified),
+      },
+    }
+  }
+
   const body = {
     goal: intent.goal,
     title: intent.goal.slice(0, 80),
     autoExecute: intent.autoExecute,
     pageContext: intent.pageContext,
-    tableNames: intent.pageContext?.selectedTables,
+    tableNames:
+      intent.pageContext?.selectedTables ||
+      unified.ssmRoute?.focusTableNames ||
+      [],
     jobId: intent.pageContext?.jobId,
     jobTitle: intent.pageContext?.jobTitle,
     prompt: intent.goal,
+    ssmIntent: unified.intent,
+    focusTables: unified.ssmRoute?.focusTableNames || [],
   }
 
   let session = await createAgentSession(workspaceId, opts.userId ?? null, body)
@@ -174,7 +292,7 @@ export async function maybeHandleQueAgent(
     }
   }
 
-  const pack = await buildSchemaContextPack(workspaceId)
+  const pack = unified.pack
   const reply =
     audience === 'ceo'
       ? formatCeoReply(session)
@@ -195,6 +313,17 @@ export async function maybeHandleQueAgent(
     biReport: session.result?.biReport || null,
     materialization: session.result?.materialization || null,
     contextStats: pack.stats,
+    ssmIntent: unified.intent,
+    ssmValidation: unified.validation,
+    ssmRouting: buildSsmRoutingMeta(unified),
+    sampleWarnings: unified.sampleWarnings,
+    sampleGate: unified.sampleGate,
+    graphContext: {
+      intent: unified.intent,
+      joinPaths: unified.joinPaths,
+      mermaid: unified.mermaid,
+      ssmRouting: buildSsmRoutingMeta(unified),
+    },
     referencedTables: [],
     retrievedChunks: [],
     model: null,

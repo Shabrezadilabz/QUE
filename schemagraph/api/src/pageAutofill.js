@@ -8,6 +8,10 @@ import { getLatestPackCertification } from './packCertification.js'
 import { getStewardInboxSummary } from './stewardInbox.js'
 import { computeHealthScorecard } from './healthScorecard.js'
 import { getMonkCapabilityPreview } from './monkMode.js'
+import {
+  fetchPlatformModuleSignals,
+  buildPlatformModulePages,
+} from './platform/platformModuleSignals.js'
 
 function statusFrom(score, hasData) {
   if (!hasData) return 'empty'
@@ -156,6 +160,9 @@ export async function getPageAutofill(workspaceId, pageId = null) {
       cta: 'Enter Monk Mode',
     },
   }
+
+  const platformSignals = await fetchPlatformModuleSignals(workspaceId)
+  Object.assign(pages, buildPlatformModulePages(platformSignals, health))
 
   const globalSummary = {
     healthScore: health.score,

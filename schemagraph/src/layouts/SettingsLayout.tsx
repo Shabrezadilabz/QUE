@@ -21,6 +21,7 @@ const ORG_NAV: {
   { to: '/settings/security', label: 'Security', id: 'security' },
   { to: '/settings/ai-policy', label: 'AI Policy', id: 'ai-policy' },
   { to: '/settings/automation', label: 'Automation', id: 'automation' },
+  { to: '/settings/bi-access', label: 'BI Access', id: 'security', adminOnly: true },
   { to: '/settings/billing', label: 'Billing', id: 'billing', adminOnly: true },
 ]
 

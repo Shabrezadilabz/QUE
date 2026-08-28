@@ -750,12 +750,27 @@ export async function inferJoinsForWorkspace(workspaceId, options = {}) {
     }
   }
 
+  await emitJoinInferenceEvent(workspaceId, created, connectionId)
+
   return {
     ok: true,
     created,
     scanned,
     connections: connectionIds.length,
     durationMs: Date.now() - started,
+  }
+}
+
+async function emitJoinInferenceEvent(workspaceId, created, connectionId) {
+  if (!created) return
+  try {
+    const { emitWorkspaceEvent } = await import('./ssm/workspaceEvents.js')
+    await emitWorkspaceEvent(workspaceId, 'join_inferred', {
+      suggestedCount: created,
+      connectionId: connectionId ?? null,
+    })
+  } catch {
+    /* optional */
   }
 }
 

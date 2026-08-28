@@ -57,6 +57,21 @@ export async function collectOpsSnapshot() {
     /* partial ok */
   }
 
+  let worker = {
+    enabled: String(process.env.QUE_WAREHOUSE_WORKER_ENABLED || 'true')
+      .trim()
+      .toLowerCase() !== 'false',
+    queued: 0,
+    running: 0,
+    failed7d: 0,
+  }
+  try {
+    const { getGlobalWorkerQueueStats } = await import('./warehouseWorker.js')
+    worker = await getGlobalWorkerQueueStats()
+  } catch {
+    /* queue table may be missing until migrate 050 */
+  }
+
   const snapshot = {
     ok: true,
     service: 'que-api',
@@ -65,6 +80,7 @@ export async function collectOpsSnapshot() {
     authDisabled: authDisabled(),
     sso: getSsoConfig().status,
     vectorReady,
+    worker,
     inventory: {
       workspaces,
       connections,
@@ -128,6 +144,12 @@ export function formatPrometheus(snapshot) {
     `# HELP que_suggested_joins Open suggested joins`,
     `# TYPE que_suggested_joins gauge`,
     `que_suggested_joins ${snapshot.inventory?.openSuggestedJoins || 0}`,
+    `# HELP que_warehouse_queue_queued Warehouse job queue queued (7d window)`,
+    `# TYPE que_warehouse_queue_queued gauge`,
+    `que_warehouse_queue_queued ${snapshot.worker?.queued || 0}`,
+    `# HELP que_warehouse_queue_failed Warehouse job queue failed (7d window)`,
+    `# TYPE que_warehouse_queue_failed gauge`,
+    `que_warehouse_queue_failed ${snapshot.worker?.failed7d || 0}`,
   ]
   return lines.join('\n') + '\n'
 }

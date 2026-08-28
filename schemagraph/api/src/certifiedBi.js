@@ -6,6 +6,15 @@ import { randomUUID, createHash, randomBytes } from 'node:crypto'
 import { query } from './db.js'
 import { recordAuditEvent } from './auditLog.js'
 import { readManagedDatasetRows, getManagedDataset } from './managedDataPlane.js'
+import {
+  applyFiltersToSql,
+  applyDrillFilter,
+  filtersFromParameters,
+  mergeBoardFilters,
+  normalizeBoardFilters,
+} from './studio/boardFilters.js'
+import { applyBiAccessToSql } from './studio/biAccessGroups.js'
+import { buildChartMeasureSql } from './studio/queExpr.js'
 
 const CHART_TYPES = new Set([
   'bar',
@@ -218,8 +227,9 @@ export function buildBiChartDrillSql(chart, dataset = null) {
     'que_marts.certified_mart'
   const x = chart.config?.xField
   const y = chart.config?.yField
+  const yExpr = chart.config?.yExpr
   const metricSql = chart.config?.sqlFallback || chart.config?.metricSql
-  if (metricSql) {
+  if (metricSql && !yExpr) {
     return {
       sql: String(metricSql),
       certifiedOnly: true,
@@ -227,12 +237,20 @@ export function buildBiChartDrillSql(chart, dataset = null) {
       note: 'Metric expression from certified registry',
     }
   }
-  if (x && y) {
+  const built = buildChartMeasureSql({
+    table,
+    xField: x,
+    yField: y,
+    yExpr,
+  })
+  if (built.sql) {
     return {
-      sql: `SELECT ${x},\n       SUM(${y}) AS ${y}\nFROM ${table}\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 500`,
+      sql: built.sql,
       certifiedOnly: true,
       datasetId: chart.datasetId || null,
-      fields: [x, y],
+      fields: built.fields,
+      measureAlias: built.measureAlias,
+      note: built.note,
     }
   }
   return {
@@ -242,7 +260,34 @@ export function buildBiChartDrillSql(chart, dataset = null) {
   }
 }
 
-export async function getBiChartDrillSql(workspaceId, chartId) {
+/**
+ * Apply board filters, cross-filter, drill, and BI access policy to base SQL.
+ * @param {string} baseSql
+ * @param {object} [opts]
+ */
+export function applyBoardContextToSql(baseSql, opts = {}) {
+  let sql = String(baseSql || '').trim()
+  const paramFilters = filtersFromParameters(
+    opts.parameters || [],
+    opts.parameterOverrides || {},
+  )
+  const merged = mergeBoardFilters(
+    [...paramFilters, ...normalizeBoardFilters(opts.filters)],
+    opts.crossFilter || null,
+  )
+  if (merged.length) {
+    sql = applyFiltersToSql(sql, merged)
+  }
+  if (opts.drill?.field) {
+    sql = applyDrillFilter(sql, opts.drill)
+  }
+  if (opts.biAccess) {
+    sql = applyBiAccessToSql(sql, opts.biAccess)
+  }
+  return { sql, filtersApplied: merged.length }
+}
+
+export async function getBiChartDrillSql(workspaceId, chartId, opts = {}) {
   const chart = await getBiChart(workspaceId, chartId)
   if (!chart) {
     const err = new Error('chart not found')
@@ -261,18 +306,84 @@ export async function getBiChartDrillSql(workspaceId, chartId) {
       throw err
     }
   }
-  return { chart, ...buildBiChartDrillSql(chart, dataset) }
+  const built = buildBiChartDrillSql(chart, dataset)
+  const applied = applyBoardContextToSql(built.sql, opts)
+  return {
+    chart,
+    ...built,
+    sql: applied.sql,
+    filtersApplied: applied.filtersApplied,
+    crossFilter: opts.crossFilter || null,
+  }
 }
 
-export async function previewBiChart(workspaceId, chartId, { limit = 100 } = {}) {
+export async function previewBiChart(
+  workspaceId,
+  chartId,
+  {
+    limit = 100,
+    skipCache = false,
+    filters,
+    parameters,
+    parameterOverrides,
+    crossFilter,
+    drill,
+    biAccess,
+    warehouseOnly = true,
+  } = {},
+) {
   const chart = await getBiChart(workspaceId, chartId)
   if (!chart) {
     const err = new Error('chart not found')
     err.status = 404
     throw err
   }
+
+  try {
+    const { executeWidgetSql, mapRowsForChartPreview } = await import(
+      './studio/widgetSql.js'
+    )
+    const wh = await executeWidgetSql(workspaceId, chartId, {
+      limit,
+      skipCache,
+      filters,
+      parameters,
+      parameterOverrides,
+      crossFilter,
+      drill,
+      biAccess,
+    })
+    if (wh.source === 'que_warehouse' && (wh.rows?.length || wh.sql)) {
+      const series = mapRowsForChartPreview(chart, wh.rows)
+      return {
+        chart,
+        rows: series,
+        sql: wh.sql,
+        source: 'que_warehouse',
+        cached: wh.cached,
+        durationMs: wh.durationMs,
+        aiAccess: 'denied',
+        note: wh.note,
+      }
+    }
+  } catch (whErr) {
+    console.warn('[Que BI] warehouse preview fallback:', whErr.message || whErr)
+  }
+
+  if (warehouseOnly) {
+    return {
+      chart,
+      rows: [],
+      source: 'warehouse_only',
+      aiAccess: 'denied',
+      note: chart.config?.sqlFallback || chart.config?.warehouseSql
+        ? 'Warehouse-only preview — provision Que Warehouse or run sync'
+        : 'Bind sqlFallback on this visual — managed dataset preview disabled in Studio v3',
+    }
+  }
+
   if (!chart.datasetId) {
-    return { chart, rows: [], note: 'No dataset bound — bind a managed dataset' }
+    return { chart, rows: [], note: 'No dataset bound — bind a managed dataset or add sqlFallback' }
   }
   const data = await readManagedDatasetRows(workspaceId, chart.datasetId, {
     limit,
@@ -290,8 +401,9 @@ export async function previewBiChart(workspaceId, chartId, { limit = 100 } = {})
   return {
     chart,
     rows: series,
+    source: 'managed_dataset',
     aiAccess: 'denied',
-    note: 'Preview from managed data plane — not sent to AI',
+    note: 'Preview from managed data plane — warehouse unavailable',
   }
 }
 
@@ -605,6 +717,12 @@ export async function scaffoldBiReport(
 
   const charts = []
   for (const spec of layouts) {
+    const draftChart = {
+      chartType: spec.chartType,
+      datasetId: ds.id,
+      config: spec.config,
+    }
+    const built = buildBiChartDrillSql(draftChart, ds)
     const chart = await createBiChart(workspaceId, {
       title: spec.title,
       description: promptText
@@ -612,7 +730,11 @@ export async function scaffoldBiReport(
         : `Auto report for ${ds.name}`,
       chartType: spec.chartType,
       datasetId: ds.id,
-      config: { ...spec.config, layout: spec.layout },
+      config: {
+        ...spec.config,
+        layout: spec.layout,
+        sqlFallback: built.sql,
+      },
       certify: false,
       userId,
     })

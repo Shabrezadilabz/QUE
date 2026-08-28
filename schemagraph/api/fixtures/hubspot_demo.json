@@ -1,0 +1,40 @@
+{
+  "schema": "hubspot",
+  "tables": [
+    {
+      "name": "companies",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["1001"] },
+        { "name": "name", "dataType": "string", "samples": ["SportEdge India"] },
+        { "name": "domain", "dataType": "string", "samples": ["sportedge.in"] },
+        { "name": "industry", "dataType": "string", "samples": ["Retail"] }
+      ]
+    },
+    {
+      "name": "contacts",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["2001"] },
+        { "name": "email", "dataType": "email", "keyKind": "unique", "samples": ["buyer@example.in"] },
+        { "name": "firstname", "dataType": "string", "samples": ["Asha"] },
+        { "name": "lastname", "dataType": "string", "samples": ["Sharma"] },
+        { "name": "company_id", "dataType": "string", "keyKind": "fk", "references": "companies.id", "samples": ["1001"] }
+      ]
+    },
+    {
+      "name": "deals",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["3001"] },
+        { "name": "dealname", "dataType": "string", "samples": ["Q2 Enterprise renewal"] },
+        { "name": "amount", "dataType": "decimal", "samples": ["450000.00"] },
+        { "name": "dealstage", "dataType": "string", "samples": ["closedwon"] },
+        { "name": "company_id", "dataType": "string", "keyKind": "fk", "references": "companies.id", "samples": ["1001"] },
+        { "name": "contact_id", "dataType": "string", "keyKind": "fk", "references": "contacts.id", "samples": ["2001"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    { "fromTable": "contacts", "fromColumn": "company_id", "toTable": "companies", "toColumn": "id" },
+    { "fromTable": "deals", "fromColumn": "company_id", "toTable": "companies", "toColumn": "id" },
+    { "fromTable": "deals", "fromColumn": "contact_id", "toTable": "contacts", "toColumn": "id" }
+  ]
+}

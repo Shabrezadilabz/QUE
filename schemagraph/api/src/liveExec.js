@@ -19,12 +19,28 @@ const LIVE_ENGINES = new Set(['postgresql', 'databricks', 'snowflake', 'bigquery
 /** Product cap for live / validate reads — never pull full tables. */
 export const LIVE_VALIDATE_MAX_ROWS = 20
 
+/** Phase 4 — BI widget/chart previews may fetch more rows from warehouse. */
+export const BI_WIDGET_MAX_ROWS = 500
+
 /**
  * Harden user SQL for live read execution.
  * @param {string} sql
  * @param {number} [maxRows=20]
  */
 export function prepareReadonlySql(sql, maxRows = LIVE_VALIDATE_MAX_ROWS) {
+  return prepareReadonlySqlWithCap(sql, maxRows, LIVE_VALIDATE_MAX_ROWS)
+}
+
+/**
+ * BI Studio widget SQL — same guards, higher row cap (Phase 4.1).
+ * @param {string} sql
+ * @param {number} [maxRows=100]
+ */
+export function prepareBiReadonlySql(sql, maxRows = 100) {
+  return prepareReadonlySqlWithCap(sql, maxRows, BI_WIDGET_MAX_ROWS)
+}
+
+function prepareReadonlySqlWithCap(sql, maxRows, hardCap) {
   let text = String(sql || '').trim()
   if (!text) {
     const err = new Error('SQL is empty')
@@ -57,15 +73,14 @@ export function prepareReadonlySql(sql, maxRows = LIVE_VALIDATE_MAX_ROWS) {
     throw err
   }
   const limit = Math.min(
-    Math.max(Number(maxRows) || LIVE_VALIDATE_MAX_ROWS, 1),
-    LIVE_VALIDATE_MAX_ROWS,
+    Math.max(Number(maxRows) || hardCap, 1),
+    hardCap,
   )
   if (!/\blimit\s+\d+/i.test(text)) {
     text = `${text}\nLIMIT ${limit}`
   } else {
-    // Clamp an existing LIMIT that exceeds the product cap
     text = text.replace(/\blimit\s+(\d+)/gi, (_m, n) => {
-      const v = Math.min(Number(n) || limit, LIVE_VALIDATE_MAX_ROWS)
+      const v = Math.min(Number(n) || limit, hardCap)
       return `LIMIT ${v}`
     })
   }
@@ -79,6 +94,18 @@ export function prepareReadonlySql(sql, maxRows = LIVE_VALIDATE_MAX_ROWS) {
  * @param {string} [connectionId]
  */
 export async function resolveLiveTarget(workspaceId, job, connectionId) {
+  try {
+    const { getWorkspaceSettings } = await import('./workspaceSettings.js')
+    const { getWarehouseLiveConnection } = await import('./queWarehouse.js')
+    const ws = await getWorkspaceSettings(workspaceId)
+    if (ws?.settings?.preferWarehouseForLiveSql !== false) {
+      const wh = await getWarehouseLiveConnection(workspaceId)
+      if (wh) return wh
+    }
+  } catch {
+    /* fall through to source connections */
+  }
+
   if (connectionId) {
     const conn = await getConnectionSecrets(workspaceId, connectionId)
     if (!conn) {
@@ -155,6 +182,21 @@ export async function executeLiveSql(connection, sql, opts = {}) {
     LIVE_VALIDATE_MAX_ROWS,
   )
   const prepared = prepareReadonlySql(sql, maxRows)
+
+  if (connection.config?.queWarehouse && connection.config?.workspaceId) {
+    const { executeWarehouseReadonlySql } = await import('./queWarehouse.js')
+    const result = await executeWarehouseReadonlySql(
+      connection.config.workspaceId,
+      prepared,
+      { maxRows },
+    )
+    return {
+      ...result,
+      connectionId: connection.id,
+      connectionName: connection.name,
+      sqlExecuted: prepared,
+    }
+  }
 
   if (connection.type === 'postgresql') {
     const result = await runPg(connection.config, prepared, { maxRows })

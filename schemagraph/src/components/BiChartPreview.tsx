@@ -10,12 +10,18 @@ export function BiChartPreview({
   xField,
   yField,
   compact = false,
+  onSegmentClick,
+  activeCrossFilter,
 }: {
   chartType: string
   rows: Row[]
   xField?: string
   yField?: string
   compact?: boolean
+  /** Cross-filter: click dimension label to filter board */
+  onSegmentClick?: (field: string, value: string) => void
+  /** Highlight selected cross-filter segment */
+  activeCrossFilter?: { field: string; value: string } | null
 }) {
   if (!rows.length) {
     return (
@@ -88,11 +94,34 @@ export function BiChartPreview({
         {rows.slice(0, limit).map((r, i) => {
           const n = Number(r[y!] ?? 0)
           const pct = Math.max(2, Math.round((n / max) * 100))
+          const segVal = String(r[x!] ?? i)
+          const isActive =
+            activeCrossFilter &&
+            activeCrossFilter.field === String(x!) &&
+            activeCrossFilter.value === segVal
           return (
-            <div key={i} className="flex items-center gap-md">
-              <span className="w-24 truncate font-label text-[10px] text-on-surface-variant">
-                {String(r[x!] ?? i)}
-              </span>
+            <div
+              key={i}
+              className={[
+                'flex items-center gap-md rounded-[4px] px-[4px] py-[2px]',
+                isActive ? 'bg-[#7aecd0]/10 ring-1 ring-[#7aecd0]/40' : '',
+              ].join(' ')}
+            >
+              <button
+                type="button"
+                disabled={!onSegmentClick}
+                onClick={() => onSegmentClick?.(String(x!), segVal)}
+                className={[
+                  'w-24 truncate text-left font-label text-[10px]',
+                  isActive
+                    ? 'font-semibold text-[#7aecd0]'
+                    : 'text-on-surface-variant',
+                  onSegmentClick ? 'cursor-pointer hover:text-primary hover:underline' : '',
+                ].join(' ')}
+                title={onSegmentClick ? 'Click to cross-filter board (click again to clear)' : undefined}
+              >
+                {segVal}
+              </button>
               <div
                 className={[
                   'h-3 flex-1 overflow-hidden bg-secondary-container',
@@ -129,12 +158,33 @@ export function BiChartPreview({
         {rows.slice(0, compact ? 8 : 12).map((r, i) => {
           const n = Math.max(0, Number(r[y!] ?? 0))
           const pct = Math.round((n / total) * 1000) / 10
+          const segVal = String(r[x!] ?? i)
+          const isActive =
+            activeCrossFilter &&
+            activeCrossFilter.field === String(x!) &&
+            activeCrossFilter.value === segVal
           return (
             <li
               key={i}
-              className="flex items-center justify-between rounded-lg bg-surface-container-low px-md py-sm text-[12px]"
+              className={[
+                'flex items-center justify-between rounded-lg px-md py-sm text-[12px]',
+                isActive
+                  ? 'bg-[#7aecd0]/10 ring-1 ring-[#7aecd0]/40'
+                  : 'bg-surface-container-low',
+              ].join(' ')}
             >
-              <span className="truncate">{String(r[x!] ?? i)}</span>
+              <button
+                type="button"
+                disabled={!onSegmentClick}
+                onClick={() => onSegmentClick?.(String(x!), segVal)}
+                className={[
+                  'truncate text-left',
+                  isActive ? 'font-semibold text-[#7aecd0]' : '',
+                  onSegmentClick ? 'cursor-pointer hover:text-primary hover:underline' : '',
+                ].join(' ')}
+              >
+                {segVal}
+              </button>
               <span className="shrink-0 font-mono text-primary">
                 {pct}% · {n}
               </span>

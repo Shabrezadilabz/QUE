@@ -12,7 +12,7 @@ export const CONNECTOR_MATRIX = {
       id: 'connector_count',
       category: 'Breadth',
       label: 'Pre-built connectors',
-      que: '12 live + spreadsheet (depth > count)',
+      que: '17 live + spreadsheet (depth > count)',
       fivetran: '700+',
       hevo: '150+',
       queDepth: 'partial',
@@ -114,8 +114,13 @@ export const CONNECTOR_MATRIX = {
     { id: 'shopify', name: 'Shopify', depth: 'S9', live: true, incremental: 'Fixture + webhook doc' },
     { id: 'razorpay', name: 'Razorpay', depth: 'S9', live: true, incremental: 'Fixture' },
     { id: 'zoho', name: 'Zoho Books', depth: 'S9', live: true, incremental: 'Fixture' },
+    { id: 'stripe', name: 'Stripe', depth: 'S12', live: true, incremental: 'Balance transactions' },
+    { id: 'hubspot', name: 'HubSpot', depth: 'S12', live: true, incremental: 'CRM objects' },
     { id: 'excel', name: 'Excel / CSV', depth: 'P1', live: true, incremental: 'Re-upload' },
     { id: 'spreadsheet', name: 'Spreadsheet', depth: 'P1', live: true, incremental: 'Re-upload' },
+    { id: 'mysql', name: 'MySQL', depth: 'S12', live: true, incremental: 'Binlog doc' },
+    { id: 'chargebee', name: 'Chargebee', depth: 'S12', live: true, incremental: 'Subscriptions' },
+    { id: 'google_ads', name: 'Google Ads', depth: 'S12', live: true, incremental: 'Campaign stats' },
   ],
 }
 

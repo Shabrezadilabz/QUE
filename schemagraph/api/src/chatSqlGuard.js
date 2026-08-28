@@ -394,3 +394,5 @@ export function missingRelationName(message) {
   )
   return m?.[1]?.toLowerCase() || null
 }
+
+export { validateAgainstContextPack, SSM_SYSTEM_PROMPT_ANCHOR } from './ssm/contextPackValidate.js'

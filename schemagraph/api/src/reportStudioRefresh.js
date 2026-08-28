@@ -173,3 +173,54 @@ export async function onJobRunCompleteRefreshBoards(workspaceId, jobRun = {}) {
   }
   return { refreshed }
 }
+
+/**
+ * Phase 4.4 — apply layout preset to all charts in a report board.
+ * @param {string} workspaceId
+ * @param {string} reportId
+ * @param {string} presetId
+ * @param {string|null} userId
+ */
+export async function applyReportBoardLayout(
+  workspaceId,
+  reportId,
+  presetId = 'executive',
+  userId = null,
+) {
+  const { buildLayoutPatches } = await import('./studio/layoutPresets.js')
+  const { updateBiChart } = await import('./certifiedBi.js')
+  const charts = await listBiCharts(workspaceId)
+  const reportCharts = charts.filter(
+    (c) => String(c.config?.reportId || '') === reportId,
+  )
+  if (!reportCharts.length) {
+    const err = new Error('No charts found for this report')
+    err.status = 404
+    throw err
+  }
+  const patches = buildLayoutPatches(reportCharts, presetId)
+  const updated = []
+  for (const p of patches) {
+    const chart = reportCharts.find((c) => c.id === p.chartId)
+    if (!chart) continue
+    await updateBiChart(
+      workspaceId,
+      p.chartId,
+      {
+        config: {
+          ...chart.config,
+          layout: p.layout,
+        },
+      },
+      userId,
+    )
+    updated.push({ chartId: p.chartId, layout: p.layout })
+  }
+  await updateReportBoardConfig(workspaceId, reportId, { layoutPreset: presetId }, userId)
+  return {
+    reportId,
+    presetId,
+    updatedCount: updated.length,
+    charts: updated,
+  }
+}

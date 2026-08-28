@@ -1,0 +1,50 @@
+{
+  "schema": "stripe",
+  "tables": [
+    {
+      "name": "customers",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["cus_Nabc123"] },
+        { "name": "email", "dataType": "email", "keyKind": "unique", "samples": ["buyer@example.in"] },
+        { "name": "name", "dataType": "string", "samples": ["SportEdge Buyer"] },
+        { "name": "currency", "dataType": "string", "samples": ["inr"] }
+      ]
+    },
+    {
+      "name": "charges",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["ch_3Pabc456"] },
+        { "name": "customer_id", "dataType": "string", "keyKind": "fk", "references": "customers.id", "samples": ["cus_Nabc123"] },
+        { "name": "amount", "dataType": "integer", "samples": ["249900"] },
+        { "name": "currency", "dataType": "string", "samples": ["inr"] },
+        { "name": "status", "dataType": "string", "samples": ["succeeded"] },
+        { "name": "metadata_shopify_order_id", "dataType": "string", "samples": ["5001001"] }
+      ]
+    },
+    {
+      "name": "subscriptions",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["sub_1Qabc789"] },
+        { "name": "customer_id", "dataType": "string", "keyKind": "fk", "references": "customers.id", "samples": ["cus_Nabc123"] },
+        { "name": "status", "dataType": "string", "samples": ["active"] },
+        { "name": "plan_amount", "dataType": "integer", "samples": ["99900"] }
+      ]
+    },
+    {
+      "name": "invoices",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["in_1Rabc012"] },
+        { "name": "customer_id", "dataType": "string", "keyKind": "fk", "references": "customers.id", "samples": ["cus_Nabc123"] },
+        { "name": "subscription_id", "dataType": "string", "keyKind": "fk", "references": "subscriptions.id", "samples": ["sub_1Qabc789"] },
+        { "name": "amount_due", "dataType": "integer", "samples": ["99900"] },
+        { "name": "status", "dataType": "string", "samples": ["paid"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    { "fromTable": "charges", "fromColumn": "customer_id", "toTable": "customers", "toColumn": "id" },
+    { "fromTable": "subscriptions", "fromColumn": "customer_id", "toTable": "customers", "toColumn": "id" },
+    { "fromTable": "invoices", "fromColumn": "customer_id", "toTable": "customers", "toColumn": "id" },
+    { "fromTable": "invoices", "fromColumn": "subscription_id", "toTable": "subscriptions", "toColumn": "id" }
+  ]
+}

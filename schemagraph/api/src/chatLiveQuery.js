@@ -2,14 +2,13 @@
  * Chat live warehouse reads — generate SQL from schema metadata, execute read-only,
  * return rows to the UI only. Row payloads never enter the LLM prompt or chat history metadata.
  */
-import {
-  buildSchemaContextPack,
-  findTablesMentioned,
-} from './schemaContext.js'
+import { buildUnifiedContextPack } from './ssm/schemaContextService.js'
+import { formatSampleGateBlockMessage } from './ssm/sampleGate.js'
+import { validateAgainstContextPack } from './ssm/contextPackValidate.js'
+import { findTablesMentioned } from './schemaContext.js'
 import { buildChatGraphContext } from './chatGraphContext.js'
 import { buildPinnedSamplesAiPack } from './pinnedSamples.js'
 import {
-  validateSqlAgainstSchema,
   filterPackForConnection,
   filterPackByLiveTables,
   heuristicBrandRevenueSql,
@@ -183,7 +182,7 @@ function tryBrandRevenueSql(question, pack, connectionName, graphCtx) {
   if (!isBrandRevenueQuestion(question)) return null
   const h = heuristicBrandRevenueSql(question, pack)
   if (!h?.sql) return null
-  const check = validateSqlAgainstSchema(h.sql, pack, connectionName)
+  const check = validateAgainstContextPack(h.sql, pack, connectionName)
   if (!check.ok) return null
   return { ...h, graphCtx, source: 'heuristic-brand-revenue' }
 }
@@ -205,12 +204,12 @@ async function resolveLiveScopedPack(pack, connection) {
 
 function pickValidatedSql(question, pack, draft, connectionName) {
   if (!draft?.sql) return draft
-  const check = validateSqlAgainstSchema(draft.sql, pack, connectionName)
+  const check = validateAgainstContextPack(draft.sql, pack, connectionName)
   if (check.ok) return draft
 
   const heuristic = heuristicBrandRevenueSql(question, pack)
   if (heuristic?.sql) {
-    const hCheck = validateSqlAgainstSchema(heuristic.sql, pack, connectionName)
+    const hCheck = validateAgainstContextPack(heuristic.sql, pack, connectionName)
     if (hCheck.ok) {
       return {
         ...heuristic,
@@ -224,7 +223,7 @@ function pickValidatedSql(question, pack, draft, connectionName) {
   const focusTable = resolveFocusTable(pack, question, null)
   const fallback = heuristicLiveSql(question, pack, focusTable)
   if (fallback?.sql) {
-    const fCheck = validateSqlAgainstSchema(fallback.sql, pack, connectionName)
+    const fCheck = validateAgainstContextPack(fallback.sql, pack, connectionName)
     if (fCheck.ok) {
       return {
         ...fallback,
@@ -307,7 +306,7 @@ async function generateLiveSqlDraft(
   if (isBrandRevenueQuestion(question)) {
     const h = heuristicBrandRevenueSql(question, scopedPack)
     if (h?.sql) {
-      const check = validateSqlAgainstSchema(h.sql, scopedPack, connectionName)
+      const check = validateAgainstContextPack(h.sql, scopedPack, connectionName)
       if (check.ok) {
         return { ...h, graphCtx: ctx, source: 'heuristic-brand-revenue' }
       }
@@ -326,7 +325,7 @@ async function generateLiveSqlDraft(
     return { ...h, graphCtx: ctx }
   }
 
-  const allowed = validateSqlAgainstSchema('SELECT 1 FROM x', scopedPack, connectionName)
+  const allowed = validateAgainstContextPack('SELECT 1 FROM x', scopedPack, connectionName)
     .allowedNames
   const allowBlock =
     allowed.length > 0
@@ -442,7 +441,27 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
     }
   }
 
-  const pack = opts.pack || (await buildSchemaContextPack(workspaceId))
+  let pack = opts.pack
+  let unified = null
+  if (!pack) {
+    unified = await buildUnifiedContextPack(workspaceId, {
+      message: question,
+      audience: opts.audience,
+      mentions: opts.mentions,
+      graphCtx: opts.graphCtx,
+      settings,
+    })
+    if (unified.sampleGate?.blocked) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: 'sample_gate',
+        message: formatSampleGateBlockMessage(unified.sampleGate),
+        sampleGate: unified.sampleGate,
+      }
+    }
+    pack = unified.focusedPack || unified.pack
+  }
   const keys = opts.keys || (await resolveProviderKeys(workspaceId))
   const model =
     opts.model ||
@@ -546,7 +565,7 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
     sql = draft.sql
     explanation = draft.explanation
   } else {
-    const check = validateSqlAgainstSchema(sql, scopedPack, connectionName)
+    const check = validateAgainstContextPack(sql, scopedPack, connectionName)
     if (!check.ok) {
       const fixed = pickValidatedSql(
         question,
@@ -618,7 +637,7 @@ export async function runChatLiveQuery(workspaceId, question, opts = {}) {
         (() => {
           const h = heuristicBrandRevenueSql(question, retryPack)
           if (!h?.sql) return null
-          const check = validateSqlAgainstSchema(h.sql, retryPack, connectionName)
+          const check = validateAgainstContextPack(h.sql, retryPack, connectionName)
           return check.ok ? { ...h, graphCtx } : null
         })()
 
@@ -752,6 +771,7 @@ export async function formatLiveQuerySuccessResult(question, live, result, opts 
       policy: live.policy,
       aiIsolation: live.aiIsolation,
       compact: audience === 'ceo',
+      sql: live.sql || null,
     },
     planeScope: 'in_scope',
     planeScopeHint: null,
@@ -882,7 +902,7 @@ function heuristicCeoSummary(question, live, focusTableName) {
 }
 
 /**
- * One-shot CEO summary using live rows — ephemeral; not stored in RAG / chat AI context.
+ * CEO summary — metadata only; row payloads never enter the LLM (Phase 3.2).
  */
 async function buildCeoSummary(question, live, { model, keys, focusTableName }) {
   const rows = live.rows || []
@@ -890,31 +910,26 @@ async function buildCeoSummary(question, live, { model, keys, focusTableName }) 
   if (!rows.length) {
     return heuristicCeoSummary(question, live, focusTableName)
   }
+
   if (!model) {
     return heuristicCeoSummary(question, live, focusTableName)
   }
-
-  const sampleLines = rows
-    .slice(0, 20)
-    .map((row, i) => {
-      const parts = columns.map((c) => `${c}: ${formatCeoCell(row[c])}`)
-      return `${i + 1}. ${parts.join(' · ')}`
-    })
-    .join('\n')
 
   const system =
     `You write short answers for a business executive (CEO).\n` +
     `Rules:\n` +
     `- 1–2 short sentences max, plain English, confident and clear\n` +
-    `- Answer the question directly using the result rows\n` +
-    `- No bullet lists unless the user asked for a list\n` +
-    `- No SQL, no database/connection/table names, no technical jargon\n` +
-    `- Do not mention AI, models, queries, or how data was fetched\n` +
-    `- You may name brands, products, numbers, and regions from the rows`
+    `- You only know the row count and column names — NOT individual row values\n` +
+    `- Direct the user to the live results table below for specifics\n` +
+    `- Do not invent numbers, brands, products, or amounts\n` +
+    `- No SQL, database, connection, or table names\n` +
+    `- Do not mention AI, models, queries, or how data was fetched`
 
   const userMsg =
     `Question: ${question}\n\n` +
-    `Result rows (${live.rowCount} total, sample below):\n${sampleLines}`
+    `Query returned ${live.rowCount ?? rows.length} row(s).\n` +
+    `Columns: ${columns.slice(0, 10).join(', ') || 'unknown'}.\n` +
+    `Individual row values are shown in the UI table only — you cannot see them.`
 
   try {
     const text = await callChatModel(model, system, userMsg, [], keys)
@@ -922,12 +937,6 @@ async function buildCeoSummary(question, live, { model, keys, focusTableName }) 
   } catch {
     return heuristicCeoSummary(question, live, focusTableName)
   }
-}
-
-function formatCeoCell(v) {
-  if (v == null) return '—'
-  if (typeof v === 'object') return JSON.stringify(v)
-  return String(v).slice(0, 80)
 }
 
 function buildEngineerLiveReply(live, result, graphCtx = null) {

@@ -236,6 +236,18 @@ export async function startMonkModeRun(workspaceId, opts = {}) {
   )
   const run = mapRun(rows[0])
 
+  try {
+    const { emitWorkspaceEvent } = await import('./ssm/workspaceEvents.js')
+    await emitWorkspaceEvent(
+      workspaceId,
+      'monk_started',
+      { runId: run.id, packId: pack.id, industry: pack.industry },
+      opts.userId ?? null,
+    )
+  } catch {
+    /* event log optional */
+  }
+
   if (opts.async === false) {
     return executeMonkModeRun(workspaceId, run.id, opts)
   }

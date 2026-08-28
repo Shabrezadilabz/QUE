@@ -3,6 +3,7 @@ import { sql } from '@codemirror/lang-sql'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
 import type { JobNotebookCell } from '@/services/stitchApi'
+import { RunInWarehouseButton } from '@/components/warehouse/RunInWarehouseButton'
 
 const lightTheme = EditorView.theme(
   {
@@ -240,6 +241,12 @@ export function NotebookCellEditor({
           />
         )}
       </div>
+
+      {cell.kind === 'sql' && cell.content?.trim() ? (
+        <div className="border-t border-outline-variant px-sm py-xs">
+          <RunInWarehouseButton sql={cell.content} compact />
+        </div>
+      ) : null}
 
       <p className="border-t border-outline-variant px-sm py-xs font-label text-[8px] tracking-widest text-on-surface-variant/70">
         {cell.kind === 'sql' ? 'SQL · EDITABLE' : 'MARKDOWN · EDITABLE'}

@@ -276,6 +276,43 @@ export async function runScheduledJobsTick(opts = {}) {
   for (const row of due) {
     const started = Date.now()
     try {
+      const { shouldRouteJobViaWorker, enqueueScheduledJobRun } = await import(
+        './warehouseWorker.js'
+      )
+      const viaWorker = await shouldRouteJobViaWorker(row.workspace_id)
+      if (viaWorker) {
+        const enq = await enqueueScheduledJobRun(row.workspace_id, row.id, {
+          mode: row.run_mode || 'live',
+          maxRetries: row.max_retries,
+          retryDelaySec: row.retry_delay_sec,
+          trigger: 'schedule',
+        })
+        const bump = await bumpJobScheduleAfterRun(row.id, row.run_schedule)
+        void recordAuditEvent({
+          workspaceId: row.workspace_id,
+          actorUserId: opts.actorUserId || null,
+          action: 'job.scheduled_queued',
+          resourceType: 'job',
+          resourceId: row.id,
+          summary: `Scheduled run queued for warehouse worker: ${row.title}`,
+          meta: {
+            schedule: row.run_schedule,
+            queueId: enq.id,
+            mode: row.run_mode || 'live',
+          },
+        })
+        results.push({
+          jobId: row.id,
+          workspaceId: row.workspace_id,
+          title: row.title,
+          ok: true,
+          queued: true,
+          queueId: enq.id,
+          nextAt: bump.nextAt,
+        })
+        continue
+      }
+
       const out = await runJobWithRetries(row.workspace_id, row.id, {
         mode: row.run_mode || 'dry_run',
         maxRetries: row.max_retries ?? 2,

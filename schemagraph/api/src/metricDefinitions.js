@@ -306,15 +306,36 @@ export async function getMetricLineage(workspaceId, metricId = null) {
  * Preview metric from managed dataset rows (simple aggregate on a field).
  * expressionSql like: COUNT(*) | SUM(amount) | fieldName
  */
-export async function previewMetric(workspaceId, metricId, { limit = 500 } = {}) {
+export async function previewMetric(workspaceId, metricId, { limit = 500, skipCache = false } = {}) {
   const metric = await getMetric(workspaceId, metricId)
   if (!metric) {
     const err = new Error('metric not found')
     err.status = 404
     throw err
   }
+
+  try {
+    const { executeMetricSql } = await import('./studio/widgetSql.js')
+    const wh = await executeMetricSql(workspaceId, metricId, { skipCache })
+    if (wh.source === 'que_warehouse') {
+      return {
+        metric,
+        value: wh.value,
+        sql: wh.sql,
+        source: 'que_warehouse',
+        cached: wh.cached,
+        durationMs: wh.durationMs,
+        rowSample: (wh.rows || []).slice(0, 5),
+        aiAccess: 'denied',
+        note: 'Live metric from Que Warehouse — not sent to AI',
+      }
+    }
+  } catch (whErr) {
+    console.warn('[Que metric] warehouse preview fallback:', whErr.message || whErr)
+  }
+
   if (!metric.datasetId) {
-    return { metric, value: null, note: 'Bind a managed dataset' }
+    return { metric, value: null, note: 'Bind a managed dataset or use SELECT SQL expression' }
   }
   const data = await readManagedDatasetRows(workspaceId, metric.datasetId, {
     limit,
@@ -332,12 +353,12 @@ export async function previewMetric(workspaceId, metricId, { limit = 500 } = {})
       ? nums.reduce((a, b) => a + b, 0) / nums.length
       : null
   } else if (expr && expr !== 'count(*)' && !expr.includes('(')) {
-    // distinct count of field
     value = new Set(rows.map((r) => r?.[expr]).filter((v) => v != null)).size
   }
   return {
     metric,
     value,
+    source: 'managed_dataset',
     rowSample: rows.slice(0, 20),
     aiAccess: 'denied',
   }

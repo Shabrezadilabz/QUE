@@ -59,6 +59,25 @@ export function SourceTypeIcon({ type, className = 'h-4 w-4' }: SourceIconProps)
           <path d="M8 14a4 4 0 1 1 2-7.5A4.5 4.5 0 0 1 18 9a3.5 3.5 0 0 1-.5 7H9" />
         </svg>
       )
+    case 'shopify':
+    case 'stripe':
+    case 'razorpay':
+    case 'chargebee':
+    case 'google_ads':
+      return (
+        <svg {...common}>
+          <rect x="4" y="6" width="16" height="12" rx="1" />
+          <path d="M4 10h16M8 14h4" />
+        </svg>
+      )
+    case 'hubspot':
+    case 'zoho':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="10" r="4" />
+          <path d="M6 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+        </svg>
+      )
     case 'kafka':
       return (
         <svg {...common}>
@@ -98,6 +117,13 @@ export function sourceTypeLabel(type: DataSourceType): string {
     snowflake: 'Snowflake',
     bigquery: 'BigQuery',
     salesforce: 'Salesforce',
+    shopify: 'Shopify',
+    razorpay: 'Razorpay',
+    zoho: 'Zoho Books',
+    stripe: 'Stripe',
+    hubspot: 'HubSpot',
+    chargebee: 'Chargebee',
+    google_ads: 'Google Ads',
     mysql: 'MySQL',
     csv: 'CSV',
     kafka: 'Kafka',

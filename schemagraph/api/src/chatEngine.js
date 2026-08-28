@@ -9,7 +9,8 @@ import {
   findTablesMentioned,
 } from './schemaContext.js'
 import { getWorkspaceSettings } from './workspaceSettings.js'
-import { buildPinnedSamplesAiPack } from './pinnedSamples.js'
+import { buildUnifiedContextPack } from './ssm/schemaContextService.js'
+import { formatSampleGateBlockMessage } from './ssm/sampleGate.js'
 import { managedDatasetsSchemaForAi } from './managedDataPlane.js'
 import {
   buildRulesAiPack,
@@ -28,15 +29,13 @@ import { getOpenHighDrift } from './contracts/contractFreeze.js'
 import { attachSamplePreviews } from './samplePreview.js'
 import { enrichChatWithPlaneScope } from './chatScope.js'
 import { enrichChatWithLiveQuery, looksLikeDataQuestion, runChatLiveQuery, shouldRunChatLiveQuery, formatLiveQuerySuccessResult, buildLiveFailureReply } from './chatLiveQuery.js'
-import { maybeHandleQueAgent } from './queAgentRuntime.js'
-import { buildChatGraphContext } from './chatGraphContext.js'
+import { maybeHandleQueAgent, buildSsmRoutingMeta } from './queAgentRuntime.js'
 import { resolveProviderKeys } from './secrets.js'
 import { buildNotebookFromFields } from './jobNotebook.js'
 import { bestJoinOnClause } from './inferJoins.js'
 import { getWorkspaceLineageLite } from './lineageLite.js'
 import {
   getCertifiedChatScope,
-  filterPackForCeoAudience,
   formatGlossaryBlock,
   buildCeoUncertifiedReply,
   isGlossaryOnlyQuestion,
@@ -98,6 +97,17 @@ async function lineageCitations(workspaceId, message) {
 
 function mergeCitations(...lists) {
   return [...new Set(lists.flat().filter(Boolean))]
+}
+
+function graphContextFromUnified(unified, graphCtx) {
+  return {
+    plan: graphCtx.plan,
+    joinPaths: graphCtx.joinPaths,
+    focusTableCount: graphCtx.focusTables.length,
+    intent: unified.intent,
+    mermaid: unified.mermaid,
+    ssmRouting: buildSsmRoutingMeta(unified),
+  }
 }
 
 async function finalizeChatResult(result, pack, userMessage = '', finalizeOpts = {}) {
@@ -219,10 +229,6 @@ export async function answerChat(
     }
   }
 
-  if (audience === 'ceo' && ceoScope?.certifiedOnly && ceoScope.hasCertifiedTables) {
-    pack = filterPackForCeoAudience(pack, ceoScope)
-  }
-
   const glossaryBlock =
     audience === 'ceo' && ceoScope?.glossaryTerms?.length
       ? formatGlossaryBlock(ceoScope.glossaryTerms)
@@ -230,24 +236,45 @@ export async function answerChat(
   const ragBlockFull = ragBlock + glossaryBlock
   const mentioned = resolveMentioned(pack, trimmed, mentions)
 
-  let pinnedSamples = []
-  if (settings.aiMayUsePinnedSamples !== false) {
-    try {
-      pinnedSamples = await buildPinnedSamplesAiPack(workspaceId, { maxTables: 16 })
-    } catch {
-      /* pins optional */
-    }
-  }
-
-  const graphCtx = buildChatGraphContext(pack, trimmed, mentioned, ragChunks, {
+  const unified = await buildUnifiedContextPack(workspaceId, {
+    message: trimmed,
+    mentions,
+    mentioned,
     audience,
-    graphHops: 1,
-    maxTables: 35,
-    includeSamples: true,
-    pinnedSamples,
+    ceoScope: audience === 'ceo' ? ceoScope : null,
+    settings,
+    ragChunks,
+    basePack: pack,
   })
+  pack = unified.pack
+  const graphCtx = unified.graphCtx
   graphCtx.primerReady = true
+  const pinnedSamples = unified.pinnedSamples
   const linCites = await lineageCitations(workspaceId, trimmed)
+
+  if (unified.sampleGate?.blocked) {
+    const gateReply = formatSampleGateBlockMessage(unified.sampleGate)
+    const blocked = {
+      reply: gateReply,
+      citations: mergeCitations(ragCitations, linCites),
+      jobDraft: null,
+      lineageCitations: linCites,
+      systemNotes: null,
+      audience,
+      contextStats: pack.stats,
+      vectorReady,
+      driftBlocking: false,
+      model: null,
+      retrievedChunks: retrievedChunkSummary(ragChunks),
+      graphContext: graphContextFromUnified(unified, graphCtx),
+      mode: 'sample-gate',
+      sampleGate: unified.sampleGate,
+      sampleWarnings: unified.sampleWarnings,
+      ssmValidation: unified.validation,
+    }
+    await persistTurns(workspaceId, opts?.sessionId, trimmed, blocked, { audience })
+    return blocked
+  }
 
   // Drift gate note for AI (does not hard-block chat — jobs/export do)
   let driftPrefix = ''
@@ -394,11 +421,7 @@ export async function answerChat(
         driftBlocking: hasOpenHighDrift,
         model: model?.id || null,
         retrievedChunks: retrievedChunkSummary(ragChunks),
-        graphContext: {
-          plan: graphCtx.plan,
-          joinPaths: graphCtx.joinPaths,
-          focusTableCount: graphCtx.focusTables.length,
-        },
+        graphContext: graphContextFromUnified(unified, graphCtx),
         mode: 'live-graph',
       }
       const out = await formatLiveQuerySuccessResult(trimmed, live, base, {
@@ -428,11 +451,7 @@ export async function answerChat(
       driftBlocking: hasOpenHighDrift,
       model: model?.id || null,
       retrievedChunks: retrievedChunkSummary(ragChunks),
-      graphContext: {
-        plan: graphCtx.plan,
-        joinPaths: graphCtx.joinPaths,
-        focusTableCount: graphCtx.focusTables.length,
-      },
+      graphContext: graphContextFromUnified(unified, graphCtx),
       mode: 'live-failed',
       liveQuerySkipped: live.reason || 'skipped',
       liveQueryHint: live.message || null,
@@ -458,7 +477,7 @@ export async function answerChat(
         message: trimmed,
         history,
         ragBlock: ragBlockFull,
-        graphBlock: graphCtx.promptBlock,
+        graphBlock: unified.promptBlock,
         ragChunks,
         model,
         mentioned,
@@ -497,11 +516,7 @@ export async function answerChat(
     lineageCitations: linCites,
     systemNotes,
     audience,
-    graphContext: {
-      plan: graphCtx.plan,
-      joinPaths: graphCtx.joinPaths,
-      focusTableCount: graphCtx.focusTables.length,
-    },
+    graphContext: graphContextFromUnified(unified, graphCtx),
     retrievedChunks: retrievedChunkSummary(ragChunks),
     model: null,
     contextStats: pack.stats,
@@ -542,6 +557,16 @@ async function persistTurns(workspaceId, sessionId, userMsg, assistant, opts = {
         assistantMessage: assistant.reply,
         audience: assistant.audience || opts.audience,
       })
+    }
+    try {
+      const { emitWorkspaceEvent } = await import('./ssm/workspaceEvents.js')
+      await emitWorkspaceEvent(workspaceId, 'chat_query', {
+        mode: assistant.mode,
+        intent: assistant.intent || null,
+        tableCount: assistant.referencedTables?.length || 0,
+      })
+    } catch {
+      /* event log optional */
     }
   } catch (err) {
     console.warn('[Que chat] turn persist skipped:', err.message || err)

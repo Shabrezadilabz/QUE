@@ -107,7 +107,7 @@ export async function getWorkspaceSyncScheduleStatus(workspaceId) {
     `SELECT id, name, source_type, status, sync_schedule, sync_next_at,
             last_scheduled_sync_at, last_sync_at, last_sync_error_kind,
             sync_retry_max, sync_attempt, last_sync_duration_ms,
-            sync_checkpoint_json
+            sync_checkpoint_json, replicate_to_warehouse
      FROM connections
      WHERE workspace_id = $1
      ORDER BY
@@ -142,6 +142,7 @@ export async function getWorkspaceSyncScheduleStatus(workspaceId) {
       r.sync_checkpoint_json && typeof r.sync_checkpoint_json === 'object'
         ? r.sync_checkpoint_json
         : {},
+    replicateToWarehouse: r.replicate_to_warehouse !== false,
     syncable: SYNCABLE.has(r.source_type),
   }))
   const scheduled = connections.filter((c) => c.syncSchedule !== 'off')

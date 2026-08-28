@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { MainDiagramLayout } from '@/layouts/MainDiagramLayout'
 import { DiagramProvider } from '@/context/DiagramContext'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import { useToast } from '@/context/ToastContext'
+import { MonkPromptModal } from '@/components/monk/MonkPromptModal'
 import { StitchSessionDialog } from '@/components/StitchSessionDialog'
 import { IncorrectJoinConfirmDialog } from '@/components/IncorrectJoinConfirmDialog'
 import {
   createStitchJobFromCanvas,
+  dismissMonkPrompt,
   loadWorkspaceData,
   reviewRelationship,
   createManualRelationshipApi,
@@ -43,6 +46,17 @@ type PendingIncorrectJoin =
 export function WorkspacePage() {
   const { canWrite, workspaceId } = useWorkspaceRole()
   const { pushToast } = useToast()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const syncedConnectionId = searchParams.get('synced')
+  const syncedTablesParam = searchParams.get('tables')
+  const [monkPrompt, setMonkPrompt] = useState<{
+    connectionId: string
+    connectionName: string
+    tablesSynced: number
+    warehouseReplicated: boolean
+  } | null>(null)
+  const [monkPromptBusy, setMonkPromptBusy] = useState(false)
   const [tables, setTables] = useState<SchemaTable[]>([])
   const [relationships, setRelationships] = useState<SchemaRelationship[]>([])
   const [sources, setSources] = useState<DataSource[]>([])
@@ -85,6 +99,45 @@ export function WorkspacePage() {
       cancelled = true
     }
   }, [hydrate])
+
+  useEffect(() => {
+    if (!syncedConnectionId || !ready) return
+    const src = sources.find((s) => s.id === syncedConnectionId)
+    if (!src || src.monkPromptDismissed) {
+      setSearchParams({}, { replace: true })
+      return
+    }
+    setMonkPrompt({
+      connectionId: syncedConnectionId,
+      connectionName: src.name,
+      tablesSynced: Number(syncedTablesParam) || 0,
+      warehouseReplicated: src.replicateToWarehouse !== false,
+    })
+  }, [syncedConnectionId, syncedTablesParam, ready, sources, setSearchParams])
+
+  const handleMonkPromptDismiss = useCallback(async () => {
+    if (!monkPrompt) return
+    setMonkPromptBusy(true)
+    try {
+      await dismissMonkPrompt(monkPrompt.connectionId, workspaceId)
+      setMonkPrompt(null)
+      setSearchParams({}, { replace: true })
+    } catch (err) {
+      pushToast(
+        err instanceof Error ? err.message : 'Could not dismiss Monk prompt',
+        'error',
+      )
+    } finally {
+      setMonkPromptBusy(false)
+    }
+  }, [monkPrompt, workspaceId, pushToast, setSearchParams])
+
+  const handleMonkPromptRun = useCallback(() => {
+    if (!monkPrompt) return
+    setMonkPrompt(null)
+    setSearchParams({}, { replace: true })
+    navigate('/monk')
+  }, [monkPrompt, navigate, setSearchParams])
 
   const applyLocalReview = useCallback(
     (relationshipId: string, action: 'promote' | 'reject') => {
@@ -403,6 +456,17 @@ export function WorkspacePage() {
           onCancel={() => setPendingIncorrect(null)}
           onConfirm={confirmIncorrectJoin}
         />
+        {monkPrompt ? (
+          <MonkPromptModal
+            connectionId={monkPrompt.connectionId}
+            connectionName={monkPrompt.connectionName}
+            tablesSynced={monkPrompt.tablesSynced}
+            warehouseReplicated={monkPrompt.warehouseReplicated}
+            onDismiss={() => void handleMonkPromptDismiss()}
+            onRunMonk={handleMonkPromptRun}
+            busy={monkPromptBusy}
+          />
+        ) : null}
         <MainDiagramLayout
           tables={tables}
           relationships={relationships}

@@ -9,6 +9,7 @@ import { TransformDraftsPanel } from '@/components/jobs/TransformDraftsPanel'
 import { PageAutofillBanner } from '@/components/autofill/PageAutofill'
 import { usePageAutofill } from '@/hooks/usePageAutofill'
 import { JobDeployPanel } from '@/components/jobs/JobDeployPanel'
+import { JobMaterializePanel } from '@/components/jobs/JobMaterializePanel'
 import { JobManagedDataLayer } from '@/components/jobs/JobManagedDataLayer'
 import { JobValidationLayer } from '@/components/jobs/JobValidationLayer'
 import { JobScheduleControls } from '@/components/jobs/JobScheduleControls'
@@ -958,6 +959,12 @@ export function JobsPage() {
                   <div className="min-h-0 flex-1 space-y-lg overflow-y-auto p-lg">
                     <div className="mx-auto max-w-[64rem] space-y-lg">
                       <JobPreviewPanel latestRun={latestRun} />
+                      <JobMaterializePanel
+                        jobId={selected.id}
+                        jobTitle={selected.title}
+                        canWrite={canWrite}
+                        latestRun={latestRun}
+                      />
                       <JobManagedDataLayer
                         jobId={selected.id}
                         canWrite={canWrite}

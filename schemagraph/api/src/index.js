@@ -460,6 +460,7 @@ import {
   runScheduledJobsTick,
   startScheduledJobsLoop,
 } from './scheduledJobs.js'
+import { startWarehouseWorkerLoop } from './warehouseWorker.js'
 import {
   getOrchestratorConfig,
   updateOrchestratorConfig,
@@ -1434,6 +1435,37 @@ app.patch(
           summary: `Join ${relationshipId} promoted`,
           relationshipId,
         })
+        void (async () => {
+          try {
+            const { emitWorkspaceEvent } = await import('./ssm/workspaceEvents.js')
+            const { rows: names } = await query(
+              `SELECT fo.name AS from_table, fc.name AS from_column,
+                      tto.name AS to_table, tc.name AS to_column
+               FROM relationships r
+               JOIN schema_objects fo ON fo.id = r.from_object_id
+               JOIN schema_columns fc ON fc.id = r.from_column_id
+               JOIN schema_objects tto ON tto.id = r.to_object_id
+               JOIN schema_columns tc ON tc.id = r.to_column_id
+               WHERE r.id = $1`,
+              [relationshipId],
+            )
+            const n = names[0]
+            await emitWorkspaceEvent(
+              workspaceId,
+              'join_promoted',
+              {
+                relationshipId,
+                fromTable: n?.from_table,
+                fromColumn: n?.from_column,
+                toTable: n?.to_table,
+                toColumn: n?.to_column,
+              },
+              req.user?.id ?? null,
+            )
+          } catch {
+            /* optional */
+          }
+        })()
         // join memory (best-effort)
         try {
           const { rememberPromotedJoin } = await import('./agentSessions.js')
@@ -1689,6 +1721,131 @@ app.post(
   },
 )
 
+/** Phase 1 — Que Warehouse status + execute + Monk prompt */
+app.get('/workspaces/:workspaceId/warehouse', async (req, res) => {
+  try {
+    const { getWarehouseStatus } = await import('./queWarehouse.js')
+    const status = await getWarehouseStatus(req.params.workspaceId, {
+      autoProvision: req.query.autoProvision !== 'false',
+    })
+    res.json({ ok: true, ...status })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/warehouse/provision',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const { provisionQueWarehouse } = await import('./queWarehouse.js')
+      const reg = await provisionQueWarehouse(req.params.workspaceId)
+      res.json({ ok: true, registry: reg })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/warehouse/execute',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const sql = String(req.body?.sql || '').trim()
+      if (!sql) {
+        res.status(400).json({ error: 'sql required' })
+        return
+      }
+      const { executeWarehouseReadonlySql } = await import('./queWarehouse.js')
+      const result = await executeWarehouseReadonlySql(
+        req.params.workspaceId,
+        sql,
+        { maxRows: req.body?.maxRows },
+      )
+      res.json({ ok: true, result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/warehouse/worker', async (req, res) => {
+  try {
+    const { getWorkerPoolStatus } = await import('./warehouseWorker.js')
+    const status = await getWorkerPoolStatus(req.params.workspaceId)
+    res.json({ ok: true, worker: status })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/warehouse/queue', async (req, res) => {
+  try {
+    const { listQueueItems } = await import('./warehouseWorker.js')
+    const items = await listQueueItems(req.params.workspaceId, {
+      limit: req.query.limit,
+      status: req.query.status,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/warehouse/queue',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const jobId = req.body?.jobId
+      if (!jobId) {
+        res.status(400).json({ error: 'jobId required' })
+        return
+      }
+      const { enqueueWarehouseJob } = await import('./warehouseWorker.js')
+      const item = await enqueueWarehouseJob(req.params.workspaceId, {
+        kind: 'job_run',
+        jobId,
+        trigger: req.body?.trigger || 'manual',
+        priority: req.body?.priority,
+        payload: {
+          jobId,
+          mode: req.body?.mode === 'dry_run' ? 'dry_run' : 'live',
+          maxRetries: req.body?.maxRetries,
+          retryDelaySec: req.body?.retryDelaySec,
+          trigger: req.body?.trigger || 'manual',
+        },
+      })
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/connections/:connectionId/monk-prompt',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { dismissMonkPrompt } = await import('./queWarehouse.js')
+      const ok = await dismissMonkPrompt(
+        req.params.workspaceId,
+        req.params.connectionId,
+      )
+      if (!ok) {
+        res.status(404).json({ error: 'connection not found' })
+        return
+      }
+      res.json({ ok: true, dismissed: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.post(
   '/workspaces/:workspaceId/connections/:connectionId/validate-live',
   requireMinRole('member'),
@@ -1712,6 +1869,17 @@ app.get('/workspaces/:workspaceId/sync-schedule', async (req, res) => {
     res.json({ ok: true, ...status })
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Phase 5 — Que Load ops summary (pipelines, SLA, worker, run history). */
+app.get('/workspaces/:workspaceId/load/summary', async (req, res) => {
+  try {
+    const { buildLoadSummary } = await import('./load/queLoadHub.js')
+    const summary = await buildLoadSummary(req.params.workspaceId)
+    res.json({ ok: true, summary })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
   }
 })
 
@@ -3515,6 +3683,203 @@ app.get('/workspaces/:workspaceId/catalog/assets', async (req, res) => {
   }
 })
 
+/** Que Catalog — unified asset index (tables, metrics, BI, jobs, models, terms) */
+app.get('/workspaces/:workspaceId/catalog/index', async (req, res) => {
+  try {
+    const { buildCatalogIndex } = await import('./catalog/queCatalogIndex.js')
+    const result = await buildCatalogIndex(req.params.workspaceId, {
+      kind: req.query.kind,
+      q: req.query.q,
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/catalog/index/:assetKey', async (req, res) => {
+  try {
+    const { getCatalogEntry } = await import('./catalog/queCatalogIndex.js')
+    const entry = await getCatalogEntry(
+      req.params.workspaceId,
+      req.params.assetKey,
+    )
+    if (!entry) {
+      res.status(404).json({ error: 'catalog entry not found' })
+      return
+    }
+    res.json({ ok: true, entry })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Que Pipes — NL → pipeline proposals (HITL) */
+app.get('/workspaces/:workspaceId/pipes/proposals', async (req, res) => {
+  try {
+    const { listPipeProposals } = await import('./quePipes.js')
+    const items = await listPipeProposals(req.params.workspaceId, {
+      status: req.query.status,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/pipes/proposals',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { createPipeProposal } = await import('./quePipes.js')
+      const item = await createPipeProposal(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/pipes/proposals/:proposalId',
+  async (req, res) => {
+    try {
+      const { getPipeProposal } = await import('./quePipes.js')
+      const item = await getPipeProposal(
+        req.params.workspaceId,
+        req.params.proposalId,
+      )
+      if (!item) {
+        res.status(404).json({ error: 'proposal not found' })
+        return
+      }
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/pipes/proposals/:proposalId/review',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { reviewPipeProposal } = await import('./quePipes.js')
+      const item = await reviewPipeProposal(
+        req.params.workspaceId,
+        req.params.proposalId,
+        { action: req.body?.action || 'approve' },
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/pipes/proposals/:proposalId/apply',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { applyPipeProposal } = await import('./quePipes.js')
+      const result = await applyPipeProposal(
+        req.params.workspaceId,
+        req.params.proposalId,
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Que Observe — unified ops dashboard (drift, golden eval, worker, quality) */
+app.get('/workspaces/:workspaceId/observe/summary', async (req, res) => {
+  try {
+    const { buildObserveDashboard } = await import('./observe/queObserveHub.js')
+    const dashboard = await buildObserveDashboard(req.params.workspaceId, {
+      packId: req.query.packId,
+    })
+    res.json({ ok: true, dashboard })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Que Platform Hub — six-module launcher + readiness */
+app.get('/workspaces/:workspaceId/platform/hub', async (req, res) => {
+  try {
+    const { buildPlatformHub } = await import('./platform/quePlatformHub.js')
+    const hub = await buildPlatformHub(req.params.workspaceId)
+    res.json({ ok: true, hub })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Que Agent runtime — unified SSM pack status (Chat, Genie, Pipes) */
+app.get('/workspaces/:workspaceId/agent/runtime-status', async (req, res) => {
+  try {
+    const { getAgentRuntimeStatus } = await import('./agent/queAgentHub.js')
+    const status = await getAgentRuntimeStatus(req.params.workspaceId, {
+      message: req.query.message,
+      pageContext: req.query.pageId
+        ? { pageId: req.query.pageId }
+        : undefined,
+    })
+    res.json({ ok: true, runtime: status })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Phase 3 — Execution hub (warehouse runs, worker queue, materialize loop) */
+app.get('/workspaces/:workspaceId/execution/summary', async (req, res) => {
+  try {
+    const { buildExecutionSummary } = await import('./execution/queExecutionHub.js')
+    const summary = await buildExecutionSummary(req.params.workspaceId)
+    res.json({ ok: true, summary })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Phase 4 — BI Studio hub (warehouse widgets, metrics, grid) */
+app.get('/workspaces/:workspaceId/studio/summary', async (req, res) => {
+  try {
+    const { buildStudioSummary } = await import('./studio/queStudioHub.js')
+    const summary = await buildStudioSummary(req.params.workspaceId)
+    res.json({ ok: true, summary })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/studio/que-ml', async (req, res) => {
+  try {
+    const { buildQueMlForReport } = await import('./studio/queStudioQueMl.js')
+    const reportId = req.query.reportId || 'sportedge-exec'
+    const bundle = await buildQueMlForReport(req.params.workspaceId, reportId)
+    if (req.query.format === 'yaml') {
+      res.type('text/yaml').send(bundle.yaml)
+      return
+    }
+    res.json({ ok: true, bundle })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
 app.post(
   '/workspaces/:workspaceId/catalog/assets',
   requireMinRole('member'),
@@ -4624,6 +4989,70 @@ app.post(
   },
 )
 
+app.post(
+  '/workspaces/:workspaceId/bi/boards/:reportId/apply-layout',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { applyReportBoardLayout } = await import('./reportStudioRefresh.js')
+      const out = await applyReportBoardLayout(
+        req.params.workspaceId,
+        req.params.reportId,
+        req.body?.layoutPreset || req.body?.preset || 'executive',
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, ...out })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/bi/boards/:reportId/preview-all',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { listBiCharts, previewBiChart } = await import('./certifiedBi.js')
+      const { resolveBiAccessForUser } = await import('./studio/biAccessGroups.js')
+      const biAccess = await resolveBiAccessForUser(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+        req.workspaceRole || 'member',
+      )
+      const reportId = req.params.reportId
+      const charts = (await listBiCharts(req.params.workspaceId)).filter(
+        (c) => String(c.config?.reportId || '') === reportId,
+      )
+      const body = req.body || {}
+      const results = []
+      for (const c of charts.slice(0, 24)) {
+        const preview = await previewBiChart(req.params.workspaceId, c.id, {
+          limit: body.limit ?? 100,
+          skipCache: body.skipCache === true,
+          filters: body.filters,
+          parameters: body.parameters,
+          parameterOverrides: body.parameterOverrides,
+          crossFilter: body.crossFilter,
+          biAccess,
+          warehouseOnly: body.warehouseOnly !== false,
+        })
+        results.push({
+          chartId: c.id,
+          title: c.title,
+          rows: preview.rows,
+          sql: preview.sql,
+          source: preview.source,
+          cached: preview.cached,
+        })
+      }
+      res.json({ ok: true, reportId, count: results.length, results })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 app.get('/workspaces/:workspaceId/export/looker/merge-kit', async (req, res) => {
   try {
     const kit = await buildLookerMergeKit(req.params.workspaceId, {
@@ -5653,11 +6082,28 @@ app.get(
   requireMinRole('member'),
   async (req, res) => {
     try {
+      const { getBiChartDrillSql } = await import('./certifiedBi.js')
+      const { resolveBiAccessForUser } = await import('./studio/biAccessGroups.js')
+      const biAccess = await resolveBiAccessForUser(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+        req.workspaceRole || 'member',
+      )
+      const crossFilter = req.query.crossFilter
+        ? JSON.parse(String(req.query.crossFilter))
+        : undefined
+      const filters = req.query.filters
+        ? JSON.parse(String(req.query.filters))
+        : undefined
       const result = await getBiChartDrillSql(
         req.params.workspaceId,
         req.params.chartId,
+        { crossFilter, filters, biAccess },
       )
-      res.json({ ok: true, ...result })
+      res.json({ ok: true, ...result, biAccessSummary: {
+        unrestricted: biAccess.unrestricted,
+        groupCount: biAccess.groupIds?.length || 0,
+      } })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
     }
@@ -5669,12 +6115,421 @@ app.get(
   requireMinRole('member'),
   async (req, res) => {
     try {
+      const { resolveBiAccessForUser } = await import('./studio/biAccessGroups.js')
+      const biAccess = await resolveBiAccessForUser(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+        req.workspaceRole || 'member',
+      )
+      const crossFilter = req.query.crossFilter
+        ? JSON.parse(String(req.query.crossFilter))
+        : undefined
+      const filters = req.query.filters
+        ? JSON.parse(String(req.query.filters))
+        : undefined
       const result = await previewBiChart(
         req.params.workspaceId,
         req.params.chartId,
-        { limit: req.query.limit },
+        {
+          limit: req.query.limit,
+          skipCache: req.query.skipCache === 'true',
+          filters,
+          crossFilter,
+          biAccess,
+          warehouseOnly: req.query.warehouseOnly !== 'false',
+        },
       )
       res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/bi/charts/:chartId/execute',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { executeWidgetSql } = await import('./studio/widgetSql.js')
+      const { resolveBiAccessForUser } = await import('./studio/biAccessGroups.js')
+      const biAccess = await resolveBiAccessForUser(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+        req.workspaceRole || 'member',
+      )
+      const result = await executeWidgetSql(
+        req.params.workspaceId,
+        req.params.chartId,
+        {
+          limit: req.body?.limit,
+          skipCache: req.body?.skipCache === true,
+          sql: req.body?.sql,
+          filters: req.body?.filters,
+          parameters: req.body?.parameters,
+          parameterOverrides: req.body?.parameterOverrides,
+          crossFilter: req.body?.crossFilter,
+          drill: req.body?.drill,
+          biAccess,
+        },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 4.5 — Sigma grid explore on warehouse */
+app.get('/workspaces/:workspaceId/studio/grid/tables', async (req, res) => {
+  try {
+    const { listGridExploreTables } = await import('./studio/gridExplore.js')
+    const items = await listGridExploreTables(req.params.workspaceId, {
+      describe: req.query.describe === '1' || req.query.describe === 'true',
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get(
+  '/workspaces/:workspaceId/studio/grid/tables/:tableName/columns',
+  async (req, res) => {
+    try {
+      const { describeGridTable } = await import('./studio/gridExplore.js')
+      const columns = await describeGridTable(
+        req.params.workspaceId,
+        req.params.tableName,
+      )
+      res.json({ ok: true, columns })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/studio/grid/compile-formula',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { compileGridFormula, buildGridSelectSql } = await import(
+        './studio/gridExplore.js'
+      )
+      const formula = req.body?.formula
+      const compiled = compileGridFormula(formula)
+      let previewSql = null
+      if (compiled.mode === 'sql') {
+        previewSql = compiled.sql
+      } else if (req.body?.table) {
+        previewSql = buildGridSelectSql({
+          table: req.body.table,
+          formulas: [
+            {
+              alias: req.body.alias || 'value',
+              expr: compiled.expr,
+            },
+          ],
+          limit: 10,
+        })
+      }
+      res.json({ ok: true, compiled, previewSql })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase 4 — QueExpr compile (BI measure bar; alias of grid formula compiler) */
+app.post(
+  '/workspaces/:workspaceId/studio/que-expr/compile',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { compileQueExpr, buildChartMeasureSql } = await import(
+        './studio/queExpr.js'
+      )
+      const formula = req.body?.formula ?? req.body?.yExpr
+      const compiled = compileQueExpr(formula)
+      let previewSql = null
+      if (compiled.mode === 'sql') {
+        previewSql = compiled.sql
+      } else if (req.body?.table || req.body?.xField) {
+        previewSql = buildChartMeasureSql({
+          table: req.body.table,
+          xField: req.body.xField,
+          yExpr: formula,
+        }).sql
+      }
+      res.json({ ok: true, compiled, previewSql })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/studio/grid/execute',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { executeGridExplore } = await import('./studio/gridExplore.js')
+      const { resolveBiAccessForUser } = await import('./studio/biAccessGroups.js')
+      const biAccess = await resolveBiAccessForUser(
+        req.params.workspaceId,
+        req.user?.id ?? null,
+        req.workspaceRole || 'member',
+      )
+      const result = await executeGridExplore(req.params.workspaceId, {
+        ...(req.body || {}),
+        biAccess,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+/** Phase P3.6 — SSM-B route preview + event log */
+app.get('/workspaces/:workspaceId/ssm/events', async (req, res) => {
+  try {
+    const { listRecentWorkspaceEvents } = await import('./ssm/workspaceEvents.js')
+    const items = await listRecentWorkspaceEvents(
+      req.params.workspaceId,
+      Number(req.query.limit) || 50,
+    )
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post('/workspaces/:workspaceId/ssm/route', async (req, res) => {
+  try {
+    const { buildSsmStateVector } = await import('./ssm/ssmRouter.js')
+    const {
+      resolveSsmRouteWithAb,
+      ensureWorkspaceSsmModelAsync,
+    } = await import('./ssm/ssmMlExport.js')
+    const { listRecentWorkspaceEvents } = await import('./ssm/workspaceEvents.js')
+    const events = await listRecentWorkspaceEvents(req.params.workspaceId, 40)
+    await ensureWorkspaceSsmModelAsync(req.params.workspaceId, events)
+    const message = String(req.body?.message || '')
+    const { ssmRoute, ssmAb } = resolveSsmRouteWithAb(message, events, {
+      pageContext: req.body?.pageContext,
+      mentions: req.body?.mentions,
+      workspaceId: req.params.workspaceId,
+    })
+    res.json({
+      ok: true,
+      route: ssmRoute,
+      comparison: ssmAb,
+      stateVector: buildSsmStateVector(events),
+      eventCount: events.length,
+    })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** SSM-B ML — training export (events + state vectors, no row payloads) */
+app.get('/workspaces/:workspaceId/ssm/export', async (req, res) => {
+  try {
+    const { buildSsmTrainingExport } = await import('./ssm/ssmMlExport.js')
+    const bundle = await buildSsmTrainingExport(req.params.workspaceId, {
+      limit: req.query.limit,
+    })
+    res.json({ ok: true, export: bundle })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** SSM-B ML — route A/B (heuristic vs lite-ML stub) */
+app.post('/workspaces/:workspaceId/ssm/route-ab', async (req, res) => {
+  try {
+    const {
+      compareSsmRoutes,
+      ensureWorkspaceSsmModelAsync,
+    } = await import('./ssm/ssmMlExport.js')
+    const { listRecentWorkspaceEvents } = await import('./ssm/workspaceEvents.js')
+    const events = await listRecentWorkspaceEvents(req.params.workspaceId, 40)
+    await ensureWorkspaceSsmModelAsync(req.params.workspaceId, events)
+    const comparison = compareSsmRoutes(String(req.body?.message || ''), events, {
+      pageContext: req.body?.pageContext,
+      mentions: req.body?.mentions,
+      workspaceId: req.params.workspaceId,
+    })
+    res.json({ ok: true, comparison })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post('/workspaces/:workspaceId/ssm/train', requireMinRole('member'), async (req, res) => {
+  try {
+    const { trainSsmRoutingModel, buildSsmTrainingExport } = await import(
+      './ssm/ssmMlExport.js'
+    )
+    let exportSamples = req.body?.exportSamples
+    if (exportSamples == null && req.body?.includeWorkspaceEvents !== false) {
+      const bundle = await buildSsmTrainingExport(req.params.workspaceId, {
+        limit: req.body?.limit ?? 80,
+      })
+      exportSamples = bundle.samples
+    }
+    const model = trainSsmRoutingModel(req.params.workspaceId, {
+      syntheticPerIntent: req.body?.syntheticPerIntent ?? 24,
+      exportSamples: exportSamples || [],
+    })
+    res.json({ ok: true, model: {
+      modelId: model.modelId,
+      trainedAt: model.trainedAt,
+      sampleCount: model.sampleCount,
+      syntheticCount: model.syntheticCount,
+      metrics: model.metrics,
+    } })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/ssm/model', async (req, res) => {
+  try {
+    const { getSsmModelStatus, ensureWorkspaceSsmModelAsync } = await import(
+      './ssm/ssmMlExport.js'
+    )
+    const { listRecentWorkspaceEvents } = await import('./ssm/workspaceEvents.js')
+    if (req.query.ensure !== 'false') {
+      const events = await listRecentWorkspaceEvents(req.params.workspaceId, 40)
+      await ensureWorkspaceSsmModelAsync(req.params.workspaceId, events)
+    }
+    res.json({ ok: true, status: getSsmModelStatus(req.params.workspaceId) })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+/** Phase P3.6 — BI access groups */
+app.get('/workspaces/:workspaceId/studio/access-groups', async (req, res) => {
+  try {
+    const { listBiAccessGroups } = await import('./studio/biAccessGroups.js')
+    const items = await listBiAccessGroups(req.params.workspaceId)
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/studio/access/me', async (req, res) => {
+  try {
+    const { getBiAccessSummary } = await import('./studio/biAccessGroups.js')
+    const summary = await getBiAccessSummary(
+      req.params.workspaceId,
+      req.user?.id ?? null,
+      req.workspaceRole || 'member',
+    )
+    res.json({ ok: true, summary })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/studio/access-groups',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const { createBiAccessGroup } = await import('./studio/biAccessGroups.js')
+      const item = await createBiAccessGroup(req.params.workspaceId, req.body || {})
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.patch(
+  '/workspaces/:workspaceId/studio/access-groups/:groupId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const { updateBiAccessGroup } = await import('./studio/biAccessGroups.js')
+      const item = await updateBiAccessGroup(
+        req.params.workspaceId,
+        req.params.groupId,
+        req.body || {},
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/studio/access-groups/:groupId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const { deleteBiAccessGroup } = await import('./studio/biAccessGroups.js')
+      await deleteBiAccessGroup(req.params.workspaceId, req.params.groupId)
+      res.json({ ok: true })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get(
+  '/workspaces/:workspaceId/studio/access-groups/:groupId/members',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const { listBiAccessGroupMembers } = await import('./studio/biAccessGroups.js')
+      const items = await listBiAccessGroupMembers(
+        req.params.workspaceId,
+        req.params.groupId,
+      )
+      res.json({ ok: true, items })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/studio/access-groups/:groupId/members',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const { addBiAccessGroupMember } = await import('./studio/biAccessGroups.js')
+      const items = await addBiAccessGroupMember(
+        req.params.workspaceId,
+        req.params.groupId,
+        req.body?.userId,
+      )
+      res.json({ ok: true, items })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/studio/access-groups/:groupId/members/:userId',
+  requireMinRole('admin'),
+  async (req, res) => {
+    try {
+      const { removeBiAccessGroupMember } = await import('./studio/biAccessGroups.js')
+      await removeBiAccessGroupMember(
+        req.params.workspaceId,
+        req.params.groupId,
+        req.params.userId,
+      )
+      res.json({ ok: true })
     } catch (err) {
       res.status(err.status || 500).json({ error: String(err.message || err) })
     }
@@ -6223,6 +7078,133 @@ app.post(
   },
 )
 
+/* ── Que Model IDE (P3.2) ── */
+app.get('/workspaces/:workspaceId/model', async (req, res) => {
+  try {
+    const { listQueModels } = await import('./queModel.js')
+    const items = await listQueModels(req.params.workspaceId, {
+      layer: req.query.layer,
+      status: req.query.status,
+    })
+    res.json({ ok: true, items })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.post(
+  '/workspaces/:workspaceId/model',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { createQueModel } = await import('./queModel.js')
+      const item = await createQueModel(
+        req.params.workspaceId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.status(201).json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.get('/workspaces/:workspaceId/model/lineage', async (req, res) => {
+  try {
+    const { buildQueModelLineage } = await import('./queModel.js')
+    const graph = await buildQueModelLineage(req.params.workspaceId)
+    res.json({ ok: true, ...graph })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/model/export/dbt', async (req, res) => {
+  try {
+    const { exportQueModelsDbt } = await import('./queModel.js')
+    const pack = await exportQueModelsDbt(req.params.workspaceId)
+    res.json({ ok: true, ...pack })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.get('/workspaces/:workspaceId/model/:modelId', async (req, res) => {
+  try {
+    const { getQueModel } = await import('./queModel.js')
+    const item = await getQueModel(
+      req.params.workspaceId,
+      req.params.modelId,
+    )
+    if (!item) {
+      res.status(404).json({ error: 'model not found' })
+      return
+    }
+    res.json({ ok: true, item })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
+app.patch(
+  '/workspaces/:workspaceId/model/:modelId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { updateQueModel } = await import('./queModel.js')
+      const item = await updateQueModel(
+        req.params.workspaceId,
+        req.params.modelId,
+        req.body || {},
+        req.user?.id ?? null,
+      )
+      res.json({ ok: true, item })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.delete(
+  '/workspaces/:workspaceId/model/:modelId',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { deleteQueModel } = await import('./queModel.js')
+      const out = await deleteQueModel(
+        req.params.workspaceId,
+        req.params.modelId,
+        req.user?.id ?? null,
+      )
+      res.json(out)
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/model/:modelId/run',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { runQueModelPreview } = await import('./queModel.js')
+      const result = await runQueModelPreview(
+        req.params.workspaceId,
+        req.params.modelId,
+        {
+          sql: req.body?.sql,
+          maxRows: req.body?.maxRows,
+        },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 /* ── Gap close: proposal diffs ── */
 app.get('/workspaces/:workspaceId/proposals', async (req, res) => {
   try {
@@ -6352,6 +7334,24 @@ app.get(
       const result = await previewMetric(
         req.params.workspaceId,
         req.params.metricId,
+        { skipCache: req.query.skipCache === 'true' },
+      )
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
+app.post(
+  '/workspaces/:workspaceId/metrics-defs/:metricId/preview',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const result = await previewMetric(
+        req.params.workspaceId,
+        req.params.metricId,
+        { skipCache: req.body?.skipCache === true },
       )
       res.json({ ok: true, ...result })
     } catch (err) {
@@ -6731,6 +7731,20 @@ app.get('/workspaces/:workspaceId/profiling/columns', async (req, res) => {
   }
 })
 
+app.get(
+  '/workspaces/:workspaceId/duplicates/profile',
+  requireMinRole('member'),
+  async (req, res) => {
+    try {
+      const { computeDuplicateProfile } = await import('./duplicateProfile.js')
+      const profile = await computeDuplicateProfile(req.params.workspaceId)
+      res.json({ ok: true, profile })
+    } catch (err) {
+      res.status(err.status || 500).json({ error: String(err.message || err) })
+    }
+  },
+)
+
 /* ── Monk Mode Phase 2: certification + entity map ── */
 app.get('/workspaces/:workspaceId/monk/certification', async (req, res) => {
   try {
@@ -6981,6 +7995,16 @@ app.get('/workspaces/:workspaceId/monk/evidence', async (req, res) => {
 })
 
 /* ── Pack Studio (Phase 6): custom packs, replication, BI/dbt export ── */
+app.get('/workspaces/:workspaceId/pack-studio/summary', async (req, res) => {
+  try {
+    const { buildPackStudioSummary } = await import('./packStudio/packStudioHub.js')
+    const summary = await buildPackStudioSummary(req.params.workspaceId)
+    res.json({ ok: true, summary })
+  } catch (err) {
+    res.status(err.status || 500).json({ error: String(err.message || err) })
+  }
+})
+
 app.get('/workspaces/:workspaceId/pack-studio/suggest', async (req, res) => {
   try {
     const out = await suggestBlendedPack(req.params.workspaceId, {
@@ -7503,8 +8527,15 @@ ensureDevUserPassword()
       }
       startScheduledSyncLoop()
       startScheduledJobsLoop()
+      startWarehouseWorkerLoop()
       startGoldenEvalLoop()
       startSiemExportLoop()
+      void import('./ssm/ssmMlExport.js')
+        .then(({ ensureDefaultSsmModelAsync }) => ensureDefaultSsmModelAsync())
+        .then(() => console.log('[Que] SSM-B default model ready'))
+        .catch((err) =>
+          console.warn('[Que] SSM-B model init:', err.message || err),
+        )
       // Offer B retention — purge expired managed datasets hourly
       setInterval(() => {
         void purgeExpiredManagedDatasets().catch((err) =>

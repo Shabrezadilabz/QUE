@@ -1,0 +1,65 @@
+{
+  "schema": "google_ads",
+  "tables": [
+    {
+      "name": "campaigns",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["camp_88291001"] },
+        { "name": "name", "dataType": "string", "samples": ["SportEdge · India D2C Search"] },
+        { "name": "status", "dataType": "string", "samples": ["ENABLED"] },
+        { "name": "channel_type", "dataType": "string", "samples": ["SEARCH"] },
+        { "name": "budget_micros", "dataType": "integer", "samples": ["50000000000"] },
+        { "name": "currency_code", "dataType": "string", "samples": ["INR"] }
+      ]
+    },
+    {
+      "name": "ad_groups",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["ag_88291002"] },
+        { "name": "campaign_id", "dataType": "string", "keyKind": "fk", "references": "campaigns.id", "samples": ["camp_88291001"] },
+        { "name": "name", "dataType": "string", "samples": ["Running shoes · brand"] },
+        { "name": "status", "dataType": "string", "samples": ["ENABLED"] }
+      ]
+    },
+    {
+      "name": "ads",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["ad_88291003"] },
+        { "name": "ad_group_id", "dataType": "string", "keyKind": "fk", "references": "ad_groups.id", "samples": ["ag_88291002"] },
+        { "name": "headline", "dataType": "string", "samples": ["SportEdge — Free shipping"] },
+        { "name": "final_url", "dataType": "string", "samples": ["https://sportedge.in/shop?utm_source=google"] },
+        { "name": "status", "dataType": "string", "samples": ["ENABLED"] }
+      ]
+    },
+    {
+      "name": "campaign_stats_daily",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["stat_20250827_camp88291001"] },
+        { "name": "campaign_id", "dataType": "string", "keyKind": "fk", "references": "campaigns.id", "samples": ["camp_88291001"] },
+        { "name": "date", "dataType": "date", "samples": ["2025-08-27"] },
+        { "name": "impressions", "dataType": "integer", "samples": ["12450"] },
+        { "name": "clicks", "dataType": "integer", "samples": ["382"] },
+        { "name": "cost_micros", "dataType": "integer", "samples": ["1850000000"] },
+        { "name": "conversions", "dataType": "number", "samples": ["28"] },
+        { "name": "shopify_order_ids", "dataType": "string", "samples": ["5001001,5001002"] }
+      ]
+    },
+    {
+      "name": "keyword_stats_daily",
+      "columns": [
+        { "name": "id", "dataType": "string", "keyKind": "pk", "samples": ["kwstat_20250827_ag88291002"] },
+        { "name": "ad_group_id", "dataType": "string", "keyKind": "fk", "references": "ad_groups.id", "samples": ["ag_88291002"] },
+        { "name": "keyword_text", "dataType": "string", "samples": ["sportedge running shoes"] },
+        { "name": "date", "dataType": "date", "samples": ["2025-08-27"] },
+        { "name": "clicks", "dataType": "integer", "samples": ["96"] },
+        { "name": "cost_micros", "dataType": "integer", "samples": ["420000000"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    { "fromTable": "ad_groups", "fromColumn": "campaign_id", "toTable": "campaigns", "toColumn": "id" },
+    { "fromTable": "ads", "fromColumn": "ad_group_id", "toTable": "ad_groups", "toColumn": "id" },
+    { "fromTable": "campaign_stats_daily", "fromColumn": "campaign_id", "toTable": "campaigns", "toColumn": "id" },
+    { "fromTable": "keyword_stats_daily", "fromColumn": "ad_group_id", "toTable": "ad_groups", "toColumn": "id" }
+  ]
+}

@@ -4,6 +4,18 @@ export type QueNavId =
 
   | 'workspace'
 
+  | 'hub'
+
+  | 'load'
+
+  | 'model'
+
+  | 'catalog'
+
+  | 'pipes'
+
+  | 'observe'
+
   | 'sources'
 
   | 'joins'
@@ -53,6 +65,78 @@ export const QUE_PDF_NAV: QueNavItem[] = [
     label: 'Workspace',
 
     match: ['/workspace', '/ship'],
+
+  },
+
+  {
+
+    id: 'hub',
+
+    to: '/hub',
+
+    label: 'Platform',
+
+    match: ['/hub'],
+
+  },
+
+  {
+
+    id: 'load',
+
+    to: '/load',
+
+    label: 'Load',
+
+    match: ['/load'],
+
+  },
+
+  {
+
+    id: 'model',
+
+    to: '/model',
+
+    label: 'Model',
+
+    match: ['/model'],
+
+  },
+
+  {
+
+    id: 'catalog',
+
+    to: '/catalog',
+
+    label: 'Catalog',
+
+    match: ['/catalog'],
+
+  },
+
+  {
+
+    id: 'pipes',
+
+    to: '/pipes',
+
+    label: 'Pipes',
+
+    match: ['/pipes'],
+
+  },
+
+  {
+
+    id: 'observe',
+
+    to: '/observe',
+
+    label: 'Observe',
+
+    match: ['/observe'],
 
   },
 
@@ -124,7 +208,7 @@ export const QUE_PDF_NAV: QueNavItem[] = [
 
     label: 'Compliance',
 
-    match: ['/compliance', '/product', '/eval', '/rules', '/catalog', '/glossary', '/steward'],
+    match: ['/compliance', '/product', '/eval', '/rules', '/glossary', '/steward'],
 
   },
 
@@ -160,7 +244,7 @@ export const QUE_PDF_NAV: QueNavItem[] = [
 
     label: 'BI',
 
-    match: ['/bi'],
+    match: ['/bi', '/studio'],
 
   },
 

@@ -1,0 +1,49 @@
+{
+  "schema": "mysql",
+  "tables": [
+    {
+      "name": "customers",
+      "columns": [
+        { "name": "id", "dataType": "bigint", "keyKind": "pk", "samples": ["1001", "1002", "1003"] },
+        { "name": "name", "dataType": "varchar", "samples": ["Asha Sharma", "Ravi Patel"] },
+        { "name": "email", "dataType": "varchar", "keyKind": "unique", "samples": ["asha@example.in", "ravi@example.in"] },
+        { "name": "city", "dataType": "varchar", "samples": ["Mumbai", "Bengaluru"] },
+        { "name": "created_at", "dataType": "datetime", "samples": ["2026-01-15T10:00:00"] }
+      ]
+    },
+    {
+      "name": "products",
+      "columns": [
+        { "name": "id", "dataType": "bigint", "keyKind": "pk", "samples": ["501", "502"] },
+        { "name": "sku", "dataType": "varchar", "keyKind": "unique", "samples": ["SKU-RUN-01", "SKU-YOGA-02"] },
+        { "name": "title", "dataType": "varchar", "samples": ["Running shoes", "Yoga mat"] },
+        { "name": "price_inr", "dataType": "decimal", "samples": ["2499.00", "1299.00"] }
+      ]
+    },
+    {
+      "name": "orders",
+      "columns": [
+        { "name": "id", "dataType": "bigint", "keyKind": "pk", "samples": ["90001", "90002"] },
+        { "name": "customer_id", "dataType": "bigint", "keyKind": "fk", "references": "customers.id", "samples": ["1001", "1002"] },
+        { "name": "status", "dataType": "varchar", "samples": ["paid", "shipped"] },
+        { "name": "total_inr", "dataType": "decimal", "samples": ["2499.00", "1299.00"] },
+        { "name": "placed_at", "dataType": "datetime", "samples": ["2026-03-01T09:30:00"] }
+      ]
+    },
+    {
+      "name": "order_items",
+      "columns": [
+        { "name": "id", "dataType": "bigint", "keyKind": "pk", "samples": ["1", "2"] },
+        { "name": "order_id", "dataType": "bigint", "keyKind": "fk", "references": "orders.id", "samples": ["90001"] },
+        { "name": "product_id", "dataType": "bigint", "keyKind": "fk", "references": "products.id", "samples": ["501"] },
+        { "name": "qty", "dataType": "int", "samples": ["1", "2"] },
+        { "name": "line_total_inr", "dataType": "decimal", "samples": ["2499.00"] }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    { "fromTable": "orders", "fromColumn": "customer_id", "toTable": "customers", "toColumn": "id" },
+    { "fromTable": "order_items", "fromColumn": "order_id", "toTable": "orders", "toColumn": "id" },
+    { "fromTable": "order_items", "fromColumn": "product_id", "toTable": "products", "toColumn": "id" }
+  ]
+}

@@ -20,6 +20,7 @@ import { recordAuditEvent } from './auditLog.js'
 import { buildSchemaOnlyAttestation } from './exporters/attestation.js'
 import { getConnectionSecrets } from './connections.js'
 import { createPlaneActivityEvent } from './planeActivity.js'
+import { registerMaterializedObjectOnGraph } from './warehouseGraph.js'
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/
 const WRITE_IN_SELECT_RE =
@@ -464,6 +465,28 @@ export async function materializeJob(workspaceId, jobId, options = {}) {
       },
     })
 
+    let graphRegistration = null
+    try {
+      graphRegistration = await registerMaterializedObjectOnGraph(
+        workspaceId,
+        connection,
+        {
+          kind,
+          schema,
+          objectName,
+          qualifiedName: ddl.qualifiedName,
+          jobId,
+          materializationId: matId,
+        },
+      )
+    } catch (graphErr) {
+      console.warn('[Que] materialize graph register:', graphErr.message || graphErr)
+      graphRegistration = {
+        registered: false,
+        error: String(graphErr.message || graphErr),
+      }
+    }
+
     const attestation = buildSchemaOnlyAttestation({
       workspaceId,
       job,
@@ -498,6 +521,7 @@ export async function materializeJob(workspaceId, jobId, options = {}) {
       },
       validation,
       attestation,
+      graphRegistration,
       note: 'Object created in the customer warehouse. Que does not store result rows.',
     }
   } catch (err) {

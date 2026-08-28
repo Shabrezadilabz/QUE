@@ -4,7 +4,8 @@ import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { SqlHighlight } from '@/components/code/SqlHighlight'
 import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
-import { fetchMetricsDefs } from '@/services/stitchApi'
+import { fetchMetricsDefs, previewMetricApi } from '@/services/stitchApi'
+import { MetricLiveValue } from '@/components/bi/MetricLiveValue'
 
 type Metric = {
   id: string
@@ -220,6 +221,19 @@ export function MetricsPage() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[8px] px-[17px] py-[24px]">
+              {selected ? (
+                <div className="mb-[16px] w-full">
+                  <MetricLiveValue
+                    label={selected.name}
+                    fetchLive={async () => {
+                      const out = await previewMetricApi(selected.id, undefined, {
+                        skipCache: true,
+                      })
+                      return out
+                    }}
+                  />
+                </div>
+              ) : null}
               {selected
                 ? selected.lineage.map((node, i) => {
                     const isActive = i === selected.lineage.length - 1

@@ -15,6 +15,7 @@ import { LandingComposer } from '@/components/assistant/LandingComposer'
 import { PdfPageHeader, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { ChatLiveResults } from '@/components/chat/ChatLiveResults'
 import { ChatContextSidebar } from '@/components/chat/ChatContextSidebar'
+import { ChatSsmRouteChip } from '@/components/chat/ChatSsmRouteChip'
 import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar'
 import {
   ChatAudienceSelect,
@@ -25,6 +26,7 @@ import {
 import { CHAT } from '@/components/chat/chatUi'
 import { SqlHighlight } from '@/components/code/SqlHighlight'
 import { OpenInManagedPlaneButton } from '@/components/plane/OpenInManagedPlaneButton'
+import { RunInWarehouseButton } from '@/components/warehouse/RunInWarehouseButton'
 import { ChatPlaneBoundaryCard } from '@/components/chat/ChatPlaneBoundaryCard'
 import {
   OutcomePlanCard,
@@ -100,6 +102,7 @@ import {
   type ChatLiveQueryResult,
   type ChatReferencedTable,
   type ContextPackSummary,
+  type ChatGraphContext,
   type OutcomeRecord,
   type RetrievedChunk,
   type SamplePreview,
@@ -170,6 +173,7 @@ interface UiMessage {
   liveQuery?: ChatLiveQueryResult | null
   systemNotes?: string | null
   audience?: ChatAudience
+  graphContext?: ChatGraphContext | null
 }
 
 /**
@@ -243,6 +247,18 @@ export function ChatPage() {
   const abortRef = useRef<AbortController | null>(null)
 
   const allTables = context?.tables ?? []
+
+  const lastProbeMessage = useMemo(() => {
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+    return lastUser?.content?.trim() || ''
+  }, [messages])
+
+  const latestGraphContext = useMemo(() => {
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === 'assistant' && m.graphContext?.ssmRouting)
+    return lastAssistant?.graphContext ?? null
+  }, [messages])
 
   const reloadAiStatus = useCallback(async () => {
     try {
@@ -1091,6 +1107,7 @@ export function ChatPage() {
         systemNotes: res.systemNotes ?? null,
         audience: (res.audience as ChatAudience) ?? chatAudience,
         agentSession: res.agentSession ?? null,
+        graphContext: res.graphContext ?? null,
         feedback: null,
         at: new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -1436,6 +1453,21 @@ export function ChatPage() {
               </div>
             }
           />
+
+          {latestGraphContext?.ssmRouting ? (
+            <div className="mb-[10px] shrink-0 rounded-[4px] border border-[#424850] bg-[#121619] px-[12px] py-[8px]">
+              <p className="mb-[4px] text-[9px] font-bold tracking-[0.7px] text-[#6b7380] uppercase">
+                Last answer context
+              </p>
+              <ChatSsmRouteChip
+                variant={chatAudience === 'engineer' ? 'full' : 'ceo'}
+                routing={latestGraphContext.ssmRouting}
+                intent={latestGraphContext.intent}
+                focusTableCount={latestGraphContext.focusTableCount}
+                compact
+              />
+            </div>
+          ) : null}
 
           {showSkills ? (
             <div className={`mb-[12px] shrink-0 p-[14px] ${CHAT.panel}`}>
@@ -1927,6 +1959,8 @@ export function ChatPage() {
             onInsertFromSidebar={insertFromSidebar}
             context={context}
             chatAudience={chatAudience}
+            lastProbeMessage={lastProbeMessage}
+            latestGraphContext={latestGraphContext}
             onAskOutcome={() => {
               void ask(
                 '/outcome I want revenue by region from connected sources',
@@ -2019,6 +2053,15 @@ function ChatBubble({
           </div>
           )}
           <AssistantBody text={message.content} compact={!isEngineer} />
+          {message.graphContext?.ssmRouting ? (
+            <ChatSsmRouteChip
+              variant={isEngineer ? 'full' : 'ceo'}
+              routing={message.graphContext.ssmRouting}
+              intent={message.graphContext.intent}
+              focusTableCount={message.graphContext.focusTableCount}
+              compact={!isEngineer}
+            />
+          ) : null}
           {isEngineer && message.systemNotes ? (
             <details className="pdf-chat-system-notes">
               <summary>Schema alerts</summary>
@@ -2027,6 +2070,13 @@ function ChatBubble({
           ) : null}
           {message.liveQuery ? (
             <ChatLiveResults liveQuery={message.liveQuery} />
+          ) : null}
+          {message.sql || message.liveQuery?.sql ? (
+            <RunInWarehouseButton
+              sql={message.sql || String(message.liveQuery?.sql || '')}
+              compact
+              showResults={!message.liveQuery?.ok}
+            />
           ) : null}
           {isEngineer && message.planeScope && message.planeScope !== 'in_scope' ? (
             <ChatPlaneBoundaryCard
@@ -2153,6 +2203,7 @@ function ChatBubble({
                   detail={message.content.slice(0, 200)}
                   compact
                 />
+                <RunInWarehouseButton sql={message.sql} compact showResults={false} />
               </div>
               <p className="mt-[6px] text-[10px] text-[var(--pdf-text-faint)]">
                 Read-only · max 20 rows · results shown above are not sent to the AI model.

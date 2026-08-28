@@ -815,19 +815,217 @@ export async function deleteBiChartApi(
   if (!res.ok) throw new Error(body.error ?? `bi delete ${res.status}`)
 }
 
+export interface BiChartPreviewResult {
+  rows: Record<string, unknown>[]
+  source?: string
+  sql?: string
+  cached?: boolean
+  durationMs?: number
+  note?: string
+}
+
+export interface DuplicateTableProfile {
+  tableName: string
+  connection: string
+  sourceType?: string
+  dupKeyPct: number | null
+  dupRowPct: number | null
+  nullPct: number | null
+  severity: string
+  suggestedAction: string
+}
+
+export async function fetchDuplicateProfile(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  tableCount: number
+  highRisk: number
+  mediumRisk: number
+  tables: DuplicateTableProfile[]
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/duplicates/profile`)
+  const body = (await res.json().catch(() => ({}))) as {
+    profile?: {
+      tableCount: number
+      highRisk: number
+      mediumRisk: number
+      tables: DuplicateTableProfile[]
+    }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `duplicates ${res.status}`)
+  return (
+    body.profile ?? {
+      tableCount: 0,
+      highRisk: 0,
+      mediumRisk: 0,
+      tables: [],
+    }
+  )
+}
+
 export async function previewBiChartApi(
   chartId: string,
   workspaceId: string = getActiveWorkspaceId(),
-): Promise<Record<string, unknown>[]> {
+  opts: {
+    skipCache?: boolean
+    filters?: { field: string; op?: string; value: string }[]
+    parameters?: { id: string; label: string; defaultValue?: string; bindField?: string }[]
+    parameterOverrides?: Record<string, string>
+    crossFilter?: { field: string; value: string } | null
+  } = {},
+): Promise<BiChartPreviewResult> {
+  const hasFilters =
+    (opts.filters?.length ?? 0) > 0 ||
+    (opts.parameters?.length ?? 0) > 0 ||
+    opts.crossFilter
+
+  if (hasFilters) {
+    return executeBiChartApi(chartId, opts, workspaceId)
+  }
+
+  const qs = opts.skipCache ? '?skipCache=true' : ''
   const res = await apiFetch(
-    `/workspaces/${workspaceId}/bi/charts/${chartId}/preview`,
+    `/workspaces/${workspaceId}/bi/charts/${chartId}/preview${qs}`,
   )
-  const body = (await res.json().catch(() => ({}))) as {
-    rows?: Record<string, unknown>[]
+  const body = (await res.json().catch(() => ({}))) as BiChartPreviewResult & {
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `preview ${res.status}`)
-  return body.rows || []
+  return {
+    rows: body.rows || [],
+    source: body.source,
+    sql: body.sql,
+    cached: body.cached,
+    durationMs: body.durationMs,
+    note: body.note,
+  }
+}
+
+export async function executeBiChartApi(
+  chartId: string,
+  opts: {
+    skipCache?: boolean
+    limit?: number
+    filters?: { field: string; op?: string; value: string }[]
+    parameters?: { id: string; label: string; defaultValue?: string; bindField?: string }[]
+    parameterOverrides?: Record<string, string>
+    crossFilter?: { field: string; value: string } | null
+    drill?: { field: string; value: string } | null
+    sql?: string
+  } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BiChartPreviewResult & { filtersApplied?: number }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/charts/${chartId}/execute`,
+    {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as BiChartPreviewResult & {
+    filtersApplied?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `execute ${res.status}`)
+  return {
+    rows: body.rows || [],
+    source: body.source,
+    sql: body.sql,
+    cached: body.cached,
+    durationMs: body.durationMs,
+    note: body.note,
+    filtersApplied: body.filtersApplied,
+  }
+}
+
+export async function applyBoardLayoutApi(
+  reportId: string,
+  layoutPreset: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ updatedCount: number }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/boards/${encodeURIComponent(reportId)}/apply-layout`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ layoutPreset }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    updatedCount?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `apply layout ${res.status}`)
+  return { updatedCount: body.updatedCount ?? 0 }
+}
+
+export async function previewBoardAllApi(
+  reportId: string,
+  opts: {
+    filters?: { field: string; op?: string; value: string }[]
+    parameters?: { id: string; label: string; defaultValue?: string; bindField?: string }[]
+    parameterOverrides?: Record<string, string>
+    crossFilter?: { field: string; value: string } | null
+    skipCache?: boolean
+  } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<
+  { chartId: string; title: string; rows: Record<string, unknown>[]; source?: string }[]
+> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/bi/boards/${encodeURIComponent(reportId)}/preview-all`,
+    {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    results?: {
+      chartId: string
+      title: string
+      rows: Record<string, unknown>[]
+      source?: string
+    }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `preview board ${res.status}`)
+  return body.results ?? []
+}
+
+export async function previewMetricApi(
+  metricId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+  opts: { skipCache?: boolean } = {},
+): Promise<{
+  value: unknown
+  source?: string
+  sql?: string
+  cached?: boolean
+  durationMs?: number
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/metrics-defs/${metricId}/preview`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ skipCache: opts.skipCache === true }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    value?: unknown
+    source?: string
+    sql?: string
+    cached?: boolean
+    durationMs?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error || `metric preview ${res.status}`)
+  return {
+    value: body.value,
+    source: body.source,
+    sql: body.sql,
+    cached: body.cached,
+    durationMs: body.durationMs,
+  }
 }
 
 export async function scaffoldBiReportApi(
@@ -1049,6 +1247,15 @@ export interface SyncConnectionResult {
   columnsSynced: number
   relationshipsSynced: number
   suggestedJoins?: number
+  showMonkPrompt?: boolean
+  warehouse?: {
+    replicated?: boolean
+    schemaName?: string
+    totalRows?: number
+    tables?: { sourceTable?: string; rawTableName?: string; rowCount?: number }[]
+    error?: string
+    reason?: string
+  }
   postSync?: {
     inferJoins?: boolean
     monkQueued?: boolean
@@ -1076,6 +1283,1251 @@ export interface SyncConnectionResult {
     suggestedJoins: number
     summary: string
     hasRisk: boolean
+  }
+}
+
+export interface QueWarehouseStatus {
+  ok?: boolean
+  provisioned: boolean
+  tableCount: number
+  totalRows: number
+  replicateDefaultOn?: boolean
+  connectorCount?: number
+  readiness?: {
+    status: string
+    label: string
+    replicateDefaultOn?: boolean
+  }
+  registry?: { schemaName: string; status: string } | null
+  tables?: {
+    rawTableName: string
+    sourceTable: string
+    rowCount: number
+  }[]
+}
+
+export async function provisionQueWarehouseApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ schemaName: string; status: string }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/warehouse/provision`,
+    { method: 'POST' },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    registry?: { schemaName: string; status: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `warehouse provision ${res.status}`)
+  if (!body.registry) throw new Error('warehouse provision missing registry')
+  return body.registry
+}
+
+export async function fetchQueWarehouseStatus(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<QueWarehouseStatus> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/warehouse`)
+  const body = (await res.json().catch(() => ({}))) as QueWarehouseStatus & {
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `warehouse ${res.status}`)
+  return body
+}
+
+export async function dismissMonkPrompt(
+  connectionId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/connections/${connectionId}/monk-prompt`,
+    { method: 'PATCH', body: JSON.stringify({ dismissed: true }) },
+  )
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `dismiss monk prompt ${res.status}`)
+  }
+}
+
+export async function executeWarehouseSql(
+  sql: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ columns: { name: string }[]; rows: Record<string, unknown>[] }> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/warehouse/execute`, {
+    method: 'POST',
+    body: JSON.stringify({ sql }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    result?: { columns: { name: string }[]; rows: Record<string, unknown>[] }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `warehouse execute ${res.status}`)
+  return body.result ?? { columns: [], rows: [] }
+}
+
+export type WarehouseWorkerStatus = {
+  enabled: boolean
+  workerId: string
+  warehouseProvisioned: boolean
+  schemaName: string | null
+  queued: number
+  running: number
+  succeeded7d: number
+  failed7d: number
+}
+
+export type WarehouseQueueItem = {
+  id: string
+  workspaceId: string
+  kind: string
+  status: string
+  priority: number
+  jobId: string | null
+  runId: string | null
+  trigger: string
+  error: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+export async function fetchWarehouseWorkerStatus(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WarehouseWorkerStatus> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/warehouse/worker`)
+  const body = (await res.json().catch(() => ({}))) as {
+    worker?: WarehouseWorkerStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `warehouse worker ${res.status}`)
+  return body.worker!
+}
+
+export async function fetchWarehouseQueue(
+  opts: { limit?: number; status?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WarehouseQueueItem[]> {
+  const q = new URLSearchParams()
+  if (opts.limit) q.set('limit', String(opts.limit))
+  if (opts.status) q.set('status', opts.status)
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/warehouse/queue?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: WarehouseQueueItem[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `warehouse queue ${res.status}`)
+  return body.items ?? []
+}
+
+export async function enqueueWarehouseJobRun(
+  jobId: string,
+  opts: { mode?: 'live' | 'dry_run' } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ id: string; status: string }> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/warehouse/queue`, {
+    method: 'POST',
+    body: JSON.stringify({ jobId, mode: opts.mode || 'live', trigger: 'manual' }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: { id: string; status: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `enqueue job ${res.status}`)
+  return body.item!
+}
+
+export type LoadPipelineSla = {
+  badge: string
+  label: string
+  tone: string
+}
+
+export type LoadPipeline = {
+  id: string
+  name: string
+  type: string
+  status: string
+  syncSchedule: string
+  syncNextAt: string | null
+  lastSyncAt: string | null
+  lastSyncErrorKind: string | null
+  lastSyncDurationMs: number | null
+  replicateToWarehouse?: boolean
+  syncable: boolean
+  sla: LoadPipelineSla
+}
+
+export type LoadSummary = {
+  workspaceId: string
+  generatedAt: string
+  readiness: {
+    status: string
+    label: string
+    pipelineCount: number
+    slaCounts: Record<string, number>
+    workerFailed7d: number
+  }
+  schedule: {
+    total: number
+    scheduled: number
+    due: number
+  }
+  scheduledSyncEnabled: boolean
+  warehouse: QueWarehouseStatus | null
+  worker: WarehouseWorkerStatus
+  pipelines: LoadPipeline[]
+  queueRecent: WarehouseQueueItem[]
+  recentRuns: {
+    id: string
+    kind: string
+    name: string
+    ok: boolean
+    at: string
+    detail?: string
+    status?: string
+  }[]
+}
+
+export async function fetchLoadSummary(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<LoadSummary> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/load/summary`)
+  const body = (await res.json().catch(() => ({}))) as {
+    summary?: LoadSummary
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `load summary ${res.status}`)
+  return body.summary!
+}
+
+/* ── Que Model IDE (P3.2) ── */
+
+export type QueSqlModel = {
+  id: string
+  name: string
+  layer: 'staging' | 'mart' | 'seed'
+  sqlText: string
+  description: string
+  dependsOn: string[]
+  materialization: string
+  status: string
+  lastRunAt?: string | null
+  lastRunStatus?: string | null
+  lastRunRows?: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export async function fetchQueModels(
+  opts: { layer?: string; status?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<QueSqlModel[]> {
+  const q = new URLSearchParams()
+  if (opts.layer) q.set('layer', opts.layer)
+  if (opts.status) q.set('status', opts.status)
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/model?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: QueSqlModel[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `models ${res.status}`)
+  return body.items ?? []
+}
+
+export async function createQueModelApi(
+  payload: {
+    name: string
+    layer?: string
+    sqlText?: string
+    description?: string
+    materialization?: string
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<QueSqlModel> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/model`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: QueSqlModel
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `create model ${res.status}`)
+  return body.item!
+}
+
+export async function updateQueModelApi(
+  modelId: string,
+  patch: Record<string, unknown>,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<QueSqlModel> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/model/${modelId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: QueSqlModel
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `update model ${res.status}`)
+  return body.item!
+}
+
+export async function deleteQueModelApi(
+  modelId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/model/${modelId}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `delete model ${res.status}`)
+  }
+}
+
+export async function runQueModelPreviewApi(
+  modelId: string,
+  opts: { sql?: string; maxRows?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  rows: Record<string, unknown>[]
+  columns: string[]
+  rowCount: number
+  source?: string
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/model/${modelId}/run`,
+    {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    rows?: Record<string, unknown>[]
+    columns?: string[]
+    rowCount?: number
+    source?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `run model ${res.status}`)
+  return {
+    rows: body.rows ?? [],
+    columns: body.columns ?? [],
+    rowCount: body.rowCount ?? 0,
+    source: body.source,
+  }
+}
+
+export async function fetchQueModelLineage(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  nodes: { id: string; name: string; layer: string }[]
+  edges: { from: string; to: string; fromName: string; toName: string }[]
+}> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/model/lineage`)
+  const body = (await res.json().catch(() => ({}))) as {
+    nodes?: { id: string; name: string; layer: string }[]
+    edges?: { from: string; to: string; fromName: string; toName: string }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `model lineage ${res.status}`)
+  return { nodes: body.nodes ?? [], edges: body.edges ?? [] }
+}
+
+export async function exportQueModelsDbtApi(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ modelCount: number; files: { path: string; content: string }[] }> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/model/export/dbt`)
+  const body = (await res.json().catch(() => ({}))) as {
+    modelCount?: number
+    files?: { path: string; content: string }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `export models ${res.status}`)
+  return { modelCount: body.modelCount ?? 0, files: body.files ?? [] }
+}
+
+/* ── P3.6 BI Access Groups ── */
+
+export type BiAccessGroup = {
+  id: string
+  name: string
+  description: string
+  allowedTables: string[]
+  deniedColumns: Record<string, string[]>
+  rowFilters: { field: string; op?: string; value: string }[]
+  enabled: boolean
+  memberCount?: number
+}
+
+export type BiAccessSummary = {
+  unrestricted: boolean
+  groupCount: number
+  allowedTableCount: number
+  restrictedColumnCount: number
+  rowFilterCount: number
+}
+
+export async function fetchBiAccessGroups(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BiAccessGroup[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/access-groups`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: BiAccessGroup[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `access groups ${res.status}`)
+  return body.items ?? []
+}
+
+export async function fetchBiAccessSummary(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BiAccessSummary> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/studio/access/me`)
+  const body = (await res.json().catch(() => ({}))) as {
+    summary?: BiAccessSummary
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `access summary ${res.status}`)
+  return body.summary!
+}
+
+export async function createBiAccessGroupApi(
+  payload: {
+    name: string
+    description?: string
+    allowedTables?: string[]
+    deniedColumns?: Record<string, string[]>
+    rowFilters?: { field: string; op?: string; value: string }[]
+  },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BiAccessGroup> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/access-groups`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: BiAccessGroup
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `create access group ${res.status}`)
+  return body.item!
+}
+
+export async function deleteBiAccessGroupApi(
+  groupId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/access-groups/${groupId}`,
+    { method: 'DELETE' },
+  )
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `delete access group ${res.status}`)
+  }
+}
+
+export async function updateBiAccessGroupApi(
+  groupId: string,
+  patch: Partial<{
+    name: string
+    description: string
+    allowedTables: string[]
+    deniedColumns: Record<string, string[]>
+    rowFilters: { field: string; op?: string; value: string }[]
+    enabled: boolean
+  }>,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<BiAccessGroup> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/access-groups/${groupId}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: BiAccessGroup
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `update access group ${res.status}`)
+  return body.item!
+}
+
+export async function addBiAccessGroupMemberApi(
+  groupId: string,
+  userId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<void> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/access-groups/${groupId}/members`,
+    { method: 'POST', body: JSON.stringify({ userId }) },
+  )
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `assign member ${res.status}`)
+  }
+}
+
+/* ── Que Pipes (NL → pipeline HITL) ── */
+
+export type PipeProposalStep = {
+  id: number
+  phase: string
+  label: string
+  detail: string
+  sql?: string
+  target?: string
+}
+
+export type PipeProposal = {
+  id: string
+  title: string
+  prompt: string
+  status: 'pending' | 'approved' | 'rejected' | 'applied'
+  spec: {
+    title?: string
+    intent?: string
+    schedule?: string
+    tables?: string[]
+    steps?: PipeProposalStep[]
+  }
+  evidence?: {
+    mode?: string
+    model?: string | null
+    intent?: string
+  }
+  jobId?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export async function fetchPipeProposals(
+  opts: { status?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PipeProposal[]> {
+  const q = opts.status ? `?status=${encodeURIComponent(opts.status)}` : ''
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/pipes/proposals${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: PipeProposal[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `pipes ${res.status}`)
+  return body.items ?? []
+}
+
+export async function createPipeProposalApi(
+  payload: { prompt: string; title?: string },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PipeProposal> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/pipes/proposals`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: PipeProposal
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `create pipe ${res.status}`)
+  return body.item!
+}
+
+export async function reviewPipeProposalApi(
+  proposalId: string,
+  action: 'approve' | 'reject',
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PipeProposal> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/pipes/proposals/${proposalId}/review`,
+    { method: 'POST', body: JSON.stringify({ action }) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    item?: PipeProposal
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `review pipe ${res.status}`)
+  return body.item!
+}
+
+export async function applyPipeProposalApi(
+  proposalId: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ jobId?: string; proposal?: PipeProposal }> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/pipes/proposals/${proposalId}/apply`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    jobId?: string
+    proposal?: PipeProposal
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `apply pipe ${res.status}`)
+  return { jobId: body.jobId, proposal: body.proposal }
+}
+
+/* ── Que Observe (ops dashboard) ── */
+
+export type ObserveIncident = {
+  id: string
+  kind: string
+  severity: string
+  title: string
+  detail?: string
+  at: string
+  link: string
+  resourceId?: string
+}
+
+export type ObserveDashboard = {
+  workspaceId: string
+  generatedAt: string
+  packId: string
+  summary: {
+    status: string
+    label: string
+    openHighDrift: number
+    loadErrors: number
+    workerFailed7d: number
+    dupHighRisk: number
+    goldenBelowThreshold: boolean
+    healthScore: number | null
+    incidentCount: number
+  }
+  health: HealthScorecardData | null
+  drift: {
+    events: DriftEvent[]
+    openHigh: DriftEvent[]
+    hasBlockingRisk: boolean
+  }
+  golden: {
+    schedule: Record<string, unknown> | null
+    certification: PackCertification | null
+    recall: number | null
+    minRecall: number
+    belowThreshold: boolean
+  }
+  worker: WarehouseWorkerStatus
+  failedQueue: WarehouseQueueItem[]
+  duplicates: {
+    tableCount: number
+    highRisk: number
+    mediumRisk: number
+    topTables: DuplicateTableProfile[]
+  }
+  load: {
+    errorCount: number
+    connections: {
+      id: string
+      name: string
+      status?: string
+      errorKind?: string
+      lastSyncAt?: string
+    }[]
+  }
+  jobs: {
+    recentFailed: {
+      id: string
+      jobId?: string
+      jobName?: string
+      status?: string
+      error?: string
+      createdAt?: string
+    }[]
+  }
+  incidents: ObserveIncident[]
+}
+
+export async function fetchObserveDashboard(
+  opts: { packId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ObserveDashboard> {
+  const q = opts.packId ? `?packId=${encodeURIComponent(opts.packId)}` : ''
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/observe/summary${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    dashboard?: ObserveDashboard
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `observe ${res.status}`)
+  return body.dashboard!
+}
+
+/* ── Que Platform Hub (six-module launcher) ── */
+
+export type PlatformHubModule = {
+  id: string
+  label: string
+  tagline: string
+  route: string
+  icon: string
+  status: string
+  headline: string
+  hints: string[]
+  href: string
+  cta: string
+}
+
+export type PlatformHub = {
+  workspaceId: string
+  generatedAt: string
+  health: HealthScorecardData | null
+  global: Record<string, unknown>
+  modules: PlatformHubModule[]
+  phase1?: {
+    provisioned: boolean
+    tableCount: number
+    totalRows: number
+    replicateDefaultOn?: boolean
+    schemaName?: string | null
+    readiness?: {
+      status: string
+      label: string
+      replicateDefaultOn?: boolean
+    }
+  } | null
+  phase5?: {
+    readiness: { status: string; label: string }
+    pipelineCount: number
+    slaCounts: Record<string, number>
+    workerFailed7d: number
+    workerQueued: number
+    scheduledSyncEnabled: boolean
+  } | null
+  core: {
+    label: string
+    route: string
+    page: AutofillPageInfo | null
+  }
+  summary: {
+    moduleCount: number
+    readyCount: number
+    reviewCount: number
+    healthScore: number | null
+    healthGrade: string | null
+  }
+}
+
+export async function fetchPlatformHub(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PlatformHub> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/platform/hub`)
+  const body = (await res.json().catch(() => ({}))) as {
+    hub?: PlatformHub
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `platform hub ${res.status}`)
+  return body.hub!
+}
+
+/* ── Pack Studio hub + Agent runtime (Phase 2.4 / Phase 6) ── */
+
+export type PackStudioReadiness = {
+  status: string
+  label: string
+  topPackScore: number
+  topPackId: string | null
+  topPackName: string | null
+  goldenPairCount: number
+  pipelineCount: number
+  failedPipelineCount: number
+  customPackCount: number
+  exportTargets: number
+  certificationStatus: string | null
+}
+
+export type PackStudioSummary = {
+  workspaceId: string
+  generatedAt: string
+  ranked: { packId: string; displayName: string; scorePct: number }[]
+  blended: Record<string, unknown> | null
+  goldenPairCount: number
+  pipelines: {
+    id: string
+    tableNames: string[]
+    lastStatus?: string
+    lastRowCount?: number | null
+    lastRunAt?: string | null
+  }[]
+  customPackCount: number
+  readiness: PackStudioReadiness
+  exportTargets: { id: string; label: string; route: string }[]
+}
+
+export async function fetchPackStudioSummary(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<PackStudioSummary> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/pack-studio/summary`)
+  const body = (await res.json().catch(() => ({}))) as {
+    summary?: PackStudioSummary
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `pack studio summary ${res.status}`)
+  return body.summary!
+}
+
+export type SampleGateStatus = {
+  blocked: boolean
+  enforced: boolean
+  code: string
+  warnings: string[]
+  minSamples?: number
+  maxSamples?: number
+  tablesWithSamples?: number
+  tableCount?: number
+}
+
+export type AgentRuntimeStatus = {
+  workspaceId: string
+  generatedAt: string
+  enabled: boolean
+  summary: {
+    status: string
+    label: string
+    tableCount: number
+    validationOk: boolean
+    sampleWarningCount: number
+    sampleGateBlocked?: boolean
+    intent: string | null
+  }
+  unifiedPack: {
+    intent: string
+    ssmRoute?: {
+      intent?: string
+      routingSource?: string
+      confidence?: number | null
+      mlModel?: string | null
+      abWinner?: string | null
+      focusTableNames?: string[]
+      workspaceStateSummary?: string | null
+    }
+    validation: { ok: boolean; warnings: string[]; tableCount: number }
+    sampleWarnings: string[]
+    sampleGate?: SampleGateStatus | null
+    joinPathCount: number
+    warehouseTableCount: number
+    allowedTables: string[]
+  }
+  consumers: { id: string; label: string; wired: boolean; note?: string }[]
+}
+
+export async function fetchAgentRuntimeStatus(
+  opts: { message?: string; pageId?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<AgentRuntimeStatus> {
+  const q = new URLSearchParams()
+  if (opts.message) q.set('message', opts.message)
+  if (opts.pageId) q.set('pageId', opts.pageId)
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/agent/runtime-status?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    runtime?: AgentRuntimeStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `agent runtime ${res.status}`)
+  return body.runtime!
+}
+
+/* ── Phase 3 Execution hub ── */
+
+export type ExecutionSummary = {
+  workspaceId: string
+  generatedAt: string
+  readiness: {
+    status: string
+    label: string
+    warehouseProvisioned: boolean
+    warehouseTableCount: number
+    recentSuccessfulRuns: number
+    failedQueueCount: number
+    materializedTableCount: number
+    runSurfaces: number
+  }
+  runSurfaces: { id: string; label: string; route: string; wired: boolean }[]
+  recentQueue: {
+    id: string
+    kind: string
+    status: string
+    jobId?: string | null
+    error?: string | null
+  }[]
+  policy: {
+    readonlyExecute: boolean
+    rowPayloadsNeverInLlm: boolean
+    materializeRequiresHitl: boolean
+  }
+}
+
+export async function fetchExecutionSummary(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<ExecutionSummary> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/execution/summary`)
+  const body = (await res.json().catch(() => ({}))) as {
+    summary?: ExecutionSummary
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `execution summary ${res.status}`)
+  return body.summary!
+}
+
+/* ── Phase 4 Studio hub ── */
+
+export type StudioSummary = {
+  workspaceId: string
+  generatedAt: string
+  readiness: {
+    status: string
+    label: string
+    chartCount: number
+    certifiedCharts: number
+    metricCount: number
+    warehouseWidgets: number
+    gridTables: number
+    kpiWidgets: number
+    liveMetricHover: boolean
+  }
+  gridTableCount: number
+  routes: { board: string; grid: string; metrics: string }
+}
+
+export async function fetchStudioSummary(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<StudioSummary> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/studio/summary`)
+  const body = (await res.json().catch(() => ({}))) as {
+    summary?: StudioSummary
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `studio summary ${res.status}`)
+  return body.summary!
+}
+
+export type QueMlBoardBundle = {
+  reportId: string
+  format: string
+  chartCount: number
+  warehouseBound: number
+  warehouseUnbound: number
+  dimensionCount: number
+  measureCount: number
+  metricCount: number
+  yaml: string
+  charts: {
+    id: string
+    title: string
+    chartType: string
+    certified: boolean
+    hasWarehouseSql: boolean
+  }[]
+}
+
+export async function fetchQueMlForReport(
+  reportId = 'sportedge-exec',
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<QueMlBoardBundle> {
+  const q = new URLSearchParams({ reportId })
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/que-ml?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    bundle?: QueMlBoardBundle
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `que-ml ${res.status}`)
+  if (!body.bundle) throw new Error('que-ml missing bundle')
+  return body.bundle
+}
+
+export type WorkspaceEvent = {
+  id: string
+  eventType: string
+  createdAt: string
+  meta: Record<string, unknown>
+}
+
+export async function fetchWorkspaceEvents(
+  limit = 20,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<WorkspaceEvent[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/ssm/events?limit=${limit}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: WorkspaceEvent[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `ssm events ${res.status}`)
+  return body.items || []
+}
+
+export type SsmTrainingExport = {
+  workspaceId: string
+  generatedAt: string
+  format: string
+  eventCount: number
+  aggregateStateVector: Record<string, unknown>
+  samples: {
+    eventType: string
+    createdAt: string
+    meta: Record<string, unknown>
+    stateVector: Record<string, unknown>
+  }[]
+  note: string
+}
+
+export async function fetchSsmExport(
+  limit = 100,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<SsmTrainingExport> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/ssm/export?limit=${limit}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    export?: SsmTrainingExport
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `ssm export ${res.status}`)
+  return body.export!
+}
+
+export type SsmRouteAbComparison = {
+  message: string
+  eventCount: number
+  heuristic: {
+    intent: string
+    confidence: number
+    focusTableNames: string[]
+    workspaceStateSummary?: string
+  }
+  ml?: {
+    intent: string
+    confidence: number
+    focusTableNames: string[]
+    model: string
+    source: 'trained' | 'stub'
+  }
+  mlStub: {
+    intent: string
+    confidence: number
+    focusTableNames: string[]
+    model: string
+  }
+  winner: 'heuristic' | 'ml_stub' | 'ml_trained'
+  agreed: boolean
+  recommendedIntent: string
+}
+
+export type SsmModelStatus = {
+  trained: boolean
+  modelId: string | null
+  trainedAt?: string
+  sampleCount: number
+  syntheticCount?: number
+  metrics?: {
+    trainAccuracy: number
+    holdoutAccuracy: number
+  } | null
+}
+
+export async function fetchSsmModelStatus(
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<SsmModelStatus> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/ssm/model`)
+  const body = (await res.json().catch(() => ({}))) as {
+    status?: SsmModelStatus
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `ssm model ${res.status}`)
+  return body.status!
+}
+
+export async function trainSsmModelApi(
+  opts: {
+    syntheticPerIntent?: number
+    includeWorkspaceEvents?: boolean
+    limit?: number
+  } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<SsmModelStatus & { modelId: string; trainedAt: string }> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/ssm/train`, {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    model?: SsmModelStatus & { modelId: string; trainedAt: string }
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `ssm train ${res.status}`)
+  return body.model!
+}
+
+export async function fetchSsmRouteAb(
+  message: string,
+  opts: { pageContext?: string; mentions?: string[] } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<SsmRouteAbComparison> {
+  const res = await apiFetch(`/workspaces/${workspaceId}/ssm/route-ab`, {
+    method: 'POST',
+    body: JSON.stringify({ message, ...opts }),
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    comparison?: SsmRouteAbComparison
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `ssm route-ab ${res.status}`)
+  return body.comparison!
+}
+
+/* ── Sigma Grid Explore (P3.5) ── */
+
+export type GridExploreTable = {
+  name: string
+  sourceTable: string
+  rowCount: number
+  connectionId?: string
+  columns?: { name: string; dataType: string; nullable: boolean }[]
+}
+
+export type GridExploreSpec = {
+  table?: string
+  columns?: { field: string; alias?: string; agg?: string }[]
+  formulas?: { id?: string; alias?: string; expr?: string; formula?: string }[]
+  filters?: { field: string; op?: string; value: string }[]
+  orderBy?: { field: string; dir?: 'asc' | 'desc' }
+  limit?: number
+  sql?: string
+  formula?: string
+  formulaAlias?: string
+}
+
+export async function fetchGridExploreTables(
+  opts: { describe?: boolean } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<GridExploreTable[]> {
+  const q = opts.describe ? '?describe=1' : ''
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/grid/tables${q}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    items?: GridExploreTable[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `grid tables ${res.status}`)
+  return body.items ?? []
+}
+
+export async function fetchGridTableColumns(
+  tableName: string,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{ name: string; dataType: string; nullable: boolean }[]> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/grid/tables/${encodeURIComponent(tableName)}/columns`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    columns?: { name: string; dataType: string; nullable: boolean }[]
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `grid columns ${res.status}`)
+  return body.columns ?? []
+}
+
+export async function compileGridFormulaApi(
+  formula: string,
+  opts: { table?: string; alias?: string } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  compiled: { mode: string; expr?: string | null; sql?: string | null }
+  previewSql?: string | null
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/grid/compile-formula`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ formula, ...opts }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    compiled?: { mode: string; expr?: string | null; sql?: string | null }
+    previewSql?: string | null
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `compile formula ${res.status}`)
+  return { compiled: body.compiled!, previewSql: body.previewSql }
+}
+
+export async function compileQueExprApi(
+  opts: { formula: string; table?: string; xField?: string },
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  compiled: { mode: string; expr?: string | null; sql?: string | null }
+  previewSql?: string | null
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/que-expr/compile`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        formula: opts.formula,
+        yExpr: opts.formula,
+        table: opts.table,
+        xField: opts.xField,
+      }),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    compiled?: { mode: string; expr?: string | null; sql?: string | null }
+    previewSql?: string | null
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `compile que-expr ${res.status}`)
+  return { compiled: body.compiled!, previewSql: body.previewSql }
+}
+
+export async function executeGridExploreApi(
+  spec: GridExploreSpec,
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  sql: string
+  rows: Record<string, unknown>[]
+  columns: string[]
+  rowCount: number
+  durationMs?: number
+  source?: string
+  truncated?: boolean
+}> {
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/studio/grid/execute`,
+    {
+      method: 'POST',
+      body: JSON.stringify(spec),
+    },
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    sql?: string
+    rows?: Record<string, unknown>[]
+    columns?: string[]
+    rowCount?: number
+    durationMs?: number
+    source?: string
+    truncated?: boolean
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `grid execute ${res.status}`)
+  return {
+    sql: body.sql ?? '',
+    rows: body.rows ?? [],
+    columns: body.columns ?? [],
+    rowCount: body.rowCount ?? 0,
+    durationMs: body.durationMs,
+    source: body.source,
+    truncated: body.truncated,
   }
 }
 
@@ -1156,6 +2608,25 @@ export type ChatPlaneScope = 'in_scope' | 'needs_plane' | 'blocked'
 
 export type ChatAudience = 'ceo' | 'engineer'
 
+export type ChatSsmRouting = {
+  routingSource?: string
+  recommendedIntent?: string
+  confidence?: number | null
+  winner?: string
+  agreed?: boolean
+  heuristicIntent?: string
+  mlIntent?: string
+}
+
+export type ChatGraphContext = {
+  plan?: unknown
+  joinPaths?: unknown[]
+  focusTableCount?: number
+  intent?: string
+  mermaid?: string
+  ssmRouting?: ChatSsmRouting
+}
+
 export interface ChatLiveQueryResult {
   ok: boolean
   columns?: string[]
@@ -1169,6 +2640,7 @@ export interface ChatLiveQueryResult {
   aiIsolation?: string
   error?: string
   compact?: boolean
+  sql?: string | null
 }
 
 export interface ChatCapabilities {
@@ -1209,6 +2681,7 @@ export interface ChatResponse {
     relationshipCount: number
     suggestedJoins: number
   }
+  graphContext?: ChatGraphContext | null
 }
 
 /** Schema-only chat — never sends raw warehouse rows */
@@ -1931,6 +3404,11 @@ export interface JobMaterializationResult {
     createdAt: string
   }
   attestation?: Record<string, unknown>
+  graphRegistration?: {
+    registered?: boolean
+    name?: string
+    reason?: string
+  }
 }
 
 /** Wave 3.1 — CTAS/VIEW in customer warehouse (confirm required). */
@@ -3793,6 +5271,58 @@ export interface CatalogAsset {
   description?: string
   depCount?: number
   status?: string
+}
+
+export type CatalogIndexEntry = {
+  id: string
+  sourceId: string
+  kind: string
+  name: string
+  description: string
+  status: string
+  certified: boolean
+  owner: string | null
+  connection: string | null
+  sourceType?: string
+  tags: string[]
+  route: string
+  meta: Record<string, unknown>
+  updatedAt: string
+}
+
+export type CatalogIndexStats = {
+  total: number
+  certified: number
+  byKind: Record<string, number>
+}
+
+export async function fetchCatalogIndex(
+  opts: { kind?: string; q?: string; limit?: number } = {},
+  workspaceId: string = getActiveWorkspaceId(),
+): Promise<{
+  entries: CatalogIndexEntry[]
+  total: number
+  stats: CatalogIndexStats
+}> {
+  const q = new URLSearchParams()
+  if (opts.kind) q.set('kind', opts.kind)
+  if (opts.q) q.set('q', opts.q)
+  if (opts.limit) q.set('limit', String(opts.limit))
+  const res = await apiFetch(
+    `/workspaces/${workspaceId}/catalog/index?${q.toString()}`,
+  )
+  const body = (await res.json().catch(() => ({}))) as {
+    entries?: CatalogIndexEntry[]
+    total?: number
+    stats?: CatalogIndexStats
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `catalog index ${res.status}`)
+  return {
+    entries: body.entries ?? [],
+    total: body.total ?? 0,
+    stats: body.stats ?? { total: 0, certified: 0, byKind: {} },
+  }
 }
 
 export interface GlossaryTerm {
@@ -6615,18 +8145,31 @@ export async function fetchTableauExport(
 
 export async function fetchBiChartDrillSql(
   chartId: string,
+  opts: {
+    crossFilter?: { field: string; value: string } | null
+    filters?: { field: string; op?: string; value: string }[]
+  } = {},
   workspaceId: string = getActiveWorkspaceId(),
-): Promise<{ sql: string; certifiedOnly?: boolean }> {
+): Promise<{ sql: string; certifiedOnly?: boolean; filtersApplied?: number }> {
+  const q = new URLSearchParams()
+  if (opts.crossFilter) q.set('crossFilter', JSON.stringify(opts.crossFilter))
+  if (opts.filters?.length) q.set('filters', JSON.stringify(opts.filters))
+  const qs = q.toString()
   const res = await apiFetch(
-    `/workspaces/${workspaceId}/bi/charts/${chartId}/drill-sql`,
+    `/workspaces/${workspaceId}/bi/charts/${chartId}/drill-sql${qs ? `?${qs}` : ''}`,
   )
   const body = (await res.json().catch(() => ({}))) as {
     sql?: string
     certifiedOnly?: boolean
+    filtersApplied?: number
     error?: string
   }
   if (!res.ok) throw new Error(body.error || `drill-sql ${res.status}`)
-  return { sql: body.sql || '', certifiedOnly: body.certifiedOnly }
+  return {
+    sql: body.sql || '',
+    certifiedOnly: body.certifiedOnly,
+    filtersApplied: body.filtersApplied,
+  }
 }
 
 export async function runReplicationV2Api(
@@ -6682,6 +8225,7 @@ export type ReportBoardConfig = {
   parameters: { id: string; label: string; defaultValue?: string; bindField?: string }[]
   refreshWebhookUrl: string
   refreshOnJobComplete: boolean
+  lastRefreshAt?: string | null
   presets: { id: string; label: string }[]
 }
 

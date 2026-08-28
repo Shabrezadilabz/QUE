@@ -6,6 +6,12 @@ import { QUE_V2_NAV, resolveActiveNav, type QueNavId } from '@/components/que/qu
 
 const NAV_ICONS: Record<QueNavId | 'settings', string> = {
   workspace: '▦',
+  hub: '◉',
+  load: '⇅',
+  model: '◫',
+  catalog: '◎',
+  pipes: '⎇',
+  observe: '◈',
   sources: '⎔',
   joins: '↔',
   chat: '◻',

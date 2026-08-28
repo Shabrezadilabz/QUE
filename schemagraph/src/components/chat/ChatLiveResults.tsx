@@ -13,6 +13,10 @@ export interface ChatLiveQueryResult {
   aiIsolation?: string
   error?: string
   compact?: boolean
+  sql?: string | null
+  source?: string
+  cached?: boolean
+  note?: string
 }
 
 export function ChatLiveResults({

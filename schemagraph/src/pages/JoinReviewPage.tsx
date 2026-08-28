@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   CatalogAssetCard,
   CatalogCodeBlock,
@@ -10,6 +11,8 @@ import {
   PdfGhostButton,
   PdfPrimaryButton,
 } from '@/components/joins/JoinReviewCatalogShell'
+import { QueAppChrome } from '@/layouts/QueAppChrome'
+import { DuplicatesTab } from '@/components/joins/DuplicatesTab'
 import { SqlHighlight } from '@/components/code/SqlHighlight'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
@@ -50,6 +53,8 @@ type Filter = 'suggested' | 'accepted' | 'rejected' | 'all'
  * HITL Promote / Reject — never auto-accept.
  */
 export function JoinReviewPage() {
+  const [searchParams] = useSearchParams()
+  const pageTab = searchParams.get('tab') === 'duplicates' ? 'duplicates' : 'joins'
   const { canWrite, role } = useWorkspaceRole()
   const [filter, setFilter] = useState<Filter>('suggested')
   const [items, setItems] = useState<JoinReviewItem[]>([])
@@ -365,6 +370,27 @@ export function JoinReviewPage() {
       `SELECT *\nFROM ${selected.from.table} a\nJOIN ${selected.to.table} b\n  ON a.${selected.from.column} = b.${selected.to.column}\nLIMIT 20;`
     : ''
 
+  if (pageTab === 'duplicates') {
+    return (
+      <QueAppChrome flush>
+        <div className="flex h-full min-h-0 flex-col bg-[#111416]">
+          <div className="flex shrink-0 items-center gap-[8px] border-b border-solid border-[#424850] px-[16px] py-[8px]">
+            <Link
+              to="/joins"
+              className="rounded-[4px] px-[10px] py-[6px] text-[11px] text-[#a3afbe] hover:text-[#d4dbe3]"
+            >
+              Join inbox
+            </Link>
+            <span className="rounded-[4px] bg-[#7aecd0]/10 px-[10px] py-[6px] text-[11px] font-semibold text-[#7aecd0]">
+              Duplicates
+            </span>
+          </div>
+          <DuplicatesTab />
+        </div>
+      </QueAppChrome>
+    )
+  }
+
   return (
     <JoinReviewCatalogShell
       filter={filter}
@@ -379,16 +405,24 @@ export function JoinReviewPage() {
       detailTab={detailTab}
       onDetailTab={setDetailTab}
       headerActions={
-        canWrite ? (
-          <>
-            <PdfGhostButton type="button" disabled={inferBusy || mapBusy} onClick={() => void reInfer()}>
-              {inferBusy ? 'Inferring…' : 'Re-run inference'}
-            </PdfGhostButton>
-            <PdfPrimaryButton type="button" disabled={inferBusy || mapBusy} onClick={() => void suggestMappings()}>
-              {mapBusy ? 'Suggesting…' : 'Suggest mappings'}
-            </PdfPrimaryButton>
-          </>
-        ) : null
+        <>
+          {canWrite ? (
+            <>
+              <PdfGhostButton type="button" disabled={inferBusy || mapBusy} onClick={() => void reInfer()}>
+                {inferBusy ? 'Inferring…' : 'Re-run inference'}
+              </PdfGhostButton>
+              <PdfPrimaryButton type="button" disabled={inferBusy || mapBusy} onClick={() => void suggestMappings()}>
+                {mapBusy ? 'Suggesting…' : 'Suggest mappings'}
+              </PdfPrimaryButton>
+            </>
+          ) : null}
+          <Link
+            to="/joins?tab=duplicates"
+            className="pdf-btn-ghost rounded-[4px] px-[13px] py-[7px] text-[12px] font-semibold"
+          >
+            Duplicates
+          </Link>
+        </>
       }
       detailActions={
         selected?.status === 'suggested' && canWrite ? (

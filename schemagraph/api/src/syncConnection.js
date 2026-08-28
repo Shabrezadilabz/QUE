@@ -14,6 +14,11 @@ import { introspectSalesforce, applySalesforceFieldMap, runSalesforceIncremental
 import { introspectShopify } from './connectors/shopify.js'
 import { introspectRazorpay } from './connectors/razorpay.js'
 import { introspectZoho } from './connectors/zoho.js'
+import { introspectStripe } from './connectors/stripe.js'
+import { introspectHubspot } from './connectors/hubspot.js'
+import { introspectMysql } from './connectors/mysql.js'
+import { introspectChargebee } from './connectors/chargebee.js'
+import { introspectGoogleAds } from './connectors/googleAds.js'
 import { assistJoinsFromBigQueryHistory } from './connectors/bigqueryQueryJoins.js'
 import { updateConnection } from './connections.js'
 import { inferCrossSourceJoins } from './inferJoins.js'
@@ -32,7 +37,8 @@ import { ensurePinnedSamplesForConnection } from './pinnedSamples.js'
  */
 export async function syncConnection(workspaceId, connectionId, opts = {}) {
   const { rows: connRows } = await query(
-    `SELECT id, workspace_id, name, source_type, config_json, status
+    `SELECT id, workspace_id, name, source_type, config_json, status,
+            replicate_to_warehouse, monk_prompt_dismissed
      FROM connections
      WHERE id = $1 AND workspace_id = $2`,
     [connectionId, workspaceId],
@@ -136,6 +142,28 @@ export async function syncConnection(workspaceId, connectionId, opts = {}) {
     sourceLabel,
     introspected,
   })
+
+  let warehouse = null
+  try {
+    const { shouldReplicateToWarehouse, replicateConnectionToWarehouse } =
+      await import('./queWarehouse.js')
+    if (
+      shouldReplicateToWarehouse(prefs, connection, config)
+    ) {
+      warehouse = await replicateConnectionToWarehouse({
+        workspaceId,
+        connectionId,
+        connectionName: connection.name,
+        sourceType: connection.source_type,
+        sourceConfig: config,
+        tables: introspected.tables,
+        maxRowsPerTable: Number(prefs?.warehouseMaxRowsPerTable) || 100_000,
+      })
+    }
+  } catch (whErr) {
+    console.warn('[Que] warehouse replicate:', whErr.message || whErr)
+    warehouse = { replicated: false, error: String(whErr.message || whErr) }
+  }
 
   await query(
     `UPDATE connections
@@ -301,6 +329,10 @@ export async function syncConnection(workspaceId, connectionId, opts = {}) {
     pinnedSamples,
     drift,
     snapshot,
+    warehouse,
+    showMonkPrompt:
+      warehouse?.showMonkPrompt !== false &&
+      !connection.monk_prompt_dismissed,
   }
 
   let postSync = null
@@ -315,6 +347,25 @@ export async function syncConnection(workspaceId, connectionId, opts = {}) {
     postSync = auto.postSync
   } catch (err) {
     console.warn('[Que] post-sync automation:', err.message || err)
+  }
+
+  try {
+    const { emitWorkspaceEvent } = await import('./ssm/workspaceEvents.js')
+    await emitWorkspaceEvent(
+      workspaceId,
+      'sync_completed',
+      {
+        connectionId,
+        connectionName: connection.name,
+        sourceType: connection.source_type,
+        tablesSynced: baseResult.tablesSynced,
+        warehouseReplicated: Boolean(warehouse?.replicated),
+        suggestedJoins: baseResult.suggestedJoins,
+      },
+      opts.userId ?? null,
+    )
+  } catch (err) {
+    console.warn('[Que] workspace event emit skipped:', err.message || err)
   }
 
   return {
@@ -378,6 +429,26 @@ async function runIntrospect(sourceType, config) {
 
   if (sourceType === 'zoho') {
     return introspectZoho(config)
+  }
+
+  if (sourceType === 'stripe') {
+    return introspectStripe(config)
+  }
+
+  if (sourceType === 'hubspot') {
+    return introspectHubspot(config)
+  }
+
+  if (sourceType === 'mysql') {
+    return introspectMysql(config)
+  }
+
+  if (sourceType === 'chargebee') {
+    return introspectChargebee(config)
+  }
+
+  if (sourceType === 'google_ads') {
+    return introspectGoogleAds(config)
   }
 
   const err = new Error(

@@ -20,6 +20,8 @@ const DEFAULT_SETTINGS = {
    * Never full tables. Default ON for join/SQL quality.
    */
   aiMayUsePinnedSamples: true,
+  /** Production — enforce 5–10 samples on all AI paths (chat, agent, live, pipes LLM) */
+  enforceMandatorySamples: true,
   /** Rows pinned per table (5–10) */
   pinnedSampleRows: 10,
   /** Offer B — Que-hosted job output store for Excel/SQL customers */
@@ -30,6 +32,11 @@ const DEFAULT_SETTINGS = {
   managedMaxDatasets: 25,
   managedMaxRowsPerDataset: 50000,
   managedRetentionDays: 90,
+  /** Phase 1 — Que Warehouse per workspace (full raw replicate default) */
+  enableQueWarehouse: true,
+  replicateToWarehouseDefault: true,
+  warehouseMaxRowsPerTable: 100000,
+  preferWarehouseForLiveSql: true,
   inferJoinsOnSync: true,
   /** S2 — after sync webhook (Airflow/n8n/Kestra) */
   postSyncWebhookUrl: '',

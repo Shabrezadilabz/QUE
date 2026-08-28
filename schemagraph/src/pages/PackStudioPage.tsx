@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { PdfPageHeader, PdfPrimaryButton, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 import {
   fetchPackStudioSuggest,
+  fetchPackStudioSummary,
   saveBlendedPackApi,
   upsertCustomPackApi,
   fetchEntityMappings,
@@ -27,7 +28,18 @@ import {
   diffPackStudioApi,
   fetchBiMarketplace,
   type IndustryPackMeta,
+  type PackStudioSummary,
 } from '@/services/stitchApi'
+
+type StudioTab = 'overview' | 'blend' | 'maps' | 'replication' | 'exports'
+
+const STUDIO_TABS: { id: StudioTab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'blend', label: 'Blend & custom' },
+  { id: 'maps', label: 'Maps & golden' },
+  { id: 'replication', label: 'Replication' },
+  { id: 'exports', label: 'Exports' },
+]
 
 type BlendedPreview = {
   id?: string
@@ -42,6 +54,9 @@ type BlendedPreview = {
 /** Pack Studio — custom packs, column maps, golden pairs, replication, exports. */
 export function PackStudioPage() {
   const { canWrite } = useWorkspaceRole()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const studioTab = (searchParams.get('tab') as StudioTab) || 'overview'
+  const [summary, setSummary] = useState<PackStudioSummary | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -71,12 +86,13 @@ export function PackStudioPage() {
   >([])
 
   const reload = useCallback(async () => {
-    const [suggest, gp, pipes, builtIn, mkt] = await Promise.all([
+    const [suggest, gp, pipes, builtIn, mkt, hub] = await Promise.all([
       fetchPackStudioSuggest(),
       fetchLearnedGoldenPairs().catch(() => []),
       fetchReplicationPipelines().catch(() => []),
       fetchMonkPacks(),
       fetchBiMarketplace().catch(() => []),
+      fetchPackStudioSummary().catch(() => null),
     ])
     setRanked(suggest.ranked || [])
     setBlended(suggest.blended || null)
@@ -84,6 +100,7 @@ export function PackStudioPage() {
     setGoldenPairs(gp)
     setPipelines(pipes)
     setMarketplace(mkt)
+    setSummary(hub)
     if (suggest.blended?.id && typeof suggest.blended.id === 'string') {
       setPackId(suggest.blended.id)
     }
@@ -226,6 +243,17 @@ export function PackStudioPage() {
     }
   }
 
+  function setStudioTab(tab: StudioTab) {
+    const p = new URLSearchParams(searchParams)
+    p.set('tab', tab)
+    setSearchParams(p, { replace: true })
+  }
+
+  const showBlend = studioTab === 'overview' || studioTab === 'blend'
+  const showMaps = studioTab === 'overview' || studioTab === 'maps'
+  const showReplication = studioTab === 'overview' || studioTab === 'replication'
+  const showExports = studioTab === 'overview' || studioTab === 'exports'
+
   return (
     <QueAppChrome flush>
       <div className="flex h-full min-h-0 flex-col bg-[#111416] p-[20px]">
@@ -234,6 +262,9 @@ export function PackStudioPage() {
           subtitle="S12 — fork/diff packs, BI template marketplace, blend verticals, export mesh."
           actions={
             <div className="flex flex-wrap gap-[8px]">
+              <Link to="/hub" className="rounded-[10px] border border-[#424850] px-[12px] py-[6px] text-[12px] font-semibold text-[#c8cdd3]">
+                Platform →
+              </Link>
               <Link to="/monk" className="rounded-[10px] border border-[#424850] px-[12px] py-[6px] text-[12px] font-semibold text-[#c8cdd3]">
                 Monk Mode →
               </Link>
@@ -251,7 +282,69 @@ export function PackStudioPage() {
           <p className="mb-[12px] rounded-[10px] border border-emerald-500/30 bg-emerald-500/10 px-[12px] py-[8px] text-[12px] text-emerald-200">{toast}</p>
         ) : null}
 
+        {summary ? (
+          <div className="mb-[14px] grid gap-[10px] sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: 'Top pack match',
+                value: `${summary.readiness.topPackScore}%`,
+                sub: summary.readiness.topPackName || '—',
+              },
+              {
+                label: 'Golden pairs',
+                value: summary.goldenPairCount,
+                sub: 'learned from joins',
+              },
+              {
+                label: 'Replication',
+                value: summary.pipelines.length,
+                sub:
+                  summary.readiness.failedPipelineCount > 0
+                    ? `${summary.readiness.failedPipelineCount} failed`
+                    : 'pipelines',
+              },
+              {
+                label: 'Exports',
+                value: summary.exportTargets.length,
+                sub: summary.readiness.label,
+              },
+            ].map((c) => (
+              <div
+                key={c.label}
+                className="rounded-[12px] border border-[#2a3038] bg-[#15191e] px-[14px] py-[10px]"
+              >
+                <div className="text-[10px] uppercase tracking-wider text-[#8b949e]">
+                  {c.label}
+                </div>
+                <div className="mt-[4px] text-[20px] font-semibold text-[#e8edf2]">
+                  {c.value}
+                </div>
+                <div className="text-[11px] text-[#8b949e]">{c.sub}</div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mb-[14px] flex shrink-0 flex-wrap gap-[8px] border-b border-[#2a3038] pb-[8px]">
+          {STUDIO_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setStudioTab(t.id)}
+              className={[
+                'rounded-[8px] px-[12px] py-[6px] text-[12px] font-semibold',
+                studioTab === t.id
+                  ? 'bg-[#7aecd0]/15 text-[#7aecd0]'
+                  : 'text-[#8b949e] hover:text-[#c8cdd3]',
+              ].join(' ')}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         <div className="grid min-h-0 flex-1 gap-[16px] overflow-y-auto xl:grid-cols-2">
+          {showBlend ? (
           <section className="rounded-[16px] border border-[#2a3038] bg-[#15191e] p-[18px]">
             <h2 className="text-[14px] font-semibold text-[#e8edf2]">AI pack blend</h2>
             <p className="mt-[6px] text-[12px] text-[#8b949e]">
@@ -278,7 +371,9 @@ export function PackStudioPage() {
               </div>
             ) : null}
           </section>
+          ) : null}
 
+          {showBlend ? (
           <section className="rounded-[16px] border border-[#2a3038] bg-[#15191e] p-[18px]">
             <h2 className="text-[14px] font-semibold text-[#e8edf2]">Custom pack builder</h2>
             <div className="mt-[12px] space-y-[10px]">
@@ -322,8 +417,9 @@ export function PackStudioPage() {
               ) : null}
             </div>
           </section>
+          ) : null}
 
-          {marketplace.length > 0 ? (
+          {showBlend && marketplace.length > 0 ? (
             <section className="rounded-[16px] border border-[#2a3038] bg-[#15191e] p-[18px]">
               <h2 className="text-[14px] font-semibold text-[#e8edf2]">BI template marketplace (RS-7)</h2>
               <ul className="mt-[12px] space-y-[8px] text-[12px] text-[#c8cdd3]">
@@ -337,6 +433,7 @@ export function PackStudioPage() {
             </section>
           ) : null}
 
+          {showMaps ? (
           <section className="rounded-[16px] border border-[#2a3038] bg-[#15191e] p-[18px]">
             <h2 className="text-[14px] font-semibold text-[#e8edf2]">Column mapping</h2>
             <p className="mt-[6px] text-[12px] text-[#8b949e]">Map logical columns to physical names (e.g. order_total → revenue_amt).</p>
@@ -361,7 +458,10 @@ export function PackStudioPage() {
               Save column maps
             </PdfGhostButton>
           </section>
+          ) : null}
 
+          {(showMaps || showReplication || showExports) ? (
+          <>
           <section className="rounded-[16px] border border-[#2a3038] bg-[#15191e] p-[18px]">
             <h2 className="text-[14px] font-semibold text-[#e8edf2]">Orchestration & reverse ETL</h2>
             <div className="mt-[10px] flex flex-wrap gap-[8px]">
@@ -555,6 +655,8 @@ export function PackStudioPage() {
               ) : null}
             </ul>
           </section>
+          </>
+          ) : null}
         </div>
       </div>
     </QueAppChrome>

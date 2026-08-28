@@ -29,6 +29,7 @@ async function main() {
   const health = await fetch(`${BASE}/health`).then((r) => r.json())
   ok(health.ok === true, 'health ok')
   ok(health.service === 'que-api', 'health service que-api')
+  ok(typeof health.worker?.enabled === 'boolean', 'health worker rollup')
 
   const openapi = await fetch(`${BASE}/openapi.json`)
   ok(openapi.ok, 'openapi.json served')
@@ -230,6 +231,138 @@ async function main() {
     }
   }
 
+  // --- platform modules (hub, observe, pack studio, agent runtime) ---
+  const hub = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/platform/hub`, { headers }),
+  )
+  ok(hub.status === 200 && hub.body?.hub?.modules?.length === 6, 'platform hub 6 modules')
+  ok(hub.body?.hub?.phase1?.readiness?.status, 'platform hub phase1 readiness')
+  ok(hub.body?.hub?.phase5?.readiness?.status, 'platform hub phase5 load ops')
+
+  const loadSummary = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/load/summary`, { headers }),
+  )
+  ok(
+    loadSummary.status === 200 && loadSummary.body?.summary?.readiness?.status,
+    'load ops summary',
+  )
+
+  const observe = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/observe/summary`, { headers }),
+  )
+  ok(observe.status === 200 && observe.body?.dashboard, 'observe summary')
+  ok(
+    observe.body?.dashboard?.load?.readiness?.status,
+    'observe load readiness',
+  )
+
+  const packStudio = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/pack-studio/summary`, { headers }),
+  )
+  ok(
+    packStudio.status === 200 && packStudio.body?.summary?.readiness,
+    'pack studio summary',
+  )
+
+  const agentRt = await json(
+    await fetch(
+      `${BASE}/workspaces/${DEMO_WS}/agent/runtime-status?pageId=chat`,
+      { headers },
+    ),
+  )
+  ok(
+    agentRt.status === 200 && agentRt.body?.runtime?.summary,
+    'agent runtime status',
+  )
+
+  const autofill = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/autofill?page=load`, { headers }),
+  )
+  ok(autofill.status === 200 && autofill.body?.page, 'page autofill load')
+
+  const warehouse = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/warehouse`, { headers }),
+  )
+  ok(
+    warehouse.status === 200 && warehouse.body?.provisioned === true,
+    'warehouse auto-provision status',
+  )
+  ok(
+    warehouse.body?.replicateDefaultOn !== false,
+    'warehouse replicate default on',
+  )
+  ok(
+    warehouse.body?.readiness?.status && warehouse.body?.readiness?.label,
+    'warehouse phase1 readiness',
+  )
+
+  const execution = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/execution/summary`, { headers }),
+  )
+  ok(
+    execution.status === 200 && execution.body?.summary?.readiness,
+    'execution summary',
+  )
+
+  const studio = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/studio/summary`, { headers }),
+  )
+  ok(studio.status === 200 && studio.body?.summary?.readiness, 'studio summary')
+
+  const queMl = await json(
+    await fetch(
+      `${BASE}/workspaces/${DEMO_WS}/studio/que-ml?reportId=sportedge-exec`,
+      { headers },
+    ),
+  )
+  ok(
+    queMl.status === 200 && queMl.body?.bundle?.format === 'que-ml-v1',
+    'studio que-ml bundle',
+  )
+
+  const ssmEvents = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/ssm/events?limit=5`, { headers }),
+  )
+  ok(ssmEvents.status === 200 && Array.isArray(ssmEvents.body?.items), 'ssm events')
+
+  const ssmExport = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/ssm/export?limit=10`, { headers }),
+  )
+  ok(
+    ssmExport.status === 200 && ssmExport.body?.export?.format === 'que-ssm-b-export-v1',
+    'ssm export bundle',
+  )
+
+  const ssmModel = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/ssm/model`, { headers }),
+  )
+  ok(
+    ssmModel.status === 200 &&
+      ssmModel.body?.status?.trained === true &&
+      ssmModel.body?.status?.modelId === 'ssm-b-trained-v1',
+    'ssm trained model status',
+  )
+
+  const ssmAb = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/ssm/route-ab`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ message: 'build revenue dashboard', pageContext: 'chat' }),
+    }),
+  )
+  ok(
+    ssmAb.status === 200 && ssmAb.body?.comparison?.recommendedIntent,
+    'ssm route A/B',
+  )
+
+  const biAccess = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/studio/access/me`, { headers }),
+  )
+  ok(
+    biAccess.status === 200 && typeof biAccess.body?.summary?.unrestricted === 'boolean',
+    'bi access summary',
+  )
+
   // --- chat ---
   const chat = await json(
     await fetch(`${BASE}/workspaces/${DEMO_WS}/chat`, {
@@ -239,6 +372,41 @@ async function main() {
     }),
   )
   ok(chat.status === 200 && chat.body?.ok && chat.body?.reply, `chat /help ${chat.status}`)
+
+  const chatSchema = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        message: 'list tables in workspace',
+        audience: 'engineer',
+      }),
+    }),
+  )
+  ok(
+    chatSchema.status === 200 && chatSchema.body?.graphContext?.ssmRouting?.routingSource,
+    'chat graphContext ssmRouting',
+  )
+
+  const queExpr = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/studio/que-expr/compile`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ formula: 'SUM(amount)', table: 'raw_orders' }),
+    }),
+  )
+  ok(
+    queExpr.status === 200 && queExpr.body?.compiled?.mode === 'expr',
+    'que-expr compile',
+  )
+
+  const whWorker = await json(
+    await fetch(`${BASE}/workspaces/${DEMO_WS}/warehouse/worker`, { headers }),
+  )
+  ok(
+    whWorker.status === 200 && typeof whWorker.body?.worker?.enabled === 'boolean',
+    'warehouse worker status',
+  )
 
   // --- drift / bi ---
   const drift = await json(

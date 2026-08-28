@@ -23,7 +23,8 @@ import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
 import {
   CONNECTOR_CATALOG,
   filterConnectorCatalog,
-  POC_PACK,
+  POC_PACKS,
+  type PocPackDefinition,
   type CatalogItem,
   type ConnectorCategoryId,
 } from '@/connectors/connectorCatalog'
@@ -94,6 +95,39 @@ type FormState = {
 
 const WIZARD_STEPS = ['Choose', 'Configure'] as const
 
+const FIXTURE_CONNECTOR_DEFAULTS: Partial<
+  Record<DataSourceType, string>
+> = {
+  snowflake: 'fixtures/snowflake_demo.json',
+  bigquery: 'fixtures/bigquery_demo.json',
+  salesforce: 'fixtures/salesforce_demo.json',
+  shopify: 'fixtures/shopify_demo.json',
+  razorpay: 'fixtures/razorpay_demo.json',
+  zoho: 'fixtures/zoho_demo.json',
+  stripe: 'fixtures/stripe_demo.json',
+  hubspot: 'fixtures/hubspot_demo.json',
+  chargebee: 'fixtures/chargebee_demo.json',
+  google_ads: 'fixtures/google_ads_demo.json',
+  databricks: 'fixtures/databricks_unity_demo.json',
+  mysql: 'fixtures/mysql_demo.json',
+}
+
+function defaultFixturesPath(type: DataSourceType): string {
+  return FIXTURE_CONNECTOR_DEFAULTS[type] ?? 'fixtures/databricks_unity_demo.json'
+}
+
+function isFixtureCommerceType(type: DataSourceType): boolean {
+  return (
+    type === 'shopify' ||
+    type === 'razorpay' ||
+    type === 'zoho' ||
+    type === 'stripe' ||
+    type === 'hubspot' ||
+    type === 'chargebee' ||
+    type === 'google_ads'
+  )
+}
+
 type SourcesView = 'home' | 'catalog' | 'form' | 'detail'
 
 const emptyForm = (type: DataSourceType = 'postgresql'): FormState => ({
@@ -101,7 +135,7 @@ const emptyForm = (type: DataSourceType = 'postgresql'): FormState => ({
   type,
   description: '',
   host: type === 'databricks' ? '' : 'localhost',
-  port: type === 'mongodb' ? '27017' : '5432',
+  port: type === 'mongodb' ? '27017' : type === 'mysql' ? '3306' : '5432',
   database: 'customer_demo',
   user: type === 'postgresql' ? 'stitch' : '',
   password: '',
@@ -112,15 +146,8 @@ const emptyForm = (type: DataSourceType = 'postgresql'): FormState => ({
     null,
     2,
   ),
-  dbxMode: 'fixture',
-  fixturesPath:
-    type === 'snowflake'
-      ? 'fixtures/snowflake_demo.json'
-      : type === 'bigquery'
-        ? 'fixtures/bigquery_demo.json'
-        : type === 'salesforce'
-          ? 'fixtures/salesforce_demo.json'
-          : 'fixtures/databricks_unity_demo.json',
+  dbxMode: type === 'mysql' ? 'fixture' : 'fixture',
+  fixturesPath: defaultFixturesPath(type),
   warehouseId: '',
   token: '',
   catalog: 'main',
@@ -167,14 +194,7 @@ function formFromSource(s: DataSource): FormState {
     ),
     dbxMode: c.mode === 'live' ? 'live' : 'fixture',
     fixturesPath: String(
-      c.fixturesPath ??
-        (s.type === 'snowflake'
-          ? 'fixtures/snowflake_demo.json'
-          : s.type === 'bigquery'
-            ? 'fixtures/bigquery_demo.json'
-            : s.type === 'salesforce'
-              ? 'fixtures/salesforce_demo.json'
-              : 'fixtures/databricks_unity_demo.json'),
+      c.fixturesPath ?? defaultFixturesPath(s.type),
     ),
     warehouseId: String(c.warehouseId ?? ''),
     token:
@@ -197,6 +217,29 @@ function buildConfig(form: FormState): Record<string, unknown> {
       user: form.user,
       password: form.password,
       schema: form.schema || 'public',
+      includeSamples: true,
+      sampleLimit: 5,
+    }
+  }
+  if (form.type === 'mysql') {
+    if (form.dbxMode === 'live') {
+      return {
+        mode: 'live',
+        host: form.host,
+        port: Number(form.port) || 3306,
+        database: form.database,
+        user: form.user,
+        password: form.password,
+        schema: form.schema || form.database || 'customer_demo',
+        ssl: form.host && !/localhost|127\.0\.0\.1/i.test(form.host),
+        includeSamples: true,
+        sampleLimit: 5,
+      }
+    }
+    return {
+      mode: 'fixture',
+      fixturesPath: form.fixturesPath || 'fixtures/mysql_demo.json',
+      database: form.database || 'customer_demo',
       includeSamples: true,
       sampleLimit: 5,
     }
@@ -291,6 +334,23 @@ function buildConfig(form: FormState): Record<string, unknown> {
     return {
       mode: 'fixture',
       fixturesPath: form.fixturesPath || 'fixtures/salesforce_demo.json',
+      includeSamples: true,
+      sampleLimit: 5,
+    }
+  }
+  if (isFixtureCommerceType(form.type)) {
+    if (form.dbxMode === 'live' && form.token) {
+      return {
+        mode: 'live',
+        fixturesPath: form.fixturesPath || defaultFixturesPath(form.type),
+        token: form.token,
+        includeSamples: true,
+        sampleLimit: 5,
+      }
+    }
+    return {
+      mode: 'fixture',
+      fixturesPath: form.fixturesPath || defaultFixturesPath(form.type),
       includeSamples: true,
       sampleLimit: 5,
     }
@@ -595,10 +655,19 @@ export function SourcesPage() {
         (item.type === 'snowflake' ||
           item.type === 'databricks' ||
           item.type === 'bigquery' ||
-          item.type === 'salesforce') &&
+          item.type === 'salesforce' ||
+          item.type === 'mysql' ||
+          (item.type != null && isFixtureCommerceType(item.type))) &&
         item.preferredAuth === 'fixture'
       ) {
         next.dbxMode = 'fixture'
+        next.fixturesPath = defaultFixturesPath(item.type)
+      }
+      if (item.defaultLive) {
+        next.dbxMode = 'live'
+      }
+      if (item.defaultConfig?.port != null) {
+        next.port = String(item.defaultConfig.port)
       }
       return next
     })
@@ -606,54 +675,42 @@ export function SourcesPage() {
     goView('form', { connector: item.key })
   }
 
-  async function installPocPack() {
+  async function installPocPack(pack: PocPackDefinition) {
     if (!canAdmin) {
-      setToast('Admin required to install the POC pack')
+      setToast('Admin required to install a POC pack')
       return
     }
     setBusy(true)
     setError(null)
     try {
       const existing = await fetchWorkspaceSources()
-      const hasSf = existing.some(
-        (s) =>
-          s.type === 'snowflake' &&
-          s.name.toLowerCase().includes('poc') &&
-          s.name.toLowerCase().includes('snowflake'),
-      )
-      const hasDbx = existing.some(
-        (s) =>
-          s.type === 'databricks' &&
-          s.name.toLowerCase().includes('poc') &&
-          s.name.toLowerCase().includes('databricks'),
-      )
       const createdIds: string[] = []
-      if (!hasSf) {
-        const sf = await createConnection({
-          name: POC_PACK.snowflake.name,
-          type: 'snowflake',
-          description: POC_PACK.snowflake.description,
+
+      for (const conn of pack.connectors) {
+        const needle = conn.key.toLowerCase()
+        const already = existing.some(
+          (s) =>
+            s.type === conn.type &&
+            s.name.toLowerCase().includes('poc') &&
+            s.name.toLowerCase().includes(needle),
+        )
+        if (already) continue
+        const row = await createConnection({
+          name: conn.spec.name,
+          type: conn.type,
+          description: conn.spec.description,
           status: 'warning',
-          config: { ...POC_PACK.snowflake.config },
+          config: { ...conn.spec.config },
         })
-        createdIds.push(sf.id)
+        createdIds.push(row.id)
       }
-      if (!hasDbx) {
-        const dbx = await createConnection({
-          name: POC_PACK.databricks.name,
-          type: 'databricks',
-          description: POC_PACK.databricks.description,
-          status: 'warning',
-          config: { ...POC_PACK.databricks.config },
-        })
-        createdIds.push(dbx.id)
-      }
+
       const list = await fetchWorkspaceSources()
+      const packTypes = new Set(pack.connectors.map((c) => c.type))
       const toSync = list.filter(
         (s) =>
           createdIds.includes(s.id) ||
-          (s.name.toLowerCase().includes('poc') &&
-            (s.type === 'snowflake' || s.type === 'databricks')),
+          (s.name.toLowerCase().includes('poc') && packTypes.has(s.type)),
       )
       let tables = 0
       let joins = 0
@@ -666,7 +723,7 @@ export function SourcesPage() {
       notifySchemaChanged('sync')
       await reload(toSync[0]?.id ?? null)
       setToast(
-        `POC pack ready · ${tables} tables · ${joins} join suggestions. Open Joins → Promote (HITL — never auto-accept).`,
+        `${pack.title} ready · ${tables} tables · ${joins} join suggestions. Open Joins → Promote (HITL — never auto-accept).`,
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -695,6 +752,11 @@ export function SourcesPage() {
       )
       notifySchemaChanged('sync')
       await reload(id)
+      if (result.showMonkPrompt !== false) {
+        navigate(
+          `/workspace?synced=${encodeURIComponent(id)}&tables=${result.tablesSynced ?? 0}`,
+        )
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -848,6 +910,11 @@ export function SourcesPage() {
       )
       notifySchemaChanged('sync')
       await reload(selected.id)
+      if (result.showMonkPrompt !== false) {
+        navigate(
+          `/workspace?synced=${encodeURIComponent(selected.id)}&tables=${result.tablesSynced ?? 0}`,
+        )
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -1086,23 +1153,30 @@ export function SourcesPage() {
 
               <main className="min-h-0 flex-1 overflow-y-auto p-[24px]">
                 {canAdmin ? (
-                  <div className="pdf-shine mb-[24px] flex flex-col gap-[12px] rounded-[8px] p-[16px] sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h2 className="text-[13px] font-semibold text-[#d4dbe3]">
-                        {POC_PACK.title}
-                      </h2>
-                      <p className="mt-[4px] max-w-[36rem] text-[12px] text-[#a3afbe]">
-                        {POC_PACK.body}
-                      </p>
-                    </div>
-                    <PdfGhostButton
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void installPocPack()}
-                      className="shrink-0"
-                    >
-                      Install POC pack
-                    </PdfGhostButton>
+                  <div className="mb-[24px] grid gap-[12px] lg:grid-cols-2">
+                    {POC_PACKS.map((pack) => (
+                      <div
+                        key={pack.id}
+                        className="pdf-shine flex flex-col gap-[12px] rounded-[8px] p-[16px] sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <h2 className="text-[13px] font-semibold text-[#d4dbe3]">
+                            {pack.title}
+                          </h2>
+                          <p className="mt-[4px] max-w-[36rem] text-[12px] text-[#a3afbe]">
+                            {pack.body}
+                          </p>
+                        </div>
+                        <PdfGhostButton
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void installPocPack(pack)}
+                          className="shrink-0"
+                        >
+                          Install pack
+                        </PdfGhostButton>
+                      </div>
+                    ))}
                   </div>
                 ) : null}
 
@@ -1438,6 +1512,9 @@ function ConnectionFields({
       {form.type === 'postgresql' ? (
         <PostgresFields form={form} setForm={setForm} />
       ) : null}
+      {form.type === 'mysql' ? (
+        <MysqlFields form={form} setForm={setForm} />
+      ) : null}
       {form.type === 'mongodb' ? (
         <MongoFields form={form} setForm={setForm} />
       ) : null}
@@ -1452,6 +1529,9 @@ function ConnectionFields({
       ) : null}
       {form.type === 'salesforce' ? (
         <SalesforceFields form={form} setForm={setForm} />
+      ) : null}
+      {isFixtureCommerceType(form.type) ? (
+        <FixtureCommerceFields form={form} setForm={setForm} />
       ) : null}
       {form.type === 'excel' || form.type === 'csv' ? (
         <div className="space-y-md">
@@ -1595,6 +1675,94 @@ function PostgresFields({
           className={inputClass}
         />
       </Field>
+    </div>
+  )
+}
+
+function MysqlFields({
+  form,
+  setForm,
+}: {
+  form: FormState
+  setForm: Dispatch<SetStateAction<FormState>>
+}) {
+  return (
+    <div className="grid gap-md">
+      <AuthModeToggle
+        mode={form.dbxMode}
+        onChange={(m) => setForm((f) => ({ ...f, dbxMode: m }))}
+      />
+      {form.dbxMode === 'fixture' ? (
+        <>
+          <Field label="Fixtures path">
+            <input
+              value={form.fixturesPath}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, fixturesPath: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Database label">
+            <input
+              value={form.database}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, database: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+        </>
+      ) : (
+        <div className="grid gap-md md:grid-cols-2">
+          <Field label="Host">
+            <input
+              value={form.host}
+              placeholder="my-db.xxxxx.ap-south-1.rds.amazonaws.com"
+              onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Port">
+            <input
+              value={form.port}
+              onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Database">
+            <input
+              value={form.database}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, database: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="User">
+            <input
+              value={form.user}
+              onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Password">
+            <input
+              type="password"
+              value={form.password}
+              placeholder="leave blank to keep"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, password: e.target.value }))
+              }
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      )}
+      <p className="font-body text-[11px] text-on-surface-variant">
+        Fixture mode loads India SMB demo schema (customers, orders, line items).
+        Live mode introspects information_schema on your MySQL / RDS instance.
+      </p>
     </div>
   )
 }
@@ -2003,6 +2171,49 @@ function SalesforceFields({
       <p className="font-body text-[11px] text-on-surface-variant">
         Live mode uses describeGlobal + describe (schema only). Prefer a
         Connected App access token; OAuth UI flow is still roadmap.
+      </p>
+    </div>
+  )
+}
+
+function FixtureCommerceFields({
+  form,
+  setForm,
+}: {
+  form: FormState
+  setForm: Dispatch<SetStateAction<FormState>>
+}) {
+  return (
+    <div className="grid gap-md">
+      <AuthModeToggle
+        mode={form.dbxMode}
+        onChange={(m) => setForm((f) => ({ ...f, dbxMode: m }))}
+      />
+      {form.dbxMode === 'fixture' ? (
+        <Field label="Fixtures path">
+          <input
+            value={form.fixturesPath}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, fixturesPath: e.target.value }))
+            }
+            className={inputClass}
+          />
+        </Field>
+      ) : (
+        <Field label="API token / secret key">
+          <input
+            type="password"
+            value={form.token}
+            placeholder="leave blank to keep"
+            onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))}
+            className={inputClass}
+          />
+        </Field>
+      )}
+      <p className="font-body text-[11px] text-on-surface-variant">
+        Fixture mode loads demo schema instantly — ideal for India D2C stack POC
+        (Shopify + Razorpay + Stripe). Live OAuth/API ingest remains partner
+        stack; Que wins post-sync joins and Monk cert.
       </p>
     </div>
   )

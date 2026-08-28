@@ -1,7 +1,7 @@
 # Phase 2 complete — Que competitive sprint exit (2026)
 
 **Horizon:** 12 sprints × 2 weeks = 24 weeks  
-**Status:** All sprint deliverables implemented **locally** (git push pending)  
+**Status:** All sprint deliverables implemented locally — **2 commits ahead of `origin/main`** (`70d1eaa` Phase 2, `1740c6f` doc pack)  
 **Plan:** [Que-Competitive-Sprint-Plan-2026.md](./Que-Competitive-Sprint-Plan-2026.md)
 
 ---
@@ -35,7 +35,7 @@
 
 ## Still external or manual
 
-- [ ] **Git push** S1–S12 to GitHub `main`
+- [ ] **Git push** S1–S12 to GitHub `main` (ready — say **push** to publish)
 - [ ] **SOC 2 Type II letter** (~month 9–15 from S8 kickoff)
 - [ ] **RS-8 demo video** (script: `docs/gtm/rs8-demo-script.md`)
 - [ ] **3 paid design partners** (GTM, not engineering)

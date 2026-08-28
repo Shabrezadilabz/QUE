@@ -41,7 +41,6 @@ import {
   buildCeoUncertifiedReply,
   isGlossaryOnlyQuestion,
 } from './ceoChatGuard.js'
-import { looksLikeDataQuestion } from './chatLiveQuery.js'
 
 /**
  * Phase 3 — lineage-grounded citation strings (edges + owners / job titles).

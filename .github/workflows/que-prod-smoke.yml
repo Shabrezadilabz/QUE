@@ -4,12 +4,15 @@
 name: Que prod smoke
 
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
 
 jobs:
   smoke:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -56,6 +59,7 @@ jobs:
         run: npm run test:scim && npm run test:sprint8 && npm run test:sprint9 && npm run test:sprint10 && npm run test:sprint11 && npm run test:sprint12 && npm run test:load
 
   monk-prod:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: smoke

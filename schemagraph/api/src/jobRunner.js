@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import { query } from './db.js'
 import { getJob } from './jobs.js'
-import { normalizeNotebook } from './jobNotebook.js'
+import { normalizeNotebook, extractExecutableSql } from './jobNotebook.js'
 import { validateContract } from './contracts/contractFreeze.js'
 import { buildSchemaContextPack } from './schemaContext.js'
 import { buildSamplePreview, SCHEMA_SAMPLE_MAX_ROWS } from './samplePreview.js'
@@ -323,13 +323,38 @@ export async function runJob(workspaceId, jobId, opts = {}) {
         continue
       }
 
-      const issues = lintSql(cell.content, { forLive: mode === 'live' })
+      const sqlText = extractExecutableSql(cell.content, cell.kind)
+      if (!sqlText) {
+        const hint =
+          cell.kind === 'python' || cell.kind === 'scala'
+            ? `${cell.kind} cell has no SQL — use %sql, spark.sql("""SELECT …"""), or a plain SELECT`
+            : 'SQL cell is empty'
+        pushLog(logs, 'warn', hint)
+        cellResults.push({
+          cellId: cell.id,
+          kind: cell.kind,
+          title: cell.title,
+          status: 'skipped',
+          issues: [{ level: 'warn', message: hint }],
+        })
+        continue
+      }
+
+      if (cell.kind === 'python' || cell.kind === 'scala') {
+        pushLog(
+          logs,
+          'info',
+          `Extracted SQL from ${cell.kind} cell for read-only run`,
+        )
+      }
+
+      const issues = lintSql(sqlText, { forLive: mode === 'live' })
       for (const issue of issues) {
         pushLog(logs, issue.level, issue.message)
         if (issue.level === 'error') hardFail = true
       }
 
-      const refs = extractTableRefs(cell.content, knownTables)
+      const refs = extractTableRefs(sqlText, knownTables)
       if (refs.length) {
         pushLog(logs, 'info', `Referenced tables: ${refs.join(', ')}`)
       } else {
@@ -367,7 +392,7 @@ export async function runJob(workspaceId, jobId, opts = {}) {
       if (mode === 'live' && cellStatus !== 'failed') {
         try {
           pushLog(logs, 'info', 'Executing read-only SQL on source…')
-          const live = await executeLiveSql(liveTarget, cell.content, {
+          const live = await executeLiveSql(liveTarget, sqlText, {
             maxRows,
           })
           liveResults.push({
@@ -411,7 +436,9 @@ export async function runJob(workspaceId, jobId, opts = {}) {
     }
 
     const status = hardFail ? 'failed' : 'succeeded'
-    const sqlCells = cellResults.filter((c) => c.kind === 'sql')
+    const sqlCells = cellResults.filter(
+      (c) => c.kind === 'sql' || c.kind === 'python' || c.kind === 'scala',
+    )
     const summary = hardFail
       ? `${mode === 'live' ? 'Live' : 'Dry'}-run failed · ${sqlCells.filter((c) => c.status === 'failed').length} cell error(s)`
       : mode === 'live'

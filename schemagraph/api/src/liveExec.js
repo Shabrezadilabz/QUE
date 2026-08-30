@@ -23,6 +23,18 @@ export const LIVE_VALIDATE_MAX_ROWS = 20
 export const BI_WIDGET_MAX_ROWS = 500
 
 /**
+ * Strip SQL line/block comments so leading `--` notes don't fail SELECT checks.
+ * @param {string} sql
+ */
+export function stripSqlComments(sql) {
+  return String(sql || '')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^[ \t]*--[^\n]*$/gm, '')
+    .replace(/[ \t]+--[^\n]*/g, ' ')
+    .trim()
+}
+
+/**
  * Harden user SQL for live read execution.
  * @param {string} sql
  * @param {number} [maxRows=20]
@@ -47,25 +59,31 @@ function prepareReadonlySqlWithCap(sql, maxRows, hardCap) {
     err.status = 400
     throw err
   }
-  text = text.replace(/;+\s*$/g, '').trim()
-  if (/;/.test(text)) {
+  // Validate on comment-stripped body so notebook header comments are OK.
+  let bare = stripSqlComments(text).replace(/;+\s*$/g, '').trim()
+  if (!bare) {
+    const err = new Error('SQL is empty')
+    err.status = 400
+    throw err
+  }
+  if (/;/.test(bare)) {
     const err = new Error('Live run allows a single statement only')
     err.status = 400
     throw err
   }
-  if (WRITE_RE.test(text)) {
+  if (WRITE_RE.test(bare)) {
     const err = new Error(
       'Live run blocked: write/DDL keywords are not allowed (read-only policy)',
     )
     err.status = 400
     throw err
   }
-  if (!/^\s*(with|select)\b/i.test(text)) {
+  if (!/^\s*(with|select)\b/i.test(bare)) {
     const err = new Error('Live run requires a SELECT or WITH query')
     err.status = 400
     throw err
   }
-  if (/que_notebook_stub/i.test(text)) {
+  if (/que_notebook_stub/i.test(bare)) {
     const err = new Error(
       'Live run blocked: stub SQL — replace with a real query first',
     )
@@ -76,15 +94,15 @@ function prepareReadonlySqlWithCap(sql, maxRows, hardCap) {
     Math.max(Number(maxRows) || hardCap, 1),
     hardCap,
   )
-  if (!/\blimit\s+\d+/i.test(text)) {
-    text = `${text}\nLIMIT ${limit}`
+  if (!/\blimit\s+\d+/i.test(bare)) {
+    bare = `${bare}\nLIMIT ${limit}`
   } else {
-    text = text.replace(/\blimit\s+(\d+)/gi, (_m, n) => {
+    bare = bare.replace(/\blimit\s+(\d+)/gi, (_m, n) => {
       const v = Math.min(Number(n) || limit, hardCap)
       return `LIMIT ${v}`
     })
   }
-  return text
+  return bare
 }
 
 /**

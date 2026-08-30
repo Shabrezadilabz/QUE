@@ -2613,7 +2613,7 @@ export interface SamplePreview {
 
 export interface JobNotebookCell {
   id: string
-  kind: 'markdown' | 'sql'
+  kind: 'markdown' | 'sql' | 'python' | 'scala'
   title?: string
   content: string
 }

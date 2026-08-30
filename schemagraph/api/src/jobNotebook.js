@@ -4,11 +4,65 @@
  */
 import { randomUUID } from 'node:crypto'
 
-const KINDS = new Set(['markdown', 'sql'])
+const KINDS = new Set(['markdown', 'sql', 'python', 'scala'])
 
 /**
- * @typedef {{ id: string, kind: 'markdown'|'sql', title?: string, content: string }} NotebookCell
+ * @typedef {'markdown'|'sql'|'python'|'scala'} NotebookCellKind
+ * @typedef {{ id: string, kind: NotebookCellKind, title?: string, content: string }} NotebookCell
  */
+
+/**
+ * Pull executable SQL from a cell — plain SQL, or embedded in Python/Scala
+ * via %sql / spark.sql(...) / sql("""...""") (Databricks-style).
+ * @param {string} content
+ * @param {string} [kind]
+ * @returns {string | null}
+ */
+export function extractExecutableSql(content, kind = 'sql') {
+  const text = String(content || '')
+  const k = String(kind || 'sql').toLowerCase()
+
+  if (k === 'markdown') return null
+
+  if (k === 'sql') {
+    return text.trim() || null
+  }
+
+  // %sql magic until next %magic or EOF
+  const magic = text.match(
+    /(?:^|\n)\s*%sql[ \t]*\n([\s\S]*?)(?=(?:\n\s*%[a-zA-Z_])|\s*$)/i,
+  )
+  if (magic?.[1]?.trim()) return magic[1].trim()
+
+  // spark.sql("""...""") / spark.sql('''...''') / spark.sql("...") / spark.sql('...')
+  const spark = text.match(
+    /spark\.sql\s*\(\s*(?:"""([\s\S]*?)"""|'''([\s\S]*?)'''|"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)')\s*\)/i,
+  )
+  if (spark) {
+    const sql = (spark[1] || spark[2] || spark[3] || spark[4] || '').trim()
+    if (sql) return sql
+  }
+
+  // sql("""...""") helper
+  const sqlFn = text.match(
+    /(?:^|[^\w.])sql\s*\(\s*(?:"""([\s\S]*?)"""|'''([\s\S]*?)''')\s*\)/i,
+  )
+  if (sqlFn) {
+    const sql = (sqlFn[1] || sqlFn[2] || '').trim()
+    if (sql) return sql
+  }
+
+  // Whole cell is already SQL (comments + SELECT)
+  const stripped = text
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^[ \t]*--[^\n]*$/gm, '')
+    .replace(/^[ \t]*#[^\n]*$/gm, '')
+    .replace(/^[ \t]*\/\/[^\n]*$/gm, '')
+    .trim()
+  if (/^(with|select)\b/i.test(stripped)) return text.trim()
+
+  return null
+}
 
 /**
  * @param {unknown} raw
@@ -31,7 +85,11 @@ export function normalizeNotebook(raw) {
         ? item.title.trim().slice(0, 120)
         : kind === 'sql'
           ? 'stitch.sql'
-          : 'Notes'
+          : kind === 'python'
+            ? 'cell.py'
+            : kind === 'scala'
+              ? 'cell.scala'
+              : 'Notes'
     out.push({ id, kind, title, content })
   }
   return out

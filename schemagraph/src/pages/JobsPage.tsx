@@ -404,7 +404,7 @@ export function JobsPage() {
     )
   }
 
-  function addCell(kind: 'markdown' | 'sql') {
+  function addCell(kind: 'markdown' | 'sql' | 'python' | 'scala') {
     const cell = newNotebookCell(kind)
     setDraftCells((prev) => {
       if (!activeCellId) return [...prev, cell]
@@ -1119,6 +1119,20 @@ export function JobsPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => addCell('python')}
+                    className="que-nb-btn"
+                  >
+                    + Python
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addCell('scala')}
+                    className="que-nb-btn"
+                  >
+                    + Scala
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => addCell('markdown')}
                     className="que-nb-btn"
                   >
@@ -1164,7 +1178,7 @@ export function JobsPage() {
                     </span>
                     <span className="font-label text-[10px] text-[#6e6e6e]">
                       {cells.length} command{cells.length === 1 ? '' : 's'} ·
-                      SQL · Markdown
+                      SQL · Python · Scala · Markdown
                     </span>
                   </div>
                   <div className="que-nb-scroll min-h-0 flex-1 overflow-y-auto">
@@ -1204,6 +1218,18 @@ export function JobsPage() {
                             onClick={() => addCell('sql')}
                           >
                             + SQL command
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addCell('python')}
+                          >
+                            + Python
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addCell('scala')}
+                          >
+                            + Scala
                           </button>
                           <button
                             type="button"

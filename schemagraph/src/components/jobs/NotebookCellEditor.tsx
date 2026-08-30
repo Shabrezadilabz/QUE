@@ -1,6 +1,7 @@
 import CodeMirror from '@uiw/react-codemirror'
 import { sql } from '@codemirror/lang-sql'
 import { markdown } from '@codemirror/lang-markdown'
+import { python } from '@codemirror/lang-python'
 import { EditorView } from '@codemirror/view'
 import type { JobNotebookCell } from '@/services/stitchApi'
 import { RunInWarehouseButton } from '@/components/warehouse/RunInWarehouseButton'
@@ -8,6 +9,12 @@ import {
   NotebookCellResult,
   type NotebookCellRunSlice,
 } from '@/components/jobs/NotebookCellResult'
+import {
+  defaultNotebookCellContent,
+  defaultNotebookCellTitle,
+  extractExecutableSql,
+  type NotebookCellKind,
+} from '@/utils/notebookSql'
 
 /** Databricks-like dark editor theme for notebook cells */
 const notebookEditorTheme = EditorView.theme(
@@ -50,6 +57,21 @@ const notebookEditorTheme = EditorView.theme(
   { dark: true },
 )
 
+function languageExtension(kind: NotebookCellKind) {
+  switch (kind) {
+    case 'markdown':
+      return markdown()
+    case 'python':
+      return python()
+    case 'scala':
+      // No dedicated Scala package — Python highlighter is a close stand-in.
+      return python()
+    case 'sql':
+    default:
+      return sql()
+  }
+}
+
 interface NotebookCellEditorProps {
   cell: JobNotebookCell
   index: number
@@ -60,7 +82,7 @@ interface NotebookCellEditorProps {
   onFocus: () => void
   onChangeContent: (content: string) => void
   onChangeTitle: (title: string) => void
-  onChangeKind: (kind: 'markdown' | 'sql') => void
+  onChangeKind: (kind: NotebookCellKind) => void
   onDelete: () => void
   onMove: (dir: -1 | 1) => void
   onRunStub: () => void
@@ -89,11 +111,13 @@ export function NotebookCellEditor({
   canMoveDown,
   runSlice = null,
 }: NotebookCellEditorProps) {
+  const kind = (cell.kind || 'sql') as NotebookCellKind
   const extensions = [
     notebookEditorTheme,
     EditorView.lineWrapping,
-    cell.kind === 'sql' ? sql() : markdown(),
+    languageExtension(kind),
   ]
+  const warehouseSql = extractExecutableSql(cell.content, kind)
 
   return (
     <article
@@ -106,7 +130,7 @@ export function NotebookCellEditor({
         </span>
         <button
           type="button"
-          disabled={disabled}
+          disabled={disabled || kind === 'markdown'}
           title="Run this command"
           onClick={onRunStub}
           className="que-nb-run-btn"
@@ -119,14 +143,17 @@ export function NotebookCellEditor({
         <div className="que-nb-cell-chrome">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <select
-              value={cell.kind}
+              value={kind}
               disabled={disabled}
               onChange={(e) =>
-                onChangeKind(e.target.value === 'sql' ? 'sql' : 'markdown')
+                onChangeKind(e.target.value as NotebookCellKind)
               }
               className="que-nb-lang"
+              title="Cell language"
             >
               <option value="sql">SQL</option>
+              <option value="python">Python</option>
+              <option value="scala">Scala</option>
               <option value="markdown">Markdown</option>
             </select>
             <input
@@ -196,9 +223,15 @@ export function NotebookCellEditor({
           )}
         </div>
 
-        {cell.kind === 'sql' && cell.content?.trim() ? (
+        {kind !== 'markdown' && warehouseSql ? (
           <div className="border-t border-[#2e2e2e] px-3 py-1.5">
-            <RunInWarehouseButton sql={cell.content} compact />
+            <RunInWarehouseButton sql={warehouseSql} compact />
+            {kind === 'python' || kind === 'scala' ? (
+              <p className="mt-1 font-label text-[10px] text-[#6e6e6e]">
+                Runs extracted SQL only (spark.sql / %sql) — not a full{' '}
+                {kind} runtime.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -206,7 +239,13 @@ export function NotebookCellEditor({
 
         <div className="que-nb-footer">
           <span>
-            {cell.kind === 'sql' ? 'SQL command' : 'Markdown'}
+            {kind === 'sql'
+              ? 'SQL command'
+              : kind === 'python'
+                ? 'Python · SQL via spark.sql / %sql'
+                : kind === 'scala'
+                  ? 'Scala · SQL via spark.sql'
+                  : 'Markdown'}
             {disabled ? ' · read-only' : ''}
           </span>
           <span>Shift+Enter to run · Esc command mode</span>
@@ -216,20 +255,15 @@ export function NotebookCellEditor({
   )
 }
 
-export function newNotebookCell(
-  kind: 'markdown' | 'sql',
-): JobNotebookCell {
+export function newNotebookCell(kind: NotebookCellKind): JobNotebookCell {
   return {
     id:
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `cell-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     kind,
-    title: kind === 'sql' ? 'Query' : 'Notes',
-    content:
-      kind === 'sql'
-        ? '-- New SQL command\nSELECT 1;\n'
-        : '## Notes\n\nDescribe this step…\n',
+    title: defaultNotebookCellTitle(kind),
+    content: defaultNotebookCellContent(kind),
   }
 }
 

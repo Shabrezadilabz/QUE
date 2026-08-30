@@ -260,6 +260,7 @@ import {
   createExportArtifact,
 } from './exporters/artifacts.js'
 import { assertProductionSecrets, corsOrigins } from './env.js'
+import { runMigrations } from '../scripts/migrate.js'
 import { createInvite, listInvites, revokeInvite } from './invites.js'
 import {
   listMembers,
@@ -686,6 +687,44 @@ app.get('/health', async (_req, res) => {
     res.json(snap)
   } catch (err) {
     res.status(503).json({ ok: false, error: String(err.message || err) })
+  }
+})
+
+/**
+ * Apply pending SQL migrations without Render shell.
+ * Auth: header `x-que-migrate-secret` or `?secret=` matching
+ * QUE_MIGRATE_SECRET (preferred) or QUE_SECRETS_KEY.
+ *
+ * Example:
+ *   curl -X POST "https://que-k31z.onrender.com/admin/migrate" ^
+ *     -H "x-que-migrate-secret: YOUR_QUE_SECRETS_KEY"
+ */
+app.post('/admin/migrate', async (req, res) => {
+  const expected = String(
+    process.env.QUE_MIGRATE_SECRET ||
+      process.env.QUE_SECRETS_KEY ||
+      process.env.STITCH_SECRETS_KEY ||
+      '',
+  ).trim()
+  const provided = String(
+    req.get('x-que-migrate-secret') ||
+      req.query.secret ||
+      req.body?.secret ||
+      '',
+  ).trim()
+  if (!expected || provided !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' })
+    return
+  }
+  try {
+    const result = await runMigrations({ log: true })
+    if (result.failed) {
+      res.status(500).json({ ok: false, ...result })
+      return
+    }
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err.message || err) })
   }
 })
 
@@ -8513,7 +8552,29 @@ app.get('/', (_req, res) => {
 })
 
 ensureDevUserPassword()
-  .then(() => {
+  .then(async () => {
+    try {
+      const mig = await runMigrations({ log: true })
+      if (mig.failed) {
+        console.error(
+          `[Que] boot migrate failed on ${mig.failed}: ${mig.error}`,
+        )
+        if (
+          process.env.NODE_ENV === 'production' ||
+          process.env.QUE_ENV === 'production'
+        ) {
+          throw new Error(`Migration failed: ${mig.failed} — ${mig.error}`)
+        }
+      }
+    } catch (err) {
+      console.error('[Que] boot migrate:', err.message || err)
+      if (
+        process.env.NODE_ENV === 'production' ||
+        process.env.QUE_ENV === 'production'
+      ) {
+        throw err
+      }
+    }
     app.listen(PORT, () => {
       console.log(`que-api listening on http://localhost:${PORT}`)
       console.log(`demo workspace: ${DEMO_WS}`)

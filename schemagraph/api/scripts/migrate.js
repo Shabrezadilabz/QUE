@@ -7,6 +7,7 @@
  *   npm run migrate
  *
  * Env: DATABASE_URL or STITCH_PG_* (same as api db.js)
+ *      QUE_DB_DIR — override SQL folder (Docker)
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -20,7 +21,13 @@ const DB_ROOT = resolve(
 
 function poolConfig() {
   if (process.env.DATABASE_URL) {
-    return { connectionString: process.env.DATABASE_URL }
+    return {
+      connectionString: process.env.DATABASE_URL,
+      ssl:
+        process.env.PGSSLMODE === 'disable'
+          ? undefined
+          : { rejectUnauthorized: false },
+    }
   }
   return {
     host: process.env.STITCH_PG_HOST || 'localhost',
@@ -38,9 +45,16 @@ function listMigrations() {
     .sort()
 }
 
-async function main() {
+/**
+ * Apply pending migrations. Safe to call on every boot.
+ * @returns {Promise<{ applied: string[], skipped: number, failed?: string, error?: string }>}
+ */
+export async function runMigrations(opts = {}) {
+  const log = opts.log !== false
   const client = new pg.Client(poolConfig())
   await client.connect()
+  const applied = []
+  let skipped = 0
   try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -51,14 +65,14 @@ async function main() {
     const { rows } = await client.query(`SELECT id FROM schema_migrations`)
     const done = new Set(rows.map((r) => r.id))
     const files = listMigrations()
-    let applied = 0
     for (const file of files) {
       if (done.has(file)) {
-        console.log(`skip ${file}`)
+        skipped += 1
+        if (log) console.log(`skip ${file}`)
         continue
       }
       const sql = readFileSync(resolve(DB_ROOT, file), 'utf8')
-      console.log(`apply ${file}…`)
+      if (log) console.log(`apply ${file}…`)
       await client.query('BEGIN')
       try {
         await client.query(sql)
@@ -66,26 +80,45 @@ async function main() {
           file,
         ])
         await client.query('COMMIT')
-        applied += 1
-        console.log(`ok   ${file}`)
+        applied.push(file)
+        if (log) console.log(`ok   ${file}`)
       } catch (err) {
         await client.query('ROLLBACK')
-        console.error(`FAIL ${file}:`, err.message || err)
-        process.exitCode = 1
-        break
+        const message = String(err.message || err)
+        if (log) console.error(`FAIL ${file}:`, message)
+        return {
+          applied,
+          skipped,
+          failed: file,
+          error: message,
+        }
       }
     }
-    console.log(
-      applied === 0 && process.exitCode !== 1
-        ? '[Que] migrations up to date'
-        : `[Que] applied ${applied} migration(s)`,
-    )
+    if (log) {
+      console.log(
+        applied.length === 0
+          ? '[Que] migrations up to date'
+          : `[Que] applied ${applied.length} migration(s)`,
+      )
+    }
+    return { applied, skipped }
   } finally {
     await client.end()
   }
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+async function main() {
+  const result = await runMigrations()
+  if (result.failed) process.exitCode = 1
+}
+
+const isCli =
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+
+if (isCli) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}

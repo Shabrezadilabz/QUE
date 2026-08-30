@@ -8,7 +8,7 @@ export function slackBotToken() {
 }
 
 /**
- * @param {{ channel: string, text: string, blocks?: object[] }} opts
+ * @param {{ channel: string, text: string, blocks?: object[], thread_ts?: string }} opts
  */
 export async function postSlackMessage(opts) {
   const token = slackBotToken()
@@ -23,19 +23,21 @@ export async function postSlackMessage(opts) {
     err.status = 400
     throw err
   }
+  const payload = {
+    channel,
+    text: opts.text,
+    blocks: opts.blocks,
+    unfurl_links: false,
+    unfurl_media: false,
+  }
+  if (opts.thread_ts) payload.thread_ts = opts.thread_ts
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json; charset=utf-8',
     },
-    body: JSON.stringify({
-      channel,
-      text: opts.text,
-      blocks: opts.blocks,
-      unfurl_links: false,
-      unfurl_media: false,
-    }),
+    body: JSON.stringify(payload),
   })
   const body = await res.json().catch(() => ({}))
   if (!res.ok || body.ok === false) {

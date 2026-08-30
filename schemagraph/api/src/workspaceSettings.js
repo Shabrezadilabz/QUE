@@ -127,6 +127,11 @@ const DEFAULT_SETTINGS = {
   joinReviewWebhookUrl: '',
   /** Slack channel ID/name for interactive Block Kit (requires SLACK_BOT_TOKEN) */
   slackNotifyChannel: '',
+  /** Phase 2 — Slack KPI Ask (exec / viewer surface) */
+  slackTeamId: '',
+  slackKpiEnabled: true,
+  /** Comma-separated Slack channel IDs; empty = all channels in team */
+  slackKpiChannelAllowlist: '',
   joinPromoteNotify: false,
   driftDigestEnabled: true,
   driftDigestWebhookUrl: '',
@@ -487,6 +492,17 @@ function pickAllowed(patch) {
   }
   if (typeof patch.slackNotifyChannel === 'string') {
     out.slackNotifyChannel = patch.slackNotifyChannel.trim().slice(0, 80)
+  }
+  if (typeof patch.slackTeamId === 'string') {
+    out.slackTeamId = patch.slackTeamId.trim().slice(0, 32)
+  }
+  if (typeof patch.slackKpiEnabled === 'boolean') {
+    out.slackKpiEnabled = patch.slackKpiEnabled
+  }
+  if (typeof patch.slackKpiChannelAllowlist === 'string') {
+    out.slackKpiChannelAllowlist = patch.slackKpiChannelAllowlist
+      .trim()
+      .slice(0, 500)
   }
   if (typeof patch.driftDigestWebhookUrl === 'string') {
     out.driftDigestWebhookUrl = patch.driftDigestWebhookUrl.trim().slice(0, 500)

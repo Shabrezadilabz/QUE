@@ -3875,6 +3875,12 @@ export interface WorkspaceSettingsFlags {
   joinReviewWebhookUrl?: string
   /** Slack channel for interactive Block Kit (needs SLACK_BOT_TOKEN) */
   slackNotifyChannel?: string
+  /** Slack workspace team ID (T…) for /que KPI Ask mapping */
+  slackTeamId?: string
+  /** Enable Slack KPI Ask (exec / viewer cert chat) */
+  slackKpiEnabled?: boolean
+  /** Comma-separated channel IDs allowed for /que; empty = all */
+  slackKpiChannelAllowlist?: string
   joinPromoteNotify?: boolean
   driftDigestEnabled?: boolean
   driftDigestWebhookUrl?: string

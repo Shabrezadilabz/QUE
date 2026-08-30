@@ -672,6 +672,105 @@ app.post(
   },
 )
 
+/**
+ * Slack slash commands — /que <KPI question>
+ * Configure in Slack app: Slash Commands → Request URL
+ *   {QUE_PUBLIC_API_URL}/webhooks/slack/commands
+ */
+app.post(
+  '/webhooks/slack/commands',
+  express.raw({ type: '*/*' }),
+  async (req, res) => {
+    try {
+      const { verifySlackSignature } = await import('./slackSigning.js')
+      const {
+        handleSlackSlashCommand,
+      } = await import('./slackKpiAsk.js')
+      const raw = Buffer.isBuffer(req.body)
+        ? req.body.toString('utf8')
+        : String(req.body || '')
+      const requireSecret =
+        String(process.env.NODE_ENV || '').toLowerCase() === 'production' ||
+        String(process.env.QUE_ENV || '').toLowerCase() === 'production'
+      const verified = verifySlackSignature(raw, req.headers, {
+        requireSecret: requireSecret && Boolean(process.env.SLACK_SIGNING_SECRET),
+      })
+      if (!verified.ok) {
+        res.status(401).json({ error: verified.reason || 'unauthorized' })
+        return
+      }
+      const params = new URLSearchParams(raw)
+      let acked = false
+      await handleSlackSlashCommand(params, (body) => {
+        if (!acked) {
+          acked = true
+          res.status(200).json(body)
+        }
+      })
+      if (!acked) {
+        res.status(200).json({
+          response_type: 'ephemeral',
+          text: 'Que received your question.',
+        })
+      }
+    } catch (err) {
+      if (!res.headersSent) {
+        res.status(err.status || 500).json({ error: String(err.message || err) })
+      }
+    }
+  },
+)
+
+/**
+ * Slack Events API — app_mention + DM.
+ * Enable event subscriptions → Request URL
+ *   {QUE_PUBLIC_API_URL}/webhooks/slack/events
+ * Subscribe: app_mention, message.im
+ */
+app.post(
+  '/webhooks/slack/events',
+  express.raw({ type: '*/*' }),
+  async (req, res) => {
+    try {
+      const { verifySlackSignature } = await import('./slackSigning.js')
+      const { handleSlackEvent } = await import('./slackKpiAsk.js')
+      const raw = Buffer.isBuffer(req.body)
+        ? req.body.toString('utf8')
+        : String(req.body || '')
+      let body = {}
+      try {
+        body = JSON.parse(raw || '{}')
+      } catch {
+        res.status(400).json({ error: 'invalid json' })
+        return
+      }
+      if (body.type === 'url_verification' && body.challenge) {
+        res.status(200).send(String(body.challenge))
+        return
+      }
+      const requireSecret =
+        String(process.env.NODE_ENV || '').toLowerCase() === 'production' ||
+        String(process.env.QUE_ENV || '').toLowerCase() === 'production'
+      const verified = verifySlackSignature(raw, req.headers, {
+        requireSecret: requireSecret && Boolean(process.env.SLACK_SIGNING_SECRET),
+      })
+      if (!verified.ok) {
+        res.status(401).json({ error: verified.reason || 'unauthorized' })
+        return
+      }
+      // Ack immediately — Slack retries if >3s
+      res.status(200).json({ ok: true })
+      void handleSlackEvent(body).catch((err) => {
+        console.error('[Que] slack event:', err.message || err)
+      })
+    } catch (err) {
+      if (!res.headersSent) {
+        res.status(err.status || 500).json({ error: String(err.message || err) })
+      }
+    }
+  },
+)
+
 app.use(express.json({ limit: '4mb' }))
 app.use(express.urlencoded({ extended: true }))
 app.use(requestLogMiddleware)

@@ -189,6 +189,10 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
             payload.settings.joinReviewNotifyEnabled !== false,
                       joinReviewWebhookUrl: payload.settings.joinReviewWebhookUrl ?? '',
                       slackNotifyChannel: payload.settings.slackNotifyChannel ?? '',
+                      slackTeamId: payload.settings.slackTeamId ?? '',
+                      slackKpiEnabled: payload.settings.slackKpiEnabled !== false,
+                      slackKpiChannelAllowlist:
+                        payload.settings.slackKpiChannelAllowlist ?? '',
                       joinPromoteNotify: payload.settings.joinPromoteNotify === true,
           driftDigestEnabled: payload.settings.driftDigestEnabled !== false,
           driftDigestWebhookUrl: payload.settings.driftDigestWebhookUrl ?? '',
@@ -336,6 +340,11 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
         (data.settings.joinReviewWebhookUrl ?? '') ||
       draft.slackNotifyChannel !==
         (data.settings.slackNotifyChannel ?? '') ||
+      draft.slackTeamId !== (data.settings.slackTeamId ?? '') ||
+      draft.slackKpiEnabled !==
+        (data.settings.slackKpiEnabled !== false) ||
+      draft.slackKpiChannelAllowlist !==
+        (data.settings.slackKpiChannelAllowlist ?? '') ||
       draft.driftDigestEnabled !==
         (data.settings.driftDigestEnabled !== false) ||
       draft.driftDigestWebhookUrl !==
@@ -989,6 +998,39 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                       }
                       placeholder="#data-ops or C0123ABCD (needs SLACK_BOT_TOKEN)"
                     />
+                    <Toggle
+                      label="Slack KPI Ask (/que)"
+                      hint="Execs ask certified KPIs from Slack — same rules as Ask (viewer)"
+                      checked={draft.slackKpiEnabled !== false}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, slackKpiEnabled: v } : d,
+                        )
+                      }
+                    />
+                    <Field
+                      label="Slack Team ID (T…)"
+                      value={draft.slackTeamId ?? ''}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, slackTeamId: v } : d,
+                        )
+                      }
+                      placeholder="T0123ABCD — maps this Que workspace to your Slack team"
+                    />
+                    <Field
+                      label="KPI Ask channel allowlist (optional)"
+                      value={draft.slackKpiChannelAllowlist ?? ''}
+                      disabled={!canAdmin}
+                      onChange={(v) =>
+                        setDraft((d) =>
+                          d ? { ...d, slackKpiChannelAllowlist: v } : d,
+                        )
+                      }
+                      placeholder="C0123,C0456 — empty = all channels"
+                    />
                     <p className="text-[11px] text-on-surface-variant">
                       With <code className="font-mono">SLACK_BOT_TOKEN</code> +
                       channel, Que posts interactive Approve/Reject (value
@@ -996,7 +1038,14 @@ export function SettingsPage({ section = 'members' }: { section?: SettingsSectio
                       <code className="font-mono">
                         /webhooks/slack/interactions
                       </code>
-                      ). Webhook-only mode uses signed URL buttons. Set{' '}
+                      ). KPI Ask: Slash{' '}
+                      <code className="font-mono">/que</code> →{' '}
+                      <code className="font-mono">
+                        /webhooks/slack/commands
+                      </code>
+                      ; mentions →{' '}
+                      <code className="font-mono">/webhooks/slack/events</code>.
+                      Webhook-only mode uses signed URL buttons. Set{' '}
                       <code className="font-mono">QUE_APP_URL</code>,{' '}
                       <code className="font-mono">QUE_PUBLIC_API_URL</code>,{' '}
                       <code className="font-mono">SLACK_SIGNING_SECRET</code>.

@@ -1,7 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
 import { QueNavIcon } from '@/components/que/queNavIcons'
-import { QUE_PDF_NAV, resolveActiveNav } from '@/components/que/queNavConfig'
+import {
+  navItemsForRole,
+  resolveActiveNav,
+  type QueNavItem,
+} from '@/components/que/queNavConfig'
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 
 function NavItem({
   to,
@@ -12,7 +17,7 @@ function NavItem({
 }: {
   to: string
   label: string
-  navId: (typeof QUE_PDF_NAV)[number]['id']
+  navId: QueNavItem['id']
   active: boolean
   end?: boolean
 }) {
@@ -72,16 +77,27 @@ function AccountNavIcon({ active }: { active: boolean }) {
 /** PDF app sidebar — condensed groups + distinct icons. */
 export function PdfSidebar() {
   const { pathname } = useLocation()
-  const active = resolveActiveNav(pathname)
+  const { isBuilder } = useWorkspaceRole()
+  const items = navItemsForRole(isBuilder)
+  const active = resolveActiveNav(pathname, items)
 
   return (
     <aside className="pdf-sidebar hidden h-full w-[72px] shrink-0 flex-col overflow-hidden border-r border-solid border-[var(--pdf-border)] px-[8px] py-[12px] md:flex">
       <div className="shrink-0 border-b border-solid border-[color-mix(in_srgb,var(--pdf-border)_60%,transparent)] pb-[10px]">
-        <NavLink to="/hub" className="flex flex-col items-center gap-[2px]">
+        <NavLink
+          to={isBuilder ? '/hub' : '/chat'}
+          className="flex flex-col items-center gap-[2px]"
+        >
           <div className="relative size-[28px] shrink-0">
-            <img alt="Que" className="absolute inset-0 block size-full max-w-none" src={FIGMA_NAV.logo} />
+            <img
+              alt="Que"
+              className="absolute inset-0 block size-full max-w-none"
+              src={FIGMA_NAV.logo}
+            />
           </div>
-          <span className="text-[9px] font-black leading-none text-[var(--pdf-text-heading)]">Que</span>
+          <span className="text-[9px] font-black leading-none text-[var(--pdf-text-heading)]">
+            Que
+          </span>
         </NavLink>
       </div>
 
@@ -89,7 +105,7 @@ export function PdfSidebar() {
         className="flex min-h-0 flex-1 flex-col gap-[7px] overflow-y-auto overflow-x-hidden pt-[10px]"
         aria-label="Main"
       >
-        {QUE_PDF_NAV.map((item) => (
+        {items.map((item) => (
           <NavItem
             key={item.id}
             to={item.to}
@@ -109,31 +125,33 @@ export function PdfSidebar() {
           <span className="text-[11px] leading-none">?</span>
           Support
         </NavLink>
-        <NavLink
-          to="/settings/members"
-          className={({ isActive }) =>
-            [
-              'flex w-full flex-col items-center gap-[3px] rounded-[4px] border border-solid px-[6px] py-[6px] transition-colors',
-              isActive
-                ? 'pdf-nav-active'
-                : 'border-transparent text-[var(--pdf-nav-icon)] hover:text-[var(--pdf-text-secondary)]',
-            ].join(' ')
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <AccountNavIcon active={isActive} />
-              <span
-                className={[
-                  'text-[7px] font-semibold leading-none',
-                  isActive ? 'text-[var(--pdf-nav-icon-active)]' : '',
-                ].join(' ')}
-              >
-                Account
-              </span>
-            </>
-          )}
-        </NavLink>
+        {isBuilder ? (
+          <NavLink
+            to="/settings/members"
+            className={({ isActive }) =>
+              [
+                'flex w-full flex-col items-center gap-[3px] rounded-[4px] border border-solid px-[6px] py-[6px] transition-colors',
+                isActive
+                  ? 'pdf-nav-active'
+                  : 'border-transparent text-[var(--pdf-nav-icon)] hover:text-[var(--pdf-text-secondary)]',
+              ].join(' ')
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <AccountNavIcon active={isActive} />
+                <span
+                  className={[
+                    'text-[7px] font-semibold leading-none',
+                    isActive ? 'text-[var(--pdf-nav-icon-active)]' : '',
+                  ].join(' ')}
+                >
+                  Account
+                </span>
+              </>
+            )}
+          </NavLink>
+        ) : null}
       </div>
     </aside>
   )

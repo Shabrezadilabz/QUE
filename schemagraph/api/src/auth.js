@@ -525,7 +525,7 @@ export const ROLE_RANK = {
 
 /**
  * Require workspace role at least `minRole` (must run after requireWorkspaceMember).
- * @param {'member' | 'admin' | 'owner'} minRole
+ * @param {'viewer' | 'member' | 'admin' | 'owner'} minRole
  */
 export function requireMinRole(minRole) {
   const need = ROLE_RANK[minRole] ?? 99

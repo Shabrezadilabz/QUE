@@ -1,30 +1,24 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+﻿import { NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { notifySchemaChanged } from '@/utils/schemaChangeBus'
 import { sideNavLinkClass } from '@/components/primaryNavStyles'
-import { QUE_PDF_NAV, QUE_SECTION_NAV, type QueNavId } from '@/components/que/queNavConfig'
-
-const primaryLinks = [
-  { to: '/hub', label: 'Platform' },
-  { to: '/workspace', label: 'Workspace' },
-  { to: '/sources', label: 'Sources' },
-  { to: '/joins', label: 'Joins' },
-  { to: '/chat', label: 'Chat' },
-] as const
-
-const groupLinks: { group: QueNavId; label: string }[] = [
-  { group: 'build', label: 'Build' },
-  { group: 'analytics', label: 'Analytics' },
-  { group: 'govern', label: 'Govern' },
-]
+import {
+  QUE_KPI_SECTION_NAV,
+  QUE_SECTION_NAV,
+  navItemsForRole,
+  type QueNavId,
+} from '@/components/que/queNavConfig'
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 
 /** Hamburger + drawer for viewports where primary nav is hidden. */
 export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
   const [open, setOpen] = useState(false)
   const hideClass = showBelow === 'md' ? 'md:hidden' : 'lg:hidden'
   const { workspaces, workspaceId, setWorkspaceId } = useAuth()
+  const { isBuilder } = useWorkspaceRole()
   const navigate = useNavigate()
+  const items = navItemsForRole(isBuilder)
 
   useEffect(() => {
     if (!open) return
@@ -41,8 +35,10 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
       notifySchemaChanged('manual')
     }
     setOpen(false)
-    navigate('/workspace')
+    navigate(isBuilder ? '/workspace' : '/chat')
   }
+
+  const sectionMap = isBuilder ? QUE_SECTION_NAV : QUE_KPI_SECTION_NAV
 
   return (
     <div className={`relative ${hideClass}`}>
@@ -88,9 +84,9 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
             ))}
             <div className="my-sm border-t border-outline-variant" />
             <p className="px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
-              PRIMARY
+              {isBuilder ? 'PRIMARY' : 'KPI'}
             </p>
-            {primaryLinks.map((l) => (
+            {items.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
@@ -100,44 +96,63 @@ export function MobileNav({ showBelow = 'lg' }: { showBelow?: 'md' | 'lg' }) {
                 {l.label}
               </NavLink>
             ))}
-            {groupLinks.map(({ group, label }) => {
-              const section = QUE_SECTION_NAV[group]
-              const entry = QUE_PDF_NAV.find((n) => n.id === group)
-              return (
-                <div key={group}>
-                  <p className="mt-sm px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
-                    {label.toUpperCase()}
-                  </p>
-                  {entry ? (
-                    <NavLink
-                      to={entry.to}
-                      className={sideNavLinkClass}
-                      onClick={() => setOpen(false)}
-                    >
-                      {label} home
-                    </NavLink>
-                  ) : null}
-                  {(section ?? []).map((l) => (
-                    <NavLink
-                      key={l.to}
-                      to={l.to}
-                      className={sideNavLinkClass}
-                      onClick={() => setOpen(false)}
-                    >
-                      {l.label}
-                    </NavLink>
-                  ))}
-                </div>
-              )
-            })}
+            {isBuilder
+              ? (['build', 'analytics', 'govern'] as QueNavId[]).map((group) => {
+                  const section = sectionMap[group]
+                  const entry = items.find((n) => n.id === group)
+                  const label =
+                    group === 'build'
+                      ? 'Build'
+                      : group === 'analytics'
+                        ? 'Analytics'
+                        : 'Govern'
+                  return (
+                    <div key={group}>
+                      <p className="mt-sm px-md py-xs font-label text-[9px] tracking-widest text-on-surface-variant">
+                        {label.toUpperCase()}
+                      </p>
+                      {entry ? (
+                        <NavLink
+                          to={entry.to}
+                          className={sideNavLinkClass}
+                          onClick={() => setOpen(false)}
+                        >
+                          {label} home
+                        </NavLink>
+                      ) : null}
+                      {(section ?? []).map((l) => (
+                        <NavLink
+                          key={l.to}
+                          to={l.to}
+                          className={sideNavLinkClass}
+                          onClick={() => setOpen(false)}
+                        >
+                          {l.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )
+                })
+              : (sectionMap.analytics ?? []).map((l) => (
+                  <NavLink
+                    key={l.to}
+                    to={l.to}
+                    className={sideNavLinkClass}
+                    onClick={() => setOpen(false)}
+                  >
+                    {l.label}
+                  </NavLink>
+                ))}
             <div className="my-sm border-t border-outline-variant" />
-            <NavLink
-              to="/settings"
-              className={sideNavLinkClass}
-              onClick={() => setOpen(false)}
-            >
-              Settings
-            </NavLink>
+            {isBuilder ? (
+              <NavLink
+                to="/settings"
+                className={sideNavLinkClass}
+                onClick={() => setOpen(false)}
+              >
+                Settings
+              </NavLink>
+            ) : null}
             <NavLink
               to="/status"
               className={sideNavLinkClass}

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import { PdfSidebar } from '@/components/pdf/PdfSidebar'
 import { AppTopBarActions } from '@/components/pdf/AppTopBarActions'
 import { MobileNav } from '@/components/MobileNav'
@@ -6,6 +7,8 @@ import { QueSectionNav } from '@/components/que/QueSectionNav'
 import { QueAgentProvider } from '@/context/QueAgentContext'
 import { QueGenieAgent } from '@/components/genie/QueGenieAgent'
 import { BackendBusyProvider } from '@/context/BackendBusyContext'
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
+import { isKpiAllowedPath } from '@/components/que/queNavConfig'
 
 interface QueAppChromeProps {
   children: ReactNode
@@ -25,6 +28,12 @@ export function QueAppChrome({
   flush = false,
   hideTopBar = false,
 }: QueAppChromeProps) {
+  const { isBuilder, role } = useWorkspaceRole()
+  const location = useLocation()
+  if (role && !isBuilder && !isKpiAllowedPath(location.pathname)) {
+    return <Navigate to="/chat" replace />
+  }
+
   return (
     <QueAgentProvider>
       <BackendBusyProvider>
@@ -57,7 +66,7 @@ export function QueAppChrome({
             {children}
           </div>
         </div>
-        <QueGenieAgent />
+        {isBuilder ? <QueGenieAgent /> : null}
       </div>
       </BackendBusyProvider>
     </QueAgentProvider>

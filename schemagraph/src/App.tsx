@@ -9,6 +9,10 @@ import {
 import { AuthProvider } from '@/context/AuthContext'
 import { ToastProvider } from '@/context/ToastContext'
 import { RequireAuth } from '@/components/RequireAuth'
+import {
+  RequireBuilderOrKpiGate,
+  RoleHomeRedirect,
+} from '@/components/RequireBuilderOrKpiGate'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
 import { AttestationVerifyPage } from '@/pages/AttestationVerifyPage'
@@ -122,7 +126,7 @@ export default function App() {
               path="/"
               element={
                 <RequireAuth>
-                  <Navigate to="/hub" replace />
+                  <RoleHomeRedirect />
                 </RequireAuth>
               }
             />
@@ -130,7 +134,9 @@ export default function App() {
               path="/workspace"
               element={
                 <RequireAuth>
-                  <WorkspacePage />
+                  <RequireBuilderOrKpiGate>
+                    <WorkspacePage />
+                  </RequireBuilderOrKpiGate>
                 </RequireAuth>
               }
             />
@@ -138,7 +144,9 @@ export default function App() {
               path="/chat"
               element={
                 <RequireAuth>
-                  <ChatPage />
+                  <RequireBuilderOrKpiGate>
+                    <ChatPage />
+                  </RequireBuilderOrKpiGate>
                 </RequireAuth>
               }
             />
@@ -146,7 +154,9 @@ export default function App() {
               path="/agent"
               element={
                 <RequireAuth>
-                  <Navigate to="/chat?agent=1" replace />
+                  <RequireBuilderOrKpiGate>
+                    <Navigate to="/chat?agent=1" replace />
+                  </RequireBuilderOrKpiGate>
                 </RequireAuth>
               }
             />

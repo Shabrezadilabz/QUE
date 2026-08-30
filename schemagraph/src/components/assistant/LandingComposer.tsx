@@ -14,6 +14,7 @@ type Suggestion =
 
 export function LandingComposer({
   canWrite,
+  canAsk = canWrite,
   busy,
   input,
   setInput,
@@ -38,9 +39,13 @@ export function LandingComposer({
   onPickAttachments,
   textareaRef,
   chatAudience,
+  showAudienceSelect = false,
+  roleLabel,
   onChatAudienceChange,
 }: {
   canWrite: boolean
+  /** KPI viewers can ask even when canWrite is false. */
+  canAsk?: boolean
   busy: boolean
   input: string
   setInput: (v: string) => void
@@ -69,7 +74,9 @@ export function LandingComposer({
   onPickAttachments: (files: FileList | null) => void | Promise<void>
   textareaRef: RefObject<HTMLTextAreaElement | null>
   chatAudience: ChatAudience
-  onChatAudienceChange: (next: ChatAudience) => void
+  showAudienceSelect?: boolean
+  roleLabel?: string
+  onChatAudienceChange?: (next: ChatAudience) => void
 }) {
   return (
     <div className="relative">
@@ -225,9 +232,9 @@ export function LandingComposer({
                 }
               }}
               rows={3}
-              disabled={!canWrite}
+              disabled={!canAsk}
               placeholder={
-                canWrite
+                canAsk
                   ? 'Ask me anything about your schema…'
                   : 'Read-only — viewer cannot send chat'
               }
@@ -258,17 +265,23 @@ export function LandingComposer({
               <PaperclipIcon />
               Attach file
             </button>
-            <ChatAudienceSelect
-              value={chatAudience}
-              disabled={!canWrite || busy}
-              onChange={onChatAudienceChange}
-              className="pdf-chat-audience-select__control--landing"
-            />
+            {showAudienceSelect && onChatAudienceChange ? (
+              <ChatAudienceSelect
+                value={chatAudience}
+                disabled={!canAsk || busy}
+                onChange={onChatAudienceChange}
+                className="pdf-chat-audience-select__control--landing"
+              />
+            ) : roleLabel ? (
+              <span className="rounded-full border border-solid border-[var(--pdf-border)] px-[10px] py-[6px] text-[11px] font-semibold text-[var(--pdf-text-secondary)]">
+                {roleLabel}
+              </span>
+            ) : null}
           </div>
 
           <button
             type="button"
-            disabled={!canWrite || busy || (!input.trim() && attachments.length === 0)}
+            disabled={!canAsk || busy || (!input.trim() && attachments.length === 0)}
             onClick={() => void ask(input)}
             className="pdf-btn-primary flex size-[44px] shrink-0 items-center justify-center rounded-full text-[16px] font-bold disabled:opacity-40"
             aria-label="Send"

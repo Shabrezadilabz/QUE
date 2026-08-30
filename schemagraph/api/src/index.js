@@ -1969,7 +1969,7 @@ app.get('/workspaces/:workspaceId/context', async (req, res) => {
  */
 app.post(
   '/workspaces/:workspaceId/chat',
-  requireMinRole('member'),
+  requireMinRole('viewer'),
   async (req, res) => {
   const message = req.body?.message
   const history = Array.isArray(req.body?.history) ? req.body.history : []
@@ -1980,8 +1980,10 @@ app.post(
     typeof req.body?.modelId === 'string' ? req.body.modelId : undefined
   const sessionId =
     typeof req.body?.sessionId === 'string' ? req.body.sessionId : 'default'
-  const audience =
-    req.body?.audience === 'engineer' ? 'engineer' : 'ceo'
+  // Role-locked: builders (member+) → engineer; KPI viewers → ceo. No client override.
+  const isBuilder =
+    (ROLE_RANK[req.workspaceRole] ?? 0) >= ROLE_RANK.member
+  const audience = isBuilder ? 'engineer' : 'ceo'
   const pageContext =
     req.body?.pageContext && typeof req.body.pageContext === 'object'
       ? req.body.pageContext
@@ -2031,7 +2033,7 @@ app.post(
 /** Chat session history — list, create, load turns, archive, delete */
 app.get(
   '/workspaces/:workspaceId/chat/sessions',
-  requireMinRole('member'),
+  requireMinRole('viewer'),
   async (req, res) => {
     try {
       const status =
@@ -2054,17 +2056,18 @@ app.get(
 
 app.post(
   '/workspaces/:workspaceId/chat/sessions',
-  requireMinRole('member'),
+  requireMinRole('viewer'),
   async (req, res) => {
     try {
+      const isBuilder =
+        (ROLE_RANK[req.workspaceRole] ?? 0) >= ROLE_RANK.member
       const session = await createChatSession(
         req.params.workspaceId,
         req.user?.id ?? null,
         {
           title:
             typeof req.body?.title === 'string' ? req.body.title : 'New chat',
-          audience:
-            req.body?.audience === 'engineer' ? 'engineer' : 'ceo',
+          audience: isBuilder ? 'engineer' : 'ceo',
         },
       )
       res.json({ ok: true, session })
@@ -2076,7 +2079,7 @@ app.post(
 
 app.get(
   '/workspaces/:workspaceId/chat/sessions/:sessionId',
-  requireMinRole('member'),
+  requireMinRole('viewer'),
   async (req, res) => {
     try {
       const session = await getChatSession(
@@ -2096,7 +2099,7 @@ app.get(
 
 app.get(
   '/workspaces/:workspaceId/chat/sessions/:sessionId/turns',
-  requireMinRole('member'),
+  requireMinRole('viewer'),
   async (req, res) => {
     try {
       const session = await getChatSession(
@@ -2121,7 +2124,7 @@ app.get(
 
 app.patch(
   '/workspaces/:workspaceId/chat/sessions/:sessionId',
-  requireMinRole('member'),
+  requireMinRole('viewer'),
   async (req, res) => {
     try {
       const patch = {}
@@ -2133,9 +2136,7 @@ app.patch(
       ) {
         patch.status = req.body.status
       }
-      if (req.body?.audience === 'ceo' || req.body?.audience === 'engineer') {
-        patch.audience = req.body.audience
-      }
+      // Audience is role-locked — clients cannot flip CEO/Engineer.
       const session = await updateChatSession(
         req.params.workspaceId,
         req.params.sessionId,
@@ -2154,7 +2155,7 @@ app.patch(
 
 app.delete(
   '/workspaces/:workspaceId/chat/sessions/:sessionId',
-  requireMinRole('member'),
+  requireMinRole('viewer'),
   async (req, res) => {
     try {
       const session = await deleteChatSession(
@@ -2175,7 +2176,7 @@ app.delete(
 /** Thumbs feedback (RLHF-lite) */
 app.post(
   '/workspaces/:workspaceId/chat/feedback',
-  requireMinRole('member'),
+  requireMinRole('viewer'),
   async (req, res) => {
     const rating = req.body?.rating
     if (rating !== 1 && rating !== -1) {

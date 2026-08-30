@@ -18,9 +18,6 @@ import { ChatContextSidebar } from '@/components/chat/ChatContextSidebar'
 import { ChatSsmRouteChip } from '@/components/chat/ChatSsmRouteChip'
 import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar'
 import {
-  ChatAudienceSelect,
-  loadChatAudience,
-  saveChatAudience,
   type ChatAudience,
 } from '@/components/chat/ChatAudienceSelect'
 import { CHAT } from '@/components/chat/chatUi'
@@ -180,7 +177,10 @@ interface UiMessage {
  * Single assistant chat — schema Q&A, Outcome plans, and Stitch Agent HITL.
  */
 export function ChatPage() {
-  const { canWrite } = useWorkspaceRole()
+  const { canWrite, isBuilder, isKpiConsumer, chatAudience, role } =
+    useWorkspaceRole()
+  /** Viewers (KPI) may Ask; builders may Ask + mutate jobs/reindex. */
+  const canAsk = Boolean(role)
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { workspaceId, workspaces, user } = useAuth()
@@ -222,9 +222,6 @@ export function ChatPage() {
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null)
   const [modelId, setModelId] = useState<string>('')
   const [reindexing, setReindexing] = useState(false)
-  const [chatAudience, setChatAudience] = useState<ChatAudience>(() =>
-    loadChatAudience(),
-  )
   const [chatSessions, setChatSessions] = useState<ChatSessionRecord[]>([])
   const [archivedChatSessions, setArchivedChatSessions] = useState<
     ChatSessionRecord[]
@@ -326,8 +323,6 @@ export function ChatPage() {
         )
         setActiveChatSessionId(session.id)
         saveActiveChatSessionId(workspaceId, session.id)
-        setChatAudience(session.audience)
-        saveChatAudience(session.audience)
         setMessages(turnsToUiMessages(turns))
         setFocusTables([])
         setActiveMentions([])
@@ -341,24 +336,6 @@ export function ChatPage() {
       }
     },
     [workspaceId, pushToast],
-  )
-
-  /** Mid-chat CEO ↔ Engineer switch — keep session + next reply aligned. */
-  const changeChatAudience = useCallback(
-    (next: ChatAudience) => {
-      setChatAudience(next)
-      saveChatAudience(next)
-      if (workspaceId && activeChatSessionId) {
-        void updateChatSessionApi(
-          activeChatSessionId,
-          { audience: next },
-          workspaceId,
-        ).catch(() => {
-          /* local preference still applied for the next send */
-        })
-      }
-    },
-    [workspaceId, activeChatSessionId],
   )
 
   const agentBootDone = useRef(false)
@@ -945,7 +922,7 @@ export function ChatPage() {
   }
 
   async function ask(rawText: string, opts?: { replaceLastUser?: boolean }) {
-    if (busy || !canWrite) return
+    if (busy || !canAsk) return
 
     const focusNames =
       activeMentions.length > 0
@@ -1033,10 +1010,26 @@ export function ChatPage() {
       return
     }
 
-    // Outcome plan build in the same thread
+    // Outcome plan build in the same thread (builders only)
     if (looksLikeOutcomePrompt(message)) {
-      setChatAudience('engineer')
-      saveChatAudience('engineer')
+      if (!canWrite) {
+        setBusy(false)
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `e-${Date.now()}`,
+            role: 'assistant',
+            content:
+              'Outcome plans are a Builder tool. Ask a certified KPI question here, or open BI Studio.',
+            audience: chatAudience,
+            at: new Date().toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          },
+        ])
+        return
+      }
       try {
         const promptText =
           stripOutcomeSlash(message) ||
@@ -1250,7 +1243,7 @@ export function ChatPage() {
   }
 
   async function startNewChat() {
-    if (!canWrite || !workspaceId) return
+    if (!canAsk || !workspaceId) return
     try {
       const created = await createChatSessionApi(
         { audience: chatAudience },
@@ -1389,6 +1382,7 @@ export function ChatPage() {
                 composer={
                   <LandingComposer
                     canWrite={canWrite}
+                    canAsk={canAsk}
                     busy={busy}
                     input={input}
                     setInput={setInput}
@@ -1413,7 +1407,10 @@ export function ChatPage() {
                     onPickAttachments={onPickAttachments}
                     textareaRef={textareaRef}
                     chatAudience={chatAudience}
-                    onChatAudienceChange={changeChatAudience}
+                    showAudienceSelect={false}
+                    roleLabel={
+                      isKpiConsumer ? 'Ask · certified KPIs' : 'Builder · Engineer'
+                    }
                   />
                 }
               />
@@ -1425,22 +1422,22 @@ export function ChatPage() {
           <PdfPageHeader
             compact
             title={
-              <span className="inline-flex items-center gap-[6px]">
-                <span>Assistant</span>
-                <ChatAudienceSelect
-                  value={chatAudience}
-                  disabled={busy}
-                  onChange={changeChatAudience}
-                />
+              <span className="inline-flex items-center gap-[8px]">
+                <span>{isKpiConsumer ? 'Ask' : 'Assistant'}</span>
+                <span className="rounded-full border border-solid border-[var(--pdf-border)] bg-[var(--pdf-bg-input)] px-[8px] py-[2px] text-[9px] font-bold tracking-[0.06em] text-[var(--pdf-text-secondary)] uppercase">
+                  {isKpiConsumer ? 'Certified KPIs' : 'Builder · Engineer'}
+                </span>
               </span>
             }
             subtitle={
               chatAudience === 'ceo'
-                ? `Plain-English answers from your live data${busy ? ' · thinking…' : ''}`
+                ? `Plain-English answers from certified data${busy ? ' · thinking…' : ''}`
                 : `Schema, SQL, joins, and pipeline detail${busy ? ' · thinking…' : ''}`
             }
             actions={
               <div className="hidden flex-wrap items-center gap-[8px] sm:flex">
+                {isBuilder ? (
+                  <>
                 <PdfGhostButton type="button" onClick={() => setShowSkills((v) => !v)}>
                   Skills
                 </PdfGhostButton>
@@ -1455,12 +1452,18 @@ export function ChatPage() {
                 >
                   {reindexing ? 'Indexing…' : 'Reindex'}
                 </PdfGhostButton>
+                  </>
+                ) : null}
                 {busy ? (
                   <PdfGhostButton type="button" onClick={stopAsk} className="text-[#ff6b6b]">
                     Stop
                   </PdfGhostButton>
                 ) : null}
-                <PdfGhostButton type="button" onClick={() => void startNewChat()}>
+                <PdfGhostButton
+                  type="button"
+                  disabled={!canAsk}
+                  onClick={() => void startNewChat()}
+                >
                   New chat
                 </PdfGhostButton>
               </div>
@@ -1482,7 +1485,7 @@ export function ChatPage() {
             </div>
           ) : null}
 
-          {showSkills ? (
+          {showSkills && isBuilder ? (
             <div className={`mb-[12px] shrink-0 p-[14px] ${CHAT.panel}`}>
               <p className="mb-[8px] text-[11px] text-[#a3afbe]">
                 Slash skills · type / or click · use @ for tables
@@ -1814,10 +1817,12 @@ export function ChatPage() {
                     }
                   }}
                   rows={1}
-                  disabled={!canWrite}
+                  disabled={!canAsk}
                   placeholder={
-                    canWrite
-                      ? 'Message Que…'
+                    canAsk
+                      ? isKpiConsumer
+                        ? 'Ask a certified KPI question…'
+                        : 'Message Que…'
                       : 'Read-only'
                   }
                   className="pdf-chat-composer-input max-h-24 min-h-[1.5rem] w-full resize-none border-none bg-transparent px-[2px] py-[2px] text-[16px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
@@ -1931,7 +1936,7 @@ export function ChatPage() {
                     <button
                       type="button"
                       disabled={
-                        !canWrite ||
+                        !canAsk ||
                         (!input.trim() && attachments.length === 0)
                       }
                       onClick={() => void ask(input)}

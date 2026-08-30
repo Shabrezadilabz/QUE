@@ -88,6 +88,43 @@ export const QUE_PDF_NAV: QueNavItem[] = [
   },
 ]
 
+/** KPI / viewer shell — Ask (cert chat) + certified BI only. */
+export const QUE_KPI_NAV: QueNavItem[] = [
+  {
+    id: 'chat',
+    to: '/chat',
+    label: 'Ask',
+    match: ['/chat', '/agent', '/outcome'],
+  },
+  {
+    id: 'analytics',
+    to: '/bi',
+    label: 'BI',
+    match: ['/bi', '/studio', '/metrics', '/ship'],
+  },
+]
+
+export function navItemsForRole(isBuilder: boolean): QueNavItem[] {
+  return isBuilder ? QUE_PDF_NAV : QUE_KPI_NAV
+}
+
+/** Paths KPI consumers may open (Ask + BI). Everything else redirects to /chat. */
+export const KPI_ALLOWED_PREFIXES = [
+  '/chat',
+  '/bi',
+  '/studio',
+  '/metrics',
+  '/ship',
+  '/status',
+  '/embed',
+] as const
+
+export function isKpiAllowedPath(pathname: string): boolean {
+  return KPI_ALLOWED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  )
+}
+
 /** Horizontal sub-nav tabs shown under the top bar per active group. */
 export type QueSectionLink = { to: string; label: string; end?: boolean }
 
@@ -127,15 +164,26 @@ export const QUE_SECTION_NAV: Partial<Record<QueNavId, QueSectionLink[]>> = {
   ],
 }
 
+/** KPI analytics strip — lean Ask/BI surface. */
+export const QUE_KPI_SECTION_NAV: Partial<Record<QueNavId, QueSectionLink[]>> = {
+  analytics: [
+    { to: '/bi', label: 'BI Studio', end: true },
+    { to: '/metrics', label: 'Metrics' },
+  ],
+}
+
 /** @deprecated use QUE_PDF_NAV */
 export const QUE_V2_NAV = QUE_PDF_NAV
 
-export function resolveActiveNav(pathname: string): QueNavId | 'settings' {
+export function resolveActiveNav(
+  pathname: string,
+  items: QueNavItem[] = QUE_PDF_NAV,
+): QueNavId | 'settings' {
   if (pathname.startsWith('/settings')) return 'settings'
-  for (const item of QUE_PDF_NAV) {
+  for (const item of items) {
     if (item.match.some((m) => pathname === m || pathname.startsWith(`${m}/`))) {
       return item.id
     }
   }
-  return 'workspace'
+  return items[0]?.id ?? 'workspace'
 }

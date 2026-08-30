@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  loadChatAudience,
   type ChatAudience,
 } from '@/components/chat/ChatAudienceSelect'
 import { AgentPlanCard } from '@/components/agent/AgentPlanCard'
@@ -66,7 +65,7 @@ export function QueGenieAgent() {
         'I am your Que Genie. Ask me to create jobs, combine tables, materialize, edit jobs, or build BI — from any page.',
     },
   ])
-  const [audience] = useState<ChatAudience>(() => loadChatAudience())
+  const [audience] = useState<ChatAudience>('engineer')
   const panelRef = useRef<HTMLDivElement>(null)
 
   const runCheckpoint = useCallback(
@@ -159,7 +158,7 @@ export function QueGenieAgent() {
     }
   }, [input, busy, messages, ctx?.pageContext, audience, navigate])
 
-  if (!ctx || hideOnChat) return null
+  if (!canWrite || !ctx || hideOnChat) return null
 
   return (
     <>

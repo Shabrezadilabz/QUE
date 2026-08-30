@@ -1,16 +1,22 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
+  QUE_KPI_SECTION_NAV,
   QUE_SECTION_NAV,
+  navItemsForRole,
   resolveActiveNav,
   type QueNavId,
 } from '@/components/que/queNavConfig'
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole'
 
 /** Secondary tabs for grouped nav areas (Platform · Build · Analytics · Govern). */
 export function QueSectionNav() {
   const { pathname } = useLocation()
+  const { isBuilder } = useWorkspaceRole()
   if (pathname === '/hub') return null
-  const active = resolveActiveNav(pathname)
-  const links = QUE_SECTION_NAV[active as QueNavId]
+  const items = navItemsForRole(isBuilder)
+  const active = resolveActiveNav(pathname, items)
+  const sectionMap = isBuilder ? QUE_SECTION_NAV : QUE_KPI_SECTION_NAV
+  const links = sectionMap[active as QueNavId]
   if (!links?.length) return null
 
   return (

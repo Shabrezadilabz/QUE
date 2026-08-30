@@ -460,17 +460,18 @@ export function SourcesPage() {
     }
   }
 
-  async function reload(preferId?: string | null) {
+  async function reload(preferId?: string | null, forceHome = false) {
     const list = await fetchWorkspaceSources()
     setSources(list)
-    const nextId =
-      preferId && list.some((x) => x.id === preferId)
+    const nextId = forceHome
+      ? null
+      : preferId && list.some((x) => x.id === preferId)
         ? preferId
         : selectedId && list.some((x) => x.id === selectedId)
           ? selectedId
           : null
     setSelectedId(nextId)
-    if (preferId) {
+    if (preferId && !forceHome) {
       const s = list.find((x) => x.id === preferId)
       if (s) {
         setCreating(false)
@@ -732,7 +733,8 @@ export function SourcesPage() {
         notifySchemaChanged('sync')
       }
 
-      await reload(createdIds[0] ?? null)
+      goView('home')
+      await reload(null, true)
 
       if (selection.dataMode === 'demo') {
         setToast(

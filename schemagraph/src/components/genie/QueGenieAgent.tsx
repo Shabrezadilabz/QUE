@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   loadChatAudience,
   type ChatAudience,
@@ -51,8 +51,11 @@ function GenieSprinkles({ side }: { side: 'left' | 'right' }) {
 export function QueGenieAgent() {
   const ctx = useQueAgentOptional()
   const navigate = useNavigate()
+  const location = useLocation()
   const { canWrite } = useWorkspaceRole()
   const [open, setOpen] = useState(false)
+  /** Full Chat page already has composer — hide FAB so it does not cover Send. */
+  const hideOnChat = location.pathname.startsWith('/chat')
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [messages, setMessages] = useState<GenieMessage[]>([
@@ -156,7 +159,7 @@ export function QueGenieAgent() {
     }
   }, [input, busy, messages, ctx?.pageContext, audience, navigate])
 
-  if (!ctx) return null
+  if (!ctx || hideOnChat) return null
 
   return (
     <>

@@ -1810,7 +1810,7 @@ export function ChatPage() {
                   className="pdf-chat-composer-input max-h-24 min-h-[1.5rem] w-full resize-none border-none bg-transparent px-[2px] py-[2px] text-[13px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
                 />
 
-                <div className="pdf-chat-composer-footer flex flex-wrap items-center gap-[4px]">
+                <div className="pdf-chat-composer-footer flex flex-wrap items-center gap-[6px]">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1822,73 +1822,72 @@ export function ChatPage() {
                       e.target.value = ''
                     }}
                   />
-                  <button
-                    type="button"
-                    disabled={!canWrite}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="pdf-chat-composer-icon disabled:opacity-40"
-                    title="Attach schema note (.sql, .md, .txt…)"
-                    aria-label="Attach file"
-                  >
-                    <PaperclipIcon />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canWrite}
-                    onClick={() => {
-                      const el = textareaRef.current
-                      const caret = el?.selectionStart ?? input.length
-                      const before = input.slice(0, caret)
-                      const after = input.slice(caret)
-                      const needsSpace =
-                        before.length > 0 && !/\s$/.test(before) ? ' ' : ''
-                      const next = `${before}${needsSpace}@${after}`
-                      const nextCaret = (before + needsSpace + '@').length
-                      setInput(next)
-                      syncTriggerFromCaret(next, nextCaret)
-                      requestAnimationFrame(() => {
-                        const ta = textareaRef.current
-                        if (!ta) return
-                        ta.focus()
-                        ta.setSelectionRange(nextCaret, nextCaret)
-                      })
-                    }}
-                    className="pdf-chat-composer-icon text-sm font-bold disabled:opacity-40"
-                    title="Mention a table"
-                    aria-label="Mention table"
-                  >
-                    @
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canWrite}
-                    onClick={() => {
-                      setShowSkills(true)
-                      setInput((prev) => (prev.startsWith('/') ? prev : '/'))
-                      requestAnimationFrame(() => textareaRef.current?.focus())
-                    }}
-                    className="pdf-chat-composer-icon font-label text-sm disabled:opacity-40"
-                    title="Skills / commands"
-                    aria-label="Open skills"
-                  >
-                    /
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canWrite}
-                    onClick={toggleVoiceInput}
-                    className={[
-                      'pdf-chat-composer-icon disabled:opacity-40',
-                      listening ? 'text-[#ff6b6b]' : '',
-                    ].join(' ')}
-                    title={listening ? 'Stop listening' : 'Voice input'}
-                    aria-label={listening ? 'Stop voice input' : 'Voice input'}
-                    aria-pressed={listening}
-                  >
-                    <MicIcon />
-                  </button>
-
-                  <div className="ml-auto flex items-center gap-[6px]">
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[4px]">
+                    <button
+                      type="button"
+                      disabled={!canWrite}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="pdf-chat-composer-icon disabled:opacity-40"
+                      title="Attach schema note (.sql, .md, .txt…)"
+                      aria-label="Attach file"
+                    >
+                      <PaperclipIcon />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canWrite}
+                      onClick={() => {
+                        const el = textareaRef.current
+                        const caret = el?.selectionStart ?? input.length
+                        const before = input.slice(0, caret)
+                        const after = input.slice(caret)
+                        const needsSpace =
+                          before.length > 0 && !/\s$/.test(before) ? ' ' : ''
+                        const next = `${before}${needsSpace}@${after}`
+                        const nextCaret = (before + needsSpace + '@').length
+                        setInput(next)
+                        syncTriggerFromCaret(next, nextCaret)
+                        requestAnimationFrame(() => {
+                          const ta = textareaRef.current
+                          if (!ta) return
+                          ta.focus()
+                          ta.setSelectionRange(nextCaret, nextCaret)
+                        })
+                      }}
+                      className="pdf-chat-composer-icon text-sm font-bold disabled:opacity-40"
+                      title="Mention a table"
+                      aria-label="Mention table"
+                    >
+                      @
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canWrite}
+                      onClick={() => {
+                        setShowSkills(true)
+                        setInput((prev) => (prev.startsWith('/') ? prev : '/'))
+                        requestAnimationFrame(() => textareaRef.current?.focus())
+                      }}
+                      className="pdf-chat-composer-icon font-label text-sm disabled:opacity-40"
+                      title="Skills / commands"
+                      aria-label="Open skills"
+                    >
+                      /
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canWrite}
+                      onClick={toggleVoiceInput}
+                      className={[
+                        'pdf-chat-composer-icon disabled:opacity-40',
+                        listening ? 'text-[#ff6b6b]' : '',
+                      ].join(' ')}
+                      title={listening ? 'Stop listening' : 'Voice input'}
+                      aria-label={listening ? 'Stop voice input' : 'Voice input'}
+                      aria-pressed={listening}
+                    >
+                      <MicIcon />
+                    </button>
                     <select
                       value={modelId}
                       onChange={(e) => setModelId(e.target.value)}
@@ -1905,29 +1904,30 @@ export function ChatPage() {
                         </option>
                       ))}
                     </select>
-                    {busy ? (
-                      <button
-                        type="button"
-                        onClick={stopAsk}
-                        className="pdf-chat-composer-icon text-[10px] font-semibold"
-                      >
-                        Stop
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={
-                          !canWrite ||
-                          (!input.trim() && attachments.length === 0)
-                        }
-                        onClick={() => void ask(input)}
-                        className="pdf-chat-composer-send flex shrink-0 items-center justify-center text-[13px] font-bold disabled:opacity-40"
-                        aria-label="Send"
-                      >
-                        →
-                      </button>
-                    )}
                   </div>
+                  {busy ? (
+                    <button
+                      type="button"
+                      onClick={stopAsk}
+                      className="pdf-chat-composer-send pdf-chat-composer-send--end flex shrink-0 items-center justify-center text-[11px] font-semibold"
+                      aria-label="Stop"
+                    >
+                      Stop
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={
+                        !canWrite ||
+                        (!input.trim() && attachments.length === 0)
+                      }
+                      onClick={() => void ask(input)}
+                      className="pdf-chat-composer-send pdf-chat-composer-send--end flex shrink-0 items-center justify-center text-[13px] font-bold disabled:opacity-40"
+                      aria-label="Send"
+                    >
+                      →
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

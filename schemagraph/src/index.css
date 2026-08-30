@@ -1097,16 +1097,19 @@ thead.pdf-table-head-row {
   color: var(--pdf-text-primary);
 }
 .pdf-chat-composer-footer {
-  /* Clear fixed Que Genie FAB so model select stays clickable */
-  padding-right: 76px;
+  width: 100%;
 }
 .pdf-chat-composer-send {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 9999px;
   border: none;
   background: var(--pdf-text-primary);
   color: var(--pdf-bg-canvas);
+  margin-left: auto;
+}
+.pdf-chat-composer-send--end {
+  margin-left: auto;
 }
 .pdf-chat-quick-pills {
   display: flex;

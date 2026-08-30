@@ -248,7 +248,7 @@ export function LandingComposer({
               e.target.value = ''
             }}
           />
-          <div className="flex min-w-0 flex-wrap items-center gap-[8px]">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
             <button
               type="button"
               disabled={!canWrite}

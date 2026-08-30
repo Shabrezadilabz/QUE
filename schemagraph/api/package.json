@@ -9,6 +9,7 @@
     "worker": "node scripts/runWarehouseWorker.js",
     "seed": "node src/seed.js",
     "migrate": "node scripts/migrate.js",
+    "mcp": "node scripts/que-mcp-server.js",
     "seed:demo": "node scripts/seedDemoWorkspace.js",
     "eval:joins": "node eval/runJoinEval.js",
     "test:privacy": "node eval/runPrivacyTests.js",

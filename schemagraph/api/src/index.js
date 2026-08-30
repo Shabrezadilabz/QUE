@@ -311,6 +311,11 @@ import {
 } from './planeQuery.js'
 import { collectOpsSnapshot, formatPrometheus } from './opsMetrics.js'
 import {
+  handleMcpJsonRpc,
+  listQueMcpTools,
+  callQueMcpTool,
+} from './mcpQueTools.js'
+import {
   listWorkspaceRules,
   createWorkspaceRule,
   updateWorkspaceRule,
@@ -786,6 +791,97 @@ app.get('/health', async (_req, res) => {
     res.json(snap)
   } catch (err) {
     res.status(503).json({ ok: false, error: String(err.message || err) })
+  }
+})
+
+/**
+ * Que MCP — certified catalog + KPI Ask for Cursor / Claude / custom agents.
+ * Auth: workspace API key (`Authorization: Bearer que_…`, scope `read` or `admin`).
+ * See docs/Que-MCP-Phase3.md
+ */
+function mcpWorkspaceId(req) {
+  return (
+    req.apiKey?.workspaceId ||
+    (typeof req.query.workspaceId === 'string' ? req.query.workspaceId : '') ||
+    (typeof req.body?.workspaceId === 'string' ? req.body.workspaceId : '') ||
+    process.env.QUE_SLACK_DEFAULT_WORKSPACE_ID ||
+    DEMO_WS ||
+    ''
+  )
+}
+
+app.get('/mcp', requireAuth, (req, res) => {
+  res.json({
+    name: 'que-cert',
+    version: '1.0.0',
+    protocol: 'json-rpc-2.0',
+    transport: 'HTTP POST /mcp  |  stdio via npm run mcp',
+    auth: 'Bearer que_… workspace API key (read)',
+    tools: listQueMcpTools().map((t) => ({
+      name: t.name,
+      description: t.description,
+    })),
+  })
+})
+
+app.get('/mcp/tools', requireAuth, (req, res) => {
+  res.json({ tools: listQueMcpTools() })
+})
+
+app.post('/mcp/tools/:name', requireAuth, async (req, res) => {
+  try {
+    const workspaceId = mcpWorkspaceId(req)
+    if (!workspaceId) {
+      res.status(400).json({ error: 'workspace_required' })
+      return
+    }
+    if (req.apiKey?.workspaceId && req.apiKey.workspaceId !== workspaceId) {
+      res.status(403).json({ error: 'api_key_workspace_mismatch' })
+      return
+    }
+    const out = await callQueMcpTool(
+      workspaceId,
+      String(req.params.name || ''),
+      req.body || {},
+      { userId: req.user?.id || null },
+    )
+    res.json(out)
+  } catch (err) {
+    const status = err.status === 400 || err.status === 404 ? err.status : 500
+    res.status(status).json({ error: String(err.message || err) })
+  }
+})
+
+app.post('/mcp', requireAuth, async (req, res) => {
+  try {
+    const workspaceId = mcpWorkspaceId(req)
+    if (!workspaceId) {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: req.body?.id ?? null,
+        error: { code: -32600, message: 'workspace_required' },
+      })
+      return
+    }
+    if (req.apiKey?.workspaceId && req.apiKey.workspaceId !== workspaceId) {
+      res.status(403).json({
+        jsonrpc: '2.0',
+        id: req.body?.id ?? null,
+        error: { code: -32003, message: 'api_key_workspace_mismatch' },
+      })
+      return
+    }
+    const result = await handleMcpJsonRpc(req.body, {
+      workspaceId,
+      userId: req.user?.id || null,
+    })
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body?.id ?? null,
+      error: { code: -32603, message: String(err.message || err) },
+    })
   }
 })
 

@@ -231,7 +231,7 @@ export function LandingComposer({
                   ? 'Ask me anything about your schema…'
                   : 'Read-only — viewer cannot send chat'
               }
-              className="min-h-[72px] w-full resize-none border-none bg-transparent text-[15px] leading-relaxed text-[var(--pdf-text-primary)] outline-none placeholder:text-[var(--pdf-text-faint)] disabled:opacity-50"
+              className="min-h-[72px] w-full resize-none border-none bg-transparent text-[20px] leading-relaxed text-[var(--pdf-text-primary)] outline-none placeholder:text-[var(--pdf-text-faint)] disabled:opacity-50"
             />
           </div>
         </div>

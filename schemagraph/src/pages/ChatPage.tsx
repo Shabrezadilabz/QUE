@@ -1820,7 +1820,7 @@ export function ChatPage() {
                       ? 'Message Que…'
                       : 'Read-only'
                   }
-                  className="pdf-chat-composer-input max-h-24 min-h-[1.5rem] w-full resize-none border-none bg-transparent px-[2px] py-[2px] text-[13px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
+                  className="pdf-chat-composer-input max-h-24 min-h-[1.5rem] w-full resize-none border-none bg-transparent px-[2px] py-[2px] text-[18px] leading-snug text-[#d4dbe3] outline-none placeholder:text-[#6b7380] disabled:opacity-50"
                 />
 
                 <div className="pdf-chat-composer-footer flex flex-wrap items-center gap-[6px]">

@@ -709,7 +709,7 @@ thead.pdf-table-head-row {
 }
 .pdf-chat-bubble-content {
   padding: 0;
-  font-size: 13px;
+  font-size: 18px;
   line-height: 1.45;
 }
 .pdf-chat-bubble-content--boxed {
@@ -717,16 +717,16 @@ thead.pdf-table-head-row {
 }
 .pdf-chat-message-text {
   color: var(--pdf-text-primary);
-  font-size: 13px;
+  font-size: 18px;
   line-height: 1.45;
 }
 .pdf-chat-message-text--ceo {
-  font-size: 13px;
+  font-size: 18px;
   line-height: 1.45;
   color: var(--pdf-text-primary);
 }
 .pdf-chat-message-text code {
-  font-size: 12px;
+  font-size: 17px;
 }
 .pdf-chat-audience-select__control {
   appearance: none;

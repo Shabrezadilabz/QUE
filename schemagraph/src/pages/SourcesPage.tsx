@@ -680,7 +680,6 @@ export function SourcesPage() {
     setInstallingPackId(pack.id)
     setBusy(true)
     setError(null)
-    setPackDialog(null)
     try {
       const existing = await fetchWorkspaceSources()
       const createdIds: string[] = []
@@ -735,6 +734,7 @@ export function SourcesPage() {
 
       goView('home')
       await reload(null, true)
+      setPackDialog(null)
 
       if (selection.dataMode === 'demo') {
         setToast(
@@ -1217,7 +1217,10 @@ export function SourcesPage() {
         {packDialog ? (
           <PocPackInstallDialog
             pack={packDialog}
-            busy={installingPackId === packDialog.id}
+            busy={
+              installingPackId === packDialog.id ||
+              (busy && installingPackId != null)
+            }
             onCancel={() => {
               if (!installingPackId) setPackDialog(null)
             }}

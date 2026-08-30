@@ -50,12 +50,35 @@ export function PocPackInstallDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="poc-pack-install-title"
-      onClick={onCancel}
+      aria-busy={busy ? 'true' : undefined}
+      onClick={() => {
+        if (!busy) onCancel()
+      }}
     >
       <div
-        className="w-full max-w-[520px] rounded-[10px] border border-solid border-[#424850] bg-[#1a1e24] p-[20px] shadow-xl"
+        className="relative w-full max-w-[520px] overflow-hidden rounded-[10px] border border-solid border-[#424850] bg-[#1a1e24] p-[20px] shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
+        {busy ? (
+          <div
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[14px] bg-[#1a1e24]/95 backdrop-blur-[2px]"
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className="size-[36px] animate-spin rounded-full border-[3px] border-[#424850] border-t-[#d0d8e0]"
+              aria-hidden
+            />
+            <p className="text-[14px] font-semibold text-[#d4dbe3]">
+              Installing pack…
+            </p>
+            <p className="max-w-[280px] text-center text-[12px] leading-relaxed text-[#a3afbe]">
+              Creating connectors
+              {dataMode === 'demo' ? ' and syncing demo data' : ''}. Please wait.
+            </p>
+          </div>
+        ) : null}
+
         <h2
           id="poc-pack-install-title"
           className="text-[15px] font-semibold text-[#d4dbe3]"

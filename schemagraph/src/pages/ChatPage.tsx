@@ -343,6 +343,24 @@ export function ChatPage() {
     [workspaceId, pushToast],
   )
 
+  /** Mid-chat CEO ↔ Engineer switch — keep session + next reply aligned. */
+  const changeChatAudience = useCallback(
+    (next: ChatAudience) => {
+      setChatAudience(next)
+      saveChatAudience(next)
+      if (workspaceId && activeChatSessionId) {
+        void updateChatSessionApi(
+          activeChatSessionId,
+          { audience: next },
+          workspaceId,
+        ).catch(() => {
+          /* local preference still applied for the next send */
+        })
+      }
+    },
+    [workspaceId, activeChatSessionId],
+  )
+
   const agentBootDone = useRef(false)
 
   useEffect(() => {
@@ -1155,6 +1173,7 @@ export function ChatPage() {
             id: `e-${Date.now()}`,
             role: 'assistant',
             content: `Chat failed: ${err instanceof Error ? err.message : String(err)}. Is que-api running on :8787?`,
+            audience: chatAudience,
             at: new Date().toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
@@ -1394,10 +1413,7 @@ export function ChatPage() {
                     onPickAttachments={onPickAttachments}
                     textareaRef={textareaRef}
                     chatAudience={chatAudience}
-                    onChatAudienceChange={(next) => {
-                      setChatAudience(next)
-                      saveChatAudience(next)
-                    }}
+                    onChatAudienceChange={changeChatAudience}
                   />
                 }
               />
@@ -1414,10 +1430,7 @@ export function ChatPage() {
                 <ChatAudienceSelect
                   value={chatAudience}
                   disabled={busy}
-                  onChange={(next) => {
-                    setChatAudience(next)
-                    saveChatAudience(next)
-                  }}
+                  onChange={changeChatAudience}
                 />
               </span>
             }
@@ -2275,8 +2288,14 @@ function ChatBubble({
           ) : null}
         </div>
         <span className={CHAT.meta}>
-          {isEngineer ? (message.mode ? message.mode : 'engineer') : 'ceo'}
-          {message.model && isEngineer ? ` · ${message.model}` : ''}
+          {(message.audience ?? 'ceo') === 'engineer'
+            ? message.mode
+              ? message.mode
+              : 'engineer'
+            : 'ceo'}
+          {message.model && (message.audience ?? 'ceo') === 'engineer'
+            ? ` · ${message.model}`
+            : ''}
         </span>
       </div>
     </div>

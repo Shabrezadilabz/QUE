@@ -61,7 +61,7 @@ export const METRIC_QUESTION_RE =
   /\b(revenue|sales|total|amount|profit|margin|cost|price|orders?|customers?|units|inventory|stock|spend|budget|kpi|metric|performance|growth|turnover|earnings|avg|average|sum|count)\b/i
 
 const SCHEMA_ONLY_RE =
-  /\b(describe|schema|columns?|fields?|join draft|suggested join|\/help|privacy policy|list tables|how do i join|slash skill|\/list|\/describe|\/joins|\/sql)\b/i
+  /\b(describe|schema|columns?|fields?|join draft|suggested join|help|privacy policy|list tables|list available|chat skills|how do i join|slash skill)\b|\/(help|list|describe|joins|sql)\b/i
 
 /**
  * Natural-language question that should trigger a live warehouse read.
@@ -70,6 +70,7 @@ const SCHEMA_ONLY_RE =
 export function looksLikeDataQuestion(message) {
   const q = String(message || '').trim().toLowerCase()
   if (!q || q.length < 4) return false
+  if (SKIP_LIVE_RE.test(q) || SCHEMA_ONLY_RE.test(q)) return false
   if (WANTS_LIVE_DATA_RE.test(q)) return true
   if (METRIC_QUESTION_RE.test(q)) return true
   if (/\?\s*$/.test(q)) return true

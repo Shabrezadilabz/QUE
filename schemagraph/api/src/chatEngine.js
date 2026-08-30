@@ -146,7 +146,7 @@ export async function answerChat(
   mentions = null,
   opts = null,
 ) {
-  const pack = await buildSchemaContextPack(workspaceId)
+  let pack = await buildSchemaContextPack(workspaceId)
   const trimmed = String(message || '').trim()
   if (!trimmed) {
     return {
@@ -163,6 +163,50 @@ export async function answerChat(
   }
 
   const audienceEarly = opts?.audience === 'engineer' ? 'engineer' : 'ceo'
+
+  // Slash / help skills are schema metadata for BOTH audiences — never CEO-cert-block them.
+  const skillEarly = detectSkill(trimmed)
+  if (skillEarly) {
+    const mentionedEarly = resolveMentioned(pack, trimmed, mentions)
+    const result = runSkill(
+      pack,
+      skillEarly.id,
+      mentionedEarly,
+      trimmed,
+      {
+        listTables,
+        describeTable,
+        explainJoins,
+        listSuggested,
+        draftSql,
+        draftJob,
+        schemaSummary,
+        privacyPolicy,
+        helpSkills,
+      },
+      [],
+    )
+    const out = {
+      ...result,
+      audience: audienceEarly,
+      model: null,
+      contextStats: pack.stats,
+      retrievedChunks: [],
+      citations: result.citations || [],
+    }
+    await persistTurns(workspaceId, opts?.sessionId, trimmed, out, {
+      audience: audienceEarly,
+    })
+    return finalizeChatResult(out, pack, trimmed, {
+      workspaceId,
+      audience: audienceEarly,
+      hasSlashSkill: true,
+      skipLive: true,
+      mentions,
+      userId: opts?.userId ?? null,
+    })
+  }
+
   const queAgentOut = await maybeHandleQueAgent(workspaceId, trimmed, {
     userId: opts?.userId ?? null,
     audience: audienceEarly,
@@ -340,6 +384,7 @@ export async function answerChat(
       citations: mergeCitations(result.citations, ragCitations, linCites),
       lineageCitations: linCites,
       systemNotes,
+      audience,
       retrievedChunks: retrievedChunkSummary(ragChunks),
       model: model?.id || null,
       contextStats: pack.stats,

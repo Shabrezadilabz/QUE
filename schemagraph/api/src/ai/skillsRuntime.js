@@ -38,6 +38,13 @@ export function detectSkill(message) {
     }
     if (aliases[id]) return { id: aliases[id], rest: (m[2] || '').trim() }
   }
+  // Expanded Help skill prompt (older UI) — treat as /help for both audiences
+  if (
+    /^help\b/i.test(trimmed) &&
+    /\b(skill|mention|@table|slash)\b/i.test(trimmed)
+  ) {
+    return { id: 'help', rest: '' }
+  }
   return null
 }
 

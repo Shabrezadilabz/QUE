@@ -135,8 +135,8 @@ export const CHAT_SKILLS: ChatSkill[] = [
     slash: '/help',
     label: 'Help',
     description: 'Show skills and @ mention tips',
-    buildPrompt: () =>
-      'help — list available chat skills and how to use @table / @table.column mentions',
+    // Keep as slash so the API detectSkill path runs (CEO + Engineer).
+    buildPrompt: () => '/help',
   },
 ]
 
@@ -185,6 +185,21 @@ export function expandSkillInput(input: string, focusTables: string[]): string {
   }
   if (skill.id === 'bi') {
     return rest ? `/bi ${rest}` : skill.buildPrompt(focusTables)
+  }
+  // Schema slash skills stay as /skill so server handlers run for both audiences.
+  const keepSlash = new Set([
+    'help',
+    'list',
+    'describe',
+    'joins',
+    'suggested',
+    'sql',
+    'job',
+    'diff',
+    'privacy',
+  ])
+  if (keepSlash.has(skill.id)) {
+    return rest ? `/${skill.id} ${rest}` : `/${skill.id}`
   }
   const base = skill.buildPrompt(focusTables)
   return rest ? `${base}\n\nAdditional context: ${rest}` : base

@@ -207,7 +207,7 @@ export function LandingComposer({
                     setTrigger({ type: null, start: -1, query: '' })
                     return
                   }
-                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+                  if (e.key === 'Tab') {
                     const picked = suggestions[suggestIndex]
                     if (picked) {
                       e.preventDefault()
@@ -219,6 +219,8 @@ export function LandingComposer({
                 }
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
+                  setSuggestOpen(false)
+                  setTrigger({ type: null, start: -1, query: '' })
                   void ask(input)
                 }
               }}

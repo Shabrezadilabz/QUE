@@ -732,16 +732,24 @@ thead.pdf-table-head-row {
   appearance: none;
   cursor: pointer;
   border-radius: 9999px;
-  border: 1px solid rgba(122, 236, 208, 0.45);
-  background: rgba(122, 236, 208, 0.1)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%237aecd0' d='M1 1l4 4 4-4'/%3E%3C/svg%3E")
-    no-repeat right 8px center;
+  border: 1px solid var(--pdf-border);
+  background-color: var(--pdf-bg-input);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a9099' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
   padding: 2px 24px 2px 8px;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #7aecd0;
+  color: var(--pdf-text-primary);
+}
+[data-theme='light'] .pdf-chat-audience-select__control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235a6978' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+}
+.pdf-chat-audience-select__control option {
+  background-color: var(--pdf-bg-elevated);
+  color: var(--pdf-text-primary);
 }
 .pdf-page-header--compact .pdf-btn-ghost {
   padding: 4px 9px;
@@ -1063,11 +1071,34 @@ thead.pdf-table-head-row {
   color: var(--pdf-text-secondary);
 }
 .pdf-chat-composer-model {
+  appearance: none;
+  max-width: 11rem;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid var(--pdf-border);
+  background-color: var(--pdf-bg-input);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a9099' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  color: var(--pdf-text-primary);
   font-size: 11px;
-  color: var(--pdf-text-faint);
-  border: none;
-  background: transparent;
-  padding: 2px 4px;
+  font-weight: 600;
+  padding: 5px 26px 5px 10px;
+}
+[data-theme='light'] .pdf-chat-composer-model {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235a6978' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+}
+.pdf-chat-composer-model:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pdf-chat-composer-model option {
+  background-color: var(--pdf-bg-elevated);
+  color: var(--pdf-text-primary);
+}
+.pdf-chat-composer-footer {
+  /* Clear fixed Que Genie FAB so model select stays clickable */
+  padding-right: 76px;
 }
 .pdf-chat-composer-send {
   width: 28px;

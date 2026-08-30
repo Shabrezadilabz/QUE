@@ -171,7 +171,7 @@ export function NotebookCellEditor({
 
         <div className="que-nb-editor-wrap cm-notebook-cell">
           {disabled ? (
-            <pre className="overflow-x-auto p-3 font-mono text-[13px] leading-relaxed whitespace-pre-wrap text-[#e8e8e8]/
+            <pre className="overflow-x-auto p-3 font-mono text-[13px] leading-relaxed whitespace-pre-wrap text-[#e8e8e8]">
               {cell.content || ' '}
             </pre>
           ) : (

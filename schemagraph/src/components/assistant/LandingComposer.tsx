@@ -207,7 +207,7 @@ export function LandingComposer({
                     setTrigger({ type: null, start: -1, query: '' })
                     return
                   }
-                  if (e.key === 'Tab') {
+                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
                     const picked = suggestions[suggestIndex]
                     if (picked) {
                       e.preventDefault()

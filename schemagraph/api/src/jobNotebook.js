@@ -25,7 +25,17 @@ export function extractExecutableSql(content, kind = 'sql') {
   if (k === 'markdown') return null
 
   if (k === 'sql') {
-    return text.trim() || null
+    const trimmed = text.trim()
+    if (!trimmed) return null
+    const stripped = trimmed
+      .replace(/\r\n/g, '\n')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/^[ \t]*--[^\n]*$/gm, '')
+      .replace(/^[ \t]*#[^\n]*$/gm, '')
+      .replace(/^[ \t]*\/\/[^\n]*$/gm, '')
+      .trim()
+    const start = stripped.search(/\b(?:with|select)\b/i)
+    return start >= 0 ? stripped.slice(start).trim() : trimmed
   }
 
   // %sql magic until next %magic or EOF

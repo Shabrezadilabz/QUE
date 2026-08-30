@@ -13,7 +13,20 @@ export function extractExecutableSql(
   const k = String(kind || 'sql').toLowerCase()
 
   if (k === 'markdown') return null
-  if (k === 'sql') return text.trim() || null
+
+  if (k === 'sql') {
+    const trimmed = text.trim()
+    if (!trimmed) return null
+    const stripped = trimmed
+      .replace(/\r\n/g, '\n')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/^[ \t]*--[^\n]*$/gm, '')
+      .replace(/^[ \t]*#[^\n]*$/gm, '')
+      .replace(/^[ \t]*\/\/[^\n]*$/gm, '')
+      .trim()
+    const start = stripped.search(/\b(?:with|select)\b/i)
+    return start >= 0 ? stripped.slice(start).trim() : trimmed
+  }
 
   const magic = text.match(
     /(?:^|\n)\s*%sql[ \t]*\n([\s\S]*?)(?=(?:\n\s*%[a-zA-Z_])|\s*$)/i,

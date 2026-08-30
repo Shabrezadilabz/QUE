@@ -23,15 +23,42 @@ export const LIVE_VALIDATE_MAX_ROWS = 20
 export const BI_WIDGET_MAX_ROWS = 500
 
 /**
- * Strip SQL line/block comments so leading `--` notes don't fail SELECT checks.
+ * Strip SQL / notebook comments so leading `--` notes don't fail SELECT checks.
+ * Also strips `#` and `//` so Python/Scala-style notes still work.
  * @param {string} sql
  */
 export function stripSqlComments(sql) {
   return String(sql || '')
+    .replace(/\r\n/g, '\n')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/^[ \t]*--[^\n]*$/gm, '')
+    .replace(/^[ \t]*#[^\n]*$/gm, '')
+    .replace(/^[ \t]*\/\/[^\n]*$/gm, '')
     .replace(/[ \t]+--[^\n]*/g, ' ')
+    .replace(/[\uFEFF\u200B-\u200D]/g, '')
     .trim()
+}
+
+/**
+ * Locate the first read-only statement in a notebook cell body.
+ * Ignores leftover header noise above SELECT/WITH.
+ * @param {string} sql
+ * @returns {string}
+ */
+export function extractLeadingReadonlyQuery(sql) {
+  const bare = stripSqlComments(sql).replace(/;+\s*$/g, '').trim()
+  if (!bare) return ''
+  const start = bare.search(/\b(?:with|select)\b/i)
+  if (start < 0) return ''
+  const before = bare.slice(0, start)
+  if (WRITE_RE.test(before)) {
+    const err = new Error(
+      'Live run blocked: write/DDL keywords are not allowed (read-only policy)',
+    )
+    err.status = 400
+    throw err
+  }
+  return bare.slice(start).replace(/;+\s*$/g, '').trim()
 }
 
 /**
@@ -59,10 +86,10 @@ function prepareReadonlySqlWithCap(sql, maxRows, hardCap) {
     err.status = 400
     throw err
   }
-  // Validate on comment-stripped body so notebook header comments are OK.
-  let bare = stripSqlComments(text).replace(/;+\s*$/g, '').trim()
+  // Notebook cells often have `--` headers above SELECT — slice from the query.
+  let bare = extractLeadingReadonlyQuery(text)
   if (!bare) {
-    const err = new Error('SQL is empty')
+    const err = new Error('Live run requires a SELECT or WITH query')
     err.status = 400
     throw err
   }

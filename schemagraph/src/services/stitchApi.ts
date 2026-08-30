@@ -12,6 +12,32 @@ import {
 
 export { DEMO_WORKSPACE_ID, getApiBase, getActiveWorkspaceId }
 
+type MutatingBusyListener = (count: number) => void
+let mutatingRequestCount = 0
+const mutatingListeners = new Set<MutatingBusyListener>()
+
+export function getMutatingRequestCount() {
+  return mutatingRequestCount
+}
+
+export function subscribeMutatingRequests(fn: MutatingBusyListener) {
+  mutatingListeners.add(fn)
+  fn(mutatingRequestCount)
+  return () => {
+    mutatingListeners.delete(fn)
+  }
+}
+
+function bumpMutating(delta: number) {
+  mutatingRequestCount = Math.max(0, mutatingRequestCount + delta)
+  for (const fn of mutatingListeners) fn(mutatingRequestCount)
+}
+
+function isMutatingMethod(init: RequestInit) {
+  const method = String(init.method || 'GET').toUpperCase()
+  return method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
+}
+
 /** Authenticated fetch — notifies AuthContext on 401 */
 export async function apiFetch(
   path: string,
@@ -27,11 +53,17 @@ export async function apiFetch(
   ) {
     headers.set('Content-Type', 'application/json')
   }
-  const res = await fetch(`${getApiBase()}${path}`, { ...init, headers })
-  if (res.status === 401) {
-    notifyAuthExpired()
+  const track = isMutatingMethod(init)
+  if (track) bumpMutating(1)
+  try {
+    const res = await fetch(`${getApiBase()}${path}`, { ...init, headers })
+    if (res.status === 401) {
+      notifyAuthExpired()
+    }
+    return res
+  } finally {
+    if (track) bumpMutating(-1)
   }
-  return res
 }
 
 export interface WorkspaceSchemaResponse {

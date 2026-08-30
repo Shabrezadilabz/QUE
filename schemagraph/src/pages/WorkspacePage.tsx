@@ -170,17 +170,15 @@ export function WorkspacePage() {
           pushToast('Promote failed', 'error')
           return
         }
-        setRelationships((prev) =>
-          prev.map((r) => (r.id === relationshipId ? { ...r, ...updated } : r)),
-        )
         pushToast('Relationship promoted', 'success')
         notifySchemaChanged('promote')
+        await hydrate()
         return
       }
       applyLocalReview(relationshipId, 'promote')
       notifySchemaChanged('promote')
     },
-    [fromApi, applyLocalReview, canWrite, pushToast],
+    [fromApi, applyLocalReview, canWrite, pushToast, hydrate],
   )
 
   const handleReject = useCallback(
@@ -192,15 +190,15 @@ export function WorkspacePage() {
           pushToast('Reject failed', 'error')
           return
         }
-        setRelationships((prev) => prev.filter((r) => r.id !== relationshipId))
         pushToast('Relationship rejected', 'success')
         notifySchemaChanged('reject')
+        await hydrate()
         return
       }
       applyLocalReview(relationshipId, 'reject')
       notifySchemaChanged('reject')
     },
-    [fromApi, applyLocalReview, canWrite, pushToast],
+    [fromApi, applyLocalReview, canWrite, pushToast, hydrate],
   )
 
   const handleCreateJoin = useCallback(

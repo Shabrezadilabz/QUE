@@ -5,6 +5,7 @@ import { MobileNav } from '@/components/MobileNav'
 import { QueSectionNav } from '@/components/que/QueSectionNav'
 import { QueAgentProvider } from '@/context/QueAgentContext'
 import { QueGenieAgent } from '@/components/genie/QueGenieAgent'
+import { BackendBusyProvider } from '@/context/BackendBusyContext'
 
 interface QueAppChromeProps {
   children: ReactNode
@@ -26,6 +27,7 @@ export function QueAppChrome({
 }: QueAppChromeProps) {
   return (
     <QueAgentProvider>
+      <BackendBusyProvider>
       <div className="pdf-app-canvas flex h-full min-h-0 w-full overflow-hidden">
         <PdfSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -57,6 +59,7 @@ export function QueAppChrome({
         </div>
         <QueGenieAgent />
       </div>
+      </BackendBusyProvider>
     </QueAgentProvider>
   )
 }

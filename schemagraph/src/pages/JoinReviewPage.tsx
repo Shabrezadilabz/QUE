@@ -118,20 +118,30 @@ export function JoinReviewPage() {
   } | null>(null)
   const [canCoEdit, setCanCoEdit] = useState(true)
 
-  const reload = useCallback(async () => {
-    setError(null)
-    try {
-      const data = await fetchJoinReviews({ status: filter, limit: 150 })
-      setItems(data.items)
-      setSummary(data.summary)
-      setSelectedId((prev) => {
-        if (prev && data.items.some((i) => i.id === prev)) return prev
-        return data.items[0]?.id ?? null
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }, [filter])
+  const reload = useCallback(
+    async (opts?: { status?: Filter; keepId?: string | null }) => {
+      setError(null)
+      const status = opts?.status ?? filter
+      try {
+        const data = await fetchJoinReviews({ status, limit: 150 })
+        const sorted = [...data.items].sort((a, b) => {
+          const ta = Date.parse(a.updatedAt || a.createdAt || '') || 0
+          const tb = Date.parse(b.updatedAt || b.createdAt || '') || 0
+          return tb - ta
+        })
+        setItems(sorted)
+        setSummary(data.summary)
+        setSelectedId((prev) => {
+          const prefer = opts?.keepId ?? prev
+          if (prefer && sorted.some((i) => i.id === prefer)) return prefer
+          return sorted[0]?.id ?? null
+        })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [filter],
+  )
 
   useEffect(() => {
     void reload()
@@ -148,13 +158,19 @@ export function JoinReviewPage() {
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return items
-    return items.filter(
-      (i) =>
-        joinTitle(i).toLowerCase().includes(q) ||
-        i.from.connection.toLowerCase().includes(q) ||
-        i.to.connection.toLowerCase().includes(q),
-    )
+    const list = !q
+      ? items
+      : items.filter(
+          (i) =>
+            joinTitle(i).toLowerCase().includes(q) ||
+            i.from.connection.toLowerCase().includes(q) ||
+            i.to.connection.toLowerCase().includes(q),
+        )
+    return [...list].sort((a, b) => {
+      const ta = Date.parse(a.updatedAt || a.createdAt || '') || 0
+      const tb = Date.parse(b.updatedAt || b.createdAt || '') || 0
+      return tb - ta
+    })
   }, [items, query])
 
   const selected = useMemo(
@@ -254,6 +270,7 @@ export function JoinReviewPage() {
       setError(`Promote requires ${promoteMinRole}+ (Settings → Team OS)`)
       return
     }
+    const actedId = selected.id
     setBusy(true)
     setError(null)
     try {
@@ -264,7 +281,8 @@ export function JoinReviewPage() {
           : `Rejected join suggestion`,
       )
       notifySchemaChanged('join-review')
-      await reload()
+      setFilter('all')
+      await reload({ status: 'all', keepId: actedId })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

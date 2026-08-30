@@ -70,10 +70,7 @@ export async function listJoinReviews(workspaceId, opts = {}) {
      JOIN connections c_to ON c_to.id = too.connection_id
      WHERE r.workspace_id = $1
        ${statusSql}
-     ORDER BY
-       CASE WHEN r.status = 'suggested' THEN 0 ELSE 1 END,
-       r.confidence DESC NULLS LAST,
-       r.created_at DESC
+     ORDER BY r.updated_at DESC NULLS LAST, r.created_at DESC
      LIMIT $2`,
     params,
   )

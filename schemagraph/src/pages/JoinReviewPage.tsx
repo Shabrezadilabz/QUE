@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   CatalogAssetCard,
@@ -65,6 +65,8 @@ export function JoinReviewPage() {
   })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [listLoading, setListLoading] = useState(true)
+  const listLoadGen = useRef(0)
   const [inferBusy, setInferBusy] = useState(false)
   const [mapBusy, setMapBusy] = useState(false)
   const [renames, setRenames] = useState<RenameSuggestion[]>([])
@@ -122,8 +124,13 @@ export function JoinReviewPage() {
     async (opts?: { status?: Filter; keepId?: string | null }) => {
       setError(null)
       const status = opts?.status ?? filter
+      const gen = ++listLoadGen.current
+      setListLoading(true)
+      setItems([])
+      if (!opts?.keepId) setSelectedId(null)
       try {
         const data = await fetchJoinReviews({ status, limit: 150 })
+        if (gen !== listLoadGen.current) return
         const sorted = [...data.items].sort((a, b) => {
           const ta = Date.parse(a.updatedAt || a.createdAt || '') || 0
           const tb = Date.parse(b.updatedAt || b.createdAt || '') || 0
@@ -137,7 +144,11 @@ export function JoinReviewPage() {
           return sorted[0]?.id ?? null
         })
       } catch (err) {
+        if (gen !== listLoadGen.current) return
         setError(err instanceof Error ? err.message : String(err))
+        setItems([])
+      } finally {
+        if (gen === listLoadGen.current) setListLoading(false)
       }
     },
     [filter],
@@ -413,13 +424,19 @@ export function JoinReviewPage() {
     <JoinReviewCatalogShell
       filter={filter}
       summary={summary}
-      onFilter={setFilter}
       query={query}
       onQuery={setQuery}
       items={filteredItems}
+      listLoading={listLoading}
       selectedId={selectedId}
       onSelect={setSelectedId}
-      selected={selected}
+      selected={listLoading ? null : selected}
+      onFilter={(f) => {
+        setListLoading(true)
+        setItems([])
+        setSelectedId(null)
+        setFilter(f)
+      }}
       detailTab={detailTab}
       onDetailTab={setDetailTab}
       headerActions={
@@ -477,7 +494,9 @@ export function JoinReviewPage() {
       }
       footer={
         <span>
-          {summary.pending} pending · {renames.length} rename suggestions
+          {listLoading
+            ? 'Loading joins…'
+            : `${summary.pending} pending · ${renames.length} rename suggestions`}
         </span>
       }
       detailBody={

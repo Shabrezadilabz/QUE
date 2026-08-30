@@ -3,7 +3,7 @@ import { QueAppChrome } from '@/layouts/QueAppChrome'
 import { PdfPageHeader, PdfGhostButton, PdfPrimaryButton } from '@/components/pdf/PdfUi'
 import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
 
-export type CatalogBadgeTone = 'approved' | 'draft' | 'review' | 'neutral'
+export type CatalogBadgeTone = 'approved' | 'draft' | 'review' | 'neutral' | 'rejected'
 
 const BADGE_STYLES: Record<CatalogBadgeTone, string> = {
   approved:
@@ -11,6 +11,8 @@ const BADGE_STYLES: Record<CatalogBadgeTone, string> = {
   draft: 'border-[#424850] bg-[#1e2328] text-[#8a9099]',
   review:
     'border-[rgba(255,176,107,0.45)] bg-[rgba(255,176,107,0.12)] text-[#ffb06b]',
+  rejected:
+    'border-[rgba(255,107,107,0.45)] bg-[rgba(255,107,107,0.12)] text-[#ff6b6b]',
   neutral: 'border-[#424850] bg-[#1e2328] text-[#c8cdd3]',
 }
 

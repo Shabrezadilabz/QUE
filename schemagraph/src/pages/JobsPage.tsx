@@ -20,6 +20,7 @@ import {
   newNotebookCell,
   notebooksEqual,
 } from '@/components/jobs/NotebookCellEditor'
+import { getNotebookCellRunSlice } from '@/components/jobs/NotebookCellResult'
 import {
   acknowledgeDriftEvent,
   createManualJob,
@@ -594,8 +595,8 @@ export function JobsPage() {
     if (cellId) setActiveCellId(cellId)
     setRunning(true)
     setError(null)
-    setProcessOpen(true)
-    setProcessTab('logs')
+    // Keep Process console collapsed — results render under each command.
+    setProcessOpen(false)
     const apiMode = runMode === 'validate' ? 'live' : 'dry_run'
     setLatestRun({
       id: 'pending',
@@ -635,7 +636,14 @@ export function JobsPage() {
       setLatestRun(run)
       const hasLive = Boolean(run.output?.liveResults?.length)
       const hasSamples = Boolean(run.output?.samplePreviews?.length)
-      setProcessTab(hasLive || hasSamples ? 'output' : 'logs')
+      if (run.status === 'failed') {
+        setProcessOpen(true)
+        setProcessTab('logs')
+      } else if (hasLive || hasSamples) {
+        setProcessTab('output')
+      } else {
+        setProcessTab('logs')
+      }
       setToast(run.summary || `Run ${run.status}`)
       setLiveLogs((prev) => {
         const extra: LiveLogRow[] = (run.logs || []).map((log, i) => ({
@@ -658,6 +666,8 @@ export function JobsPage() {
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+      setProcessOpen(true)
+      setProcessTab('logs')
       setLatestRun((prev) =>
         prev
           ? {
@@ -747,14 +757,26 @@ export function JobsPage() {
           </div>
         ) : (
           <>
-            <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
+            <main
+              className={[
+                'flex min-w-0 flex-1 flex-col overflow-hidden',
+                jobTab === 'notebook' ? 'que-nb' : 'bg-canvas',
+              ].join(' ')}
+            >
           {error ? (
             <p className="shrink-0 border-b border-error/40 bg-error/10 px-md py-sm font-body text-[12px] text-error">
               {error}
             </p>
           ) : null}
           {toast ? (
-            <p className="shrink-0 border-b border-[#424850] bg-[rgba(170,181,192,0.08)] px-md py-sm text-[12px] text-[#d0d8e0]">
+            <p
+              className={[
+                'shrink-0 border-b px-md py-sm text-[12px]',
+                jobTab === 'notebook'
+                  ? 'border-[#3a3a3a] bg-[#1b1b1b] text-[#e8e8e8]'
+                  : 'border-[#424850] bg-[rgba(170,181,192,0.08)] text-[#d0d8e0]',
+              ].join(' ')}
+            >
               {toast}
               <button
                 type="button"
@@ -765,45 +787,98 @@ export function JobsPage() {
               </button>
             </p>
           ) : null}
-              <div className="flex h-14 shrink-0 items-center justify-between gap-md border-b border-outline-variant/20 bg-surface-container-low/70 px-lg">
+              <div
+                className={[
+                  'flex h-14 shrink-0 items-center justify-between gap-md px-lg',
+                  jobTab === 'notebook'
+                    ? 'que-nb-toolbar'
+                    : 'border-b border-outline-variant/20 bg-surface-container-low/70',
+                ].join(' ')}
+              >
                 <div className="flex min-w-0 items-center gap-md">
                   <button
                     type="button"
                     onClick={closeEditor}
-                    className="shrink-0 rounded-lg px-2 py-1.5 font-label text-[12px] text-on-surface-variant transition-colors hover:bg-secondary-container hover:text-secondary"
+                    className={
+                      jobTab === 'notebook'
+                        ? 'que-nb-btn'
+                        : 'shrink-0 rounded-lg px-2 py-1.5 font-label text-[12px] text-on-surface-variant transition-colors hover:bg-secondary-container hover:text-secondary'
+                    }
                     title="Back to Sync Jobs"
                   >
                     ←
                   </button>
-                  <div className="flex min-w-0 items-center gap-2 rounded-xl border border-outline-variant/15 bg-secondary-container/80 px-3 py-1.5">
-                    <span className="shrink-0 text-secondary" aria-hidden>
+                  <div
+                    className={
+                      jobTab === 'notebook'
+                        ? 'que-nb-toolbar-chip'
+                        : 'flex min-w-0 items-center gap-2 rounded-xl border border-outline-variant/15 bg-secondary-container/80 px-3 py-1.5'
+                    }
+                  >
+                    <span
+                      className={
+                        jobTab === 'notebook'
+                          ? 'text-[#ff8a7a]'
+                          : 'shrink-0 text-secondary'
+                      }
+                      aria-hidden
+                    >
                       ⟨/⟩
                     </span>
-                    <span className="truncate font-label text-[12px] font-medium text-on-secondary-container">
+                    <span
+                      className={
+                        jobTab === 'notebook'
+                          ? 'truncate'
+                          : 'truncate font-label text-[12px] font-medium text-on-secondary-container'
+                      }
+                    >
                       {selected.title}
                     </span>
                   </div>
                   <div className="hidden items-center gap-1.5 sm:flex">
                     <span
-                      className={`rounded-md px-2 py-0.5 font-label text-[10px] font-bold uppercase ${STATUS_STYLE[selected.status]}`}
+                      className={
+                        jobTab === 'notebook'
+                          ? 'que-nb-badge que-nb-badge--status'
+                          : `rounded-md px-2 py-0.5 font-label text-[10px] font-bold uppercase ${STATUS_STYLE[selected.status]}`
+                      }
                     >
                       {selected.status === 'exported'
                         ? 'Production'
                         : selected.status}
                     </span>
                     {notebookDirty ? (
-                      <span className="rounded-md bg-secondary/10 px-2 py-0.5 font-label text-[10px] font-bold text-secondary uppercase">
+                      <span
+                        className={
+                          jobTab === 'notebook'
+                            ? 'que-nb-badge que-nb-badge--dirty'
+                            : 'rounded-md bg-secondary/10 px-2 py-0.5 font-label text-[10px] font-bold text-secondary uppercase'
+                        }
+                      >
                         Modified
                       </span>
                     ) : (
-                      <span className="rounded-md bg-tertiary/10 px-2 py-0.5 font-label text-[10px] font-bold text-tertiary uppercase">
+                      <span
+                        className={
+                          jobTab === 'notebook'
+                            ? 'que-nb-badge que-nb-badge--saved'
+                            : 'rounded-md bg-tertiary/10 px-2 py-0.5 font-label text-[10px] font-bold text-tertiary uppercase'
+                        }
+                      >
                         Saved
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-sm">
-                  <div className="mr-sm hidden items-center rounded-lg border border-outline-variant/25 bg-surface-container p-0.5 sm:flex">
+                  <div
+                    className={[
+                      'mr-sm hidden items-center p-0.5 sm:flex',
+                      jobTab === 'notebook'
+                        ? 'gap-0.5 rounded border border-[#3a3a3a] bg-[#161616]'
+                        : 'rounded-lg border border-outline-variant/25 bg-surface-container',
+                    ].join(' ')}
+                  >
                     {(
                       [
                         ['notebook', 'Notebook'],
@@ -815,12 +890,19 @@ export function JobsPage() {
                         key={id}
                         type="button"
                         onClick={() => goJobView(selected.id, id)}
-                        className={[
-                          'rounded-md px-2.5 py-1 font-label text-[11px] font-medium transition-colors',
-                          jobTab === id
-                            ? 'bg-surface-container-low text-secondary'
-                            : 'text-on-surface-variant hover:text-secondary',
-                        ].join(' ')}
+                        className={
+                          jobTab === 'notebook'
+                            ? [
+                                'que-nb-tab',
+                                jobTab === id ? 'is-active' : '',
+                              ].join(' ')
+                            : [
+                                'rounded-md px-2.5 py-1 font-label text-[11px] font-medium transition-colors',
+                                jobTab === id
+                                  ? 'bg-surface-container-low text-secondary'
+                                  : 'text-on-surface-variant hover:text-secondary',
+                              ].join(' ')
+                        }
                       >
                         {label}
                       </button>
@@ -838,7 +920,7 @@ export function JobsPage() {
                               : 'dry_run',
                           )
                         }
-                        className="hidden rounded-lg border border-outline-variant/30 bg-surface-container-low px-sm py-1.5 font-label text-[11px] text-on-surface outline-none disabled:opacity-40 md:block"
+                        className="que-nb-select hidden md:block"
                         title="Run mode"
                       >
                         <option value="dry_run">Dry-run · ≤10</option>
@@ -848,15 +930,15 @@ export function JobsPage() {
                         type="button"
                         disabled={!canWrite || running}
                         onClick={() => void startRun('all')}
-                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-label text-[12px] text-on-surface-variant transition-colors hover:bg-secondary-container disabled:opacity-40"
+                        className="que-nb-btn que-nb-btn--run"
                       >
-                        ▶ {running ? 'Running…' : 'Run Test'}
+                        ▶ {running ? 'Running…' : 'Run all'}
                       </button>
                       <button
                         type="button"
                         disabled={!notebookDirty || savingNotebook}
                         onClick={() => void saveNotebook()}
-                        className="rounded bg-secondary px-3 py-1.5 font-label text-[12px] font-semibold text-on-secondary transition-opacity hover:opacity-90 disabled:opacity-40"
+                        className="que-nb-btn que-nb-btn--primary"
                       >
                         {savingNotebook ? 'Saving…' : 'Commit'}
                       </button>
@@ -866,7 +948,7 @@ export function JobsPage() {
                     <button
                       type="button"
                       onClick={() => goJobView(selected.id, 'deploy')}
-                      className="rounded-lg border border-outline-variant/30 px-3 py-1.5 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
+                      className="que-nb-btn"
                     >
                       Deploy →
                     </button>
@@ -874,7 +956,14 @@ export function JobsPage() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-1 border-b border-outline-variant/15 bg-surface-container-low px-lg py-1 sm:hidden">
+              <div
+                className={[
+                  'flex shrink-0 items-center gap-1 px-lg py-1 sm:hidden',
+                  jobTab === 'notebook'
+                    ? 'border-b border-[#2e2e2e] bg-[#161616]'
+                    : 'border-b border-outline-variant/15 bg-surface-container-low',
+                ].join(' ')}
+              >
                 {(
                   [
                     ['notebook', 'Notebook'],
@@ -886,12 +975,19 @@ export function JobsPage() {
                     key={id}
                     type="button"
                     onClick={() => goJobView(selected.id, id)}
-                    className={[
-                      'rounded-md px-2.5 py-1 font-label text-[11px]',
-                      jobTab === id
-                        ? 'bg-secondary/10 font-semibold text-secondary'
-                        : 'text-on-surface-variant',
-                    ].join(' ')}
+                    className={
+                      jobTab === 'notebook'
+                        ? [
+                            'que-nb-tab',
+                            jobTab === id ? 'is-active' : '',
+                          ].join(' ')
+                        : [
+                            'rounded-md px-2.5 py-1 font-label text-[11px]',
+                            jobTab === id
+                              ? 'bg-secondary/10 font-semibold text-secondary'
+                              : 'text-on-surface-variant',
+                          ].join(' ')
+                    }
                   >
                     {label}
                   </button>
@@ -1013,18 +1109,18 @@ export function JobsPage() {
               ) : null}
 
               {jobTab === 'notebook' && canWrite ? (
-                <div className="flex shrink-0 flex-wrap items-center gap-xs border-b border-outline-variant/15 bg-surface-container-low/80 px-lg py-1.5">
+                <div className="que-nb-actionbar">
                   <button
                     type="button"
                     onClick={() => addCell('sql')}
-                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-secondary hover:bg-surface-container-highest"
+                    className="que-nb-btn"
                   >
                     + SQL
                   </button>
                   <button
                     type="button"
                     onClick={() => addCell('markdown')}
-                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest"
+                    className="que-nb-btn"
                   >
                     + Markdown
                   </button>
@@ -1032,7 +1128,7 @@ export function JobsPage() {
                     type="button"
                     disabled={!activeCellId || running}
                     onClick={() => void startRun('cell')}
-                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest disabled:opacity-40"
+                    className="que-nb-btn que-nb-btn--run"
                   >
                     Run cell
                   </button>
@@ -1040,16 +1136,16 @@ export function JobsPage() {
                     type="button"
                     disabled={!notebookDirty || savingNotebook}
                     onClick={() => discardNotebook()}
-                    className="rounded-lg px-2.5 py-1 font-label text-[11px] text-on-surface-variant hover:bg-surface-container-highest disabled:opacity-40"
+                    className="que-nb-btn"
                   >
                     Discard
                   </button>
-                  <span className="ml-auto font-label text-[11px] text-on-surface-variant/70">
-                    {cells.length} cell{cells.length === 1 ? '' : 's'}
+                  <span className="ml-auto font-label text-[11px] text-[#9a9a9a]">
+                    {cells.length} command{cells.length === 1 ? '' : 's'}
                     {notebookDirty ? ' · unsaved' : ''}
                     <button
                       type="button"
-                      className="ml-sm text-secondary underline"
+                      className="ml-sm text-[#ff8a7a] underline"
                       onClick={() => goJobView(selected.id, 'results')}
                     >
                       View results
@@ -1061,18 +1157,18 @@ export function JobsPage() {
               {jobTab === 'notebook' ? (
               <>
               <div className="flex min-h-0 flex-1 overflow-hidden">
-                <div className="flex min-w-0 flex-1 flex-col bg-surface-container-low">
-                  <div className="flex h-9 shrink-0 items-center justify-between border-b border-outline-variant/10 bg-surface-container/80 px-4">
-                    <span className="font-label text-[11px] tracking-[0.12em] text-on-surface-variant/70 uppercase">
+                <div className="flex min-w-0 flex-1 flex-col bg-[#111111]">
+                  <div className="flex h-9 shrink-0 items-center justify-between border-b border-[#2e2e2e] bg-[#161616] px-4">
+                    <span className="font-label text-[11px] tracking-[0.14em] text-[#9a9a9a] uppercase">
                       Notebook
                     </span>
-                    <span className="font-label text-[10px] text-on-surface-variant/50">
-                      {cells.length} cell{cells.length === 1 ? '' : 's'} · SQL ·
-                      Markdown
+                    <span className="font-label text-[10px] text-[#6e6e6e]">
+                      {cells.length} command{cells.length === 1 ? '' : 's'} ·
+                      SQL · Markdown
                     </span>
                   </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto bg-surface-container-low/55 p-lg">
-                    <div className="mx-auto max-w-[48rem] space-y-md">
+                  <div className="que-nb-scroll min-h-0 flex-1 overflow-y-auto">
+                    <div className="que-nb-cells">
                       {cells.map((cell, idx) => (
                         <NotebookCellEditor
                           key={cell.id}
@@ -1080,6 +1176,7 @@ export function JobsPage() {
                           index={idx}
                           active={cell.id === activeCellId}
                           disabled={!canWrite}
+                          runSlice={getNotebookCellRunSlice(latestRun, cell.id)}
                           onFocus={() => setActiveCellId(cell.id)}
                           onChangeContent={(content) =>
                             patchCell(cell.id, { content })
@@ -1101,18 +1198,16 @@ export function JobsPage() {
                         />
                       ))}
                       {canWrite ? (
-                        <div className="flex flex-wrap justify-center gap-md rounded-lg border border-dashed border-outline-variant/35 bg-surface-container-low/50 py-lg">
+                        <div className="que-nb-add">
                           <button
                             type="button"
                             onClick={() => addCell('sql')}
-                            className="rounded-xl bg-secondary/10 px-md py-sm font-label text-[12px] font-medium text-secondary hover:bg-secondary/15"
                           >
-                            + SQL cell
+                            + SQL command
                           </button>
                           <button
                             type="button"
                             onClick={() => addCell('markdown')}
-                            className="rounded-xl bg-secondary-container/80 px-md py-sm font-label text-[12px] font-medium text-on-secondary-container hover:bg-secondary-container"
                           >
                             + Markdown
                           </button>
@@ -1124,11 +1219,11 @@ export function JobsPage() {
                   {/* Process / output panel */}
               <div
                 className={[
-                  'shrink-0 border-t border-outline-variant/20 bg-surface-container-low flex flex-col',
+                  'que-nb-process flex shrink-0 flex-col',
                   processOpen ? 'h-[26%]' : 'h-9',
                 ].join(' ')}
               >
-                <div className="flex h-9 shrink-0 items-center justify-between border-b border-outline-variant/15 bg-surface-container-low/40 px-md">
+                <div className="que-nb-process-tabs">
                   <div className="flex items-center gap-md">
                     {(
                       [
@@ -1147,8 +1242,8 @@ export function JobsPage() {
                         className={[
                           'font-label text-[11px]',
                           processTab === id && processOpen
-                            ? 'font-semibold text-secondary'
-                            : 'text-on-surface-variant hover:text-on-surface',
+                            ? 'font-semibold text-[#ff8a7a]'
+                            : 'text-[#9a9a9a] hover:text-[#e8e8e8]',
                         ].join(' ')}
                       >
                         {label}
@@ -1165,14 +1260,14 @@ export function JobsPage() {
                     <button
                       type="button"
                       onClick={() => setProcessOpen((v) => !v)}
-                      className="font-label text-[11px] text-on-surface-variant hover:text-secondary"
+                      className="font-label text-[11px] text-[#9a9a9a] hover:text-[#ff8a7a]"
                     >
                       {processOpen ? 'Collapse' : 'Expand'}
                     </button>
                   </div>
                 </div>
                 {processOpen ? (
-                  <div className="min-h-0 flex-1 overflow-y-auto bg-surface-container p-md font-mono text-[11px] leading-relaxed text-on-surface-variant">
+                  <div className="que-nb-process-body min-h-0 flex-1 overflow-y-auto p-md">
                     {processTab === 'process' ? (
                       <>
                         <div className="font-medium text-secondary">

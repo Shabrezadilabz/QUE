@@ -4,71 +4,44 @@ import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
 import type { JobNotebookCell } from '@/services/stitchApi'
 import { RunInWarehouseButton } from '@/components/warehouse/RunInWarehouseButton'
+import {
+  NotebookCellResult,
+  type NotebookCellRunSlice,
+} from '@/components/jobs/NotebookCellResult'
 
-const lightTheme = EditorView.theme(
+/** Databricks-like dark editor theme for notebook cells */
+const notebookEditorTheme = EditorView.theme(
   {
     '&': {
-      backgroundColor: '#0b1c30',
-      color: '#d3e4fe',
-      fontSize: '12px',
-      minHeight: '120px',
+      backgroundColor: '#1a1a1a',
+      color: '#e8e8e8',
+      fontSize: '13px',
+      minHeight: '112px',
     },
     '.cm-content': {
-      fontFamily: '"JetBrains Mono", ui-monospace, Consolas, monospace',
-      padding: '12px 0',
+      fontFamily:
+        '"JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
+      padding: '10px 0',
+      caretColor: '#ff3621',
     },
     '.cm-gutters': {
-      backgroundColor: '#000f21',
-      color: 'rgba(198,198,205,0.55)',
+      backgroundColor: '#161616',
+      color: '#5c5c5c',
       border: 'none',
+      borderRight: '1px solid #2e2e2e',
     },
     '.cm-activeLineGutter': {
-      backgroundColor: 'rgba(123,208,255,0.1)',
+      backgroundColor: 'rgba(255, 54, 33, 0.1)',
+      color: '#ff8a7a',
     },
     '.cm-activeLine': {
-      backgroundColor: 'rgba(123,208,255,0.06)',
+      backgroundColor: 'rgba(255, 255, 255, 0.035)',
     },
     '&.cm-focused .cm-cursor': {
-      borderLeftColor: '#7bd0ff',
+      borderLeftColor: '#ff3621',
     },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-      backgroundColor: 'rgba(123,208,255,0.18)',
-    },
-    '.cm-scroller': {
-      overflow: 'auto',
-    },
-  },
-  { dark: true },
-)
-
-const darkTheme = EditorView.theme(
-  {
-    '&': {
-      backgroundColor: '#000f21',
-      color: '#d3e4fe',
-      fontSize: '12px',
-      minHeight: '140px',
-    },
-    '.cm-content': {
-      fontFamily: '"JetBrains Mono", ui-monospace, Consolas, monospace',
-      padding: '12px 0',
-    },
-    '.cm-gutters': {
-      backgroundColor: '#031427',
-      color: 'rgba(198,198,205,0.4)',
-      border: 'none',
-    },
-    '.cm-activeLineGutter': {
-      backgroundColor: 'rgba(123,208,255,0.15)',
-    },
-    '.cm-activeLine': {
-      backgroundColor: 'rgba(123,208,255,0.08)',
-    },
-    '&.cm-focused .cm-cursor': {
-      borderLeftColor: '#7bd0ff',
-    },
-    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-      backgroundColor: 'rgba(123,208,255,0.28)',
+      backgroundColor: 'rgba(255, 54, 33, 0.22)',
     },
     '.cm-scroller': {
       overflow: 'auto',
@@ -82,7 +55,7 @@ interface NotebookCellEditorProps {
   index: number
   active: boolean
   disabled?: boolean
-  /** Dark code-editor look (jobs notebook) */
+  /** @deprecated Always uses Databricks dark theme */
   dark?: boolean
   onFocus: () => void
   onChangeContent: (content: string) => void
@@ -94,15 +67,16 @@ interface NotebookCellEditorProps {
   canDelete: boolean
   canMoveUp: boolean
   canMoveDown: boolean
+  /** Latest run output for this command (inline Databricks-style). */
+  runSlice?: NotebookCellRunSlice | null
 }
 
-/** Editable notebook cell — CodeMirror for SQL / markdown. */
+/** Editable notebook cell — Databricks-style command chrome + CodeMirror. */
 export function NotebookCellEditor({
   cell,
   index,
   active,
   disabled = false,
-  dark = false,
   onFocus,
   onChangeContent,
   onChangeTitle,
@@ -113,145 +87,131 @@ export function NotebookCellEditor({
   canDelete,
   canMoveUp,
   canMoveDown,
+  runSlice = null,
 }: NotebookCellEditorProps) {
   const extensions = [
-    dark ? darkTheme : lightTheme,
+    notebookEditorTheme,
     EditorView.lineWrapping,
     cell.kind === 'sql' ? sql() : markdown(),
   ]
 
   return (
     <article
-      className={[
-        'overflow-hidden rounded border transition-colors',
-        dark
-          ? active
-            ? 'border-secondary bg-surface-container-lowest shadow-[0_0_0_1px_rgba(123,208,255,0.2)]'
-            : 'border-outline-variant bg-surface-container-lowest'
-          : active
-            ? 'border-secondary/50 bg-surface-container-low'
-            : 'border-outline-variant bg-surface-container-low',
-      ].join(' ')}
+      className={['que-nb-cell', active ? 'is-active' : ''].join(' ')}
       onFocusCapture={onFocus}
     >
-      <div
-        className={[
-          'flex flex-wrap items-center justify-between gap-sm border-b px-sm py-xs',
-          dark
-            ? 'border-outline-variant bg-surface-dim'
-            : 'border-outline-variant bg-surface-container',
-        ].join(' ')}
-      >
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-sm">
-          <span className="font-label text-[10px] text-on-surface-variant">
-            [{String(index + 1).padStart(2, '0')}]
+      <div className="que-nb-cell-gutter">
+        <span className="que-nb-cmd" title={`Command ${index + 1}`}>
+          Cmd {index + 1}
+        </span>
+        <button
+          type="button"
+          disabled={disabled}
+          title="Run this command"
+          onClick={onRunStub}
+          className="que-nb-run-btn"
+        >
+          ▶
+        </button>
+      </div>
+
+      <div className="que-nb-cell-main">
+        <div className="que-nb-cell-chrome">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <select
+              value={cell.kind}
+              disabled={disabled}
+              onChange={(e) =>
+                onChangeKind(e.target.value === 'sql' ? 'sql' : 'markdown')
+              }
+              className="que-nb-lang"
+            >
+              <option value="sql">SQL</option>
+              <option value="markdown">Markdown</option>
+            </select>
+            <input
+              type="text"
+              value={cell.title || ''}
+              disabled={disabled}
+              onChange={(e) => onChangeTitle(e.target.value)}
+              placeholder="Command title"
+              className="que-nb-title"
+            />
+          </div>
+          <div className="que-nb-cell-actions">
+            <button
+              type="button"
+              disabled={disabled || !canMoveUp}
+              onClick={() => onMove(-1)}
+              className="que-nb-icon-btn"
+              title="Move up"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              disabled={disabled || !canMoveDown}
+              onClick={() => onMove(1)}
+              className="que-nb-icon-btn"
+              title="Move down"
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              disabled={disabled || !canDelete}
+              onClick={onDelete}
+              className="que-nb-icon-btn que-nb-icon-btn--danger"
+              title="Delete command"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div className="que-nb-editor-wrap cm-notebook-cell">
+          {disabled ? (
+            <pre className="overflow-x-auto p-3 font-mono text-[13px] leading-relaxed whitespace-pre-wrap text-[#e8e8e8]/
+              {cell.content || ' '}
+            </pre>
+          ) : (
+            <CodeMirror
+              value={cell.content}
+              height="auto"
+              minHeight="112px"
+              maxHeight="480px"
+              theme="none"
+              basicSetup={{
+                lineNumbers: true,
+                foldGutter: false,
+                highlightActiveLine: true,
+                bracketMatching: true,
+                autocompletion: false,
+              }}
+              extensions={extensions}
+              onChange={onChangeContent}
+              onFocus={onFocus}
+              editable={!disabled}
+            />
+          )}
+        </div>
+
+        {cell.kind === 'sql' && cell.content?.trim() ? (
+          <div className="border-t border-[#2e2e2e] px-3 py-1.5">
+            <RunInWarehouseButton sql={cell.content} compact />
+          </div>
+        ) : null}
+
+        {runSlice ? <NotebookCellResult slice={runSlice} /> : null}
+
+        <div className="que-nb-footer">
+          <span>
+            {cell.kind === 'sql' ? 'SQL command' : 'Markdown'}
+            {disabled ? ' · read-only' : ''}
           </span>
-          <select
-            value={cell.kind}
-            disabled={disabled}
-            onChange={(e) =>
-              onChangeKind(e.target.value === 'sql' ? 'sql' : 'markdown')
-            }
-            className="rounded border border-outline-variant bg-transparent px-xs py-[2px] font-label text-[9px] tracking-widest text-secondary uppercase outline-none disabled:opacity-40"
-          >
-            <option value="sql">SQL</option>
-            <option value="markdown">MD</option>
-          </select>
-          <input
-            type="text"
-            value={cell.title || ''}
-            disabled={disabled}
-            onChange={(e) => onChangeTitle(e.target.value)}
-            placeholder="Cell title"
-            className="min-w-0 flex-1 border border-transparent bg-transparent px-xs py-[2px] font-body text-[12px] text-on-surface outline-none focus:border-outline-variant disabled:opacity-40"
-          />
-        </div>
-        <div className="flex shrink-0 items-center gap-xs">
-          <button
-            type="button"
-            disabled={disabled || !canMoveUp}
-            onClick={() => onMove(-1)}
-            className="px-xs font-label text-[9px] tracking-widest text-on-surface-variant hover:text-secondary disabled:opacity-30"
-            title="Move up"
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            disabled={disabled || !canMoveDown}
-            onClick={() => onMove(1)}
-            className="px-xs font-label text-[9px] tracking-widest text-on-surface-variant hover:text-secondary disabled:opacity-30"
-            title="Move down"
-          >
-            ↓
-          </button>
-          <button
-            type="button"
-            disabled={disabled}
-            title="Schema-only dry-run"
-            onClick={onRunStub}
-            className="rounded px-1.5 py-0.5 font-label text-[10px] text-on-surface-variant hover:bg-secondary/15 hover:text-secondary disabled:opacity-40"
-          >
-            ▶ Run
-          </button>
-          <button
-            type="button"
-            disabled={disabled || !canDelete}
-            onClick={onDelete}
-            className="rounded px-1.5 py-0.5 font-label text-[10px] text-error/70 hover:bg-error/5 hover:text-error disabled:opacity-30"
-            title="Delete cell"
-          >
-            Delete
-          </button>
+          <span>Shift+Enter to run · Esc command mode</span>
         </div>
       </div>
-
-      <div className="cm-notebook-cell">
-        {disabled ? (
-          <pre
-            className={[
-              'overflow-x-auto p-md font-mono text-[12px] leading-relaxed whitespace-pre-wrap',
-              dark
-                ? 'text-on-surface/90'
-                : cell.kind === 'sql'
-                  ? 'text-secondary'
-                  : 'text-on-surface',
-            ].join(' ')}
-          >
-            {cell.content || ' '}
-          </pre>
-        ) : (
-          <CodeMirror
-            value={cell.content}
-            height="auto"
-            minHeight="120px"
-            maxHeight="420px"
-            theme="none"
-            basicSetup={{
-              lineNumbers: true,
-              foldGutter: false,
-              highlightActiveLine: true,
-              bracketMatching: true,
-              autocompletion: false,
-            }}
-            extensions={extensions}
-            onChange={onChangeContent}
-            onFocus={onFocus}
-            editable={!disabled}
-          />
-        )}
-      </div>
-
-      {cell.kind === 'sql' && cell.content?.trim() ? (
-        <div className="border-t border-outline-variant px-sm py-xs">
-          <RunInWarehouseButton sql={cell.content} compact />
-        </div>
-      ) : null}
-
-      <p className="border-t border-outline-variant px-sm py-xs font-label text-[8px] tracking-widest text-on-surface-variant/70">
-        {cell.kind === 'sql' ? 'SQL · EDITABLE' : 'MARKDOWN · EDITABLE'}
-        {disabled ? ' · READ-ONLY' : ''}
-      </p>
     </article>
   )
 }
@@ -265,11 +225,11 @@ export function newNotebookCell(
         ? crypto.randomUUID()
         : `cell-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     kind,
-    title: kind === 'sql' ? 'stitch.sql' : 'Notes',
+    title: kind === 'sql' ? 'Query' : 'Notes',
     content:
       kind === 'sql'
-        ? '-- New SQL cell\nSELECT 1;\n'
-        : '## New markdown cell\n\nDescribe this step…\n',
+        ? '-- New SQL command\nSELECT 1;\n'
+        : '## Notes\n\nDescribe this step…\n',
   }
 }
 

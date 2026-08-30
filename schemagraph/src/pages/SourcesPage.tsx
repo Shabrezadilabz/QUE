@@ -18,6 +18,10 @@ import {
 } from '@/components/sources/PostSyncJoinBanner'
 import { ConnectorCatalogGrid } from '@/components/sources/ConnectorCatalogGrid'
 import { SourcesTableView } from '@/components/sources/SourcesTableView'
+import {
+  PocPackInstallDialog,
+  type PackInstallSelection,
+} from '@/components/sources/PocPackInstallDialog'
 import { PdfPageHeader, PdfPrimaryButton, PdfGhostButton } from '@/components/pdf/PdfUi'
 import { FIGMA_NAV } from '@/components/figma/figmaNavAssets'
 import {
@@ -47,6 +51,14 @@ import type {
   DataSourceType,
   DataLandingMode,
 } from '@/types/dataSource'
+import {
+  canSyncSource,
+  formatConnectorKeyLabel,
+  isPendingSource,
+  pendingPackConfig,
+  relativeLastSyncLabel,
+  statusBadgeForSource,
+} from '@/sources/sourceSetup'
 
 const CREATABLE: DataSourceType[] = [
   'postgresql',
@@ -192,7 +204,8 @@ function formFromSource(s: DataSource): FormState {
       null,
       2,
     ),
-    dbxMode: c.mode === 'live' ? 'live' : 'fixture',
+    dbxMode:
+      c.mode === 'live' || c.mode === 'pending' ? 'live' : 'fixture',
     fixturesPath: String(
       c.fixturesPath ?? defaultFixturesPath(s.type),
     ),
@@ -370,37 +383,7 @@ function buildConfig(form: FormState): Record<string, unknown> {
 }
 
 function relativeSyncLabel(iso?: string): string {
-  if (!iso) return 'Never synced'
-  const t = Date.parse(iso)
-  if (Number.isNaN(t)) return 'Never synced'
-  const mins = Math.max(0, Math.round((Date.now() - t) / 60000))
-  if (mins < 1) return 'Synced just now'
-  if (mins < 60) return `Synced ${mins}m ago`
-  const hrs = Math.round(mins / 60)
-  if (hrs < 48) return `Synced ${hrs}h ago`
-  return `Synced ${Math.round(hrs / 24)}d ago`
-}
-
-function statusBadge(status: DataSourceStatus): {
-  label: string
-  className: string
-} {
-  if (status === 'active') {
-    return {
-      label: 'Connected',
-      className: 'pdf-shine text-[#d0d8e0]',
-    }
-  }
-  if (status === 'warning') {
-    return {
-      label: 'Needs sync',
-      className: 'bg-amber-400/15 text-amber-300',
-    }
-  }
-  return {
-    label: 'Error',
-    className: 'bg-error/10 text-error',
-  }
+  return relativeLastSyncLabel(iso)
 }
 
 /**
@@ -443,6 +426,8 @@ export function SourcesPage() {
   })
   const [filter, setFilter] = useState('')
   const [busy, setBusy] = useState(false)
+  const [installingPackId, setInstallingPackId] = useState<string | null>(null)
+  const [packDialog, setPackDialog] = useState<PocPackDefinition | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [postSyncJoins, setPostSyncJoins] = useState<PostSyncJoinSummary[] | null>(
@@ -595,7 +580,7 @@ export function SourcesPage() {
   const selected = sources.find((s) => s.id === selectedId) ?? null
   const syncable = creating
     ? CREATABLE.includes(form.type)
-    : Boolean(selected?.syncable)
+    : Boolean(selected && canSyncSource(selected))
 
   const selectedCatalog = CONNECTOR_CATALOG.find((c) => c.key === catalogKey)
   const canAdvanceFromSources = Boolean(
@@ -675,56 +660,159 @@ export function SourcesPage() {
     goView('form', { connector: item.key })
   }
 
-  async function installPocPack(pack: PocPackDefinition) {
+  async function installPocPack(
+    pack: PocPackDefinition,
+    selection: PackInstallSelection,
+  ) {
     if (!canAdmin) {
       setToast('Admin required to install a POC pack')
       return
     }
+    const chosen = pack.connectors.filter((c) =>
+      selection.selectedKeys.includes(c.key),
+    )
+    if (chosen.length === 0) {
+      setToast('Select at least one connector (or cancel)')
+      return
+    }
+
+    setInstallingPackId(pack.id)
     setBusy(true)
     setError(null)
+    setPackDialog(null)
     try {
       const existing = await fetchWorkspaceSources()
       const createdIds: string[] = []
 
-      for (const conn of pack.connectors) {
+      for (const conn of chosen) {
         const needle = conn.key.toLowerCase()
         const already = existing.some(
           (s) =>
             s.type === conn.type &&
-            s.name.toLowerCase().includes('poc') &&
-            s.name.toLowerCase().includes(needle),
+            (s.name.toLowerCase().includes('poc') ||
+              s.name.toLowerCase().includes('pack')) &&
+            (s.name.toLowerCase().includes(needle) ||
+              String(s.config?.packKey ?? '').toLowerCase() === needle),
         )
         if (already) continue
-        const row = await createConnection({
-          name: conn.spec.name,
-          type: conn.type,
-          description: conn.spec.description,
-          status: 'warning',
-          config: { ...conn.spec.config },
-        })
-        createdIds.push(row.id)
+
+        const label = formatConnectorKeyLabel(conn.key)
+        if (selection.dataMode === 'demo') {
+          const row = await createConnection({
+            name: conn.spec.name.replace(/\bfixture\b/gi, 'demo'),
+            type: conn.type,
+            description: conn.spec.description,
+            status: 'warning',
+            config: { ...conn.spec.config },
+          })
+          createdIds.push(row.id)
+        } else {
+          const row = await createConnection({
+            name: `Pack · ${label}`,
+            type: conn.type,
+            description: `From ${pack.title} — add credentials or Use demo`,
+            status: 'warning',
+            config: pendingPackConfig({
+              packId: pack.id,
+              packKey: conn.key,
+            }),
+          })
+          createdIds.push(row.id)
+        }
       }
 
-      const list = await fetchWorkspaceSources()
-      const packTypes = new Set(pack.connectors.map((c) => c.type))
-      const toSync = list.filter(
-        (s) =>
-          createdIds.includes(s.id) ||
-          (s.name.toLowerCase().includes('poc') && packTypes.has(s.type)),
-      )
       let tables = 0
       let joins = 0
-      for (const s of toSync) {
-        if (!s.syncable) continue
-        const result = await syncConnection(s.id)
-        tables += result.tablesSynced ?? 0
-        joins += result.suggestedJoins ?? 0
+      if (selection.dataMode === 'demo' && createdIds.length) {
+        for (const id of createdIds) {
+          const result = await syncConnection(id)
+          tables += result.tablesSynced ?? 0
+          joins += result.suggestedJoins ?? 0
+        }
+        notifySchemaChanged('sync')
       }
-      notifySchemaChanged('sync')
-      await reload(toSync[0]?.id ?? null)
+
+      await reload(createdIds[0] ?? null)
+
+      if (selection.dataMode === 'demo') {
+        setToast(
+          createdIds.length
+            ? `${pack.title}: ${createdIds.length} demo connector(s) · ${tables} tables · ${joins} join suggestions`
+            : `${pack.title}: connectors already present — open Sources to Sync or edit`,
+        )
+      } else {
+        setToast(
+          createdIds.length
+            ? `${pack.title}: ${createdIds.length} slot(s) ready — Connect, Use demo, or Skip each row. Workspace stays empty until you sync.`
+            : `${pack.title}: selected connectors already exist`,
+        )
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+      setInstallingPackId(null)
+    }
+  }
+
+  async function useDemoOnSource(id: string) {
+    if (!canAdmin) return
+    const source = sources.find((s) => s.id === id)
+    if (!source) return
+    setBusy(true)
+    setError(null)
+    try {
+      const packId = String(source.config?.packId ?? '')
+      const packKey = String(source.config?.packKey ?? '')
+      const pack = POC_PACKS.find((p) => p.id === packId)
+      const conn = pack?.connectors.find((c) => c.key === packKey)
+      const fixtureConfig = conn
+        ? { ...conn.spec.config }
+        : {
+            mode: 'fixture',
+            fixturesPath: defaultFixturesPath(source.type),
+            includeSamples: true,
+            sampleLimit: 5,
+          }
+      const label = formatConnectorKeyLabel(packKey || source.type)
+      await updateConnection(id, {
+        name: `POC · ${label} demo`,
+        description: conn?.spec.description || source.description,
+        status: 'warning',
+        config: fixtureConfig,
+      })
+      const result = await syncConnection(id)
+      showPostSyncBanner(result)
       setToast(
-        `${pack.title} ready · ${tables} tables · ${joins} join suggestions. Open Joins → Promote (HITL — never auto-accept).`,
+        `Demo ready · ${result.tablesSynced ?? 0} tables · ${result.suggestedJoins ?? 0} suggestions`,
       )
+      notifySchemaChanged('sync')
+      await reload(id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function skipSource(id: string) {
+    if (!canAdmin) return
+    const source = sources.find((s) => s.id === id)
+    if (!source) return
+    const ok = window.confirm(
+      `Remove “${source.name}”? You can re-install the pack or Add connector later.`,
+    )
+    if (!ok) return
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteConnection(id)
+      setToast(`Removed ${source.name}`)
+      if (selectedId === id) {
+        setSelectedId(null)
+        goView('home')
+      }
+      await reload(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -742,6 +830,11 @@ export function SourcesPage() {
   }
 
   async function syncById(id: string) {
+    const src = sources.find((s) => s.id === id)
+    if (src && !canSyncSource(src)) {
+      setToast('Add credentials or Use demo before Sync')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -894,7 +987,7 @@ export function SourcesPage() {
   }
 
   async function sync() {
-    if (!selected || creating || !selected.syncable) return
+    if (!selected || creating || !canSyncSource(selected)) return
     setBusy(true)
     setError(null)
     try {
@@ -1119,6 +1212,18 @@ export function SourcesPage() {
   /* List + detail */
   return (
       <div className="flex min-h-0 flex-1 overflow-hidden bg-[#111416]">
+        {packDialog ? (
+          <PocPackInstallDialog
+            pack={packDialog}
+            busy={installingPackId === packDialog.id}
+            onCancel={() => {
+              if (!installingPackId) setPackDialog(null)
+            }}
+            onConfirm={(selection) =>
+              void installPocPack(packDialog, selection)
+            }
+          />
+        ) : null}
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {banners}
           {!selected ? (
@@ -1169,11 +1274,13 @@ export function SourcesPage() {
                         </div>
                         <PdfGhostButton
                           type="button"
-                          disabled={busy}
-                          onClick={() => void installPocPack(pack)}
+                          disabled={installingPackId === pack.id || busy}
+                          onClick={() => setPackDialog(pack)}
                           className="shrink-0"
                         >
-                          Install pack
+                          {installingPackId === pack.id
+                            ? 'Installing…'
+                            : 'Install pack'}
                         </PdfGhostButton>
                       </div>
                     ))}
@@ -1187,12 +1294,15 @@ export function SourcesPage() {
                     goView('detail', { id })
                   }}
                   onSync={canWrite ? (id) => void syncById(id) : undefined}
+                  onUseDemo={canAdmin ? (id) => void useDemoOnSource(id) : undefined}
+                  onSkip={canAdmin ? (id) => void skipSource(id) : undefined}
                   onLandingModeChange={
                     canWrite ? (id, mode) => void setSourceLandingMode(id, mode) : undefined
                   }
                   canEditLanding={canWrite}
                   canSync={canWrite}
                   canAdd={canAdmin}
+                  canAdmin={canAdmin}
                   onAdd={startCreate}
                 />
               </main>
@@ -1223,19 +1333,39 @@ export function SourcesPage() {
                     </p>
                     <div className="mt-sm flex flex-wrap items-center gap-sm">
                       <span
-                        className={`inline-flex items-center gap-xs rounded-full px-sm py-1 font-label text-[11px] font-semibold ${statusBadge(selected.status).className}`}
+                        className={`inline-flex items-center gap-xs rounded-full px-sm py-1 font-label text-[11px] font-semibold ${statusBadgeForSource(selected).className}`}
                       >
                         <span
                           className={`h-2 w-2 rounded-full ${STATUS_DOT[selected.status]}`}
                         />
-                        {statusBadge(selected.status).label}
+                        {statusBadgeForSource(selected).label}
                       </span>
                       <span className="font-body text-[12px] text-on-surface-variant">
-                        {relativeSyncLabel(
-                          selected.lastSyncAt || selected.updatedAt,
-                        )}
+                        {relativeLastSyncLabel(selected.lastSyncAt)}
                       </span>
                     </div>
+                    {isPendingSource(selected) ? (
+                      <div className="mt-md max-w-[40rem] rounded-xl border border-[rgba(240,160,32,0.35)] bg-[rgba(240,160,32,0.08)] px-md py-sm">
+                        <p className="font-label text-[11px] font-bold tracking-wider text-amber-300 uppercase">
+                          Needs credentials
+                        </p>
+                        <p className="mt-1 font-body text-[12px] leading-snug text-on-surface">
+                          This pack slot has no connection yet. Fill live
+                          credentials below and Save, or go back and click{' '}
+                          <strong>Use demo</strong> for Que fixture data.
+                        </p>
+                        {canAdmin ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void useDemoOnSource(selected.id)}
+                            className="mt-sm pdf-btn-ghost rounded-[4px] px-[10px] py-[4px] text-[11px] font-bold disabled:opacity-40"
+                          >
+                            Use demo data
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {selected.status === 'error' || selected.needsReauth ? (
                       <div className="mt-md max-w-[40rem] rounded-xl border border-error/30 bg-error/5 px-md py-sm">
                         <p className="font-label text-[11px] font-bold tracking-wider text-error uppercase">

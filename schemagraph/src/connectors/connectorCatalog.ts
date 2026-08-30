@@ -306,7 +306,7 @@ export function filterConnectorCatalog(
 export const POC_PACK = {
   id: 'sf-dbx-fixture',
   title: 'SF ↔ DBX fixture POC pack',
-  body: 'Adds Snowflake + Databricks demo fixtures, syncs schema, then open Workspace to Promote your first join.',
+  body: 'Adds Snowflake + Databricks connector slots. Skip any you do not need; add live credentials or use demo data per row.',
   snowflake: {
     name: 'POC · Snowflake fixture',
     description: 'Que POC pack — Snowflake demo schema (fixture)',
@@ -332,7 +332,7 @@ export const INDIA_SMB_POC_PACK = {
   id: 'india-smb-fixture',
   title: 'India SMB full stack POC',
   body:
-    'MySQL OLTP + Shopify + Razorpay fixtures — sync all, then Joins for orders ↔ payments ↔ line items.',
+    'MySQL + Shopify + Razorpay slots — pick connectors, skip any, then Connect live or Use demo before Workspace fills.',
   mysql: {
     name: 'POC · MySQL fixture',
     description: 'Que POC pack — India SMB app schema (customers/orders)',
@@ -364,7 +364,7 @@ export const MARKETING_ATTRIBUTION_POC_PACK = {
   id: 'marketing-attribution-fixture',
   title: 'Marketing attribution POC pack',
   body:
-    'Google Ads + Shopify fixtures — sync both, then Joins for campaign spend ↔ order IDs.',
+    'Google Ads + Shopify slots — skip either, Connect live or Use demo, then join campaign spend ↔ order IDs.',
   google_ads: {
     name: 'POC · Google Ads fixture',
     description: 'Que POC pack — campaigns/ad groups/daily stats',
@@ -388,7 +388,7 @@ export const INDIA_SAAS_POC_PACK = {
   id: 'india-saas-fixture',
   title: 'India SaaS billing POC pack',
   body:
-    'Chargebee + Stripe + HubSpot fixtures — sync all, then Joins for MRR ↔ payments ↔ deals.',
+    'Chargebee + Stripe + HubSpot slots — pick/skip connectors, then Connect live or Use demo for MRR ↔ payments ↔ deals.',
   chargebee: {
     name: 'POC · Chargebee fixture',
     description: 'Que POC pack — India SaaS subscriptions/invoices (GST)',
@@ -420,7 +420,7 @@ export const INDIA_COMMERCE_POC_PACK = {
   id: 'india-commerce-fixture',
   title: 'India D2C commerce POC pack',
   body:
-    'Adds Shopify + Razorpay + Stripe demo fixtures, syncs schema, then open Workspace to infer orders ↔ payments ↔ subscriptions.',
+    'Shopify + Razorpay + Stripe slots — skip any, add your connections or Use demo; Workspace fills only after sync.',
   shopify: {
     name: 'POC · Shopify fixture',
     description: 'Que POC pack — Shopify orders/customers (India D2C)',

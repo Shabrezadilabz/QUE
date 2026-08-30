@@ -9,44 +9,18 @@ import {
   PdfTableFooter,
   PdfTableShell,
 } from '@/components/pdf/PdfTable'
-import type { DataSource, DataSourceStatus, DataLandingMode } from '@/types/dataSource'
+import type { DataSource, DataLandingMode } from '@/types/dataSource'
 import {
   readDataLandingMode,
   SourceLandingModeSelect,
 } from '@/components/sources/SourceLandingModeSelect'
-
-const STATUS: Record<
-  DataSourceStatus,
-  { label: string; dot: string; pill: string }
-> = {
-  active: {
-    label: 'Connected',
-    dot: 'bg-[#d0d8e0]',
-    pill: 'pdf-shine text-[#d0d8e0]',
-  },
-  warning: {
-    label: 'Needs sync',
-    dot: 'bg-[#f0a020]',
-    pill: 'border border-solid border-[rgba(240,160,32,0.35)] bg-[rgba(240,160,32,0.1)] text-[#f0a020]',
-  },
-  error: {
-    label: 'Error',
-    dot: 'bg-[#ff6b6b]',
-    pill: 'border border-solid border-[rgba(255,107,107,0.35)] bg-[rgba(255,107,107,0.1)] text-[#ff6b6b]',
-  },
-}
-
-function relativeSyncLabel(iso?: string | null): string {
-  if (!iso) return 'Never synced'
-  const t = Date.parse(iso)
-  if (Number.isNaN(t)) return 'Never synced'
-  const mins = Math.max(0, Math.round((Date.now() - t) / 60000))
-  if (mins < 1) return 'Synced just now'
-  if (mins < 60) return `Synced ${mins}m ago`
-  const hrs = Math.round(mins / 60)
-  if (hrs < 48) return `Synced ${hrs}h ago`
-  return `Synced ${Math.round(hrs / 24)}d ago`
-}
+import {
+  canSyncSource,
+  isPendingSource,
+  readSourceSetupMode,
+  relativeLastSyncLabel,
+  sourceStatusDisplay,
+} from '@/sources/sourceSetup'
 
 const HEADERS = [
   'SOURCE NAME',
@@ -61,11 +35,14 @@ type Props = {
   sources: DataSource[]
   onSelect: (id: string) => void
   onSync?: (id: string) => void
+  onUseDemo?: (id: string) => void
+  onSkip?: (id: string) => void
   onLandingModeChange?: (id: string, mode: DataLandingMode) => void
   canSync?: boolean
   canAdd?: boolean
   onAdd?: () => void
   canEditLanding?: boolean
+  canAdmin?: boolean
 }
 
 /** Sources list — PDF page-02 style segregated table (slate, no mint). */
@@ -73,11 +50,14 @@ export function SourcesTableView({
   sources,
   onSelect,
   onSync,
+  onUseDemo,
+  onSkip,
   onLandingModeChange,
   canSync,
   canAdd,
   onAdd,
   canEditLanding,
+  canAdmin,
 }: Props) {
   const active = sources.filter((s) => s.status === 'active').length
   const healthPct =
@@ -138,7 +118,10 @@ export function SourcesTableView({
         </thead>
         <tbody>
           {sources.map((s) => {
-            const st = STATUS[s.status]
+            const st = sourceStatusDisplay(s)
+            const pending = isPendingSource(s)
+            const setup = readSourceSetupMode(s)
+            const showSync = canSync && canSyncSource(s) && onSync
             return (
               <tr key={s.id} className={PDF_TABLE_ROW}>
                 <td className={PDF_TABLE_CELL}>
@@ -179,7 +162,9 @@ export function SourcesTableView({
                   </span>
                 </td>
                 <td className={PDF_TABLE_CELL}>
-                  {canEditLanding && onLandingModeChange ? (
+                  {pending ? (
+                    <span className="text-[11px] text-[#8a9099]">—</span>
+                  ) : canEditLanding && onLandingModeChange ? (
                     <SourceLandingModeSelect
                       value={readDataLandingMode(s.config)}
                       onChange={(mode) => onLandingModeChange(s.id, mode)}
@@ -195,26 +180,77 @@ export function SourcesTableView({
                   )}
                 </td>
                 <td className={`${PDF_TABLE_CELL} text-[12px] text-[#c8cdd3]`}>
-                  {relativeSyncLabel(s.lastSyncAt || s.updatedAt)}
+                  {relativeLastSyncLabel(s.lastSyncAt)}
                 </td>
                 <td className={`${PDF_TABLE_CELL} text-right`}>
-                  <div className="flex items-center justify-end gap-[8px]">
-                    {canSync && s.syncable && onSync ? (
-                      <button
-                        type="button"
-                        onClick={() => onSync(s.id)}
-                        className="pdf-btn-ghost rounded-[4px] px-[10px] py-[4px] text-[11px] font-semibold"
-                      >
-                        Sync
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => onSelect(s.id)}
-                      className="text-[12px] text-[#a3afbe] hover:text-[#d0d8e0]"
-                    >
-                      Open
-                    </button>
+                  <div className="flex flex-wrap items-center justify-end gap-[8px]">
+                    {pending && canAdmin ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onSelect(s.id)}
+                          className="pdf-btn-ghost rounded-[4px] px-[10px] py-[4px] text-[11px] font-semibold"
+                        >
+                          Connect
+                        </button>
+                        {onUseDemo ? (
+                          <button
+                            type="button"
+                            onClick={() => onUseDemo(s.id)}
+                            className="pdf-btn-ghost rounded-[4px] px-[10px] py-[4px] text-[11px] font-semibold"
+                          >
+                            Use demo
+                          </button>
+                        ) : null}
+                        {onSkip ? (
+                          <button
+                            type="button"
+                            onClick={() => onSkip(s.id)}
+                            className="text-[12px] text-[#a3afbe] hover:text-[#ff6b6b]"
+                          >
+                            Skip
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        {showSync ? (
+                          <button
+                            type="button"
+                            onClick={() => onSync?.(s.id)}
+                            className="pdf-btn-ghost rounded-[4px] px-[10px] py-[4px] text-[11px] font-semibold"
+                          >
+                            Sync
+                          </button>
+                        ) : null}
+                        {setup === 'fixture' && canAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => onSelect(s.id)}
+                            className="text-[12px] text-[#a3afbe] hover:text-[#d0d8e0]"
+                            title="Switch to live credentials"
+                          >
+                            Add live
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => onSelect(s.id)}
+                          className="text-[12px] text-[#a3afbe] hover:text-[#d0d8e0]"
+                        >
+                          Open
+                        </button>
+                        {onSkip && canAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => onSkip(s.id)}
+                            className="text-[12px] text-[#a3afbe] hover:text-[#ff6b6b]"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
